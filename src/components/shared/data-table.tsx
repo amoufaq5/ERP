@@ -1,0 +1,263 @@
+"use client";
+
+import { useState, useMemo, useCallback, type ReactNode } from "react";
+import {
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+
+export interface Column<T = any> {
+  key: string;
+  label: string;
+  sortable?: boolean;
+  className?: string;
+  render?: (value: any, row: T) => ReactNode;
+}
+
+type SortDirection = "asc" | "desc" | null;
+
+interface SortState {
+  key: string | null;
+  direction: SortDirection;
+}
+
+const PAGE_SIZE = 10;
+
+export interface DataTableProps<T = any> {
+  columns: Column<T>[];
+  data: T[];
+  searchable?: boolean;
+  searchKeys?: string[];
+  pagination?: boolean;
+  onRowClick?: (row: T) => void;
+  emptyMessage?: string;
+  className?: string;
+  isLoading?: boolean;
+}
+
+export function DataTable<T extends Record<string, any> = Record<string, any>>({
+  columns,
+  data,
+  searchable = false,
+  searchKeys = [],
+  pagination = true,
+  onRowClick,
+  emptyMessage = "No records found.",
+  className,
+  isLoading = false,
+}: DataTableProps<T>) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortState, setSortState] = useState<SortState>({ key: null, direction: null });
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Search / filter
+  const filteredData = useMemo(() => {
+    if (!searchable || !searchQuery.trim()) return data;
+    const query = searchQuery.toLowerCase();
+    const keys = searchKeys.length > 0 ? searchKeys : columns.map((c) => c.key);
+    return data.filter((row) =>
+      keys.some((key) => {
+        const val = row[key];
+        return val != null && String(val).toLowerCase().includes(query);
+      })
+    );
+  }, [data, searchable, searchQuery, searchKeys, columns]);
+
+  // Sort
+  const sortedData = useMemo(() => {
+    if (!sortState.key || !sortState.direction) return filteredData;
+    const key = sortState.key;
+    const dir = sortState.direction === "asc" ? 1 : -1;
+    return [...filteredData].sort((a, b) => {
+      const aVal = a[key];
+      const bVal = b[key];
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return (aVal - bVal) * dir;
+      }
+      return String(aVal).localeCompare(String(bVal)) * dir;
+    });
+  }, [filteredData, sortState]);
+
+  // Pagination
+  const totalPages = pagination ? Math.max(1, Math.ceil(sortedData.length / PAGE_SIZE)) : 1;
+
+  const paginatedData = useMemo(() => {
+    if (!pagination) return sortedData;
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return sortedData.slice(start, start + PAGE_SIZE);
+  }, [sortedData, pagination, currentPage]);
+
+  const handleSearch = useCallback((q: string) => {
+    setSearchQuery(q);
+    setCurrentPage(1);
+  }, []);
+
+  const handleSort = useCallback((key: string) => {
+    setSortState((prev) => {
+      if (prev.key !== key) return { key, direction: "asc" };
+      if (prev.direction === "asc") return { key, direction: "desc" };
+      return { key: null, direction: null };
+    });
+    setCurrentPage(1);
+  }, []);
+
+  function SortIcon({ columnKey }: { columnKey: string }) {
+    if (sortState.key !== columnKey) return <ChevronsUpDown className="h-3.5 w-3.5 opacity-40" />;
+    if (sortState.direction === "asc") return <ChevronUp className="h-3.5 w-3.5 text-primary" />;
+    return <ChevronDown className="h-3.5 w-3.5 text-primary" />;
+  }
+
+  return (
+    <div className={cn("flex flex-col gap-3", className)}>
+      {searchable && (
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <input
+            type="search"
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="h-9 w-full pl-9 pr-4 text-sm rounded-md border border-input bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 transition-shadow"
+          />
+        </div>
+      )}
+
+      <div className="rounded-md border border-border bg-card overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              {columns.map((col) => (
+                <TableHead key={col.key} className={col.className}>
+                  {col.sortable ? (
+                    <button
+                      onClick={() => handleSort(col.key)}
+                      className="flex items-center gap-1.5 font-medium text-muted-foreground hover:text-foreground transition-colors select-none"
+                    >
+                      {col.label}
+                      <SortIcon columnKey={col.key} />
+                    </button>
+                  ) : (
+                    <span className="font-medium text-muted-foreground">{col.label}</span>
+                  )}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i} className="hover:bg-transparent">
+                  {columns.map((col) => (
+                    <TableCell key={col.key}>
+                      <div className="h-4 w-full max-w-[180px] rounded bg-muted animate-pulse" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : paginatedData.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground text-sm">
+                  {emptyMessage}
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginatedData.map((row, rowIndex) => (
+                <TableRow
+                  key={rowIndex}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={cn(onRowClick && "cursor-pointer")}
+                >
+                  {columns.map((col) => (
+                    <TableCell key={col.key} className={col.className}>
+                      {col.render
+                        ? col.render(row[col.key], row)
+                        : row[col.key] != null
+                        ? String(row[col.key])
+                        : <span className="text-muted-foreground/50">—</span>}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {pagination && sortedData.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
+          <p>
+            Showing{" "}
+            <span className="font-medium text-foreground">
+              {Math.min((currentPage - 1) * PAGE_SIZE + 1, sortedData.length)}
+            </span>
+            {" – "}
+            <span className="font-medium text-foreground">
+              {Math.min(currentPage * PAGE_SIZE, sortedData.length)}
+            </span>{" "}
+            of{" "}
+            <span className="font-medium text-foreground">{sortedData.length}</span>{" "}
+            result{sortedData.length !== 1 ? "s" : ""}
+          </p>
+
+          <div className="flex items-center gap-1">
+            <PaginationButton onClick={() => setCurrentPage(1)} disabled={currentPage === 1} aria-label="First page">
+              <ChevronsLeft className="h-4 w-4" />
+            </PaginationButton>
+            <PaginationButton onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} aria-label="Previous page">
+              <ChevronLeft className="h-4 w-4" />
+            </PaginationButton>
+            <span className="px-3 py-1.5 text-sm font-medium">{currentPage} / {totalPages}</span>
+            <PaginationButton onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} aria-label="Next page">
+              <ChevronRight className="h-4 w-4" />
+            </PaginationButton>
+            <PaginationButton onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} aria-label="Last page">
+              <ChevronsRight className="h-4 w-4" />
+            </PaginationButton>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface PaginationButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  children: ReactNode;
+}
+
+function PaginationButton({ children, disabled, ...props }: PaginationButtonProps) {
+  return (
+    <button
+      {...props}
+      disabled={disabled}
+      className={cn(
+        "flex items-center justify-center h-8 w-8 rounded-md border border-input transition-colors",
+        disabled
+          ? "opacity-40 cursor-not-allowed bg-transparent"
+          : "hover:bg-accent hover:text-accent-foreground bg-background"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+export default DataTable;

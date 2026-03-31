@@ -1,0 +1,1180 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== CORE ====================
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("EMPLOYEE") // ADMIN, MANAGER, EMPLOYEE
+  avatar       String?
+  department   String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  apiTokens       ApiToken[]
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+  workflows       Workflow[]
+  journalEntries  JournalEntry[]
+  purchaseOrders  PurchaseOrder[]
+  stockMovements  StockMovement[]
+  projects        Project[]       @relation("ProjectManager")
+  assignedTasks   ProjectTask[]   @relation("TaskAssignee")
+  timeEntries     TimeEntry[]
+  managedDepts    Department[]    @relation("DeptManager")
+  approvedLeaves  LeaveRequest[]  @relation("LeaveApprover")
+  assignedLeads   Lead[]
+  assignedOpps    Opportunity[]
+  activities      Activity[]
+  ownedAccounts   Account[]
+  ownedContacts   Contact[]
+  ownedCampaigns  Campaign[]
+  assignedTickets Ticket[]
+  articles        KnowledgeArticle[]
+  fieldVisits     FieldVisit[]
+  gpsLocations    GPSLocation[]
+  territories     Territory[]
+  documents       Document[]
+  managedWH       Warehouse[]
+  onboardTasks    OnboardingTask[] @relation("OnboardAssigner")
+  hiringJobs      Job[]
+
+  @@map("users")
+}
+
+model ApiToken {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  name        String
+  token       String    @unique
+  permissions String    @default("[]") // JSON array
+  lastUsed    DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  @@map("api_tokens")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  oldValues String?
+  newValues String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  type      String   @default("INFO") // INFO, WARNING, SUCCESS, ERROR
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model CustomField {
+  id         String  @id @default(cuid())
+  module     String
+  fieldName  String
+  fieldType  String  // TEXT, NUMBER, DATE, SELECT, BOOLEAN
+  options    String? // JSON for SELECT options
+  isRequired Boolean @default(false)
+  sortOrder  Int     @default(0)
+
+  values CustomFieldValue[]
+
+  @@map("custom_fields")
+}
+
+model CustomFieldValue {
+  id            String      @id @default(cuid())
+  customFieldId String
+  customField   CustomField @relation(fields: [customFieldId], references: [id])
+  entityId      String
+  entityType    String
+  value         String
+
+  @@index([entityType, entityId])
+  @@map("custom_field_values")
+}
+
+model SystemSetting {
+  id       String @id @default(cuid())
+  key      String @unique
+  value    String
+  category String @default("general")
+
+  @@map("system_settings")
+}
+
+// ==================== AUTOMATION ====================
+
+model Workflow {
+  id            String    @id @default(cuid())
+  name          String
+  module        String
+  triggerType   String
+  triggerConfig String    @default("{}") // JSON
+  conditions    String    @default("{}") // JSON
+  actions       String    @default("{}") // JSON
+  isActive      Boolean   @default(true)
+  createdById   String
+  createdBy     User      @relation(fields: [createdById], references: [id])
+  runCount      Int       @default(0)
+  lastRunAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  logs WorkflowLog[]
+
+  @@map("workflows")
+}
+
+model WorkflowLog {
+  id         String   @id @default(cuid())
+  workflowId String
+  workflow   Workflow  @relation(fields: [workflowId], references: [id])
+  status     String   // SUCCESS, FAILURE
+  input      String?
+  output     String?
+  executedAt DateTime @default(now())
+
+  @@map("workflow_logs")
+}
+
+// ==================== AI ====================
+
+model AIConfig {
+  id        String   @id @default(cuid())
+  provider  String   // openai, anthropic, custom
+  apiKey    String
+  model     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  logs AILog[]
+
+  @@map("ai_configs")
+}
+
+model AILog {
+  id         String   @id @default(cuid())
+  configId   String?
+  config     AIConfig? @relation(fields: [configId], references: [id])
+  feature    String
+  prompt     String
+  response   String?
+  tokensUsed Int?
+  cost       Float?
+  createdAt  DateTime @default(now())
+
+  @@map("ai_logs")
+}
+
+// ==================== ERP - FINANCE ====================
+
+model ChartOfAccount {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  type      String   // ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
+  balance   Float    @default(0)
+  parentId  String?
+  parent    ChartOfAccount?  @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children  ChartOfAccount[] @relation("AccountHierarchy")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  journalLines JournalEntryLine[]
+
+  @@map("chart_of_accounts")
+}
+
+model JournalEntry {
+  id          String   @id @default(cuid())
+  entryNumber String   @unique
+  date        DateTime
+  reference   String?
+  description String
+  status      String   @default("DRAFT") // DRAFT, POSTED, VOID
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  lines JournalEntryLine[]
+
+  @@map("journal_entries")
+}
+
+model JournalEntryLine {
+  id             String       @id @default(cuid())
+  journalEntryId String
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id])
+  accountId      String
+  account        ChartOfAccount @relation(fields: [accountId], references: [id])
+  debit          Float        @default(0)
+  credit         Float        @default(0)
+  description    String?
+
+  @@map("journal_entry_lines")
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  invoiceNumber String   @unique
+  customerId    String
+  customer      Account  @relation(fields: [customerId], references: [id])
+  date          DateTime
+  dueDate       DateTime
+  status        String   @default("DRAFT") // DRAFT, SENT, PAID, OVERDUE, VOID
+  subtotal      Float
+  tax           Float    @default(0)
+  total         Float
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  items    InvoiceItem[]
+  payments Payment[]     @relation("InvoicePayments")
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id])
+  description String
+  quantity    Float
+  unitPrice   Float
+  tax         Float   @default(0)
+  total       Float
+
+  @@map("invoice_items")
+}
+
+model Bill {
+  id         String   @id @default(cuid())
+  billNumber String   @unique
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+  date       DateTime
+  dueDate    DateTime
+  status     String   @default("DRAFT") // DRAFT, RECEIVED, PAID, OVERDUE, VOID
+  subtotal   Float
+  tax        Float    @default(0)
+  total      Float
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  items    BillItem[]
+  payments Payment[]  @relation("BillPayments")
+
+  @@map("bills")
+}
+
+model BillItem {
+  id          String @id @default(cuid())
+  billId      String
+  bill        Bill   @relation(fields: [billId], references: [id])
+  description String
+  quantity    Float
+  unitPrice   Float
+  total       Float
+
+  @@map("bill_items")
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  type      String   // INCOMING, OUTGOING
+  amount    Float
+  date      DateTime
+  method    String?  // CASH, BANK_TRANSFER, CHECK, CREDIT_CARD
+  reference String?
+  invoiceId String?
+  invoice   Invoice? @relation("InvoicePayments", fields: [invoiceId], references: [id])
+  billId    String?
+  bill      Bill?    @relation("BillPayments", fields: [billId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@map("payments")
+}
+
+// ==================== ERP - PROCUREMENT ====================
+
+model Supplier {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?
+  phone        String?
+  address      String?
+  city         String?
+  country      String?
+  status       String   @default("ACTIVE") // ACTIVE, INACTIVE
+  rating       Float?
+  paymentTerms String?
+  createdAt    DateTime @default(now())
+
+  bills          Bill[]
+  purchaseOrders PurchaseOrder[]
+  contracts      Contract[]
+
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id           String   @id @default(cuid())
+  poNumber     String   @unique
+  supplierId   String
+  supplier     Supplier @relation(fields: [supplierId], references: [id])
+  date         DateTime
+  expectedDate DateTime?
+  status       String   @default("DRAFT") // DRAFT, APPROVED, SENT, RECEIVED, CANCELLED
+  total        Float
+  notes        String?
+  createdById  String
+  createdBy    User     @relation(fields: [createdById], references: [id])
+  createdAt    DateTime @default(now())
+
+  items PurchaseOrderItem[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  productId       String?
+  product         Product?      @relation(fields: [productId], references: [id])
+  description     String
+  quantity        Float
+  unitPrice       Float
+  total           Float
+
+  @@map("purchase_order_items")
+}
+
+model Contract {
+  id         String    @id @default(cuid())
+  title      String
+  supplierId String
+  supplier   Supplier  @relation(fields: [supplierId], references: [id])
+  type       String?
+  startDate  DateTime
+  endDate    DateTime?
+  value      Float
+  status     String    @default("DRAFT") // DRAFT, ACTIVE, EXPIRED, TERMINATED
+  terms      String?
+  createdAt  DateTime  @default(now())
+
+  @@map("contracts")
+}
+
+// ==================== ERP - INVENTORY ====================
+
+model Product {
+  id           String   @id @default(cuid())
+  sku          String   @unique
+  name         String
+  description  String?
+  category     String?
+  unitPrice    Float
+  costPrice    Float
+  quantity     Int      @default(0)
+  reorderLevel Int      @default(10)
+  unit         String   @default("pcs")
+  status       String   @default("ACTIVE") // ACTIVE, DISCONTINUED
+  createdAt    DateTime @default(now())
+
+  stockMovements  StockMovement[]
+  poItems         PurchaseOrderItem[]
+  salesOrderItems SalesOrderItem[]
+  boms            BillOfMaterials[]
+  bomMaterials    BOMItem[]
+
+  @@map("products")
+}
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  name      String
+  location  String?
+  capacity  Int?
+  managerId String?
+  manager   User?    @relation(fields: [managerId], references: [id])
+  createdAt DateTime @default(now())
+
+  stockMovements StockMovement[]
+
+  @@map("warehouses")
+}
+
+model StockMovement {
+  id          String    @id @default(cuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  warehouseId String?
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
+  type        String    // IN, OUT, TRANSFER, ADJUSTMENT
+  quantity    Int
+  date        DateTime
+  reference   String?
+  notes       String?
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+
+  @@map("stock_movements")
+}
+
+model SalesOrder {
+  id              String   @id @default(cuid())
+  orderNumber     String   @unique
+  customerId      String
+  customer        Account  @relation(fields: [customerId], references: [id])
+  date            DateTime
+  status          String   @default("PENDING") // PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED
+  total           Float
+  shippingAddress String?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  items SalesOrderItem[]
+
+  @@map("sales_orders")
+}
+
+model SalesOrderItem {
+  id           String     @id @default(cuid())
+  salesOrderId String
+  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id])
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id])
+  quantity     Int
+  unitPrice    Float
+  total        Float
+
+  @@map("sales_order_items")
+}
+
+// ==================== ERP - PROJECTS ====================
+
+model Project {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  managerId   String
+  manager     User      @relation("ProjectManager", fields: [managerId], references: [id])
+  status      String    @default("PLANNING") // PLANNING, ACTIVE, ON_HOLD, COMPLETED, CANCELLED
+  startDate   DateTime?
+  endDate     DateTime?
+  budget      Float     @default(0)
+  spent       Float     @default(0)
+  progress    Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  tasks ProjectTask[]
+
+  @@map("projects")
+}
+
+model ProjectTask {
+  id             String    @id @default(cuid())
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id])
+  title          String
+  description    String?
+  assigneeId     String?
+  assignee       User?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  status         String    @default("TODO") // TODO, IN_PROGRESS, REVIEW, DONE
+  priority       String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  dueDate        DateTime?
+  estimatedHours Float?
+  actualHours    Float     @default(0)
+  createdAt      DateTime  @default(now())
+
+  timeEntries TimeEntry[]
+
+  @@map("project_tasks")
+}
+
+model TimeEntry {
+  id          String      @id @default(cuid())
+  taskId      String
+  task        ProjectTask @relation(fields: [taskId], references: [id])
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  hours       Float
+  date        DateTime
+  description String?
+  billable    Boolean     @default(true)
+
+  @@map("time_entries")
+}
+
+// ==================== ERP - HR ====================
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String
+  managerId   String?
+  manager     User?    @relation("DeptManager", fields: [managerId], references: [id])
+  description String?
+  budget      Float?
+  createdAt   DateTime @default(now())
+
+  employees          Employee[]
+  jobs               Job[]
+  onboardChecklists  OnboardingChecklist[]
+
+  @@map("departments")
+}
+
+model Employee {
+  id             String    @id @default(cuid())
+  userId         String?
+  employeeNumber String    @unique
+  firstName      String
+  lastName       String
+  email          String
+  phone          String?
+  departmentId   String?
+  department     Department? @relation(fields: [departmentId], references: [id])
+  position       String?
+  hireDate       DateTime
+  salary         Float?
+  status         String    @default("ACTIVE") // ACTIVE, ON_LEAVE, TERMINATED
+  managerId      String?
+  manager        Employee? @relation("EmployeeManager", fields: [managerId], references: [id])
+  directReports  Employee[] @relation("EmployeeManager")
+  createdAt      DateTime  @default(now())
+
+  leaveRequests       LeaveRequest[]
+  payrolls            Payroll[]
+  attendances         Attendance[]
+  assets              Asset[]
+  onboardingTasks     OnboardingTask[]
+  trainingEnrollments TrainingEnrollment[]
+
+  @@map("employees")
+}
+
+model LeaveRequest {
+  id           String    @id @default(cuid())
+  employeeId   String
+  employee     Employee  @relation(fields: [employeeId], references: [id])
+  type         String    // ANNUAL, SICK, PERSONAL, MATERNITY, UNPAID
+  startDate    DateTime
+  endDate      DateTime
+  days         Float
+  status       String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  reason       String?
+  approvedById String?
+  approvedBy   User?     @relation("LeaveApprover", fields: [approvedById], references: [id])
+  createdAt    DateTime  @default(now())
+
+  @@map("leave_requests")
+}
+
+model Payroll {
+  id          String    @id @default(cuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  period      String
+  basicSalary Float
+  overtime    Float     @default(0)
+  deductions  Float     @default(0)
+  bonuses     Float     @default(0)
+  tax         Float     @default(0)
+  netPay      Float
+  status      String    @default("DRAFT") // DRAFT, PROCESSED, PAID
+  paidDate    DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@map("payrolls")
+}
+
+model Attendance {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  date       DateTime
+  checkIn    String?
+  checkOut   String?
+  status     String   @default("PRESENT") // PRESENT, ABSENT, LATE, HALF_DAY
+  notes      String?
+
+  @@map("attendances")
+}
+
+// ==================== ERP - ASSETS ====================
+
+model Asset {
+  id               String    @id @default(cuid())
+  name             String
+  assetTag         String    @unique
+  category         String?
+  status           String    @default("ACTIVE") // ACTIVE, MAINTENANCE, RETIRED, DISPOSED
+  purchaseDate     DateTime?
+  purchasePrice    Float?
+  currentValue     Float?
+  location         String?
+  assignedToId     String?
+  assignedTo       Employee? @relation(fields: [assignedToId], references: [id])
+  depreciationRate Float?
+  warrantyExpiry   DateTime?
+  createdAt        DateTime  @default(now())
+
+  maintenances AssetMaintenance[]
+
+  @@map("assets")
+}
+
+model AssetMaintenance {
+  id            String    @id @default(cuid())
+  assetId       String
+  asset         Asset     @relation(fields: [assetId], references: [id])
+  type          String    // PREVENTIVE, CORRECTIVE
+  description   String
+  scheduledDate DateTime
+  completedDate DateTime?
+  cost          Float?
+  status        String    @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+
+  @@map("asset_maintenances")
+}
+
+// ==================== ERP - MANUFACTURING ====================
+
+model BillOfMaterials {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  name      String
+  version   String   @default("1.0")
+  status    String   @default("DRAFT") // DRAFT, ACTIVE, OBSOLETE
+  createdAt DateTime @default(now())
+
+  items      BOMItem[]
+  workOrders WorkOrder[]
+
+  @@map("bill_of_materials")
+}
+
+model BOMItem {
+  id             String          @id @default(cuid())
+  bomId          String
+  bom            BillOfMaterials @relation(fields: [bomId], references: [id])
+  materialId     String
+  material       Product         @relation(fields: [materialId], references: [id])
+  quantity       Float
+  unit           String          @default("pcs")
+  wastagePercent Float           @default(0)
+
+  @@map("bom_items")
+}
+
+model WorkOrder {
+  id        String    @id @default(cuid())
+  bomId     String
+  bom       BillOfMaterials @relation(fields: [bomId], references: [id])
+  quantity  Int
+  status    String    @default("PLANNED") // PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
+  startDate DateTime?
+  endDate   DateTime?
+  priority  String    @default("MEDIUM")
+  notes     String?
+  createdAt DateTime  @default(now())
+
+  @@map("work_orders")
+}
+
+// ==================== CRM - SALES ====================
+
+model Lead {
+  id                 String    @id @default(cuid())
+  firstName          String
+  lastName           String
+  email              String?
+  phone              String?
+  company            String?
+  source             String    @default("WEB") // WEB, REFERRAL, SOCIAL, ADS, COLD_CALL, EVENT
+  status             String    @default("NEW") // NEW, CONTACTED, QUALIFIED, UNQUALIFIED, CONVERTED
+  assignedToId       String?
+  assignedTo         User?     @relation(fields: [assignedToId], references: [id])
+  score              Int       @default(0)
+  value              Float?
+  notes              String?
+  convertedAccountId String?
+  convertedDate      DateTime?
+  createdAt          DateTime  @default(now())
+
+  opportunities Opportunity[]
+
+  @@map("leads")
+}
+
+model Opportunity {
+  id                String    @id @default(cuid())
+  title             String
+  accountId         String?
+  account           Account?  @relation(fields: [accountId], references: [id])
+  contactId         String?
+  contact           Contact?  @relation(fields: [contactId], references: [id])
+  leadId            String?
+  lead              Lead?     @relation(fields: [leadId], references: [id])
+  stage             String    @default("PROSPECTING") // PROSPECTING, QUALIFICATION, PROPOSAL, NEGOTIATION, CLOSED_WON, CLOSED_LOST
+  value             Float     @default(0)
+  probability       Int       @default(50)
+  expectedCloseDate DateTime?
+  assignedToId      String?
+  assignedTo        User?     @relation(fields: [assignedToId], references: [id])
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("opportunities")
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  type        String   // CALL, EMAIL, MEETING, TASK, NOTE
+  subject     String
+  description String?
+  relatedType String?
+  relatedId   String?
+  date        DateTime
+  duration    Int?     // minutes
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  status      String   @default("COMPLETED")
+  createdAt   DateTime @default(now())
+
+  @@map("activities")
+}
+
+// ==================== CRM - ACCOUNTS & CONTACTS ====================
+
+model Account {
+  id            String   @id @default(cuid())
+  name          String
+  industry      String?
+  website       String?
+  phone         String?
+  email         String?
+  address       String?
+  city          String?
+  country       String?
+  type          String   @default("PROSPECT") // CUSTOMER, PROSPECT, PARTNER, VENDOR
+  annualRevenue Float?
+  employeeCount Int?
+  ownerId       String?
+  owner         User?    @relation(fields: [ownerId], references: [id])
+  latitude      Float?
+  longitude     Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  contacts       Contact[]
+  invoices       Invoice[]
+  salesOrders    SalesOrder[]
+  opportunities  Opportunity[]
+  tickets        Ticket[]
+  fieldVisits    FieldVisit[]
+  loyaltyMembers LoyaltyMember[]
+
+  @@map("accounts")
+}
+
+model Contact {
+  id         String   @id @default(cuid())
+  firstName  String
+  lastName   String
+  email      String?
+  phone      String?
+  mobile     String?
+  title      String?
+  accountId  String?
+  account    Account? @relation(fields: [accountId], references: [id])
+  ownerId    String?
+  owner      User?    @relation(fields: [ownerId], references: [id])
+  doNotCall  Boolean  @default(false)
+  doNotEmail Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  opportunities  Opportunity[]
+  tickets        Ticket[]
+  fieldVisits    FieldVisit[]
+  loyaltyMembers LoyaltyMember[]
+
+  @@map("contacts")
+}
+
+// ==================== CRM - MARKETING ====================
+
+model Campaign {
+  id              String    @id @default(cuid())
+  name            String
+  type            String    // EMAIL, EVENT, SOCIAL, ADS, WEBINAR, CONTENT
+  status          String    @default("DRAFT") // DRAFT, SCHEDULED, ACTIVE, PAUSED, COMPLETED
+  startDate       DateTime?
+  endDate         DateTime?
+  budget          Float     @default(0)
+  spent           Float     @default(0)
+  expectedRevenue Float     @default(0)
+  actualRevenue   Float     @default(0)
+  leads           Int       @default(0)
+  conversions     Int       @default(0)
+  ownerId         String?
+  owner           User?     @relation(fields: [ownerId], references: [id])
+  createdAt       DateTime  @default(now())
+
+  @@map("campaigns")
+}
+
+// ==================== CRM - SERVICE ====================
+
+model Ticket {
+  id           String    @id @default(cuid())
+  ticketNumber String    @unique
+  subject      String
+  description  String
+  accountId    String?
+  account      Account?  @relation(fields: [accountId], references: [id])
+  contactId    String?
+  contact      Contact?  @relation(fields: [contactId], references: [id])
+  status       String    @default("OPEN") // OPEN, IN_PROGRESS, WAITING, ESCALATED, RESOLVED, CLOSED
+  priority     String    @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  assignedToId String?
+  assignedTo   User?     @relation(fields: [assignedToId], references: [id])
+  category     String?
+  slaDeadline  DateTime?
+  resolvedAt   DateTime?
+  satisfaction Int?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("tickets")
+}
+
+model KnowledgeArticle {
+  id         String   @id @default(cuid())
+  title      String
+  content    String
+  category   String?
+  tags       String?
+  status     String   @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  views      Int      @default(0)
+  helpful    Int      @default(0)
+  notHelpful Int      @default(0)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("knowledge_articles")
+}
+
+// ==================== CRM - GPS / FIELD TRACKING ====================
+
+model FieldVisit {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  accountId    String?
+  account      Account?  @relation(fields: [accountId], references: [id])
+  contactId    String?
+  contact      Contact?  @relation(fields: [contactId], references: [id])
+  checkInTime  DateTime
+  checkOutTime DateTime?
+  latitude     Float
+  longitude    Float
+  address      String?
+  notes        String?
+  status       String    @default("PLANNED") // PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
+  distance     Float?
+  createdAt    DateTime  @default(now())
+
+  @@map("field_visits")
+}
+
+model GPSLocation {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  latitude     Float
+  longitude    Float
+  accuracy     Float?
+  timestamp    DateTime @default(now())
+  batteryLevel Int?
+
+  @@map("gps_locations")
+}
+
+model Territory {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  assignedToId String?
+  assignedTo   User?    @relation(fields: [assignedToId], references: [id])
+  boundaries   String?  // JSON
+  color        String?
+  createdAt    DateTime @default(now())
+
+  @@map("territories")
+}
+
+// ==================== CRM - LOYALTY ====================
+
+model LoyaltyProgram {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  pointsPerDollar Float   @default(1)
+  redemptionRate Float    @default(0.01)
+  status         String   @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt      DateTime @default(now())
+
+  members LoyaltyMember[]
+
+  @@map("loyalty_programs")
+}
+
+model LoyaltyMember {
+  id        String         @id @default(cuid())
+  programId String
+  program   LoyaltyProgram @relation(fields: [programId], references: [id])
+  accountId String?
+  account   Account?       @relation(fields: [accountId], references: [id])
+  contactId String?
+  contact   Contact?       @relation(fields: [contactId], references: [id])
+  points    Int            @default(0)
+  tier      String         @default("BRONZE") // BRONZE, SILVER, GOLD, PLATINUM
+  joinDate  DateTime       @default(now())
+  createdAt DateTime       @default(now())
+
+  transactions LoyaltyTransaction[]
+
+  @@map("loyalty_members")
+}
+
+model LoyaltyTransaction {
+  id          String        @id @default(cuid())
+  memberId    String
+  member      LoyaltyMember @relation(fields: [memberId], references: [id])
+  type        String        // EARN, REDEEM, ADJUST, EXPIRE
+  points      Int
+  description String?
+  date        DateTime      @default(now())
+
+  @@map("loyalty_transactions")
+}
+
+// ==================== ATS ====================
+
+model Job {
+  id              String    @id @default(cuid())
+  title           String
+  departmentId    String?
+  department      Department? @relation(fields: [departmentId], references: [id])
+  location        String?
+  type            String    @default("FULL_TIME") // FULL_TIME, PART_TIME, CONTRACT, INTERN, REMOTE
+  status          String    @default("DRAFT") // DRAFT, OPEN, ON_HOLD, CLOSED
+  description     String?
+  requirements    String?
+  salaryMin       Float?
+  salaryMax       Float?
+  benefits        String?
+  postedDate      DateTime?
+  closingDate     DateTime?
+  hiringManagerId String?
+  hiringManager   User?     @relation(fields: [hiringManagerId], references: [id])
+  createdAt       DateTime  @default(now())
+
+  applications Application[]
+
+  @@map("jobs")
+}
+
+model Candidate {
+  id             String   @id @default(cuid())
+  firstName      String
+  lastName       String
+  email          String
+  phone          String?
+  linkedIn       String?
+  resumeUrl      String?
+  source         String   @default("WEBSITE") // WEBSITE, LINKEDIN, REFERRAL, AGENCY, JOB_BOARD
+  status         String   @default("NEW") // NEW, SCREENING, SHORTLISTED, INTERVIEW, OFFER, HIRED, REJECTED
+  currentCompany String?
+  currentTitle   String?
+  expectedSalary Float?
+  rating         Int?
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  applications Application[]
+
+  @@map("candidates")
+}
+
+model Application {
+  id          String    @id @default(cuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id])
+  jobId       String
+  job         Job       @relation(fields: [jobId], references: [id])
+  status      String    @default("APPLIED") // APPLIED, SCREENING, SHORTLISTED, INTERVIEW, OFFER, HIRED, REJECTED
+  appliedDate DateTime  @default(now())
+  coverLetter String?
+  score       Int?
+  createdAt   DateTime  @default(now())
+
+  interviews  Interview[]
+  offerLetter OfferLetter?
+
+  @@map("applications")
+}
+
+model Interview {
+  id             String      @id @default(cuid())
+  applicationId  String
+  application    Application @relation(fields: [applicationId], references: [id])
+  interviewerIds String      // comma-separated user IDs
+  scheduledDate  DateTime
+  duration       Int         @default(60) // minutes
+  type           String      @default("VIDEO") // PHONE, VIDEO, ONSITE, PANEL, TECHNICAL
+  status         String      @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED, NO_SHOW
+  feedback       String?
+  rating         Int?
+  location       String?
+  createdAt      DateTime    @default(now())
+
+  @@map("interviews")
+}
+
+model OfferLetter {
+  id            String      @id @default(cuid())
+  applicationId String      @unique
+  application   Application @relation(fields: [applicationId], references: [id])
+  salary        Float
+  startDate     DateTime
+  expiryDate    DateTime?
+  benefits      String?
+  status        String      @default("DRAFT") // DRAFT, SENT, ACCEPTED, DECLINED, EXPIRED
+  terms         String?
+  createdAt     DateTime    @default(now())
+
+  @@map("offer_letters")
+}
+
+// ==================== ATS - ONBOARDING & TRAINING ====================
+
+model OnboardingChecklist {
+  id           String      @id @default(cuid())
+  name         String
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  items        String      @default("[]") // JSON array
+  createdAt    DateTime    @default(now())
+
+  tasks OnboardingTask[]
+
+  @@map("onboarding_checklists")
+}
+
+model OnboardingTask {
+  id           String               @id @default(cuid())
+  checklistId  String?
+  checklist    OnboardingChecklist?  @relation(fields: [checklistId], references: [id])
+  employeeId   String
+  employee     Employee             @relation(fields: [employeeId], references: [id])
+  title        String
+  description  String?
+  assignedToId String?
+  assignedTo   User?                @relation("OnboardAssigner", fields: [assignedToId], references: [id])
+  dueDate      DateTime?
+  status       String               @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
+  category     String               @default("ORIENTATION") // PAPERWORK, IT_SETUP, TRAINING, ORIENTATION, COMPLIANCE
+  createdAt    DateTime             @default(now())
+
+  @@map("onboarding_tasks")
+}
+
+model TrainingCourse {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    String?
+  duration    String?
+  format      String   @default("ONLINE") // ONLINE, CLASSROOM, HYBRID
+  status      String   @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  materials   String?
+  createdAt   DateTime @default(now())
+
+  enrollments TrainingEnrollment[]
+
+  @@map("training_courses")
+}
+
+model TrainingEnrollment {
+  id            String    @id @default(cuid())
+  courseId       String
+  course        TrainingCourse @relation(fields: [courseId], references: [id])
+  employeeId    String
+  employee      Employee  @relation(fields: [employeeId], references: [id])
+  status        String    @default("ENROLLED") // ENROLLED, IN_PROGRESS, COMPLETED, DROPPED
+  enrolledDate  DateTime  @default(now())
+  completedDate DateTime?
+  score         Int?
+
+  @@map("training_enrollments")
+}
+
+// ==================== DOCUMENTS ====================
+
+model Document {
+  id           String   @id @default(cuid())
+  name         String
+  type         String?
+  category     String?
+  fileUrl      String
+  fileSize     Int?
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  module       String?
+  entityType   String?
+  entityId     String?
+  version      Int      @default(1)
+  tags         String?
+  createdAt    DateTime @default(now())
+
+  @@index([module, entityType, entityId])
+  @@map("documents")
+}
