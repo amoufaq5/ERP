@@ -4,7 +4,6 @@ import { useState } from "react"
 import { BarChart3, Clock, Star, Calendar, Play } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 
 const revenueData = [
   { month: "Apr", revenue: 380000 }, { month: "May", revenue: 420000 }, { month: "Jun", revenue: 395000 },
@@ -56,13 +55,60 @@ const reportCategories = [
   },
 ]
 
-export default function ReportsPage() {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+function RevenueAreaChart() {
+  const maxVal = Math.max(...revenueData.map(d => d.revenue));
+  const minVal = Math.min(...revenueData.map(d => d.revenue));
+  const range = maxVal - minVal || 1;
 
-  const fmt = (n: number) => `$${(n / 1000).toFixed(0)}K`
+  // Build SVG polyline points for area chart
+  const width = 800;
+  const height = 250;
+  const padding = { top: 20, right: 20, bottom: 40, left: 60 };
+  const chartW = width - padding.left - padding.right;
+  const chartH = height - padding.top - padding.bottom;
+
+  const points = revenueData.map((d, i) => {
+    const x = padding.left + (i / (revenueData.length - 1)) * chartW;
+    const y = padding.top + chartH - ((d.revenue - minVal * 0.9) / (maxVal * 1.1 - minVal * 0.9)) * chartH;
+    return { x, y, ...d };
+  });
+
+  const linePoints = points.map(p => `${p.x},${p.y}`).join(" ");
+  const areaPoints = `${points[0].x},${padding.top + chartH} ${linePoints} ${points[points.length - 1].x},${padding.top + chartH}`;
 
   return (
-    <div className="space-y-6">
+    <div className="w-full overflow-x-auto">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-[300px]">
+        {/* Grid lines */}
+        {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+          const y = padding.top + chartH * (1 - pct);
+          const val = minVal * 0.9 + (maxVal * 1.1 - minVal * 0.9) * pct;
+          return (
+            <g key={i}>
+              <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#f0f0f0" strokeWidth="1" />
+              <text x={padding.left - 8} y={y + 4} textAnchor="end" className="text-[10px] fill-gray-400">${(val / 1000).toFixed(0)}k</text>
+            </g>
+          );
+        })}
+        {/* Area fill */}
+        <polygon points={areaPoints} fill="#93c5fd" fillOpacity="0.3" />
+        {/* Line */}
+        <polyline points={linePoints} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinejoin="round" />
+        {/* Dots and labels */}
+        {points.map((p, i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r="4" fill="#3b82f6" stroke="white" strokeWidth="2" />
+            <text x={p.x} y={padding.top + chartH + 20} textAnchor="middle" className="text-[10px] fill-gray-500">{p.month}</text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+export default function ReportsPage() {
+  return (
+    <div className="space-y-6 p-6">
       <div><h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1><p className="text-gray-500">Generate and analyze business intelligence reports</p></div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -75,17 +121,7 @@ export default function ReportsPage() {
       <Card>
         <CardHeader><CardTitle>Revenue Trend (12 Months)</CardTitle></CardHeader>
         <CardContent>
-          <div style={{ width: "100%", height: 300 }}>
-            <ResponsiveContainer>
-              <AreaChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis tickFormatter={fmt} />
-                <Tooltip formatter={(value: any) => [`$${Number(value).toLocaleString()}`, "Revenue"]} />
-                <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fill="#93c5fd" fillOpacity={0.3} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          <RevenueAreaChart />
         </CardContent>
       </Card>
 

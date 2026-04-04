@@ -30,20 +30,20 @@ const revenueData = [
 ];
 
 const pipelineData = [
-  { name: "Prospecting", value: 12, color: "#3b82f6" },
-  { name: "Qualification", value: 8, color: "#8b5cf6" },
-  { name: "Proposal", value: 6, color: "#f59e0b" },
-  { name: "Negotiation", value: 4, color: "#10b981" },
-  { name: "Closed Won", value: 15, color: "#22c55e" },
+  { name: "Prospecting", value: 12, pct: 27, color: "bg-blue-500" },
+  { name: "Qualification", value: 8, pct: 18, color: "bg-purple-500" },
+  { name: "Proposal", value: 6, pct: 13, color: "bg-amber-500" },
+  { name: "Negotiation", value: 4, pct: 9, color: "bg-emerald-500" },
+  { name: "Closed Won", value: 15, pct: 33, color: "bg-green-500" },
 ];
 
 const activities = [
-  { icon: <FileText className="h-4 w-4 text-blue-600" />, iconBg: "bg-blue-100", description: "New invoice #INV-2024-089 created", time: "5 min ago" },
-  { icon: <Users className="h-4 w-4 text-purple-600" />, iconBg: "bg-purple-100", description: "Lead converted: Acme Corp", time: "15 min ago" },
-  { icon: <CheckCircle className="h-4 w-4 text-green-600" />, iconBg: "bg-green-100", description: "Ticket #TK-445 resolved", time: "1 hour ago" },
-  { icon: <UserPlus className="h-4 w-4 text-orange-600" />, iconBg: "bg-orange-100", description: "New candidate applied: Senior Dev", time: "2 hours ago" },
-  { icon: <ShoppingCart className="h-4 w-4 text-teal-600" />, iconBg: "bg-teal-100", description: "PO #PO-2024-034 approved", time: "3 hours ago" },
-  { icon: <Briefcase className="h-4 w-4 text-indigo-600" />, iconBg: "bg-indigo-100", description: "Employee onboarding: Lisa Park", time: "4 hours ago" },
+  { icon: FileText, iconColor: "text-blue-600", iconBg: "bg-blue-100", description: "New invoice #INV-2024-089 created", time: "5 min ago" },
+  { icon: Users, iconColor: "text-purple-600", iconBg: "bg-purple-100", description: "Lead converted: Acme Corp", time: "15 min ago" },
+  { icon: CheckCircle, iconColor: "text-green-600", iconBg: "bg-green-100", description: "Ticket #TK-445 resolved", time: "1 hour ago" },
+  { icon: UserPlus, iconColor: "text-orange-600", iconBg: "bg-orange-100", description: "New candidate applied: Senior Dev", time: "2 hours ago" },
+  { icon: ShoppingCart, iconColor: "text-teal-600", iconBg: "bg-teal-100", description: "PO #PO-2024-034 approved", time: "3 hours ago" },
+  { icon: Briefcase, iconColor: "text-indigo-600", iconBg: "bg-indigo-100", description: "Employee onboarding: Lisa Park", time: "4 hours ago" },
 ];
 
 const tickets = [
@@ -62,57 +62,80 @@ const interviews = [
 ];
 
 const quickActions = [
-  { label: "New Invoice", icon: <FileText className="h-5 w-5" />, href: "/erp/finance" },
-  { label: "New Lead", icon: <Users className="h-5 w-5" />, href: "/crm/leads" },
-  { label: "Post Job", icon: <Briefcase className="h-5 w-5" />, href: "/ats/jobs" },
-  { label: "Create PO", icon: <ShoppingCart className="h-5 w-5" />, href: "/erp/procurement" },
-  { label: "Messages", icon: <MessageSquare className="h-5 w-5" />, href: "/messages" },
-  { label: "My Tasks", icon: <ClipboardList className="h-5 w-5" />, href: "/tasks" },
-  { label: "Add Employee", icon: <UserPlus className="h-5 w-5" />, href: "/erp/hr" },
-  { label: "Import Data", icon: <Database className="h-5 w-5" />, href: "/data-migration" },
+  { label: "New Invoice", icon: FileText, href: "/erp/finance" },
+  { label: "New Lead", icon: Users, href: "/crm/leads" },
+  { label: "Post Job", icon: Briefcase, href: "/ats/jobs" },
+  { label: "Create PO", icon: ShoppingCart, href: "/erp/procurement" },
+  { label: "Messages", icon: MessageSquare, href: "/messages" },
+  { label: "My Tasks", icon: ClipboardList, href: "/tasks" },
+  { label: "Add Employee", icon: UserPlus, href: "/erp/hr" },
+  { label: "Import Data", icon: Database, href: "/data-upload" },
 ];
 
+// ── Pure CSS Revenue Chart (no recharts dependency) ──
 function RevenueChart() {
-  const [recharts, setRecharts] = useState<any>(null);
-  useEffect(() => { import("recharts").then(m => setRecharts(m)); }, []);
-  if (!recharts) return <div className="h-[300px] flex items-center justify-center text-gray-400">Loading chart...</div>;
-  const { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } = recharts;
+  const maxVal = Math.max(...revenueData.flatMap(d => [d.revenue, d.expenses]));
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={revenueData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-        <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} />
-        <Tooltip formatter={(value: any) => `$${Number(value).toLocaleString()}`} contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb", fontSize: "12px" }} />
-        <Bar dataKey="revenue" name="Revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="expenses" name="Expenses" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
+    <div className="h-[300px] flex items-end gap-3 px-2 pt-4 pb-8 relative">
+      {/* Y-axis labels */}
+      <div className="absolute left-0 top-4 bottom-8 flex flex-col justify-between text-[10px] text-gray-400 w-10">
+        <span>${(maxVal / 1000).toFixed(0)}k</span>
+        <span>${(maxVal / 2000).toFixed(0)}k</span>
+        <span>$0</span>
+      </div>
+      <div className="flex-1 flex items-end gap-2 ml-10">
+        {revenueData.map((d, i) => (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1">
+            <div className="w-full flex gap-1 items-end justify-center" style={{ height: "220px" }}>
+              <div
+                className="flex-1 max-w-[24px] bg-blue-500 rounded-t transition-all hover:bg-blue-600"
+                style={{ height: `${(d.revenue / maxVal) * 100}%` }}
+                title={`Revenue: $${d.revenue.toLocaleString()}`}
+              />
+              <div
+                className="flex-1 max-w-[24px] bg-slate-300 rounded-t transition-all hover:bg-slate-400"
+                style={{ height: `${(d.expenses / maxVal) * 100}%` }}
+                title={`Expenses: $${d.expenses.toLocaleString()}`}
+              />
+            </div>
+            <span className="text-[11px] text-gray-500 mt-1">{d.month}</span>
+          </div>
+        ))}
+      </div>
+      {/* Legend */}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-4 text-xs text-gray-500">
+        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-blue-500" />Revenue</span>
+        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-slate-300" />Expenses</span>
+      </div>
+    </div>
   );
 }
 
+// ── Pure CSS Pipeline Chart ──
 function PipelineChart() {
-  const [recharts, setRecharts] = useState<any>(null);
-  useEffect(() => { import("recharts").then(m => setRecharts(m)); }, []);
-  if (!recharts) return <div className="h-[300px] flex items-center justify-center text-gray-400">Loading chart...</div>;
-  const { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } = recharts;
+  const total = pipelineData.reduce((s, d) => s + d.value, 0);
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <PieChart>
-        <Pie data={pipelineData} cx="50%" cy="45%" innerRadius={60} outerRadius={100} paddingAngle={3} dataKey="value">
-          {pipelineData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
-        </Pie>
-        <Tooltip formatter={(value: any) => [`${value} deals`, ""]} contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb", fontSize: "12px" }} />
-        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "12px" }} />
-      </PieChart>
-    </ResponsiveContainer>
+    <div className="h-[300px] flex flex-col justify-center gap-3 px-4">
+      {pipelineData.map((d, i) => (
+        <div key={i} className="flex items-center gap-3">
+          <span className="text-xs text-gray-600 w-24 text-right truncate">{d.name}</span>
+          <div className="flex-1 h-8 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full ${d.color} rounded-full flex items-center justify-end pr-3 transition-all`}
+              style={{ width: `${(d.value / total) * 100}%` }}
+            >
+              <span className="text-[11px] font-semibold text-white">{d.value}</span>
+            </div>
+          </div>
+          <span className="text-xs text-gray-400 w-10">{Math.round((d.value / total) * 100)}%</span>
+        </div>
+      ))}
+      <div className="text-center text-xs text-gray-400 mt-2">Total: {total} deals in pipeline</div>
+    </div>
   );
 }
 
 export default function DashboardPage() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -176,11 +199,11 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader><CardTitle className="text-base font-semibold">Revenue Overview</CardTitle></CardHeader>
-          <CardContent>{mounted ? <RevenueChart /> : <div className="h-[300px] bg-gray-50 rounded animate-pulse" />}</CardContent>
+          <CardContent><RevenueChart /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle className="text-base font-semibold">Sales Pipeline</CardTitle></CardHeader>
-          <CardContent>{mounted ? <PipelineChart /> : <div className="h-[300px] bg-gray-50 rounded animate-pulse" />}</CardContent>
+          <CardContent><PipelineChart /></CardContent>
         </Card>
       </div>
 
@@ -189,15 +212,18 @@ export default function DashboardPage() {
         <Card>
           <CardHeader><CardTitle className="text-base font-semibold">Recent Activities</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            {activities.map((a, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${a.iconBg}`}>{a.icon}</div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-800 leading-snug">{a.description}</p>
-                  <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-400"><Clock className="h-3 w-3" />{a.time}</p>
+            {activities.map((a, i) => {
+              const Icon = a.icon;
+              return (
+                <div key={i} className="flex items-start gap-3">
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${a.iconBg}`}><Icon className={`h-4 w-4 ${a.iconColor}`} /></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-800 leading-snug">{a.description}</p>
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-400"><Clock className="h-3 w-3" />{a.time}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
         <Card>
@@ -242,14 +268,17 @@ export default function DashboardPage() {
         <CardHeader><CardTitle className="text-base font-semibold">Quick Actions</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-            {quickActions.map((action, i) => (
-              <Link key={i} href={action.href}>
-                <button className="w-full flex flex-col items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-4 text-sm font-medium text-gray-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700">
-                  {action.icon}
-                  <span className="text-xs">{action.label}</span>
-                </button>
-              </Link>
-            ))}
+            {quickActions.map((action, i) => {
+              const Icon = action.icon;
+              return (
+                <Link key={i} href={action.href}>
+                  <div className="w-full flex flex-col items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-4 text-sm font-medium text-gray-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 cursor-pointer">
+                    <Icon className="h-5 w-5" />
+                    <span className="text-xs">{action.label}</span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
