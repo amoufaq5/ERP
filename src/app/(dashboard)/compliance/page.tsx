@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FormModal, type FormField } from "@/components/ui/form-modal";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,8 +112,26 @@ function riskColor(score: number) {
 const sevBadge: Record<string, "destructive" | "default" | "secondary"> = { Critical: "destructive", Major: "destructive", Minor: "secondary" };
 const statusBadge: Record<string, "default" | "destructive" | "secondary" | "outline"> = { Active: "default", "Under Review": "secondary", Pending: "secondary", Expired: "outline", Planned: "secondary", "In Progress": "default", Completed: "default", "Follow-up": "secondary", Open: "destructive", Investigating: "default", Remediated: "secondary", Closed: "outline" };
 
+const regulationFields: FormField[] = [
+  { name: "name", label: "Regulation Name", type: "text", required: true },
+  { name: "authority", label: "Authority", type: "text", required: true },
+  { name: "category", label: "Category", type: "select", options: [
+    { label: "Financial", value: "Financial" }, { label: "Environmental", value: "Environmental" },
+    { label: "Labor", value: "Labor" }, { label: "Data Privacy", value: "Data Privacy" },
+    { label: "Industry Standards", value: "Industry Standards" }, { label: "Health & Safety", value: "Health & Safety" },
+  ]},
+  { name: "jurisdiction", label: "Jurisdiction", type: "text" },
+  { name: "effectiveDate", label: "Effective Date", type: "date" },
+  { name: "impact", label: "Impact", type: "select", options: [
+    { label: "High", value: "High" }, { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
+  ]},
+  { name: "dept", label: "Department", type: "text" },
+];
+
 export default function CompliancePage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [regs, setRegs] = useState(regulations);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -121,7 +140,7 @@ export default function CompliancePage() {
           <div className="flex items-center gap-2"><Scale className="h-6 w-6 text-primary" /><h1 className="text-2xl font-bold tracking-tight">Compliance Management</h1></div>
           <p className="text-muted-foreground text-sm mt-1">Regulatory compliance, audits, policies, and risk management</p>
         </div>
-        <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" />New Regulation</Button>
+        <Button size="sm" className="gap-1.5" onClick={() => setShowForm(true)}><Plus className="h-4 w-4" />New Regulation</Button>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
@@ -156,7 +175,7 @@ export default function CompliancePage() {
           <div className="relative max-w-sm"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" /><Input placeholder="Search regulations..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-8 h-8 text-sm" /></div>
           <Card><CardContent className="p-0"><table className="w-full text-sm">
             <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Regulation", "Authority", "Category", "Jurisdiction", "Effective", "Status", "Impact", "Department"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-            <tbody>{regulations.filter(r => !searchQuery || r.name.toLowerCase().includes(searchQuery.toLowerCase())).map(r => (
+            <tbody>{regs.filter(r => !searchQuery || r.name.toLowerCase().includes(searchQuery.toLowerCase())).map(r => (
               <tr key={r.id} className="border-b last:border-0 hover:bg-muted/50">
                 <td className="p-3 font-mono text-xs">{r.id}</td><td className="p-3 text-xs font-medium">{r.name}</td><td className="p-3 text-xs">{r.authority}</td><td className="p-3"><Badge variant="outline" className="text-xs">{r.category}</Badge></td><td className="p-3 text-xs">{r.jurisdiction}</td><td className="p-3 text-xs">{r.effective}</td><td className="p-3"><Badge variant={statusBadge[r.status] || "secondary"} className="text-xs">{r.status}</Badge></td><td className="p-3"><Badge variant={r.impact === "High" ? "destructive" : "secondary"} className="text-xs">{r.impact}</Badge></td><td className="p-3 text-xs">{r.dept}</td>
               </tr>
@@ -223,6 +242,27 @@ export default function CompliancePage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <FormModal
+        open={showForm}
+        onOpenChange={setShowForm}
+        title="New Regulation"
+        fields={regulationFields}
+        onSubmit={(data) => {
+          const newReg = {
+            id: `REG-${String(regs.length + 1).padStart(3, "0")}`,
+            name: data.name,
+            authority: data.authority,
+            category: data.category || "Financial",
+            jurisdiction: data.jurisdiction || "—",
+            effective: data.effectiveDate || new Date().toISOString().split("T")[0],
+            status: "Active",
+            impact: data.impact || "Medium",
+            dept: data.dept || "—",
+          };
+          setRegs((prev) => [newReg, ...prev]);
+        }}
+      />
     </div>
   );
 }

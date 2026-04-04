@@ -22,8 +22,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { FormModal, type FormField } from "@/components/ui/form-modal"
 
-const strategicGoals = [
+const initialStrategicGoals = [
   { id: "SG-001", goal: "Expand APAC Market Presence", owner: "Sarah Chen", department: "Sales", target: "15% revenue share", progress: 72, status: "On Track", deadline: "2026-12-31" },
   { id: "SG-002", goal: "Launch Digital Transformation Initiative", owner: "James Rivera", department: "IT", target: "80% process automation", progress: 45, status: "At Risk", deadline: "2026-09-30" },
   { id: "SG-003", goal: "Achieve ISO 14001 Certification", owner: "Maria Kowalski", department: "Operations", target: "Full compliance", progress: 88, status: "On Track", deadline: "2026-06-30" },
@@ -135,8 +136,23 @@ function getPriorityBadge(priority: string): "default" | "secondary" | "destruct
   }
 }
 
+const planFormFields: FormField[] = [
+  { name: "objective", label: "Objective", type: "text", required: true },
+  { name: "kpi", label: "KPI", type: "text", required: true },
+  { name: "target", label: "Target", type: "text", required: true },
+  { name: "owner", label: "Owner", type: "text", required: true },
+  { name: "timeline", label: "Timeline", type: "text", required: true, placeholder: "e.g. Q2 2026" },
+  { name: "status", label: "Status", type: "select", options: [
+    { label: "On Track", value: "On Track" },
+    { label: "At Risk", value: "At Risk" },
+    { label: "Behind", value: "Behind" },
+  ]},
+]
+
 export default function PlanningPage() {
   const [searchQuery, setSearchQuery] = useState("")
+  const [showForm, setShowForm] = useState(false)
+  const [strategicGoals, setStrategicGoals] = useState(initialStrategicGoals)
 
   return (
     <div className="space-y-6">
@@ -150,7 +166,7 @@ export default function PlanningPage() {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search plans..." className="pl-9 w-64" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
-          <Button><Plus className="mr-2 h-4 w-4" /> New Plan</Button>
+          <Button onClick={() => setShowForm(true)}><Plus className="mr-2 h-4 w-4" /> New Plan</Button>
         </div>
       </div>
 
@@ -569,6 +585,28 @@ export default function PlanningPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <FormModal
+        open={showForm}
+        onOpenChange={setShowForm}
+        title="New Strategic Plan"
+        description="Add a new strategic goal to the planning board."
+        fields={planFormFields}
+        submitLabel="Create Plan"
+        onSubmit={(data) => {
+          const id = `SG-${String(strategicGoals.length + 1).padStart(3, "0")}`
+          setStrategicGoals([{
+            id,
+            goal: data.objective,
+            owner: data.owner,
+            department: data.kpi,
+            target: data.target,
+            progress: 0,
+            status: data.status || "On Track",
+            deadline: data.timeline,
+          }, ...strategicGoals])
+        }}
+      />
     </div>
   )
 }

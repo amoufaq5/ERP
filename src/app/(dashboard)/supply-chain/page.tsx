@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FormModal, type FormField } from "@/components/ui/form-modal";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -148,8 +149,21 @@ function contractStatusBadge(status: string) {
   }
 }
 
+const poFields: FormField[] = [
+  { name: "supplier", label: "Supplier", type: "text", required: true },
+  { name: "items", label: "Items", type: "text", required: true },
+  { name: "totalValue", label: "Total Value", type: "number", required: true, placeholder: "$" },
+  { name: "expectedDelivery", label: "Expected Delivery", type: "date", required: true },
+  { name: "buyer", label: "Buyer", type: "text", required: true },
+  { name: "priority", label: "Priority", type: "select", defaultValue: "Medium", options: [
+    { label: "High", value: "High" }, { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
+  ]},
+];
+
 export default function SupplyChainPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [pos, setPos] = useState(purchaseOrders);
 
   return (
     <div className="space-y-6 p-6">
@@ -160,7 +174,7 @@ export default function SupplyChainPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm"><Download className="mr-2 h-4 w-4" />Export</Button>
-          <Button size="sm"><Plus className="mr-2 h-4 w-4" />New Purchase Order</Button>
+          <Button size="sm" onClick={() => setShowForm(true)}><Plus className="mr-2 h-4 w-4" />New Purchase Order</Button>
         </div>
       </div>
 
@@ -201,7 +215,7 @@ export default function SupplyChainPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {purchaseOrders.slice(0, 5).map((po) => (
+                  {pos.slice(0, 5).map((po) => (
                     <div key={po.id} className="flex items-center justify-between border-b pb-2 last:border-0">
                       <div>
                         <p className="font-medium text-sm">{po.id} - {po.supplier}</p>
@@ -266,7 +280,7 @@ export default function SupplyChainPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {purchaseOrders.filter(po => po.id.toLowerCase().includes(searchTerm.toLowerCase()) || po.supplier.toLowerCase().includes(searchTerm.toLowerCase())).map((po) => (
+                    {pos.filter(po => po.id.toLowerCase().includes(searchTerm.toLowerCase()) || po.supplier.toLowerCase().includes(searchTerm.toLowerCase())).map((po) => (
                       <tr key={po.id} className="border-b last:border-0">
                         <td className="py-3 font-medium">{po.id}</td>
                         <td className="py-3">{po.supplier}</td>
@@ -666,6 +680,27 @@ export default function SupplyChainPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <FormModal
+        open={showForm}
+        onOpenChange={setShowForm}
+        title="New Purchase Order"
+        fields={poFields}
+        onSubmit={(data) => {
+          const today = new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+          const newPo = {
+            id: `PO-${4510 + pos.length + 1}`,
+            supplier: data.supplier,
+            items: parseInt(data.items) || 1,
+            total: `$${Number(data.totalValue).toLocaleString()}`,
+            ordered: today,
+            eta: data.expectedDelivery,
+            status: "Draft",
+            priority: data.priority || "Medium",
+          };
+          setPos((prev) => [newPo, ...prev]);
+        }}
+      />
     </div>
   );
 }

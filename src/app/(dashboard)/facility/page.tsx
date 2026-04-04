@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FormModal, type FormField } from "@/components/ui/form-modal";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -144,8 +145,25 @@ function conditionBadge(condition: string) {
 
 // ── Component ───────────────────────────────────────────────────────────────
 
+const workOrderFields: FormField[] = [
+  { name: "type", label: "Type", type: "select", defaultValue: "Corrective", options: [
+    { label: "Corrective", value: "Corrective" }, { label: "Preventive", value: "Preventive" },
+    { label: "Emergency", value: "Emergency" }, { label: "Inspection", value: "Inspection" },
+  ]},
+  { name: "priority", label: "Priority", type: "select", defaultValue: "Medium", options: [
+    { label: "Critical", value: "Critical" }, { label: "High", value: "High" },
+    { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
+  ]},
+  { name: "building", label: "Building", type: "text", required: true },
+  { name: "description", label: "Description", type: "textarea", required: true },
+  { name: "assignedTo", label: "Assigned To", type: "text", required: true },
+  { name: "dueDate", label: "Due Date", type: "date", required: true },
+];
+
 export default function FacilityPage() {
   const [search, setSearch] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [wos, setWos] = useState(workOrders);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -160,7 +178,7 @@ export default function FacilityPage() {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search facilities..." className="pl-9 w-[260px]" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <Button><Plus className="mr-2 h-4 w-4" />New Work Order</Button>
+          <Button onClick={() => setShowForm(true)}><Plus className="mr-2 h-4 w-4" />New Work Order</Button>
         </div>
       </div>
 
@@ -304,7 +322,7 @@ export default function FacilityPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {workOrders.map((wo) => (
+                    {wos.map((wo) => (
                       <tr key={wo.id} className="border-b last:border-0">
                         <td className="py-3 font-mono text-xs">{wo.id}</td>
                         <td className="py-3 font-medium max-w-[260px] truncate">{wo.title}</td>
@@ -516,6 +534,28 @@ export default function FacilityPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <FormModal
+        open={showForm}
+        onOpenChange={setShowForm}
+        title="New Work Order"
+        fields={workOrderFields}
+        onSubmit={(data) => {
+          const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          const newWo = {
+            id: `WO-${1010 + wos.length + 1}`,
+            title: data.description,
+            building: data.building,
+            priority: data.priority || "Medium",
+            category: data.type || "Corrective",
+            assignee: data.assignedTo,
+            created: today,
+            due: data.dueDate,
+            status: "Scheduled",
+          };
+          setWos((prev) => [newWo, ...prev]);
+        }}
+      />
     </div>
   );
 }

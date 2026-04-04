@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FormModal, type FormField } from "@/components/ui/form-modal";
 import {
   Card,
   CardContent,
@@ -168,11 +169,31 @@ const priorityConfig = {
 
 const statuses: Task["status"][] = ["todo", "in-progress", "review", "done"];
 
+const taskFields: FormField[] = [
+  { name: "title", label: "Title", type: "text", required: true },
+  { name: "description", label: "Description", type: "textarea", required: true },
+  { name: "status", label: "Status", type: "select", defaultValue: "todo", options: [
+    { label: "To Do", value: "todo" }, { label: "In Progress", value: "in-progress" },
+    { label: "In Review", value: "review" }, { label: "Done", value: "done" },
+  ]},
+  { name: "priority", label: "Priority", type: "select", defaultValue: "medium", options: [
+    { label: "High", value: "high" }, { label: "Medium", value: "medium" }, { label: "Low", value: "low" },
+  ]},
+  { name: "assignee", label: "Assignee", type: "text", required: true },
+  { name: "dueDate", label: "Due Date", type: "date", required: true },
+  { name: "module", label: "Module", type: "select", defaultValue: "ERP", options: [
+    { label: "ERP", value: "ERP" }, { label: "CRM", value: "CRM" },
+    { label: "ATS", value: "ATS" }, { label: "System", value: "System" },
+  ]},
+  { name: "tags", label: "Tags", type: "text", placeholder: "comma-separated tags" },
+];
+
 export default function TasksPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"board" | "list">("board");
-  const [tasks] = useState(tasksData);
+  const [tasks, setTasks] = useState(tasksData);
+  const [showForm, setShowForm] = useState(false);
 
   const filteredTasks = tasks.filter((t) => {
     const matchesSearch =
@@ -212,7 +233,7 @@ export default function TasksPage() {
             Track and manage tasks across all modules
           </p>
         </div>
-        <Button size="sm" className="gap-1.5">
+        <Button size="sm" className="gap-1.5" onClick={() => setShowForm(true)}>
           <Plus className="h-4 w-4" />
           New Task
         </Button>
@@ -407,6 +428,26 @@ export default function TasksPage() {
           </CardContent>
         </Card>
       )}
+      <FormModal
+        open={showForm}
+        onOpenChange={setShowForm}
+        title="New Task"
+        fields={taskFields}
+        onSubmit={(data) => {
+          const newTask: Task = {
+            id: `T-${String(tasks.length + 1).padStart(3, "0")}`,
+            title: data.title,
+            description: data.description,
+            status: (data.status || "todo") as Task["status"],
+            priority: (data.priority || "medium") as Task["priority"],
+            assignee: data.assignee,
+            dueDate: data.dueDate,
+            module: data.module || "ERP",
+            tags: data.tags ? data.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
+          };
+          setTasks((prev) => [newTask, ...prev]);
+        }}
+      />
     </div>
   );
 }

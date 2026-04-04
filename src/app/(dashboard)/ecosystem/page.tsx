@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { FormModal, type FormField } from "@/components/ui/form-modal"
 
 const marketplaceApps = [
   { id: 1, name: "Slack", category: "Communication", description: "Team messaging and notifications for real-time collaboration.", installs: "12.4k", rating: 4.8, installed: true, icon: "💬" },
@@ -63,7 +64,7 @@ const activeIntegrations = [
   { id: 10, name: "HubSpot", status: "Paused", lastSync: "1 day ago", records: "9,320", direction: "Inbound", health: "Paused", apiCalls: "0/day" },
 ]
 
-const customFields = [
+const initialCustomFields = [
   { id: 1, module: "CRM", name: "Customer Tier", type: "Select", required: true, options: "Gold, Silver, Bronze, Platinum" },
   { id: 2, module: "CRM", name: "Annual Revenue", type: "Currency", required: false, options: "" },
   { id: 3, module: "HR", name: "Emergency Contact", type: "Text", required: true, options: "" },
@@ -74,7 +75,7 @@ const customFields = [
   { id: 8, module: "Sales", name: "Lead Source", type: "Select", required: true, options: "Web, Referral, Cold Call, Trade Show, Partner" },
 ]
 
-const workflows = [
+const initialWorkflows = [
   { id: 1, name: "New Lead Assignment", trigger: "Lead Created", actions: 4, status: "Active", lastRun: "10 min ago", runs: 1240 },
   { id: 2, name: "Invoice Overdue Reminder", trigger: "Invoice Past Due", actions: 3, status: "Active", lastRun: "1 hr ago", runs: 890 },
   { id: 3, name: "Employee Onboarding", trigger: "Employee Added", actions: 8, status: "Active", lastRun: "2 days ago", runs: 156 },
@@ -131,7 +132,7 @@ const templates = [
   { id: 12, name: "Compliance Audit Checklist", category: "Compliance", type: "Workflow", downloads: "2.0k", rating: 4.9 },
 ]
 
-const roles = [
+const initialRoles = [
   { id: 1, name: "Super Admin", users: 2, permissions: "Full Access", description: "Unrestricted access to all modules, settings, and data.", editable: false },
   { id: 2, name: "Admin", users: 5, permissions: "All Modules", description: "Full module access with restricted system settings.", editable: true },
   { id: 3, name: "Manager", users: 14, permissions: "Department-Scoped", description: "CRUD access within assigned department and reports.", editable: true },
@@ -142,9 +143,58 @@ const roles = [
   { id: 8, name: "External Auditor", users: 3, permissions: "Read-Only", description: "View-only access to financial records and audit logs.", editable: true },
 ]
 
+const fieldFormFields: FormField[] = [
+  { name: "entity", label: "Entity", type: "select", options: [
+    { label: "CRM Contact", value: "CRM" },
+    { label: "CRM Lead", value: "Sales" },
+    { label: "HR Employee", value: "HR" },
+    { label: "Finance Invoice", value: "Finance" },
+    { label: "Inventory Product", value: "Inventory" },
+  ]},
+  { name: "fieldName", label: "Field Name", type: "text", required: true },
+  { name: "fieldType", label: "Field Type", type: "select", options: [
+    { label: "Text", value: "Text" },
+    { label: "Number", value: "Number" },
+    { label: "Date", value: "Date" },
+    { label: "Dropdown", value: "Select" },
+    { label: "Boolean", value: "Boolean" },
+    { label: "Formula", value: "Formula" },
+  ]},
+  { name: "required", label: "Required", type: "select", options: [
+    { label: "Yes", value: "Yes" },
+    { label: "No", value: "No" },
+  ]},
+  { name: "defaultValue", label: "Default Value", type: "text" },
+]
+
+const workflowFormFields: FormField[] = [
+  { name: "name", label: "Name", type: "text", required: true },
+  { name: "trigger", label: "Trigger", type: "select", options: [
+    { label: "Record Created", value: "Record Created" },
+    { label: "Record Updated", value: "Record Updated" },
+    { label: "Field Changed", value: "Field Changed" },
+    { label: "Scheduled", value: "Scheduled" },
+    { label: "Manual", value: "Manual" },
+  ]},
+  { name: "conditions", label: "Conditions", type: "text" },
+  { name: "actions", label: "Actions", type: "textarea", required: true },
+]
+
+const roleFormFields: FormField[] = [
+  { name: "roleName", label: "Role Name", type: "text", required: true },
+  { name: "description", label: "Description", type: "textarea", required: true },
+  { name: "permissions", label: "Permissions", type: "text", placeholder: "comma-separated permissions" },
+]
+
 export default function EcosystemPage() {
   const [marketplaceSearch, setMarketplaceSearch] = useState("")
   const [templateSearch, setTemplateSearch] = useState("")
+  const [showFieldForm, setShowFieldForm] = useState(false)
+  const [showWorkflowForm, setShowWorkflowForm] = useState(false)
+  const [showRoleForm, setShowRoleForm] = useState(false)
+  const [customFields, setCustomFields] = useState(initialCustomFields)
+  const [workflows, setWorkflows] = useState(initialWorkflows)
+  const [roles, setRoles] = useState(initialRoles)
 
   const filteredApps = marketplaceApps.filter(
     (app) =>
@@ -356,7 +406,7 @@ export default function EcosystemPage() {
                 <CardTitle>Custom Fields</CardTitle>
                 <CardDescription>Extend modules with additional data fields.</CardDescription>
               </div>
-              <Button size="sm"><Plus className="mr-2 h-4 w-4" />Add Field</Button>
+              <Button size="sm" onClick={() => setShowFieldForm(true)}><Plus className="mr-2 h-4 w-4" />Add Field</Button>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -398,7 +448,7 @@ export default function EcosystemPage() {
                 <CardTitle>Automated Workflows</CardTitle>
                 <CardDescription>Event-driven automations that run across modules.</CardDescription>
               </div>
-              <Button size="sm"><Plus className="mr-2 h-4 w-4" />New Workflow</Button>
+              <Button size="sm" onClick={() => setShowWorkflowForm(true)}><Plus className="mr-2 h-4 w-4" />New Workflow</Button>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -574,7 +624,7 @@ export default function EcosystemPage() {
                 <CardTitle>Roles & Permissions</CardTitle>
                 <CardDescription>Define access levels and permission scopes for your organization.</CardDescription>
               </div>
-              <Button size="sm"><Plus className="mr-2 h-4 w-4" />Create Role</Button>
+              <Button size="sm" onClick={() => setShowRoleForm(true)}><Plus className="mr-2 h-4 w-4" />Create Role</Button>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -617,6 +667,64 @@ export default function EcosystemPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <FormModal
+        open={showFieldForm}
+        onOpenChange={setShowFieldForm}
+        title="Add Custom Field"
+        description="Extend a module with an additional data field."
+        fields={fieldFormFields}
+        submitLabel="Add Field"
+        onSubmit={(data) => {
+          setCustomFields([{
+            id: customFields.length + 1,
+            module: data.entity || "CRM",
+            name: data.fieldName,
+            type: data.fieldType || "Text",
+            required: data.required === "Yes",
+            options: data.defaultValue || "",
+          }, ...customFields])
+        }}
+      />
+
+      <FormModal
+        open={showWorkflowForm}
+        onOpenChange={setShowWorkflowForm}
+        title="New Workflow"
+        description="Create an event-driven automation workflow."
+        fields={workflowFormFields}
+        submitLabel="Create Workflow"
+        onSubmit={(data) => {
+          setWorkflows([{
+            id: workflows.length + 1,
+            name: data.name,
+            trigger: data.trigger || "Manual",
+            actions: 1,
+            status: "Active",
+            lastRun: "Never",
+            runs: 0,
+          }, ...workflows])
+        }}
+      />
+
+      <FormModal
+        open={showRoleForm}
+        onOpenChange={setShowRoleForm}
+        title="Create Role"
+        description="Define a new access role for your organization."
+        fields={roleFormFields}
+        submitLabel="Create Role"
+        onSubmit={(data) => {
+          setRoles([{
+            id: roles.length + 1,
+            name: data.roleName,
+            users: 0,
+            permissions: data.permissions || "Custom",
+            description: data.description,
+            editable: true,
+          }, ...roles])
+        }}
+      />
     </div>
   )
 }

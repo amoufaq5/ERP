@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FormModal, type FormField } from "@/components/ui/form-modal";
 import {
   Search, Plus, Eye, CheckCircle2, XCircle, AlertTriangle, FileText,
   ClipboardList, BarChart3, ShieldCheck, TrendingUp, TrendingDown,
@@ -39,7 +40,7 @@ const inspections = [
   { id: "INS-2610", type: "Incoming", product: "Stainless Fastener Kit", lot: "LOT-4414", inspector: "James Park", date: "Mar 29, 2026", sampleSize: 200, defects: 1, result: "Pass", aql: "2.5" },
 ];
 
-const ncrs = [
+const initialNcrs = [
   { id: "NCR-0458", date: "Apr 1, 2026", product: "Bearing Housing Unit", desc: "OD out of tolerance by +0.15mm on 3 units", source: "Final Inspection", severity: "Major", rootCause: "Tool wear on CNC lathe #7", status: "Open", owner: "Tom Bradley", cost: "$4,200" },
   { id: "NCR-0457", date: "Mar 30, 2026", product: "Pneumatic Cylinder", desc: "Seal groove depth insufficient causing leakage", source: "Final Inspection", severity: "Critical", rootCause: "Incorrect program revision loaded", status: "Containment", owner: "Sarah Okafor", cost: "$8,750" },
   { id: "NCR-0456", date: "Mar 28, 2026", product: "Control Panel PCB", desc: "Solder bridging on J4 connector - 2 boards", source: "In-Process", severity: "Minor", rootCause: "Stencil aperture oversized", status: "Closed", owner: "James Park", cost: "$320" },
@@ -147,8 +148,29 @@ function capabilityColor(cpk: number) {
 
 // ─── Page ──────────────────────────────────────────────────────────────────
 
+const ncrFormFields: FormField[] = [
+  { name: "product", label: "Product", type: "text", required: true },
+  { name: "description", label: "Description", type: "textarea", required: true },
+  { name: "source", label: "Source", type: "select", options: [
+    { label: "Internal", value: "Internal" },
+    { label: "Customer", value: "Customer" },
+    { label: "Supplier", value: "Supplier" },
+    { label: "Audit", value: "Audit" },
+  ]},
+  { name: "severity", label: "Severity", type: "select", options: [
+    { label: "Critical", value: "Critical" },
+    { label: "Major", value: "Major" },
+    { label: "Minor", value: "Minor" },
+  ]},
+  { name: "rootCause", label: "Root Cause", type: "text" },
+  { name: "correctiveAction", label: "Corrective Action", type: "textarea" },
+  { name: "owner", label: "Owner", type: "text", required: true },
+];
+
 export default function QAQCPage() {
   const [search, setSearch] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [ncrs, setNcrs] = useState(initialNcrs);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -165,7 +187,7 @@ export default function QAQCPage() {
           </div>
           <Button variant="outline" size="icon"><Filter className="h-4 w-4" /></Button>
           <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
-          <Button><Plus className="mr-2 h-4 w-4" />New NCR</Button>
+          <Button onClick={() => setShowForm(true)}><Plus className="mr-2 h-4 w-4" />New NCR</Button>
         </div>
       </div>
 
@@ -501,6 +523,31 @@ export default function QAQCPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <FormModal
+        open={showForm}
+        onOpenChange={setShowForm}
+        title="New Nonconformance Report"
+        description="Log a new NCR for tracking and resolution."
+        fields={ncrFormFields}
+        submitLabel="Create NCR"
+        onSubmit={(data) => {
+          const id = `NCR-${String(ncrs.length + 458).padStart(4, "0")}`;
+          const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          setNcrs([{
+            id,
+            date: today,
+            product: data.product,
+            desc: data.description,
+            source: data.source || "Internal",
+            severity: data.severity || "Minor",
+            rootCause: data.rootCause || "Pending investigation",
+            status: "Open",
+            owner: data.owner,
+            cost: "$0",
+          }, ...ncrs]);
+        }}
+      />
     </div>
   );
 }

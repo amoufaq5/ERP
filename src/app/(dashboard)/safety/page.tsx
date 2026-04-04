@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FormModal, type FormField } from "@/components/ui/form-modal";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,6 +112,37 @@ function riskScore(l: number, i: number) {
 
 export default function SafetyPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [showIncidentForm, setShowIncidentForm] = useState(false);
+  const [incidentList, setIncidentList] = useState(incidents);
+
+  const incidentFields: FormField[] = [
+    { name: "type", label: "Incident Type", type: "select", required: true, options: [
+      { label: "Injury", value: "Injury" }, { label: "Near Miss", value: "Near Miss" },
+      { label: "Property Damage", value: "Property Damage" }, { label: "Environmental", value: "Environmental" },
+      { label: "Fire", value: "Fire" },
+    ]},
+    { name: "severity", label: "Severity", type: "select", required: true, options: [
+      { label: "Critical", value: "Critical" }, { label: "High", value: "High" },
+      { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
+    ]},
+    { name: "location", label: "Location", type: "text", required: true, placeholder: "e.g. Warehouse B" },
+    { name: "assignee", label: "Assigned To", type: "text", required: true, placeholder: "Name" },
+    { name: "desc", label: "Description", type: "textarea", required: true, placeholder: "Describe the incident..." },
+  ];
+
+  function handleAddIncident(data: Record<string, string>) {
+    const newInc = {
+      id: `INC-${String(incidentList.length + 1).padStart(3, "0")}`,
+      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      type: data.type,
+      location: data.location,
+      severity: data.severity,
+      status: "Open",
+      assignee: data.assignee,
+      desc: data.desc,
+    };
+    setIncidentList(prev => [newInc, ...prev]);
+  }
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -122,7 +154,7 @@ export default function SafetyPage() {
           </div>
           <p className="text-muted-foreground text-sm mt-1">Enterprise health, safety & environment (HSE) system</p>
         </div>
-        <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" />Report Incident</Button>
+        <Button size="sm" className="gap-1.5" onClick={() => setShowIncidentForm(true)}><Plus className="h-4 w-4" />Report Incident</Button>
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-4">
@@ -191,7 +223,7 @@ export default function SafetyPage() {
           <Card><CardContent className="p-0">
             <table className="w-full text-sm">
               <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Date", "Type", "Location", "Severity", "Status", "Assigned To", "Description"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-              <tbody>{incidents.filter(i => !searchQuery || i.desc.toLowerCase().includes(searchQuery.toLowerCase()) || i.id.toLowerCase().includes(searchQuery.toLowerCase())).map(inc => (
+              <tbody>{incidentList.filter(i => !searchQuery || i.desc.toLowerCase().includes(searchQuery.toLowerCase()) || i.id.toLowerCase().includes(searchQuery.toLowerCase())).map(inc => (
                 <tr key={inc.id} className="border-b last:border-0 hover:bg-muted/50">
                   <td className="p-3 font-mono text-xs">{inc.id}</td>
                   <td className="p-3 text-xs">{inc.date}</td>
@@ -360,6 +392,16 @@ export default function SafetyPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <FormModal
+        open={showIncidentForm}
+        onOpenChange={setShowIncidentForm}
+        title="Report New Incident"
+        description="Fill out the details of the safety incident"
+        fields={incidentFields}
+        onSubmit={handleAddIncident}
+        submitLabel="Report Incident"
+      />
     </div>
   );
 }

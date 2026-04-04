@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FormModal, type FormField } from "@/components/ui/form-modal";
 import {
   Card,
   CardContent,
@@ -175,12 +176,25 @@ const conversationData: Conversation = {
 
 const channels = ["All", "Finance", "Engineering", "Hiring", "CRM", "HR", "Inventory", "Design"];
 
+const messageFields: FormField[] = [
+  { name: "recipient", label: "Recipient", type: "text", required: true },
+  { name: "subject", label: "Subject", type: "text", required: true },
+  { name: "channel", label: "Channel", type: "select", options: [
+    { label: "Finance", value: "Finance" }, { label: "Engineering", value: "Engineering" },
+    { label: "Hiring", value: "Hiring" }, { label: "CRM", value: "CRM" },
+    { label: "HR", value: "HR" }, { label: "Inventory", value: "Inventory" },
+    { label: "Design", value: "Design" },
+  ]},
+  { name: "message", label: "Message", type: "textarea", required: true },
+];
+
 export default function MessagesPage() {
   const [selectedMessageId, setSelectedMessageId] = useState<string>("1");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeChannel, setActiveChannel] = useState("All");
   const [composeMessage, setComposeMessage] = useState("");
   const [messages, setMessages] = useState(messagesData);
+  const [showForm, setShowForm] = useState(false);
 
   const filteredMessages = messages.filter((m) => {
     const matchesSearch =
@@ -225,7 +239,7 @@ export default function MessagesPage() {
             Internal messaging and team communication
           </p>
         </div>
-        <Button size="sm" className="gap-1.5">
+        <Button size="sm" className="gap-1.5" onClick={() => setShowForm(true)}>
           <Plus className="h-4 w-4" />
           New Message
         </Button>
@@ -392,6 +406,27 @@ export default function MessagesPage() {
           )}
         </Card>
       </div>
+      <FormModal
+        open={showForm}
+        onOpenChange={setShowForm}
+        title="New Message"
+        fields={messageFields}
+        onSubmit={(data) => {
+          const initials = data.recipient.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+          const newMsg: Message = {
+            id: String(messages.length + 1),
+            sender: data.recipient,
+            avatar: initials || "??",
+            subject: data.subject,
+            preview: data.message,
+            time: "Just now",
+            unread: false,
+            starred: false,
+            channel: data.channel || "HR",
+          };
+          setMessages((prev) => [newMsg, ...prev]);
+        }}
+      />
     </div>
   );
 }
