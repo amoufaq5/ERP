@@ -34,6 +34,20 @@ import {
   ChevronRight,
   Building,
   X,
+  ShieldCheck,
+  Scale,
+  ClipboardList,
+  CheckSquare,
+  Truck,
+  Wrench,
+  Globe,
+  Puzzle,
+  Link2,
+  Table2,
+  Upload,
+  MessageSquare,
+  Database,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 
@@ -53,6 +67,8 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Main",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Messages", href: "/messages", icon: MessageSquare },
+      { label: "Tasks", href: "/tasks", icon: ClipboardList },
     ],
   },
   {
@@ -91,8 +107,30 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: "Supply Chain",
+    items: [
+      { label: "Supply Chain", href: "/supply-chain", icon: Truck },
+      { label: "QA / QC", href: "/qaqc", icon: CheckSquare },
+    ],
+  },
+  {
+    title: "Operations",
+    items: [
+      { label: "Safety", href: "/safety", icon: ShieldCheck },
+      { label: "Compliance", href: "/compliance", icon: Scale },
+      { label: "Facility", href: "/facility", icon: Wrench },
+      { label: "Planning", href: "/planning", icon: Target },
+      { label: "Industry", href: "/industry", icon: Factory },
+    ],
+  },
+  {
     title: "System",
     items: [
+      { label: "Spreadsheet", href: "/spreadsheet", icon: Table2 },
+      { label: "Data Upload", href: "/data-upload", icon: Upload },
+      { label: "Data Migration", href: "/data-migration", icon: Database },
+      { label: "Integration", href: "/integration", icon: Link2 },
+      { label: "Ecosystem", href: "/ecosystem", icon: Puzzle },
       { label: "Automation", href: "/automation", icon: Zap },
       { label: "AI Hub", href: "/ai", icon: Brain },
       { label: "Documents", href: "/documents", icon: FileText },
