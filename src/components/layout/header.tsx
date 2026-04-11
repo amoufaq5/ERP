@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Search,
@@ -11,6 +11,8 @@ import {
   Settings,
   LogOut,
   Home,
+  Users,
+  Check,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -22,13 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-
-interface StoredUser {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
+import { useCurrentUser, ROLE_LABEL, type UserRole } from "@/lib/user-context";
 
 interface BreadcrumbSegment {
   label: string;
@@ -39,12 +35,15 @@ const ROUTE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   erp: "ERP",
   finance: "Finance",
+  accounting: "Accounting",
   procurement: "Procurement",
   inventory: "Inventory",
   projects: "Projects",
   hr: "HR & Payroll",
   assets: "Assets",
   manufacturing: "Manufacturing",
+  collections: "Collections",
+  returns: "Returns",
   crm: "CRM",
   leads: "Leads",
   opportunities: "Opportunities",
@@ -53,6 +52,13 @@ const ROUTE_LABELS: Record<string, string> = {
   campaigns: "Campaigns",
   tickets: "Tickets",
   "gps-tracking": "GPS Tracking",
+  "medical-rep": "Medical Reps",
+  "district-manager": "District Manager",
+  marketeer: "Marketeer",
+  bum: "BUM Dashboard",
+  doctors: "Doctors",
+  "market-requests": "Market Requests",
+  reports: "Reports",
   loyalty: "Loyalty",
   ats: "ATS",
   jobs: "Jobs",
@@ -63,8 +69,8 @@ const ROUTE_LABELS: Record<string, string> = {
   automation: "Automation",
   ai: "AI Hub",
   documents: "Documents",
-  reports: "Reports",
   settings: "Settings",
+  industry: "Industry",
 };
 
 function buildBreadcrumbs(pathname: string): BreadcrumbSegment[] {
@@ -92,12 +98,24 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-function getRoleBadgeColor(role: string): string {
-  switch (role.toLowerCase()) {
-    case "admin":
+function getRoleBadgeColor(role: UserRole): string {
+  switch (role) {
+    case "ADMIN":
       return "bg-red-100 text-red-700";
-    case "manager":
+    case "BUM":
+      return "bg-purple-100 text-purple-700";
+    case "MARKETEER":
+      return "bg-pink-100 text-pink-700";
+    case "DISTRICT_MANAGER":
       return "bg-blue-100 text-blue-700";
+    case "MEDICAL_REP":
+      return "bg-cyan-100 text-cyan-700";
+    case "ACCOUNTANT":
+      return "bg-emerald-100 text-emerald-700";
+    case "WAREHOUSE":
+      return "bg-amber-100 text-amber-700";
+    case "HR":
+      return "bg-indigo-100 text-indigo-700";
     default:
       return "bg-slate-100 text-slate-700";
   }
@@ -110,22 +128,17 @@ interface HeaderProps {
 export function Header({ onMobileMenuToggle }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<StoredUser | null>(null);
+  const { user, setUser, allUsers } = useCurrentUser();
   const [searchValue, setSearchValue] = useState("");
   const [notificationCount] = useState(3);
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("user");
-      if (stored) setUser(JSON.parse(stored) as StoredUser);
-    } catch {
-      // Ignore parse errors
-    }
-  }, []);
-
   const handleLogout = useCallback(() => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
+    try {
+      localStorage.removeItem("pharma.currentUser");
+      localStorage.removeItem("token");
+    } catch {
+      // ignore
+    }
     router.push("/login");
   }, [router]);
 
@@ -191,6 +204,50 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
           />
         </div>
 
+        {/* Role switcher (demo) */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="hidden md:flex items-center gap-1.5 h-9 px-2.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors border border-input"
+              aria-label="Switch user role"
+              title="Switch demo user / role"
+            >
+              <Users className="h-3.5 w-3.5" />
+              Switch Role
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-72">
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Demo: switch logged-in user
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {allUsers.map((u) => {
+              const active = u.id === user.id;
+              return (
+                <DropdownMenuItem
+                  key={u.id}
+                  onClick={() => setUser(u)}
+                  className="cursor-pointer flex items-start gap-2 py-2"
+                >
+                  <Avatar className="h-7 w-7 mt-0.5">
+                    <AvatarFallback className="bg-blue-600 text-white text-[10px] font-semibold">
+                      {getInitials(u.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{u.name}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {ROLE_LABEL[u.role]}
+                      {u.territory ? ` · ${u.territory}` : ""}
+                    </p>
+                  </div>
+                  {active && <Check className="h-3.5 w-3.5 text-blue-600 mt-1.5" />}
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {/* Notifications */}
         <button
           className="relative flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
@@ -213,23 +270,21 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
             >
               <Avatar className="h-7 w-7">
                 <AvatarFallback className="bg-blue-600 text-white text-xs font-semibold">
-                  {user ? getInitials(user.name) : "?"}
+                  {getInitials(user.name)}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden sm:block text-left min-w-0">
-                <p className="text-sm font-medium text-foreground leading-tight truncate max-w-[120px]">
-                  {user?.name ?? "Guest"}
+                <p className="text-sm font-medium text-foreground leading-tight truncate max-w-[140px]">
+                  {user.name}
                 </p>
-                {user?.role && (
-                  <span
-                    className={cn(
-                      "inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded capitalize leading-tight",
-                      getRoleBadgeColor(user.role)
-                    )}
-                  >
-                    {user.role}
-                  </span>
-                )}
+                <span
+                  className={cn(
+                    "inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded leading-tight",
+                    getRoleBadgeColor(user.role)
+                  )}
+                >
+                  {ROLE_LABEL[user.role]}
+                </span>
               </div>
             </button>
           </DropdownMenuTrigger>
@@ -237,11 +292,11 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col gap-0.5">
-                <p className="text-sm font-semibold text-foreground">
-                  {user?.name ?? "Guest"}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {user?.email ?? ""}
+                <p className="text-sm font-semibold text-foreground">{user.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+                  {user.department}
+                  {user.territory ? ` · ${user.territory}` : ""}
                 </p>
               </div>
             </DropdownMenuLabel>

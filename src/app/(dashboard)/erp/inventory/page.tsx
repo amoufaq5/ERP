@@ -1,527 +1,377 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import PageHeader from "@/components/shared/page-header"
-import StatsCard from "@/components/shared/stats-card"
-import DataTable from "@/components/shared/data-table"
-import StatusBadge from "@/components/shared/status-badge"
+import { useMemo, useState } from "react";
+import PageHeader from "@/components/shared/page-header";
+import StatsCard from "@/components/shared/stats-card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAppConfig } from "@/lib/config-context";
+import { downloadCSV } from "@/lib/download";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Package,
-  AlertTriangle,
-  DollarSign,
+  FlaskConical,
+  Pill,
   Warehouse,
+  AlertTriangle,
+  Thermometer,
+  Download,
   Plus,
-} from "lucide-react"
+  Package,
+} from "lucide-react";
 
-type Product = {
-  id: string
-  sku: string
-  name: string
-  category: string
-  quantity: number
-  reorderPoint: number
-  unitCost: number
-  warehouse: string
-  status: string
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface RawMaterial {
+  id: string;
+  code: string;
+  name: string;
+  type: "API" | "Excipient" | "Solvent" | "Reagent";
+  supplier: string;
+  batchNo: string;
+  manufactureDate: string;
+  expiryDate: string;
+  quantityKg: number;
+  reorderLevel: number;
+  unitCost: number;
+  storageCondition: "2-8°C" | "15-25°C" | "Below 30°C" | "Controlled";
+  pharmacopoeial: "USP" | "BP" | "EP" | "JP";
+  qcStatus: "Quarantine" | "Approved" | "Rejected";
+  warehouse: string;
 }
 
-type StockMovement = {
-  id: string
-  date: string
-  product: string
-  type: string
-  quantity: number
-  reference: string
-  warehouse: string
+interface FinishedProduct {
+  id: string;
+  code: string;
+  name: string;
+  strength: string;
+  form: "Tablet" | "Capsule" | "Syrup" | "Injection" | "Cream" | "Suspension";
+  registration: string;
+  batchNo: string;
+  manufactureDate: string;
+  expiryDate: string;
+  quantity: number;
+  unit: string;
+  packSize: string;
+  unitPrice: number;
+  storageCondition: "2-8°C" | "15-25°C" | "Below 30°C";
+  warehouse: string;
+  qcReleased: boolean;
 }
 
-type SalesOrder = {
-  id: string
-  number: string
-  customer: string
-  items: number
-  total: number
-  orderDate: string
-  status: string
+interface WarehouseRec {
+  id: string;
+  name: string;
+  type: "Raw Material" | "Finished Goods" | "Cold Chain" | "Quarantine";
+  location: string;
+  manager: string;
+  tempRange: string;
+  capacity: number;
+  used: number;
 }
 
-type WarehouseRecord = {
-  id: string
-  name: string
-  location: string
-  manager: string
-  capacity: number
-  used: number
-  status: string
-}
+// ─── Demo data ───────────────────────────────────────────────────────────────
 
-const fmt = (n: number) =>
-  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const rawMaterials: RawMaterial[] = [
+  { id: "rm-1", code: "API-PARA-500", name: "Paracetamol API", type: "API", supplier: "Sun Pharmaceutical", batchNo: "SP-PA-24091", manufactureDate: "2024-09-12", expiryDate: "2027-09-11", quantityKg: 2400, reorderLevel: 500, unitCost: 380, storageCondition: "Below 30°C", pharmacopoeial: "USP", qcStatus: "Approved", warehouse: "RM Warehouse - Cairo" },
+  { id: "rm-2", code: "API-AMOX-250", name: "Amoxicillin Trihydrate", type: "API", supplier: "Lonza AG", batchNo: "LZ-AT-25021", manufactureDate: "2025-02-14", expiryDate: "2028-02-13", quantityKg: 1850, reorderLevel: 400, unitCost: 920, storageCondition: "15-25°C", pharmacopoeial: "EP", qcStatus: "Approved", warehouse: "RM Warehouse - Cairo" },
+  { id: "rm-3", code: "API-OMEZ-20", name: "Omeprazole API", type: "API", supplier: "Sun Pharmaceutical", batchNo: "SP-OM-25033", manufactureDate: "2025-03-08", expiryDate: "2027-03-07", quantityKg: 480, reorderLevel: 300, unitCost: 1240, storageCondition: "2-8°C", pharmacopoeial: "USP", qcStatus: "Quarantine", warehouse: "Cold Storage - Cairo" },
+  { id: "rm-4", code: "EXP-MCC-101", name: "Microcrystalline Cellulose 101", type: "Excipient", supplier: "BASF Pharma", batchNo: "BSF-MCC-25018", manufactureDate: "2025-01-22", expiryDate: "2030-01-21", quantityKg: 6800, reorderLevel: 1000, unitCost: 95, storageCondition: "Below 30°C", pharmacopoeial: "USP", qcStatus: "Approved", warehouse: "RM Warehouse - Cairo" },
+  { id: "rm-5", code: "EXP-LACT-200", name: "Lactose Monohydrate 200M", type: "Excipient", supplier: "DFE Pharma", batchNo: "DFE-LM-25004", manufactureDate: "2025-01-08", expiryDate: "2029-01-07", quantityKg: 4200, reorderLevel: 800, unitCost: 62, storageCondition: "Below 30°C", pharmacopoeial: "USP", qcStatus: "Approved", warehouse: "RM Warehouse - Cairo" },
+  { id: "rm-6", code: "EXP-MGST", name: "Magnesium Stearate", type: "Excipient", supplier: "Faci Asia Pacific", batchNo: "FAP-MS-24112", manufactureDate: "2024-11-30", expiryDate: "2027-11-29", quantityKg: 240, reorderLevel: 300, unitCost: 145, storageCondition: "15-25°C", pharmacopoeial: "EP", qcStatus: "Approved", warehouse: "RM Warehouse - Cairo" },
+  { id: "rm-7", code: "SLV-ETHA", name: "Ethanol 96%", type: "Solvent", supplier: "Egyptian Co. for Lab Reagents", batchNo: "ECLR-ET-25022", manufactureDate: "2025-02-04", expiryDate: "2028-02-03", quantityKg: 8500, reorderLevel: 1500, unitCost: 24, storageCondition: "Below 30°C", pharmacopoeial: "USP", qcStatus: "Approved", warehouse: "Solvent Store" },
+];
 
-const initialProducts: Product[] = [
-  { id: "1", sku: "PRD-001", name: "Laptop Pro 15\"", category: "Electronics", quantity: 45, reorderPoint: 10, unitCost: 1299, warehouse: "Main Warehouse", status: "In Stock" },
-  { id: "2", sku: "PRD-002", name: "Wireless Mouse", category: "Accessories", quantity: 8, reorderPoint: 15, unitCost: 29.99, warehouse: "Main Warehouse", status: "Low Stock" },
-  { id: "3", sku: "PRD-003", name: "USB-C Hub 7-in-1", category: "Accessories", quantity: 0, reorderPoint: 20, unitCost: 49.99, warehouse: "East Warehouse", status: "Out of Stock" },
-  { id: "4", sku: "PRD-004", name: "27\" Monitor 4K", category: "Electronics", quantity: 22, reorderPoint: 5, unitCost: 649, warehouse: "Main Warehouse", status: "In Stock" },
-  { id: "5", sku: "PRD-005", name: "Mechanical Keyboard", category: "Accessories", quantity: 7, reorderPoint: 10, unitCost: 129, warehouse: "East Warehouse", status: "Low Stock" },
-  { id: "6", sku: "PRD-006", name: "Standing Desk", category: "Furniture", quantity: 15, reorderPoint: 3, unitCost: 499, warehouse: "Main Warehouse", status: "In Stock" },
-  { id: "7", sku: "PRD-007", name: "Ergonomic Chair", category: "Furniture", quantity: 30, reorderPoint: 5, unitCost: 399, warehouse: "West Warehouse", status: "In Stock" },
-  { id: "8", sku: "PRD-008", name: "Webcam HD 1080p", category: "Electronics", quantity: 3, reorderPoint: 8, unitCost: 89.99, warehouse: "Main Warehouse", status: "Low Stock" },
-]
+const finishedProducts: FinishedProduct[] = [
+  { id: "fp-1", code: "FG-PARA500-T", name: "Paracetamol", strength: "500mg", form: "Tablet", registration: "EDA-12345/2023", batchNo: "B-2026-441", manufactureDate: "2026-03-12", expiryDate: "2029-03-11", quantity: 4200, unit: "boxes", packSize: "20 tabs/strip × 5 strips", unitPrice: 12.5, storageCondition: "Below 30°C", warehouse: "FG Warehouse - Cairo", qcReleased: true },
+  { id: "fp-2", code: "FG-AMOX250-C", name: "Amoxicillin", strength: "250mg", form: "Capsule", registration: "EDA-12390/2022", batchNo: "B-2026-438", manufactureDate: "2026-03-05", expiryDate: "2028-03-04", quantity: 2800, unit: "boxes", packSize: "12 caps/strip", unitPrice: 28, storageCondition: "Below 30°C", warehouse: "FG Warehouse - Cairo", qcReleased: true },
+  { id: "fp-3", code: "FG-OMEZ20-C", name: "Omeprazole", strength: "20mg", form: "Capsule", registration: "EDA-13201/2024", batchNo: "B-2026-445", manufactureDate: "2026-03-22", expiryDate: "2028-03-21", quantity: 1650, unit: "boxes", packSize: "14 caps/strip × 2 strips", unitPrice: 45, storageCondition: "Below 30°C", warehouse: "FG Warehouse - Cairo", qcReleased: false },
+  { id: "fp-4", code: "FG-INSU-INJ", name: "Insulin Glargine", strength: "100 IU/mL", form: "Injection", registration: "EDA-09812/2020", batchNo: "B-2026-440", manufactureDate: "2026-03-10", expiryDate: "2027-09-09", quantity: 720, unit: "vials", packSize: "10mL vial", unitPrice: 285, storageCondition: "2-8°C", warehouse: "Cold Storage - Cairo", qcReleased: true },
+  { id: "fp-5", code: "FG-COUGH-SYR", name: "Cough Suppressant Syrup", strength: "100mg/5mL", form: "Syrup", registration: "EDA-15022/2023", batchNo: "B-2026-442", manufactureDate: "2026-03-15", expiryDate: "2028-09-14", quantity: 3100, unit: "bottles", packSize: "100mL bottle", unitPrice: 18, storageCondition: "15-25°C", warehouse: "FG Warehouse - Cairo", qcReleased: true },
+  { id: "fp-6", code: "FG-VITC-EFF", name: "Vitamin C Effervescent", strength: "1000mg", form: "Tablet", registration: "EDA-14501/2022", batchNo: "B-2026-439", manufactureDate: "2026-03-08", expiryDate: "2028-03-07", quantity: 5400, unit: "tubes", packSize: "20 tabs/tube", unitPrice: 35, storageCondition: "Below 30°C", warehouse: "FG Warehouse - Cairo", qcReleased: true },
+  { id: "fp-7", code: "FG-HYDRO-CR", name: "Hydrocortisone Cream", strength: "1%", form: "Cream", registration: "EDA-08812/2021", batchNo: "B-2026-443", manufactureDate: "2026-03-18", expiryDate: "2028-03-17", quantity: 1240, unit: "tubes", packSize: "30g tube", unitPrice: 22, storageCondition: "15-25°C", warehouse: "FG Warehouse - Cairo", qcReleased: true },
+];
 
-const initialMovements: StockMovement[] = [
-  { id: "1", date: "2026-03-28", product: "Laptop Pro 15\"", type: "Receipt", quantity: 20, reference: "PO-001", warehouse: "Main Warehouse" },
-  { id: "2", date: "2026-03-27", product: "Wireless Mouse", type: "Issue", quantity: 10, reference: "SO-005", warehouse: "Main Warehouse" },
-  { id: "3", date: "2026-03-26", product: "27\" Monitor 4K", type: "Receipt", quantity: 10, reference: "PO-003", warehouse: "Main Warehouse" },
-  { id: "4", date: "2026-03-25", product: "Standing Desk", type: "Transfer", quantity: 5, reference: "TRF-001", warehouse: "West Warehouse" },
-  { id: "5", date: "2026-03-24", product: "Ergonomic Chair", type: "Issue", quantity: 8, reference: "SO-004", warehouse: "West Warehouse" },
-  { id: "6", date: "2026-03-23", product: "USB-C Hub 7-in-1", type: "Adjustment", quantity: -5, reference: "ADJ-001", warehouse: "East Warehouse" },
-]
+const warehouseList: WarehouseRec[] = [
+  { id: "wh-1", name: "RM Warehouse - Cairo", type: "Raw Material", location: "Plant 1, 6th October City", manager: "Mostafa Salah", tempRange: "20-25°C", capacity: 25000, used: 17820 },
+  { id: "wh-2", name: "FG Warehouse - Cairo", type: "Finished Goods", location: "Plant 1, 6th October City", manager: "Khaled Farouk", tempRange: "20-25°C", capacity: 18000, used: 12450 },
+  { id: "wh-3", name: "Cold Storage - Cairo", type: "Cold Chain", location: "Plant 1, 6th October City", manager: "Dina Hassan", tempRange: "2-8°C", capacity: 4000, used: 1820 },
+  { id: "wh-4", name: "Quarantine Area", type: "Quarantine", location: "Plant 1, QA Block", manager: "Dr. Ahmed Tareq", tempRange: "20-25°C", capacity: 2000, used: 480 },
+  { id: "wh-5", name: "Solvent Store", type: "Raw Material", location: "Plant 1, Hazardous Block", manager: "Mostafa Salah", tempRange: "15-25°C", capacity: 12000, used: 8500 },
+];
 
-const initialSalesOrders: SalesOrder[] = [
-  { id: "1", number: "SO-001", customer: "Acme Corp", items: 3, total: 4187, orderDate: "2026-03-20", status: "Fulfilled" },
-  { id: "2", number: "SO-002", customer: "Globex Inc", items: 5, total: 9250, orderDate: "2026-03-22", status: "Processing" },
-  { id: "3", number: "SO-003", customer: "Initech LLC", items: 2, total: 1558, orderDate: "2026-03-25", status: "Shipped" },
-  { id: "4", number: "SO-004", customer: "Umbrella Co", items: 8, total: 6350, orderDate: "2026-03-27", status: "Processing" },
-]
-
-const initialWarehouses: WarehouseRecord[] = [
-  { id: "1", name: "Main Warehouse", location: "123 Industrial Ave, Chicago, IL", manager: "Tom Richards", capacity: 5000, used: 3240, status: "Active" },
-  { id: "2", name: "East Warehouse", location: "456 Commerce Blvd, Newark, NJ", manager: "Lisa Park", capacity: 2500, used: 1890, status: "Active" },
-  { id: "3", name: "West Warehouse", location: "789 Logistics Way, Los Angeles, CA", manager: "Carlos Mendez", capacity: 3000, used: 1450, status: "Active" },
-]
-
-type Tab = "products" | "movements" | "salesorders" | "warehouses"
+type Tab = "raw" | "finished" | "warehouses";
 
 export default function InventoryPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("products")
-  const [products, setProducts] = useState<Product[]>(initialProducts)
-  const [movements, setMovements] = useState<StockMovement[]>(initialMovements)
-  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>(initialSalesOrders)
-  const [warehouses, setWarehouses] = useState<WarehouseRecord[]>(initialWarehouses)
+  const { config } = useAppConfig();
+  const [tab, setTab] = useState<Tab>("raw");
 
-  const [productOpen, setProductOpen] = useState(false)
-  const [movementOpen, setMovementOpen] = useState(false)
-  const [soOpen, setSOOpen] = useState(false)
-  const [warehouseOpen, setWarehouseOpen] = useState(false)
+  const fmt = (n: number): string =>
+    `${config.finance.currency} ${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 
-  const [newProduct, setNewProduct] = useState({ sku: "", name: "", category: "", quantity: "", reorderPoint: "", unitCost: "", warehouse: "Main Warehouse", status: "In Stock" })
-  const [newMovement, setNewMovement] = useState({ product: "", type: "Receipt", quantity: "", reference: "", warehouse: "Main Warehouse" })
-  const [newSO, setNewSO] = useState({ number: "", customer: "", items: "", total: "", status: "Processing" })
-  const [newWarehouse, setNewWarehouse] = useState({ name: "", location: "", manager: "", capacity: "", status: "Active" })
-
-  const totalProducts = products.length
-  const lowStockItems = products.filter(p => p.status === "Low Stock" || p.status === "Out of Stock").length
-  const totalValue = products.reduce((s, p) => s + p.quantity * p.unitCost, 0)
-  const warehouseCount = warehouses.length
-
-  const handleAddProduct = () => {
-    if (!newProduct.name || !newProduct.sku) return
-    const prod: Product = {
-      id: String(Date.now()),
-      sku: newProduct.sku,
-      name: newProduct.name,
-      category: newProduct.category || "General",
-      quantity: parseInt(newProduct.quantity) || 0,
-      reorderPoint: parseInt(newProduct.reorderPoint) || 5,
-      unitCost: parseFloat(newProduct.unitCost) || 0,
-      warehouse: newProduct.warehouse,
-      status: newProduct.status,
-    }
-    setProducts(prev => [prod, ...prev])
-    setNewProduct({ sku: "", name: "", category: "", quantity: "", reorderPoint: "", unitCost: "", warehouse: "Main Warehouse", status: "In Stock" })
-    setProductOpen(false)
-  }
-
-  const handleAddMovement = () => {
-    if (!newMovement.product || !newMovement.quantity) return
-    const mv: StockMovement = {
-      id: String(Date.now()),
-      date: new Date().toISOString().slice(0, 10),
-      product: newMovement.product,
-      type: newMovement.type,
-      quantity: parseInt(newMovement.quantity),
-      reference: newMovement.reference || "MANUAL",
-      warehouse: newMovement.warehouse,
-    }
-    setMovements(prev => [mv, ...prev])
-    setNewMovement({ product: "", type: "Receipt", quantity: "", reference: "", warehouse: "Main Warehouse" })
-    setMovementOpen(false)
-  }
-
-  const handleAddSO = () => {
-    if (!newSO.customer || !newSO.total) return
-    const so: SalesOrder = {
-      id: String(Date.now()),
-      number: newSO.number || `SO-${String(salesOrders.length + 1).padStart(3, "0")}`,
-      customer: newSO.customer,
-      items: parseInt(newSO.items) || 1,
-      total: parseFloat(newSO.total),
-      orderDate: new Date().toISOString().slice(0, 10),
-      status: newSO.status,
-    }
-    setSalesOrders(prev => [so, ...prev])
-    setNewSO({ number: "", customer: "", items: "", total: "", status: "Processing" })
-    setSOOpen(false)
-  }
-
-  const handleAddWarehouse = () => {
-    if (!newWarehouse.name) return
-    const wh: WarehouseRecord = {
-      id: String(Date.now()),
-      name: newWarehouse.name,
-      location: newWarehouse.location || "TBD",
-      manager: newWarehouse.manager || "Unassigned",
-      capacity: parseInt(newWarehouse.capacity) || 1000,
-      used: 0,
-      status: newWarehouse.status,
-    }
-    setWarehouses(prev => [...prev, wh])
-    setNewWarehouse({ name: "", location: "", manager: "", capacity: "", status: "Active" })
-    setWarehouseOpen(false)
-  }
-
-  const tabs: { key: Tab; label: string }[] = [
-    { key: "products", label: "Products" },
-    { key: "movements", label: "Stock Movements" },
-    { key: "salesorders", label: "Sales Orders" },
-    { key: "warehouses", label: "Warehouses" },
-  ]
-
-  const productColumns = [
-    { key: "sku", label: "SKU" },
-    { key: "name", label: "Product" },
-    { key: "category", label: "Category" },
-    { key: "quantity", label: "Qty", render: (v: unknown) => (v as number).toLocaleString() },
-    { key: "reorderPoint", label: "Reorder Pt." },
-    { key: "unitCost", label: "Unit Cost", render: (v: unknown) => fmt(v as number) },
-    { key: "warehouse", label: "Warehouse" },
-    { key: "status", label: "Status", render: (v: unknown) => <StatusBadge status={v as string} /> },
-  ]
-
-  const movementColumns = [
-    { key: "date", label: "Date" },
-    { key: "product", label: "Product" },
-    { key: "type", label: "Type" },
-    { key: "quantity", label: "Quantity", render: (v: unknown) => {
-      const n = v as number
-      return <span className={n < 0 ? "text-red-600 font-medium" : "text-green-700 font-medium"}>{n > 0 ? "+" : ""}{n}</span>
-    }},
-    { key: "reference", label: "Reference" },
-    { key: "warehouse", label: "Warehouse" },
-  ]
-
-  const soColumns = [
-    { key: "number", label: "Order #" },
-    { key: "customer", label: "Customer" },
-    { key: "items", label: "Items" },
-    { key: "orderDate", label: "Order Date" },
-    { key: "total", label: "Total", render: (v: unknown) => fmt(v as number) },
-    { key: "status", label: "Status", render: (v: unknown) => <StatusBadge status={v as string} /> },
-  ]
-
-  const warehouseColumns = [
-    { key: "name", label: "Warehouse" },
-    { key: "location", label: "Location" },
-    { key: "manager", label: "Manager" },
-    { key: "capacity", label: "Capacity", render: (v: unknown) => (v as number).toLocaleString() + " units" },
-    { key: "used", label: "Used", render: (_v: unknown, row: unknown) => {
-      const r = row as WarehouseRecord
-      const pct = Math.round((r.used / r.capacity) * 100)
-      return (
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden min-w-[60px]">
-            <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
-          </div>
-          <span className="text-xs text-muted-foreground">{pct}%</span>
-        </div>
-      )
-    }},
-    { key: "status", label: "Status", render: (v: unknown) => <StatusBadge status={v as string} /> },
-  ]
+  const stats = useMemo(() => {
+    const rmValue = rawMaterials.reduce((s, r) => s + r.quantityKg * r.unitCost, 0);
+    const fgValue = finishedProducts.reduce((s, p) => s + p.quantity * p.unitPrice, 0);
+    const lowStock = rawMaterials.filter((r) => r.quantityKg <= r.reorderLevel).length;
+    const expiringSoon = [...rawMaterials, ...finishedProducts].filter((item) => {
+      const exp = new Date("expiryDate" in item ? item.expiryDate : "");
+      const now = new Date("2026-04-11");
+      const days = (exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      return days < config.inventory.expiryAlertDays;
+    }).length;
+    return { rmValue, fgValue, lowStock, expiringSoon };
+  }, [config]);
 
   return (
     <div className="p-6 space-y-6">
-      <PageHeader title="Inventory" description="Track products, stock movements, and warehouses">
-        {activeTab === "products" && (
-          <Button onClick={() => setProductOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Add Product
-          </Button>
-        )}
-        {activeTab === "movements" && (
-          <Button onClick={() => setMovementOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Record Movement
-          </Button>
-        )}
-        {activeTab === "salesorders" && (
-          <Button onClick={() => setSOOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> New Sales Order
-          </Button>
-        )}
-        {activeTab === "warehouses" && (
-          <Button onClick={() => setWarehouseOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Add Warehouse
-          </Button>
-        )}
-      </PageHeader>
+      <PageHeader
+        title="Inventory"
+        description="Raw materials, finished products, and warehouse management"
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={() =>
+                tab === "raw"
+                  ? downloadCSV("raw-materials.csv", rawMaterials)
+                  : tab === "finished"
+                  ? downloadCSV("finished-products.csv", finishedProducts)
+                  : downloadCSV("warehouses.csv", warehouseList)
+              }
+            >
+              <Download className="h-4 w-4 mr-2" /> Export
+            </Button>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" /> Add Item
+            </Button>
+          </>
+        }
+      />
 
+      {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
-          title="Total Products"
-          value={totalProducts.toLocaleString()}
-          subtitle="Active SKUs"
-          icon={<Package className="h-5 w-5" />}
-          trend={{ value: 3.8, label: "vs last month" }}
+          title="Raw Materials Value"
+          value={fmt(stats.rmValue)}
+          subtitle={`${rawMaterials.length} active SKUs`}
+          icon={<FlaskConical className="h-5 w-5" />}
+          iconColor="bg-purple-100 text-purple-700"
         />
         <StatsCard
-          title="Low Stock Items"
-          value={lowStockItems.toLocaleString()}
-          subtitle="Need reordering"
+          title="Finished Goods Value"
+          value={fmt(stats.fgValue)}
+          subtitle={`${finishedProducts.length} active SKUs`}
+          icon={<Pill className="h-5 w-5" />}
+          iconColor="bg-emerald-100 text-emerald-700"
+        />
+        <StatsCard
+          title="Low Stock Alerts"
+          value={stats.lowStock.toLocaleString()}
+          subtitle="RM at/below reorder level"
           icon={<AlertTriangle className="h-5 w-5" />}
+          iconColor="bg-amber-100 text-amber-700"
         />
         <StatsCard
-          title="Total Value"
-          value={fmt(totalValue)}
-          subtitle="Inventory at cost"
-          icon={<DollarSign className="h-5 w-5" />}
-          trend={{ value: 1.4, label: "vs last month" }}
-        />
-        <StatsCard
-          title="Warehouses"
-          value={warehouseCount.toLocaleString()}
-          subtitle="Storage locations"
-          icon={<Warehouse className="h-5 w-5" />}
+          title="Expiring Soon"
+          value={stats.expiringSoon.toLocaleString()}
+          subtitle={`Within ${config.inventory.expiryAlertDays} days`}
+          icon={<Thermometer className="h-5 w-5" />}
+          iconColor="bg-red-100 text-red-700"
         />
       </div>
 
+      {/* Tabs */}
       <div className="border-b border-border">
         <nav className="flex gap-1 -mb-px">
-          {tabs.map(t => (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === t.key
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+          {[
+            { key: "raw", label: "Raw Materials", icon: FlaskConical },
+            { key: "finished", label: "Finished Products", icon: Pill },
+            { key: "warehouses", label: "Warehouses", icon: Warehouse },
+          ].map((t) => {
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key as Tab)}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  tab === t.key
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {t.label}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
-      {activeTab === "products" && (
-        <DataTable columns={productColumns as Parameters<typeof DataTable>[0]["columns"]} data={products as Record<string, unknown>[]} />
-      )}
-      {activeTab === "movements" && (
-        <DataTable columns={movementColumns as Parameters<typeof DataTable>[0]["columns"]} data={movements as Record<string, unknown>[]} />
-      )}
-      {activeTab === "salesorders" && (
-        <DataTable columns={soColumns as Parameters<typeof DataTable>[0]["columns"]} data={salesOrders as Record<string, unknown>[]} />
-      )}
-      {activeTab === "warehouses" && (
-        <DataTable columns={warehouseColumns as Parameters<typeof DataTable>[0]["columns"]} data={warehouses as Record<string, unknown>[]} />
+      {/* Raw Materials */}
+      {tab === "raw" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <FlaskConical className="h-4 w-4 text-purple-600" />
+              Raw Materials (APIs, Excipients, Solvents)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="overflow-x-auto p-0">
+            <table className="w-full text-sm">
+              <thead className="bg-purple-50 border-y">
+                <tr>
+                  <th className="text-left p-3 font-semibold text-xs uppercase">Code</th>
+                  <th className="text-left p-3 font-semibold text-xs uppercase">Material</th>
+                  <th className="text-left p-3 font-semibold text-xs uppercase">Type</th>
+                  <th className="text-left p-3 font-semibold text-xs uppercase">Supplier</th>
+                  <th className="text-left p-3 font-semibold text-xs uppercase">Batch / Expiry</th>
+                  <th className="text-right p-3 font-semibold text-xs uppercase">Qty (kg)</th>
+                  <th className="text-left p-3 font-semibold text-xs uppercase">Storage</th>
+                  <th className="text-left p-3 font-semibold text-xs uppercase">QC</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rawMaterials.map((r) => {
+                  const isLow = r.quantityKg <= r.reorderLevel;
+                  return (
+                    <tr key={r.id} className="border-b hover:bg-slate-50">
+                      <td className="p-3 font-mono text-xs">{r.code}</td>
+                      <td className="p-3 font-medium">{r.name}</td>
+                      <td className="p-3"><Badge variant="secondary">{r.type}</Badge></td>
+                      <td className="p-3 text-muted-foreground">{r.supplier}</td>
+                      <td className="p-3">
+                        <div className="font-mono text-xs">{r.batchNo}</div>
+                        <div className="text-[11px] text-muted-foreground">exp {r.expiryDate}</div>
+                      </td>
+                      <td className={`p-3 text-right font-medium ${isLow ? "text-red-600" : ""}`}>
+                        {r.quantityKg.toLocaleString()}
+                        {isLow && <div className="text-[10px] text-red-500">below reorder</div>}
+                      </td>
+                      <td className="p-3 text-xs">{r.storageCondition}</td>
+                      <td className="p-3">
+                        <Badge
+                          variant={
+                            r.qcStatus === "Approved"
+                              ? "success"
+                              : r.qcStatus === "Rejected"
+                              ? "destructive"
+                              : "warning"
+                          }
+                        >
+                          {r.qcStatus}
+                        </Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Add Product Dialog */}
-      <Dialog open={productOpen} onOpenChange={setProductOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Add Product</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>SKU *</Label>
-                <Input placeholder="PRD-009" value={newProduct.sku} onChange={e => setNewProduct(p => ({ ...p, sku: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Category</Label>
-                <Input placeholder="Electronics" value={newProduct.category} onChange={e => setNewProduct(p => ({ ...p, category: e.target.value }))} />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Product Name *</Label>
-              <Input placeholder="Product name" value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Quantity</Label>
-                <Input type="number" placeholder="0" value={newProduct.quantity} onChange={e => setNewProduct(p => ({ ...p, quantity: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Reorder Point</Label>
-                <Input type="number" placeholder="5" value={newProduct.reorderPoint} onChange={e => setNewProduct(p => ({ ...p, reorderPoint: e.target.value }))} />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Unit Cost</Label>
-              <Input type="number" placeholder="0.00" value={newProduct.unitCost} onChange={e => setNewProduct(p => ({ ...p, unitCost: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Warehouse</Label>
-              <Select value={newProduct.warehouse} onValueChange={v => setNewProduct(p => ({ ...p, warehouse: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {warehouses.map(w => <SelectItem key={w.id} value={w.name}>{w.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={newProduct.status} onValueChange={v => setNewProduct(p => ({ ...p, status: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["In Stock", "Low Stock", "Out of Stock"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setProductOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddProduct}>Add Product</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Finished Products */}
+      {tab === "finished" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Pill className="h-4 w-4 text-emerald-600" />
+              Finished Products (Released for Sale)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="overflow-x-auto p-0">
+            <table className="w-full text-sm">
+              <thead className="bg-emerald-50 border-y">
+                <tr>
+                  <th className="text-left p-3 font-semibold text-xs uppercase">Code</th>
+                  <th className="text-left p-3 font-semibold text-xs uppercase">Product</th>
+                  <th className="text-left p-3 font-semibold text-xs uppercase">Form</th>
+                  <th className="text-left p-3 font-semibold text-xs uppercase">EDA Reg.</th>
+                  <th className="text-left p-3 font-semibold text-xs uppercase">Batch</th>
+                  <th className="text-left p-3 font-semibold text-xs uppercase">Expiry</th>
+                  <th className="text-right p-3 font-semibold text-xs uppercase">Qty</th>
+                  <th className="text-right p-3 font-semibold text-xs uppercase">Price</th>
+                  <th className="text-left p-3 font-semibold text-xs uppercase">Released</th>
+                </tr>
+              </thead>
+              <tbody>
+                {finishedProducts.map((p) => (
+                  <tr key={p.id} className="border-b hover:bg-slate-50">
+                    <td className="p-3 font-mono text-xs">{p.code}</td>
+                    <td className="p-3">
+                      <div className="font-medium">{p.name} {p.strength}</div>
+                      <div className="text-[11px] text-muted-foreground">{p.packSize}</div>
+                    </td>
+                    <td className="p-3"><Badge variant="secondary">{p.form}</Badge></td>
+                    <td className="p-3 font-mono text-xs">{p.registration}</td>
+                    <td className="p-3 font-mono text-xs">{p.batchNo}</td>
+                    <td className="p-3 text-xs">{p.expiryDate}</td>
+                    <td className="p-3 text-right">{p.quantity.toLocaleString()} {p.unit}</td>
+                    <td className="p-3 text-right font-medium">{fmt(p.unitPrice)}</td>
+                    <td className="p-3">
+                      <Badge variant={p.qcReleased ? "success" : "warning"}>
+                        {p.qcReleased ? "Released" : "Pending QC"}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Add Movement Dialog */}
-      <Dialog open={movementOpen} onOpenChange={setMovementOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Record Stock Movement</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Product *</Label>
-              <Input placeholder="Product name or SKU" value={newMovement.product} onChange={e => setNewMovement(p => ({ ...p, product: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Movement Type</Label>
-              <Select value={newMovement.type} onValueChange={v => setNewMovement(p => ({ ...p, type: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["Receipt", "Issue", "Transfer", "Adjustment"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Quantity *</Label>
-              <Input type="number" placeholder="0" value={newMovement.quantity} onChange={e => setNewMovement(p => ({ ...p, quantity: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Reference</Label>
-              <Input placeholder="PO-001 / SO-001" value={newMovement.reference} onChange={e => setNewMovement(p => ({ ...p, reference: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Warehouse</Label>
-              <Select value={newMovement.warehouse} onValueChange={v => setNewMovement(p => ({ ...p, warehouse: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {warehouses.map(w => <SelectItem key={w.id} value={w.name}>{w.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setMovementOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddMovement}>Record Movement</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Sales Order Dialog */}
-      <Dialog open={soOpen} onOpenChange={setSOOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>New Sales Order</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Order Number</Label>
-              <Input placeholder="SO-005" value={newSO.number} onChange={e => setNewSO(p => ({ ...p, number: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Customer *</Label>
-              <Input placeholder="Customer name" value={newSO.customer} onChange={e => setNewSO(p => ({ ...p, customer: e.target.value }))} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Items</Label>
-                <Input type="number" placeholder="1" value={newSO.items} onChange={e => setNewSO(p => ({ ...p, items: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Total *</Label>
-                <Input type="number" placeholder="0.00" value={newSO.total} onChange={e => setNewSO(p => ({ ...p, total: e.target.value }))} />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={newSO.status} onValueChange={v => setNewSO(p => ({ ...p, status: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["Processing", "Shipped", "Fulfilled", "Cancelled"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSOOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddSO}>Create Order</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Warehouse Dialog */}
-      <Dialog open={warehouseOpen} onOpenChange={setWarehouseOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Add Warehouse</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Warehouse Name *</Label>
-              <Input placeholder="e.g. North Warehouse" value={newWarehouse.name} onChange={e => setNewWarehouse(p => ({ ...p, name: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Location</Label>
-              <Input placeholder="Address" value={newWarehouse.location} onChange={e => setNewWarehouse(p => ({ ...p, location: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Manager</Label>
-              <Input placeholder="Manager name" value={newWarehouse.manager} onChange={e => setNewWarehouse(p => ({ ...p, manager: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Capacity (units)</Label>
-              <Input type="number" placeholder="1000" value={newWarehouse.capacity} onChange={e => setNewWarehouse(p => ({ ...p, capacity: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={newWarehouse.status} onValueChange={v => setNewWarehouse(p => ({ ...p, status: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setWarehouseOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddWarehouse}>Add Warehouse</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Warehouses */}
+      {tab === "warehouses" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {warehouseList.map((w) => {
+            const pct = Math.round((w.used / w.capacity) * 100);
+            const colorByType: Record<typeof w.type, string> = {
+              "Raw Material": "bg-purple-100 text-purple-700",
+              "Finished Goods": "bg-emerald-100 text-emerald-700",
+              "Cold Chain": "bg-blue-100 text-blue-700",
+              "Quarantine": "bg-amber-100 text-amber-700",
+            };
+            return (
+              <Card key={w.id}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${colorByType[w.type]}`}>
+                        <Package className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-sm font-semibold">{w.name}</CardTitle>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{w.location}</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="outline">{w.type}</Badge>
+                    <span className="text-xs text-muted-foreground">{w.tempRange}</span>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>Capacity</span>
+                      <span>{w.used.toLocaleString()} / {w.capacity.toLocaleString()} ({pct}%)</span>
+                    </div>
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${pct > 85 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-emerald-500"}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground border-t pt-2">
+                    Manager: <span className="font-medium text-foreground">{w.manager}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
-  )
+  );
 }

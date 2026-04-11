@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useCurrentUser } from "@/lib/user-context";
 import {
   LayoutDashboard,
   DollarSign,
@@ -38,7 +39,6 @@ import {
   CheckSquare,
   Truck,
   Wrench,
-  Globe,
   Puzzle,
   Link2,
   Table2,
@@ -46,6 +46,7 @@ import {
   MessageSquare,
   Database,
   Target,
+  Calculator,
   type LucideIcon,
 } from "lucide-react";
 
@@ -73,6 +74,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: "ERP",
     items: [
       { label: "Finance", href: "/erp/finance", icon: DollarSign },
+      { label: "Accounting", href: "/erp/accounting", icon: Calculator },
       { label: "Procurement", href: "/erp/procurement", icon: ShoppingCart },
       { label: "Inventory", href: "/erp/inventory", icon: Package },
       { label: "Projects", href: "/erp/projects", icon: FolderKanban },
@@ -93,6 +95,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Doctor Directory", href: "/crm/doctors", icon: Stethoscope },
       { label: "Visit Tracking", href: "/crm/gps-tracking", icon: MapPin },
       { label: "Market Requests", href: "/crm/market-requests", icon: ClipboardList },
+      { label: "CRM Reports", href: "/crm/reports", icon: BarChart3 },
     ],
   },
   {
@@ -153,11 +156,20 @@ export function Sidebar({
   onMobileClose,
 }: SidebarProps) {
   const pathname = usePathname();
+  const { canAccess } = useCurrentUser();
 
   function isActive(href: string): boolean {
     if (href === "/dashboard") return pathname === "/dashboard" || pathname === "/";
     return pathname === href || pathname.startsWith(href + "/");
   }
+
+  // Filter nav sections by current user's allowed routes
+  const visibleSections: NavSection[] = NAV_SECTIONS
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => canAccess(item.href)),
+    }))
+    .filter((section) => section.items.length > 0);
 
   return (
     <>
@@ -172,6 +184,7 @@ export function Sidebar({
           collapsed={collapsed}
           onCollapsedChange={onCollapsedChange}
           isActive={isActive}
+          sections={visibleSections}
         />
       </aside>
 
@@ -186,6 +199,7 @@ export function Sidebar({
           collapsed={false}
           onCollapsedChange={() => {}}
           isActive={isActive}
+          sections={visibleSections}
           onMobileClose={onMobileClose}
           isMobile
         />
@@ -198,6 +212,7 @@ interface SidebarContentProps {
   collapsed: boolean;
   onCollapsedChange: (v: boolean) => void;
   isActive: (href: string) => boolean;
+  sections: NavSection[];
   onMobileClose?: () => void;
   isMobile?: boolean;
 }
@@ -206,6 +221,7 @@ function SidebarContent({
   collapsed,
   onCollapsedChange,
   isActive,
+  sections,
   onMobileClose,
   isMobile,
 }: SidebarContentProps) {

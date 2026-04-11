@@ -1,0 +1,148 @@
+// Browser-side report download helpers.
+// Used by CRM Reports, Accounting Reports, and any module that exports data.
+
+export function downloadCSV<T extends Record<string, unknown>>(
+  filename: string,
+  rows: T[],
+  columns?: { key: keyof T; label: string }[]
+): void {
+  if (typeof window === "undefined") return;
+
+  const cols =
+    columns ??
+    (rows.length > 0
+      ? (Object.keys(rows[0]) as (keyof T)[]).map((k) => ({ key: k, label: String(k) }))
+      : []);
+
+  const escape = (val: unknown): string => {
+    if (val === null || val === undefined) return "";
+    const s = String(val);
+    if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const header = cols.map((c) => escape(c.label)).join(",");
+  const body = rows
+    .map((row) => cols.map((c) => escape(row[c.key])).join(","))
+    .join("\n");
+
+  const csv = `${header}\n${body}`;
+  triggerBlobDownload(filename, csv, "text/csv;charset=utf-8;");
+}
+
+export function downloadJSON(filename: string, data: unknown): void {
+  if (typeof window === "undefined") return;
+  const json = JSON.stringify(data, null, 2);
+  triggerBlobDownload(filename, json, "application/json");
+}
+
+export function downloadHTML(filename: string, html: string): void {
+  if (typeof window === "undefined") return;
+  triggerBlobDownload(filename, html, "text/html");
+}
+
+export function downloadText(filename: string, text: string): void {
+  if (typeof window === "undefined") return;
+  triggerBlobDownload(filename, text, "text/plain");
+}
+
+function triggerBlobDownload(filename: string, content: string, mime: string): void {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Build a printable HTML report (opens in browser, user can Save as PDF)
+export function buildPrintableReport(opts: {
+  title: string;
+  subtitle?: string;
+  company?: string;
+  sections: Array<{
+    heading: string;
+    description?: string;
+    rows: Record<string, unknown>[];
+  }>;
+}): string {
+  const { title, subtitle, company = "Pharma Enterprise", sections } = opts;
+  const date = new Date().toLocaleString();
+
+  const sectionHTML = sections
+    .map((s) => {
+      if (s.rows.length === 0) {
+        return `<section><h2>${escapeHTML(s.heading)}</h2><p class="muted">No data</p></section>`;
+      }
+      const cols = Object.keys(s.rows[0]);
+      const head = cols.map((c) => `<th>${escapeHTML(c)}</th>`).join("");
+      const body = s.rows
+        .map(
+          (row) =>
+            `<tr>${cols
+              .map((c) => `<td>${escapeHTML(String(row[c] ?? ""))}</td>`)
+              .join("")}</tr>`
+        )
+        .join("");
+      return `
+        <section>
+          <h2>${escapeHTML(s.heading)}</h2>
+          ${s.description ? `<p class="muted">${escapeHTML(s.description)}</p>` : ""}
+          <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+        </section>`;
+    })
+    .join("");
+
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>${escapeHTML(title)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: #0f172a; padding: 32px; max-width: 1100px; margin: 0 auto; }
+  header.r { border-bottom: 3px solid #2563eb; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; }
+  header.r h1 { font-size: 22px; margin: 0; color: #2563eb; }
+  header.r p { margin: 4px 0; font-size: 13px; color: #475569; }
+  .meta { text-align: right; font-size: 12px; color: #64748b; }
+  section { margin-top: 28px; page-break-inside: avoid; }
+  h2 { font-size: 15px; color: #1e293b; border-left: 3px solid #2563eb; padding-left: 10px; margin-bottom: 10px; }
+  .muted { color: #64748b; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #f1f5f9; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.04em; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center; }
+  @media print { body { padding: 0; } header.r { padding-top: 0; } }
+</style>
+</head>
+<body>
+  <header class="r">
+    <div>
+      <h1>${escapeHTML(title)}</h1>
+      ${subtitle ? `<p>${escapeHTML(subtitle)}</p>` : ""}
+    </div>
+    <div class="meta">
+      <p><strong>${escapeHTML(company)}</strong></p>
+      <p>Generated: ${escapeHTML(date)}</p>
+    </div>
+  </header>
+  ${sectionHTML}
+  <footer>Confidential — generated by Pharma Enterprise Suite</footer>
+</body>
+</html>`;
+}
+
+function escapeHTML(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
