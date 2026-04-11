@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { isValidElement, type ReactNode } from "react";
 import { type LucideIcon, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -33,8 +33,11 @@ export default function StatsCard({
   const isNegative = effectiveChange != null && effectiveChange < 0;
   const isNeutral  = effectiveChange != null && effectiveChange === 0;
 
-  const isIconComponent = typeof icon === "function";
-  const Icon = isIconComponent ? (icon as LucideIcon) : null;
+  // Icon can be either a React element (e.g. <MyIcon />) or a component type (e.g. LucideIcon).
+  // Lucide icons are forwardRef objects, not plain functions, so we detect a "component type"
+  // as anything that is NOT already a valid React element.
+  const isElement = isValidElement(icon);
+  const Icon = !isElement && icon ? (icon as LucideIcon) : null;
 
   const TrendIcon = isPositive ? TrendingUp : isNegative ? TrendingDown : Minus;
 
