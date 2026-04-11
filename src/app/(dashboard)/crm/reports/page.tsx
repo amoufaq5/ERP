@@ -5,6 +5,8 @@ import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { downloadCSV, downloadHTML, buildPrintableReport } from "@/lib/download";
 import {
@@ -19,6 +21,10 @@ import {
   Download,
   Printer,
   FileText,
+  Filter,
+  X,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 
 // ─── Field force hierarchy & demo data ───────────────────────────────────────
@@ -255,28 +261,98 @@ const roleConfig = {
 
 type RoleFilter = "ALL" | "BUM" | "MARKETEER" | "DISTRICT_MANAGER" | "MEDICAL_REP";
 
+// Sensible defaults for a monthly reporting window
+function getDefaultDateRange() {
+  const today = new Date();
+  const first = new Date(today.getFullYear(), today.getMonth(), 1);
+  const toIso = (d: Date) => d.toISOString().slice(0, 10);
+  return { from: toIso(first), to: toIso(today) };
+}
+
+// Scale a person's MTD metrics to the chosen date range.
+// (Demo data: MTD numbers are treated as 30-day base; scale linearly.)
+function scaleMetrics(p: FieldForcePerson, days: number): FieldForcePerson {
+  const factor = Math.max(0, Math.min(1, days / 30));
+  return {
+    ...p,
+    visitsThisMonth: Math.round(p.visitsThisMonth * factor),
+    visitsTarget: Math.round(p.visitsTarget * factor),
+    callsCompleted: Math.round(p.callsCompleted * factor),
+    newDoctors: Math.round(p.newDoctors * factor),
+    marketRequests: Math.round(p.marketRequests * factor),
+  };
+}
+
 export default function CRMReportsPage() {
   const [filter, setFilter] = useState<RoleFilter>("ALL");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const defaultRange = useMemo(() => getDefaultDateRange(), []);
+  const [dateFrom, setDateFrom] = useState<string>(defaultRange.from);
+  const [dateTo, setDateTo] = useState<string>(defaultRange.to);
+  const [selectedPeople, setSelectedPeople] = useState<Set<string>>(new Set());
 
-  const visible = useMemo(
-    () => (filter === "ALL" ? fieldForce : fieldForce.filter((p) => p.role === filter)),
-    [filter]
+  // Days in the window (inclusive)
+  const rangeDays = useMemo(() => {
+    const a = new Date(dateFrom);
+    const b = new Date(dateTo);
+    const diff = Math.max(1, Math.round((b.getTime() - a.getTime()) / 86400000) + 1);
+    return diff;
+  }, [dateFrom, dateTo]);
+
+  // Scale metrics by range length
+  const scaledFieldForce = useMemo(
+    () => fieldForce.map((p) => scaleMetrics(p, rangeDays)),
+    [rangeDays]
   );
 
+  const visible = useMemo(() => {
+    let list = filter === "ALL" ? scaledFieldForce : scaledFieldForce.filter((p) => p.role === filter);
+    if (selectedPeople.size > 0) {
+      list = list.filter((p) => selectedPeople.has(p.id));
+    }
+    return list;
+  }, [filter, selectedPeople, scaledFieldForce]);
+
+  function togglePerson(id: string) {
+    setSelectedPeople((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAllPeople() {
+    const pool = filter === "ALL" ? fieldForce : fieldForce.filter((p) => p.role === filter);
+    setSelectedPeople(new Set(pool.map((p) => p.id)));
+  }
+
+  function clearFilters() {
+    setSelectedPeople(new Set());
+    setDateFrom(defaultRange.from);
+    setDateTo(defaultRange.to);
+    setFilter("ALL");
+  }
+
+  const activeFilterCount =
+    (filter !== "ALL" ? 1 : 0) +
+    (selectedPeople.size > 0 ? 1 : 0) +
+    (dateFrom !== defaultRange.from || dateTo !== defaultRange.to ? 1 : 0);
+
   const summary = useMemo(() => {
-    const reps = fieldForce.filter((p) => p.role === "MEDICAL_REP");
+    const reps = scaledFieldForce.filter((p) => p.role === "MEDICAL_REP");
     return {
       totalDoctors: reps.reduce((s, r) => s + r.doctorsAssigned, 0),
       totalCovered: reps.reduce((s, r) => s + r.doctorsCovered, 0),
       totalVisits: reps.reduce((s, r) => s + r.visitsThisMonth, 0),
       avgAchievement: Math.round(
-        fieldForce.reduce((s, p) => s + p.achievementPct, 0) / fieldForce.length
+        scaledFieldForce.reduce((s, p) => s + p.achievementPct, 0) / scaledFieldForce.length
       ),
     };
-  }, []);
+  }, [scaledFieldForce]);
 
-  const selected = selectedId ? fieldForce.find((p) => p.id === selectedId) : null;
+  const selected = selectedId ? scaledFieldForce.find((p) => p.id === selectedId) : null;
 
   function downloadIndividualCSV(person: FieldForcePerson) {
     const flat = {
@@ -343,44 +419,70 @@ export default function CRMReportsPage() {
   }
 
   function downloadAllCSV() {
-    const flat = fieldForce.map((p) => ({
+    // Export the current filtered view (respects date range + people + role filter)
+    const source = visible.length > 0 ? visible : scaledFieldForce;
+    const flat = source.map((p) => ({
       name: p.name,
       role: p.role,
       territory: p.territory,
       manager: p.manager ?? "—",
+      dateFrom,
+      dateTo,
+      rangeDays,
       doctorsAssigned: p.doctorsAssigned,
       doctorsCovered: p.doctorsCovered,
       coveragePct: ((p.doctorsCovered / p.doctorsAssigned) * 100).toFixed(1),
-      visitsMTD: p.visitsThisMonth,
+      visits: p.visitsThisMonth,
       visitTarget: p.visitsTarget,
       newDoctors: p.newDoctors,
       marketRequests: p.marketRequests,
       productsPromoted: p.productsPromoted,
       achievementPct: p.achievementPct,
     }));
-    downloadCSV("crm-fieldforce-all.csv", flat);
+    const filename =
+      selectedPeople.size > 0 || filter !== "ALL"
+        ? `crm-fieldforce-filtered-${dateFrom}-to-${dateTo}.csv`
+        : `crm-fieldforce-${dateFrom}-to-${dateTo}.csv`;
+    downloadCSV(filename, flat);
   }
 
   function downloadConsolidated() {
+    // Use the filtered view if any filters are active
+    const source =
+      selectedPeople.size > 0 || filter !== "ALL" ? visible : scaledFieldForce;
+    const rolesInSource = Array.from(new Set(source.map((p) => p.role))) as Array<FieldForcePerson["role"]>;
+    const subtitleParts = [
+      `${dateFrom} → ${dateTo} (${rangeDays} days)`,
+      filter !== "ALL" ? `Role: ${roleConfig[filter as Exclude<RoleFilter, "ALL">].label}` : null,
+      selectedPeople.size > 0 ? `${selectedPeople.size} people selected` : null,
+    ].filter(Boolean) as string[];
+
     const html = buildPrintableReport({
       title: "CRM Field Force — Consolidated Report",
-      subtitle: "All territories · April 2026",
-      sections: (["BUM", "MARKETEER", "DISTRICT_MANAGER", "MEDICAL_REP"] as const).map((r) => ({
+      subtitle: subtitleParts.join(" · "),
+      sections: rolesInSource.map((r) => ({
         heading: roleConfig[r].label,
-        rows: fieldForce
+        rows: source
           .filter((p) => p.role === r)
           .map((p) => ({
             Name: p.name,
             Territory: p.territory,
+            Manager: p.manager ?? "—",
             "Doctors Covered": `${p.doctorsCovered}/${p.doctorsAssigned}`,
-            "Visits MTD": p.visitsThisMonth || "—",
+            "Coverage %": `${((p.doctorsCovered / p.doctorsAssigned) * 100).toFixed(1)}%`,
+            Visits: p.visitsThisMonth || "—",
+            Target: p.visitsTarget || "—",
             "New Drs": p.newDoctors,
             "Mkt Reqs": p.marketRequests,
             "Achievement %": `${p.achievementPct}%`,
           })),
       })),
     });
-    downloadHTML("crm-consolidated-report.html", html);
+    const filename =
+      selectedPeople.size > 0 || filter !== "ALL"
+        ? `crm-consolidated-filtered-${dateFrom}-to-${dateTo}.html`
+        : `crm-consolidated-${dateFrom}-to-${dateTo}.html`;
+    downloadHTML(filename, html);
   }
 
   return (
@@ -435,8 +537,8 @@ export default function CRMReportsPage() {
         />
       </div>
 
-      {/* Filter pills */}
-      <div className="flex flex-wrap gap-2">
+      {/* Filter pills + advanced filter toggle */}
+      <div className="flex flex-wrap items-center gap-2">
         {(["ALL", "BUM", "MARKETEER", "DISTRICT_MANAGER", "MEDICAL_REP"] as RoleFilter[]).map((r) => (
           <Button
             key={r}
@@ -447,7 +549,205 @@ export default function CRMReportsPage() {
             {r === "ALL" ? "All Roles" : roleConfig[r].label}
           </Button>
         ))}
+        <div className="flex-1" />
+        <Button
+          variant={showFilters ? "default" : "outline"}
+          size="sm"
+          onClick={() => setShowFilters((v) => !v)}
+        >
+          <Filter className="h-4 w-4 mr-1.5" />
+          Advanced Filters
+          {activeFilterCount > 0 && (
+            <Badge variant="secondary" className="ml-2 h-4 px-1.5 text-[10px]">
+              {activeFilterCount}
+            </Badge>
+          )}
+        </Button>
+        {activeFilterCount > 0 && (
+          <Button variant="ghost" size="sm" onClick={clearFilters}>
+            <X className="h-4 w-4 mr-1" /> Clear
+          </Button>
+        )}
       </div>
+
+      {/* Advanced filter panel */}
+      {showFilters && (
+        <Card className="border-blue-200 bg-blue-50/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Filter className="h-4 w-4 text-blue-600" />
+              Advanced Report Filters
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Narrow reports by date window and specific field force members.
+              Metrics are automatically scaled to the selected period.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Date range */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Date From</Label>
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  max={dateTo}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Date To</Label>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Quick Ranges</Label>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-9 text-xs"
+                    onClick={() => {
+                      const today = new Date();
+                      const seven = new Date(today);
+                      seven.setDate(seven.getDate() - 6);
+                      setDateFrom(seven.toISOString().slice(0, 10));
+                      setDateTo(today.toISOString().slice(0, 10));
+                    }}
+                  >
+                    7d
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-9 text-xs"
+                    onClick={() => {
+                      const today = new Date();
+                      const m = new Date(today);
+                      m.setDate(m.getDate() - 29);
+                      setDateFrom(m.toISOString().slice(0, 10));
+                      setDateTo(today.toISOString().slice(0, 10));
+                    }}
+                  >
+                    30d
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-9 text-xs"
+                    onClick={() => {
+                      const today = new Date();
+                      const q = new Date(today);
+                      q.setDate(q.getDate() - 89);
+                      setDateFrom(q.toISOString().slice(0, 10));
+                      setDateTo(today.toISOString().slice(0, 10));
+                    }}
+                  >
+                    90d
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-9 text-xs"
+                    onClick={() => {
+                      const today = new Date();
+                      const y = new Date(today.getFullYear(), 0, 1);
+                      setDateFrom(y.toISOString().slice(0, 10));
+                      setDateTo(today.toISOString().slice(0, 10));
+                    }}
+                  >
+                    YTD
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground bg-white rounded px-2 py-1.5 border inline-block">
+              Window: <strong className="text-foreground">{rangeDays} days</strong>
+              {" · metrics scaled proportionally"}
+            </div>
+
+            {/* People multi-select */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs">
+                  Select People ({selectedPeople.size} of{" "}
+                  {filter === "ALL"
+                    ? fieldForce.length
+                    : fieldForce.filter((p) => p.role === filter).length}{" "}
+                  shown)
+                </Label>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={selectAllPeople}
+                  >
+                    <CheckSquare className="h-3 w-3 mr-1" /> Select All
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={() => setSelectedPeople(new Set())}
+                    disabled={selectedPeople.size === 0}
+                  >
+                    <Square className="h-3 w-3 mr-1" /> Clear
+                  </Button>
+                </div>
+              </div>
+              <div className="max-h-56 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 p-2 bg-white rounded border">
+                {(filter === "ALL"
+                  ? fieldForce
+                  : fieldForce.filter((p) => p.role === filter)
+                ).map((p) => {
+                  const checked = selectedPeople.has(p.id);
+                  return (
+                    <label
+                      key={p.id}
+                      className={`flex items-center gap-2 p-1.5 rounded text-xs cursor-pointer border ${
+                        checked ? "bg-blue-50 border-blue-300" : "border-transparent hover:bg-slate-50"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => togglePerson(p.id)}
+                        className="h-3.5 w-3.5"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium truncate">{p.name}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          {roleConfig[p.role].label.replace(/ \(.+\)/, "")} · {p.territory}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-2 border-t">
+              <Button onClick={downloadConsolidated}>
+                <Printer className="h-4 w-4 mr-2" /> Generate Filtered Report
+              </Button>
+              <Button variant="outline" onClick={downloadAllCSV}>
+                <Download className="h-4 w-4 mr-2" /> Export Filtered CSV
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Person cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

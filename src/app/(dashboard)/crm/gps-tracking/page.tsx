@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import dynamic from "next/dynamic";
 import {
   MapPin,
   Navigation,
   Route,
-  Map,
+  Map as MapIcon,
   Users,
   CheckSquare,
   Activity,
@@ -22,6 +23,13 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
+import { useAppConfig } from "@/lib/config-context";
+
+// Dynamic import with ssr:false — Leaflet requires window
+const LeafletMap = dynamic(
+  () => import("@/components/shared/leaflet-map").then((m) => m.LeafletMap),
+  { ssr: false, loading: () => <div className="h-[420px] bg-slate-100 rounded-lg animate-pulse" /> }
+);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +44,8 @@ interface FieldVisit {
   address: string;
   status: VisitStatus;
   distance: string;
+  lat: number;
+  lng: number;
 }
 
 interface LiveLocation {
@@ -46,6 +56,7 @@ interface LiveLocation {
   lastUpdated: string;
   battery: number;
   accuracy: number;
+  color: string;
 }
 
 interface Territory {
@@ -57,137 +68,163 @@ interface Territory {
   accounts: number;
 }
 
-// ─── Demo Data ────────────────────────────────────────────────────────────────
+// ─── Demo Data (Egyptian pharma field force) ─────────────────────────────────
 
 const FIELD_VISITS: FieldVisit[] = [
   {
     id: "FV-001",
-    rep: "Marcus Williams",
-    account: "TechCorp Solutions",
+    rep: "Mohamed El-Sayed",
+    account: "Dr. Ahmed El-Gamal — Cardiology Clinic",
     checkIn: "09:15 AM",
     checkOut: "10:40 AM",
-    address: "580 Market St, San Francisco, CA 94104",
+    address: "123 Tahrir Square, Downtown, Cairo",
     status: "COMPLETED",
     distance: "3.2 km",
+    lat: 30.0444,
+    lng: 31.2357,
   },
   {
     id: "FV-002",
-    rep: "Sarah Johnson",
-    account: "Global Retail Inc.",
+    rep: "Nadia Hamdy",
+    account: "Cleopatra Hospital",
     checkIn: "10:00 AM",
     checkOut: "11:30 AM",
-    address: "350 5th Ave, New York, NY 10118",
+    address: "Heliopolis, Cairo",
     status: "COMPLETED",
     distance: "8.7 km",
+    lat: 30.0988,
+    lng: 31.3413,
   },
   {
     id: "FV-003",
-    rep: "Emma Davis",
-    account: "HealthPlus Systems",
+    rep: "Youssef Rashad",
+    account: "Dar Al Fouad Hospital",
     checkIn: "11:45 AM",
     checkOut: "—",
-    address: "200 State St, Boston, MA 02109",
+    address: "6th of October City, Giza",
     status: "IN_PROGRESS",
     distance: "5.1 km",
+    lat: 29.9627,
+    lng: 30.9373,
   },
   {
     id: "FV-004",
-    rep: "Marcus Williams",
-    account: "Quantum Data AI",
+    rep: "Mohamed El-Sayed",
+    account: "Dr. Salma Ibrahim — Endocrinology",
     checkIn: "01:00 PM",
     checkOut: "—",
-    address: "3000 El Camino Real, Palo Alto, CA 94306",
+    address: "Mohandessin, Giza",
     status: "PLANNED",
     distance: "12.4 km",
+    lat: 30.0619,
+    lng: 31.2009,
   },
   {
     id: "FV-005",
-    rep: "Sarah Johnson",
-    account: "LogisticsPro",
+    rep: "Heba El-Gendy",
+    account: "El-Ezaby Pharmacy — Maadi Branch",
     checkIn: "02:30 PM",
     checkOut: "—",
-    address: "1415 Louisiana St, Houston, TX 77002",
+    address: "Road 9, Maadi, Cairo",
     status: "PLANNED",
     distance: "19.8 km",
+    lat: 29.9603,
+    lng: 31.2568,
   },
   {
     id: "FV-006",
-    rep: "Daniel Park",
-    account: "Manufactura Group",
+    rep: "Mostafa Kamal",
+    account: "Ain Shams University Hospital",
     checkIn: "09:30 AM",
     checkOut: "11:00 AM",
-    address: "3011 W Grand Blvd, Detroit, MI 48202",
+    address: "Abbassia, Cairo",
     status: "COMPLETED",
     distance: "7.6 km",
+    lat: 30.0725,
+    lng: 31.2807,
   },
 ];
 
 const LIVE_LOCATIONS: LiveLocation[] = [
   {
     id: "LL-001",
-    rep: "Marcus Williams",
-    latitude: 37.4419,
-    longitude: -122.143,
+    rep: "Mohamed El-Sayed",
+    latitude: 30.0444,
+    longitude: 31.2357,
     lastUpdated: "2 min ago",
     battery: 78,
     accuracy: 8,
+    color: "#3b82f6",
   },
   {
     id: "LL-002",
-    rep: "Sarah Johnson",
-    latitude: 29.7604,
-    longitude: -95.3698,
+    rep: "Nadia Hamdy",
+    latitude: 30.0988,
+    longitude: 31.3413,
     lastUpdated: "5 min ago",
     battery: 53,
     accuracy: 12,
+    color: "#8b5cf6",
   },
   {
     id: "LL-003",
-    rep: "Emma Davis",
-    latitude: 42.3601,
-    longitude: -71.0589,
+    rep: "Youssef Rashad",
+    latitude: 29.9627,
+    longitude: 30.9373,
     lastUpdated: "1 min ago",
     battery: 91,
     accuracy: 5,
+    color: "#10b981",
   },
   {
     id: "LL-004",
-    rep: "Daniel Park",
-    latitude: 42.3314,
-    longitude: -83.0458,
+    rep: "Heba El-Gendy",
+    latitude: 29.9603,
+    longitude: 31.2568,
     lastUpdated: "8 min ago",
     battery: 34,
     accuracy: 15,
+    color: "#f97316",
+  },
+  {
+    id: "LL-005",
+    rep: "Mostafa Kamal",
+    latitude: 30.0725,
+    longitude: 31.2807,
+    lastUpdated: "3 min ago",
+    battery: 67,
+    accuracy: 9,
+    color: "#ef4444",
   },
 ];
 
 const TERRITORIES: Territory[] = [
   {
     id: "T-001",
-    name: "West Coast",
-    rep: "Marcus Williams",
+    name: "Cairo North",
+    rep: "Ahmed Mostafa (DM)",
     description:
-      "Covers California, Oregon, and Washington state accounts including Bay Area tech cluster.",
+      "Heliopolis, Nasr City, Abbassia, and surrounding districts. Covers major hospitals including Ain Shams and Cleopatra.",
     color: "bg-blue-500",
-    accounts: 24,
+    accounts: 84,
   },
   {
     id: "T-002",
-    name: "Northeast",
-    rep: "Sarah Johnson",
+    name: "Giza & 6th October",
+    rep: "Tarek Samir (DM)",
     description:
-      "New York, New Jersey, Massachusetts, and Connecticut enterprise accounts.",
+      "Mohandessin, Dokki, 6th of October City. Includes Dar Al Fouad and private specialty clinics.",
     color: "bg-purple-500",
-    accounts: 31,
+    accounts: 67,
   },
   {
     id: "T-003",
-    name: "Midwest & South",
-    rep: "Emma Davis",
+    name: "Maadi & New Cairo",
+    rep: "Mariam Fouad (DM)",
     description:
-      "Texas, Michigan, Illinois, and Ohio manufacturing and logistics customers.",
+      "Maadi, Tagammu, New Cairo. Strong pharmacy chain presence — El-Ezaby and Seif branches.",
     color: "bg-emerald-500",
-    accounts: 19,
+    accounts: 52,
   },
 ];
 
@@ -209,42 +246,54 @@ function VisitStatusBadge({ status }: { status: VisitStatus }) {
   );
 }
 
-// ─── Battery indicator ────────────────────────────────────────────────────────
-
 function BatteryIndicator({ pct }: { pct: number }) {
   const color =
     pct <= 20 ? "text-red-500" : pct <= 50 ? "text-amber-500" : "text-green-600";
-  return (
-    <span className={`font-medium text-sm ${color}`}>{pct}%</span>
-  );
+  return <span className={`font-medium text-sm ${color}`}>{pct}%</span>;
 }
-
-// ─── Simulated location dots on the map placeholder ──────────────────────────
-
-const MAP_DOTS = [
-  { top: "35%", left: "12%", label: "Marcus", color: "bg-blue-500" },
-  { top: "28%", left: "78%", label: "Sarah", color: "bg-purple-500" },
-  { top: "42%", left: "85%", label: "Emma", color: "bg-emerald-500" },
-  { top: "40%", left: "68%", label: "Daniel", color: "bg-orange-500" },
-];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function GpsTrackingPage() {
+  const { config } = useAppConfig();
   const [activeTab, setActiveTab] = useState("visits");
+  const [mapView, setMapView] = useState<"live" | "visits">("live");
 
-  const completedVisits = FIELD_VISITS.filter(
-    (v) => v.status === "COMPLETED"
-  ).length;
-  const inProgress = FIELD_VISITS.filter(
-    (v) => v.status === "IN_PROGRESS"
-  ).length;
+  const completedVisits = FIELD_VISITS.filter((v) => v.status === "COMPLETED").length;
+  const inProgress = FIELD_VISITS.filter((v) => v.status === "IN_PROGRESS").length;
+
+  // Convert current view to markers
+  const markers = useMemo(() => {
+    if (mapView === "live") {
+      return LIVE_LOCATIONS.map((l) => ({
+        id: l.id,
+        lat: l.latitude,
+        lng: l.longitude,
+        label: l.rep,
+        description: `Updated ${l.lastUpdated} · Battery ${l.battery}%`,
+        color: l.color,
+      }));
+    }
+    return FIELD_VISITS.map((v) => ({
+      id: v.id,
+      lat: v.lat,
+      lng: v.lng,
+      label: `${v.account}`,
+      description: `${v.rep} · ${v.status.replace("_", " ")} · ${v.address}`,
+      color:
+        v.status === "COMPLETED"
+          ? "#10b981"
+          : v.status === "IN_PROGRESS"
+          ? "#f59e0b"
+          : "#3b82f6",
+    }));
+  }, [mapView]);
 
   return (
     <div className="p-6 space-y-6">
       <PageHeader
         title="GPS / Field Tracking"
-        description="Monitor field rep locations, visits, and territory coverage in real time"
+        description={`Real-time field force tracking · ${config.integrations.mapProvider} · GPS radius ${config.crm.visitValidationRadius}m`}
       >
         <Button variant="outline" className="gap-2">
           <Activity className="w-4 h-4" />
@@ -260,7 +309,7 @@ export default function GpsTrackingPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="Field Reps Active"
-          value={6}
+          value={LIVE_LOCATIONS.length}
           subtitle="Currently in the field"
           icon={Users}
           change={20}
@@ -268,7 +317,7 @@ export default function GpsTrackingPage() {
         />
         <StatsCard
           title="Visits Today"
-          value={12}
+          value={FIELD_VISITS.length}
           subtitle={`${completedVisits} completed · ${inProgress} in progress`}
           icon={CheckSquare}
           change={9}
@@ -284,78 +333,49 @@ export default function GpsTrackingPage() {
         />
         <StatsCard
           title="Territories"
-          value={3}
+          value={TERRITORIES.length}
           subtitle="Active coverage zones"
-          icon={Map}
+          icon={MapIcon}
         />
       </div>
 
-      {/* Map Placeholder */}
+      {/* Real Map */}
       <Card className="overflow-hidden">
-        <CardHeader className="pb-0">
-          <div className="flex items-center justify-between">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <CardTitle className="text-base">Live Map View</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Navigation className="h-4 w-4 text-primary" />
+                Live Map — Cairo Metropolitan Area
+              </CardTitle>
               <CardDescription>
-                Configure map provider in Settings &gt; Integrations
+                Powered by OpenStreetMap · Tiles {String.fromCharCode(169)} OSM contributors
               </CardDescription>
             </div>
-            <Badge variant="outline" className="gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />
-              Live
-            </Badge>
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-md border overflow-hidden text-xs">
+                <button
+                  onClick={() => setMapView("live")}
+                  className={`px-3 py-1.5 ${mapView === "live" ? "bg-blue-600 text-white" : "bg-white hover:bg-slate-50"}`}
+                >
+                  Live Reps
+                </button>
+                <button
+                  onClick={() => setMapView("visits")}
+                  className={`px-3 py-1.5 border-l ${mapView === "visits" ? "bg-blue-600 text-white" : "bg-white hover:bg-slate-50"}`}
+                >
+                  Today&apos;s Visits
+                </button>
+              </div>
+              <Badge variant="outline" className="gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />
+                Live
+              </Badge>
+            </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-4 pb-0 px-0">
-          <div className="relative h-72 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/30 flex flex-col items-center justify-center select-none overflow-hidden">
-            {/* Grid lines */}
-            <svg
-              className="absolute inset-0 w-full h-full opacity-20"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <defs>
-                <pattern
-                  id="grid"
-                  width="40"
-                  height="40"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <path
-                    d="M 40 0 L 0 0 0 40"
-                    fill="none"
-                    stroke="#3b82f6"
-                    strokeWidth="0.5"
-                  />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#grid)" />
-            </svg>
-
-            {/* Centre placeholder text */}
-            <Navigation className="w-10 h-10 text-blue-400 mb-3" />
-            <p className="text-blue-700 dark:text-blue-300 font-semibold text-lg">
-              Interactive Map View
-            </p>
-            <p className="text-blue-500 dark:text-blue-400 text-sm mt-1">
-              Configure map provider in Settings &gt; Integrations
-            </p>
-
-            {/* Simulated rep dots */}
-            {MAP_DOTS.map((dot) => (
-              <div
-                key={dot.label}
-                className="absolute flex flex-col items-center gap-0.5"
-                style={{ top: dot.top, left: dot.left }}
-              >
-                <div
-                  className={`w-4 h-4 rounded-full ${dot.color} border-2 border-white shadow-md`}
-                />
-                <span className="text-[10px] font-semibold text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-black/40 px-1 rounded">
-                  {dot.label}
-                </span>
-              </div>
-            ))}
-          </div>
+        <CardContent className="p-4">
+          <LeafletMap markers={markers} height="460px" zoom={11} />
         </CardContent>
       </Card>
 
@@ -371,35 +391,19 @@ export default function GpsTrackingPage() {
         <TabsContent value="visits">
           <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <div className="p-4 border-b border-border">
-              <h3 className="text-sm font-semibold text-foreground">
-                Today&apos;s Field Visits
-              </h3>
+              <h3 className="text-sm font-semibold text-foreground">Today&apos;s Field Visits</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Rep
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Account
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Check In
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Check Out
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Address
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Status
-                    </th>
-                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">
-                      Distance
-                    </th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Rep</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Account</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Check In</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Check Out</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Address</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Distance</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -408,18 +412,10 @@ export default function GpsTrackingPage() {
                       key={visit.id}
                       className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
                     >
-                      <td className="px-4 py-3 font-medium text-foreground">
-                        {visit.rep}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {visit.account}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {visit.checkIn}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {visit.checkOut}
-                      </td>
+                      <td className="px-4 py-3 font-medium text-foreground">{visit.rep}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{visit.account}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{visit.checkIn}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{visit.checkOut}</td>
                       <td className="px-4 py-3 text-muted-foreground max-w-[220px] truncate">
                         {visit.address}
                       </td>
@@ -441,9 +437,7 @@ export default function GpsTrackingPage() {
         <TabsContent value="live">
           <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <div className="p-4 border-b border-border flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">
-                Live Rep Locations
-              </h3>
+              <h3 className="text-sm font-semibold text-foreground">Live Rep Locations</h3>
               <Badge variant="outline" className="gap-1.5 text-xs">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />
                 {LIVE_LOCATIONS.length} active
@@ -453,21 +447,11 @@ export default function GpsTrackingPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Rep Name
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Latitude
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Longitude
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Last Updated
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Battery
-                    </th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Rep Name</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Latitude</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Longitude</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Last Updated</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Battery</th>
                     <th className="text-right px-4 py-3 font-medium text-muted-foreground">
                       Accuracy (m)
                     </th>
@@ -481,10 +465,11 @@ export default function GpsTrackingPage() {
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
-                          <span className="font-medium text-foreground">
-                            {loc.rep}
-                          </span>
+                          <span
+                            className="w-3 h-3 rounded-full shrink-0 border-2 border-white shadow-sm"
+                            style={{ backgroundColor: loc.color }}
+                          />
+                          <span className="font-medium text-foreground">{loc.rep}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
@@ -493,9 +478,7 @@ export default function GpsTrackingPage() {
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                         {loc.longitude.toFixed(4)}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {loc.lastUpdated}
-                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{loc.lastUpdated}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
@@ -546,9 +529,7 @@ export default function GpsTrackingPage() {
                     {territory.description}
                   </p>
                   <div className="flex items-center justify-between pt-2 border-t border-border">
-                    <span className="text-xs text-muted-foreground">
-                      Accounts
-                    </span>
+                    <span className="text-xs text-muted-foreground">Accounts</span>
                     <span className="text-sm font-semibold text-foreground">
                       {territory.accounts}
                     </span>

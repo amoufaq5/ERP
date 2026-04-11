@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { AccessGate } from "@/components/layout/access-gate";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -32,7 +33,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
         {/* Scrollable page content */}
         <main className="flex-1 overflow-y-auto bg-slate-50/50">
-          {children}
+          <AccessGate>{children}</AccessGate>
         </main>
       </div>
     </div>

@@ -8,6 +8,13 @@ import {
   Save,
   ShieldCheck,
   RotateCcw,
+  Lock,
+  Bell,
+  Plug,
+  HardDrive,
+  Globe,
+  Palette,
+  FileClock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,6 +70,13 @@ const TABS = [
   { id: "users", label: "Users & Access", icon: Users },
   { id: "modules", label: "Module Config", icon: LayoutGrid },
   { id: "permissions", label: "Permissions Matrix", icon: ShieldCheck },
+  { id: "security", label: "Security", icon: Lock },
+  { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "integrations", label: "Integrations", icon: Plug },
+  { id: "backup", label: "Backup & Recovery", icon: HardDrive },
+  { id: "localization", label: "Localization", icon: Globe },
+  { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "audit", label: "Audit Log", icon: FileClock },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -77,6 +91,12 @@ export default function SettingsPage() {
     updateCRM,
     updateHR,
     updateAccounting,
+    updateSecurity,
+    updateNotifications,
+    updateIntegrations,
+    updateBackup,
+    updateLocalization,
+    updateAppearance,
     resetConfig,
   } = useAppConfig();
 
@@ -572,6 +592,608 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Security */}
+      {tab === "security" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Password Policy</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Minimum Length</Label>
+                <Input
+                  type="number"
+                  value={config.security.passwordMinLength}
+                  onChange={(e) => updateSecurity({ passwordMinLength: Number(e.target.value) })}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <ToggleRow
+                label="Require Uppercase Letter"
+                value={config.security.passwordRequireUppercase}
+                onChange={(v) => updateSecurity({ passwordRequireUppercase: v })}
+                disabled={!isAdmin}
+              />
+              <ToggleRow
+                label="Require Number"
+                value={config.security.passwordRequireNumber}
+                onChange={(v) => updateSecurity({ passwordRequireNumber: v })}
+                disabled={!isAdmin}
+              />
+              <ToggleRow
+                label="Require Symbol"
+                value={config.security.passwordRequireSymbol}
+                onChange={(v) => updateSecurity({ passwordRequireSymbol: v })}
+                disabled={!isAdmin}
+              />
+              <div className="space-y-1.5">
+                <Label>Password Expiry (days)</Label>
+                <Input
+                  type="number"
+                  value={config.security.passwordExpiryDays}
+                  onChange={(e) => updateSecurity({ passwordExpiryDays: Number(e.target.value) })}
+                  disabled={!isAdmin}
+                />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Session & Authentication</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Session Timeout (minutes)</Label>
+                <Input
+                  type="number"
+                  value={config.security.sessionTimeoutMinutes}
+                  onChange={(e) => updateSecurity({ sessionTimeoutMinutes: Number(e.target.value) })}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Max Login Attempts</Label>
+                <Input
+                  type="number"
+                  value={config.security.maxLoginAttempts}
+                  onChange={(e) => updateSecurity({ maxLoginAttempts: Number(e.target.value) })}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <ToggleRow
+                label="Enable Two-Factor Authentication"
+                value={config.security.enableTwoFactor}
+                onChange={(v) => updateSecurity({ enableTwoFactor: v })}
+                disabled={!isAdmin}
+              />
+              <ToggleRow
+                label="Enforce Single Sign-On (SSO)"
+                value={config.security.enforceSSO}
+                onChange={(v) => updateSecurity({ enforceSSO: v })}
+                disabled={!isAdmin}
+              />
+              <ToggleRow
+                label="IP Whitelist Enabled"
+                value={config.security.ipWhitelistEnabled}
+                onChange={(v) => updateSecurity({ ipWhitelistEnabled: v })}
+                disabled={!isAdmin}
+              />
+              <div className="space-y-1.5">
+                <Label>Audit Log Retention (days)</Label>
+                <Input
+                  type="number"
+                  value={config.security.auditLogRetentionDays}
+                  onChange={(e) => updateSecurity({ auditLogRetentionDays: Number(e.target.value) })}
+                  disabled={!isAdmin}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Notifications */}
+      {tab === "notifications" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Channels</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <ToggleRow
+                label="Email Notifications"
+                value={config.notifications.emailEnabled}
+                onChange={(v) => updateNotifications({ emailEnabled: v })}
+                disabled={!isAdmin}
+              />
+              <ToggleRow
+                label="SMS Notifications"
+                value={config.notifications.smsEnabled}
+                onChange={(v) => updateNotifications({ smsEnabled: v })}
+                disabled={!isAdmin}
+              />
+              <ToggleRow
+                label="Push Notifications"
+                value={config.notifications.pushEnabled}
+                onChange={(v) => updateNotifications({ pushEnabled: v })}
+                disabled={!isAdmin}
+              />
+              <div className="space-y-1.5">
+                <Label>Sender Email Address</Label>
+                <Input
+                  type="email"
+                  value={config.notifications.emailFromAddress}
+                  onChange={(e) => updateNotifications({ emailFromAddress: e.target.value })}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Digest Frequency</Label>
+                <select
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={config.notifications.digestFrequency}
+                  onChange={(e) =>
+                    updateNotifications({ digestFrequency: e.target.value as "Off" | "Daily" | "Weekly" })
+                  }
+                  disabled={!isAdmin}
+                >
+                  <option>Off</option>
+                  <option>Daily</option>
+                  <option>Weekly</option>
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Alert Rules</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <ToggleRow
+                label="Notify on Batch Expiry"
+                value={config.notifications.notifyOnExpiry}
+                onChange={(v) => updateNotifications({ notifyOnExpiry: v })}
+                disabled={!isAdmin}
+              />
+              <ToggleRow
+                label="Notify on Low Stock"
+                value={config.notifications.notifyOnLowStock}
+                onChange={(v) => updateNotifications({ notifyOnLowStock: v })}
+                disabled={!isAdmin}
+              />
+              <ToggleRow
+                label="Notify on Cold Chain Alert"
+                value={config.notifications.notifyOnColdChainAlert}
+                onChange={(v) => updateNotifications({ notifyOnColdChainAlert: v })}
+                disabled={!isAdmin}
+              />
+              <ToggleRow
+                label="Notify on Approval Required"
+                value={config.notifications.notifyOnApprovalNeeded}
+                onChange={(v) => updateNotifications({ notifyOnApprovalNeeded: v })}
+                disabled={!isAdmin}
+              />
+              <ToggleRow
+                label="Notify on New Market Request"
+                value={config.notifications.notifyOnNewMarketRequest}
+                onChange={(v) => updateNotifications({ notifyOnNewMarketRequest: v })}
+                disabled={!isAdmin}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Integrations */}
+      {tab === "integrations" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Map Provider</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Provider</Label>
+                <select
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={config.integrations.mapProvider}
+                  onChange={(e) =>
+                    updateIntegrations({
+                      mapProvider: e.target.value as "OpenStreetMap" | "Google" | "Mapbox",
+                    })
+                  }
+                  disabled={!isAdmin}
+                >
+                  <option value="OpenStreetMap">OpenStreetMap (Free, no key needed)</option>
+                  <option value="Google">Google Maps</option>
+                  <option value="Mapbox">Mapbox</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Map API Key (if required)</Label>
+                <Input
+                  type="password"
+                  placeholder="Leave empty for OpenStreetMap"
+                  value={config.integrations.mapApiKey}
+                  onChange={(e) => updateIntegrations({ mapApiKey: e.target.value })}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                OpenStreetMap is used by default and requires no API key.
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">SMTP (Email)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>SMTP Host</Label>
+                <Input
+                  value={config.integrations.smtpHost}
+                  onChange={(e) => updateIntegrations({ smtpHost: e.target.value })}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Port</Label>
+                  <Input
+                    type="number"
+                    value={config.integrations.smtpPort}
+                    onChange={(e) => updateIntegrations({ smtpPort: Number(e.target.value) })}
+                    disabled={!isAdmin}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>User</Label>
+                  <Input
+                    value={config.integrations.smtpUser}
+                    onChange={(e) => updateIntegrations({ smtpUser: e.target.value })}
+                    disabled={!isAdmin}
+                  />
+                </div>
+              </div>
+              <ToggleRow
+                label="Use TLS/SSL"
+                value={config.integrations.smtpSecure}
+                onChange={(v) => updateIntegrations({ smtpSecure: v })}
+                disabled={!isAdmin}
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">External Services</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <ToggleRow
+                label="EDA e-Submission API (Egyptian Drug Authority)"
+                value={config.integrations.edaApiEnabled}
+                onChange={(v) => updateIntegrations({ edaApiEnabled: v })}
+                disabled={!isAdmin}
+              />
+              <ToggleRow
+                label="WhatsApp Business API"
+                value={config.integrations.whatsappEnabled}
+                onChange={(v) => updateIntegrations({ whatsappEnabled: v })}
+                disabled={!isAdmin}
+              />
+              <div className="space-y-1.5">
+                <Label>WhatsApp Business Number</Label>
+                <Input
+                  placeholder="+20 100 000 0000"
+                  value={config.integrations.whatsappNumber}
+                  onChange={(e) => updateIntegrations({ whatsappNumber: e.target.value })}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Webhook URL</Label>
+                <Input
+                  type="url"
+                  placeholder="https://..."
+                  value={config.integrations.webhookUrl}
+                  onChange={(e) => updateIntegrations({ webhookUrl: e.target.value })}
+                  disabled={!isAdmin}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Backup & Recovery */}
+      {tab === "backup" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Automatic Backups</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <ToggleRow
+                label="Enable Automatic Backups"
+                value={config.backup.autoBackupEnabled}
+                onChange={(v) => updateBackup({ autoBackupEnabled: v })}
+                disabled={!isAdmin}
+              />
+              <div className="space-y-1.5">
+                <Label>Frequency</Label>
+                <select
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={config.backup.backupFrequency}
+                  onChange={(e) =>
+                    updateBackup({ backupFrequency: e.target.value as "Hourly" | "Daily" | "Weekly" })
+                  }
+                  disabled={!isAdmin}
+                >
+                  <option>Hourly</option>
+                  <option>Daily</option>
+                  <option>Weekly</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Retention (days)</Label>
+                <Input
+                  type="number"
+                  value={config.backup.retentionDays}
+                  onChange={(e) => updateBackup({ retentionDays: Number(e.target.value) })}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <ToggleRow
+                label="Encrypt Backups (AES-256)"
+                value={config.backup.encryptBackups}
+                onChange={(v) => updateBackup({ encryptBackups: v })}
+                disabled={!isAdmin}
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Storage & Status</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Backup Location</Label>
+                <select
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={config.backup.backupLocation}
+                  onChange={(e) =>
+                    updateBackup({
+                      backupLocation: e.target.value as "Local" | "S3" | "Azure" | "GCP",
+                    })
+                  }
+                  disabled={!isAdmin}
+                >
+                  <option value="Local">Local Disk</option>
+                  <option value="S3">Amazon S3</option>
+                  <option value="Azure">Azure Blob Storage</option>
+                  <option value="GCP">Google Cloud Storage</option>
+                </select>
+              </div>
+              <div className="rounded-lg border bg-slate-50 p-3 text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Last Backup</span>
+                  <span className="font-medium">
+                    {new Date(config.backup.lastBackupAt).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Status</span>
+                  <Badge variant="success">Healthy</Badge>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" disabled={!isAdmin}>
+                  Run Backup Now
+                </Button>
+                <Button size="sm" variant="outline" disabled={!isAdmin}>
+                  Restore From Backup
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Localization */}
+      {tab === "localization" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Regional Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+              <div className="space-y-1.5">
+                <Label>Default Language</Label>
+                <select
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={config.localization.defaultLanguage}
+                  onChange={(e) =>
+                    updateLocalization({ defaultLanguage: e.target.value as "en" | "ar" | "fr" })
+                  }
+                  disabled={!isAdmin}
+                >
+                  <option value="en">English</option>
+                  <option value="ar">العربية (Arabic)</option>
+                  <option value="fr">Français</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Timezone</Label>
+                <Input
+                  value={config.localization.timezone}
+                  onChange={(e) => updateLocalization({ timezone: e.target.value })}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>First Day of Week</Label>
+                <select
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={config.localization.firstDayOfWeek}
+                  onChange={(e) =>
+                    updateLocalization({
+                      firstDayOfWeek: e.target.value as "Sunday" | "Monday" | "Saturday",
+                    })
+                  }
+                  disabled={!isAdmin}
+                >
+                  <option>Sunday</option>
+                  <option>Monday</option>
+                  <option>Saturday</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Number Format</Label>
+                <select
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={config.localization.numberFormat}
+                  onChange={(e) =>
+                    updateLocalization({
+                      numberFormat: e.target.value as "1,234.56" | "1.234,56" | "1 234.56",
+                    })
+                  }
+                  disabled={!isAdmin}
+                >
+                  <option value="1,234.56">1,234.56 (en-US)</option>
+                  <option value="1.234,56">1.234,56 (de-DE)</option>
+                  <option value="1 234.56">1 234.56 (fr-FR)</option>
+                </select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Appearance */}
+      {tab === "appearance" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Appearance & Theme</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+              <div className="space-y-1.5">
+                <Label>Theme</Label>
+                <select
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={config.appearance.theme}
+                  onChange={(e) =>
+                    updateAppearance({ theme: e.target.value as "light" | "dark" | "auto" })
+                  }
+                  disabled={!isAdmin}
+                >
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                  <option value="auto">Auto (System)</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Primary Color</Label>
+                <select
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={config.appearance.primaryColor}
+                  onChange={(e) =>
+                    updateAppearance({
+                      primaryColor: e.target.value as "blue" | "green" | "purple" | "orange" | "red",
+                    })
+                  }
+                  disabled={!isAdmin}
+                >
+                  <option value="blue">Blue</option>
+                  <option value="green">Green</option>
+                  <option value="purple">Purple</option>
+                  <option value="orange">Orange</option>
+                  <option value="red">Red</option>
+                </select>
+              </div>
+            </div>
+            <div className="space-y-2 pt-2">
+              <ToggleRow
+                label="Compact Mode (denser UI)"
+                value={config.appearance.compactMode}
+                onChange={(v) => updateAppearance({ compactMode: v })}
+                disabled={!isAdmin}
+              />
+              <ToggleRow
+                label="Sidebar Collapsed by Default"
+                value={config.appearance.sidebarDefaultCollapsed}
+                onChange={(v) => updateAppearance({ sidebarDefaultCollapsed: v })}
+                disabled={!isAdmin}
+              />
+              <ToggleRow
+                label="Show Company Logo in Header"
+                value={config.appearance.showCompanyLogo}
+                onChange={(v) => updateAppearance({ showCompanyLogo: v })}
+                disabled={!isAdmin}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Audit Log */}
+      {tab === "audit" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recent System Activity</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Retained for {config.security.auditLogRetentionDays} days. Export for SOX / GMP audits.
+            </p>
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50 border-y">
+                <tr>
+                  <th className="text-left p-2">Timestamp</th>
+                  <th className="text-left p-2">User</th>
+                  <th className="text-left p-2">Role</th>
+                  <th className="text-left p-2">Action</th>
+                  <th className="text-left p-2">Entity</th>
+                  <th className="text-left p-2">IP</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { t: "2026-04-11 09:42:18", u: "System Administrator", r: "ADMIN", a: "UPDATE", e: "Config › Security", ip: "10.0.0.12" },
+                  { t: "2026-04-11 09:31:05", u: "Fatima El-Masry", r: "ACCOUNTANT", a: "CREATE", e: "Invoice INV-2026-0142", ip: "10.0.0.44" },
+                  { t: "2026-04-11 09:15:32", u: "Mohamed El-Sayed", r: "MEDICAL_REP", a: "GPS_CHECKIN", e: "Visit V-0098 (Dr. Ahmed)", ip: "197.50.12.8" },
+                  { t: "2026-04-11 08:58:10", u: "Khaled Farouk", r: "WAREHOUSE", a: "UPDATE", e: "Batch B-24-112", ip: "10.0.0.61" },
+                  { t: "2026-04-11 08:42:44", u: "Dr. Hossam Tarek", r: "BUM", a: "EXPORT", e: "CRM Reports CSV", ip: "10.0.0.2" },
+                  { t: "2026-04-11 08:30:21", u: "Laila Abdel-Rahman", r: "HR", a: "CREATE", e: "Job Posting J-0045", ip: "10.0.0.33" },
+                  { t: "2026-04-11 08:10:03", u: "Ahmed Mostafa", r: "DISTRICT_MANAGER", a: "LOGIN", e: "—", ip: "197.50.22.1" },
+                  { t: "2026-04-11 07:55:12", u: "System", r: "—", a: "BACKUP", e: "Daily automatic backup", ip: "—" },
+                ].map((row, i) => (
+                  <tr key={i} className="border-b hover:bg-slate-50">
+                    <td className="p-2 font-mono text-[10px]">{row.t}</td>
+                    <td className="p-2">{row.u}</td>
+                    <td className="p-2">
+                      <Badge variant="secondary" className="text-[10px]">{row.r}</Badge>
+                    </td>
+                    <td className="p-2">
+                      <span className="font-mono text-[10px]">{row.a}</span>
+                    </td>
+                    <td className="p-2 text-muted-foreground">{row.e}</td>
+                    <td className="p-2 font-mono text-[10px] text-muted-foreground">{row.ip}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="p-3 border-t flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">Showing 8 of 24,418 entries</p>
+              <Button size="sm" variant="outline" disabled={!isAdmin}>
+                Export Full Log (CSV)
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Permissions Matrix */}

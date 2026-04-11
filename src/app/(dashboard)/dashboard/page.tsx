@@ -1,6 +1,8 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   DollarSign,
   Users,
@@ -15,167 +17,654 @@ import {
   ShoppingCart,
   MessageSquare,
   ClipboardList,
-  Database,
+  Pill,
+  FlaskConical,
+  Thermometer,
+  AlertTriangle,
+  ShieldCheck,
+  MapPin,
+  Stethoscope,
+  Target,
+  Activity,
+  Package,
+  Receipt,
+  Landmark,
+  GraduationCap,
+  Calendar,
+  PackageCheck,
+  Microscope,
+  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
+import { useAppConfig } from "@/lib/config-context";
 
-const revenueData = [
-  { month: "Oct", revenue: 420000, expenses: 310000 },
-  { month: "Nov", revenue: 480000, expenses: 340000 },
-  { month: "Dec", revenue: 510000, expenses: 360000 },
-  { month: "Jan", revenue: 445000, expenses: 320000 },
-  { month: "Feb", revenue: 520000, expenses: 350000 },
-  { month: "Mar", revenue: 570000, expenses: 380000 },
-];
+// ─── Shared primitives ───────────────────────────────────────────────────────
 
-const pipelineData = [
-  { name: "Prospecting", value: 12, color: "bg-blue-500" },
-  { name: "Qualification", value: 8, color: "bg-purple-500" },
-  { name: "Proposal", value: 6, color: "bg-amber-500" },
-  { name: "Negotiation", value: 4, color: "bg-emerald-500" },
-  { name: "Closed Won", value: 15, color: "bg-green-500" },
-];
-
-const activities = [
-  { icon: FileText, iconColor: "text-blue-600", iconBg: "bg-blue-100", description: "New invoice #INV-2024-089 created", time: "5 min ago" },
-  { icon: Users, iconColor: "text-purple-600", iconBg: "bg-purple-100", description: "Lead converted: Acme Corp", time: "15 min ago" },
-  { icon: CheckCircle, iconColor: "text-green-600", iconBg: "bg-green-100", description: "Ticket #TK-445 resolved", time: "1 hour ago" },
-  { icon: UserPlus, iconColor: "text-orange-600", iconBg: "bg-orange-100", description: "New candidate applied: Senior Dev", time: "2 hours ago" },
-  { icon: ShoppingCart, iconColor: "text-teal-600", iconBg: "bg-teal-100", description: "PO #PO-2024-034 approved", time: "3 hours ago" },
-  { icon: Briefcase, iconColor: "text-indigo-600", iconBg: "bg-indigo-100", description: "Employee onboarding: Lisa Park", time: "4 hours ago" },
-];
-
-const tickets = [
-  { priority: "CRITICAL", priorityColor: "bg-red-500", subject: "Payment gateway down", account: "Global Retail Inc.", time: "10 min ago" },
-  { priority: "HIGH", priorityColor: "bg-orange-500", subject: "Data sync failure on CRM", account: "TechVision Ltd.", time: "45 min ago" },
-  { priority: "MEDIUM", priorityColor: "bg-blue-500", subject: "Report generation slow", account: "Pinnacle Solutions", time: "2 hours ago" },
-  { priority: "HIGH", priorityColor: "bg-orange-500", subject: "Invoice not sending emails", account: "Brightway Co.", time: "3 hours ago" },
-  { priority: "LOW", priorityColor: "bg-gray-400", subject: "UI alignment issue", account: "Nova Enterprises", time: "5 hours ago" },
-];
-
-const interviews = [
-  { candidate: "Jordan Mitchell", position: "Senior Frontend Engineer", date: "Apr 1, 2026 – 10:00 AM", type: "VIDEO", typeBg: "bg-blue-100 text-blue-700" },
-  { candidate: "Priya Nair", position: "Product Manager", date: "Apr 2, 2026 – 2:00 PM", type: "ONSITE", typeBg: "bg-green-100 text-green-700" },
-  { candidate: "Marcus Chen", position: "DevOps Engineer", date: "Apr 3, 2026 – 11:30 AM", type: "PHONE", typeBg: "bg-gray-100 text-gray-700" },
-  { candidate: "Amara Osei", position: "UX Designer", date: "Apr 4, 2026 – 9:00 AM", type: "VIDEO", typeBg: "bg-blue-100 text-blue-700" },
-];
-
-const quickActions = [
-  { label: "New Invoice", icon: FileText, href: "/erp/finance" },
-  { label: "New Lead", icon: Users, href: "/crm/leads" },
-  { label: "Post Job", icon: Briefcase, href: "/ats/jobs" },
-  { label: "Create PO", icon: ShoppingCart, href: "/erp/procurement" },
-  { label: "Messages", icon: MessageSquare, href: "/messages" },
-  { label: "My Tasks", icon: ClipboardList, href: "/tasks" },
-  { label: "Add Employee", icon: UserPlus, href: "/erp/hr" },
-  { label: "Import Data", icon: Database, href: "/data-upload" },
-];
-
-function RevenueChart() {
-  const maxVal = Math.max(...revenueData.flatMap(d => [d.revenue, d.expenses]));
-  return (
-    <div className="h-[300px] flex items-end gap-3 px-2 pt-4 pb-8 relative">
-      <div className="absolute left-0 top-4 bottom-8 flex flex-col justify-between text-[10px] text-gray-400 w-10">
-        <span>${(maxVal / 1000).toFixed(0)}k</span>
-        <span>${(maxVal / 2000).toFixed(0)}k</span>
-        <span>$0</span>
-      </div>
-      <div className="flex-1 flex items-end gap-2 ml-10">
-        {revenueData.map((d, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center gap-1">
-            <div className="w-full flex gap-1 items-end justify-center" style={{ height: "220px" }}>
-              <div className="flex-1 max-w-[24px] bg-blue-500 rounded-t transition-all hover:bg-blue-600" style={{ height: `${(d.revenue / maxVal) * 100}%` }} title={`Revenue: $${d.revenue.toLocaleString()}`} />
-              <div className="flex-1 max-w-[24px] bg-slate-300 rounded-t transition-all hover:bg-slate-400" style={{ height: `${(d.expenses / maxVal) * 100}%` }} title={`Expenses: $${d.expenses.toLocaleString()}`} />
-            </div>
-            <span className="text-[11px] text-gray-500 mt-1">{d.month}</span>
-          </div>
-        ))}
-      </div>
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-4 text-xs text-gray-500">
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-blue-500" />Revenue</span>
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-slate-300" />Expenses</span>
-      </div>
-    </div>
-  );
+interface KpiCardProps {
+  label: string;
+  value: string | number;
+  delta?: string;
+  trend?: "up" | "down" | "flat";
+  icon: LucideIcon;
+  color: string;
 }
 
-function PipelineChart() {
-  const total = pipelineData.reduce((s, d) => s + d.value, 0);
+function KpiCard({ label, value, delta, trend = "flat", icon: Icon, color }: KpiCardProps) {
+  const trendColor = trend === "up" ? "text-green-600" : trend === "down" ? "text-red-600" : "text-gray-500";
+  const TrendIcon = trend === "up" ? ArrowUpRight : trend === "down" ? ArrowDownRight : Activity;
   return (
-    <div className="h-[300px] flex flex-col justify-center gap-3 px-4">
-      {pipelineData.map((d, i) => (
-        <div key={i} className="flex items-center gap-3">
-          <span className="text-xs text-gray-600 w-24 text-right truncate">{d.name}</span>
-          <div className="flex-1 h-8 bg-gray-100 rounded-full overflow-hidden">
-            <div className={`h-full ${d.color} rounded-full flex items-center justify-end pr-3 transition-all`} style={{ width: `${(d.value / total) * 100}%` }}>
-              <span className="text-[11px] font-semibold text-white">{d.value}</span>
-            </div>
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-gray-500">{label}</span>
+            <span className="text-2xl font-bold text-gray-900">{value}</span>
+            {delta && (
+              <span className={`flex items-center gap-1 text-sm font-medium ${trendColor}`}>
+                <TrendIcon className="h-4 w-4" />
+                {delta}
+              </span>
+            )}
           </div>
-          <span className="text-xs text-gray-400 w-10">{Math.round((d.value / total) * 100)}%</span>
+          <div className={`flex h-12 w-12 items-center justify-center rounded-full ${color}`}>
+            <Icon className="h-6 w-6" />
+          </div>
         </div>
-      ))}
-      <div className="text-center text-xs text-gray-400 mt-2">Total: {total} deals in pipeline</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface QuickLinkItem {
+  label: string;
+  icon: LucideIcon;
+  href: string;
+}
+
+function QuickActions({ items }: { items: QuickLinkItem[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base font-semibold">Quick Actions</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {items.map((action, i) => {
+            const Icon = action.icon;
+            return (
+              <Link key={i} href={action.href}>
+                <div className="w-full flex flex-col items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-4 text-sm font-medium text-gray-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 cursor-pointer">
+                  <Icon className="h-5 w-5" />
+                  <span className="text-xs text-center">{action.label}</span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RoleHeader({ title, subtitle, badge }: { title: string; subtitle: string; badge: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        <Pill className="h-6 w-6 text-primary" />
+        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        <Badge variant="success" className="ml-2">{badge}</Badge>
+      </div>
+      <p className="text-sm text-gray-500">{subtitle}</p>
     </div>
   );
 }
 
-export default function DashboardPage() {
+// ─── Role-specific dashboards ────────────────────────────────────────────────
+
+function AdminDashboard() {
+  const { user } = useCurrentUser();
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">Unified overview of your ERP, CRM, and ATS systems</p>
-      </div>
-
+      <RoleHeader
+        title={`Welcome, ${user.name.split(" ")[0]}`}
+        subtitle="Full pharmaceutical enterprise overview — all modules, all users"
+        badge="ADMINISTRATOR"
+      />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card><CardContent className="p-5"><div className="flex items-center justify-between"><div className="flex flex-col gap-1"><span className="text-sm font-medium text-gray-500">Total Revenue</span><span className="text-2xl font-bold text-gray-900">$2,845,000</span><span className="flex items-center gap-1 text-sm font-medium text-green-600"><ArrowUpRight className="h-4 w-4" />+12.5%</span></div><div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100"><DollarSign className="h-6 w-6 text-green-600" /></div></div></CardContent></Card>
-        <Card><CardContent className="p-5"><div className="flex items-center justify-between"><div className="flex flex-col gap-1"><span className="text-sm font-medium text-gray-500">Active Customers</span><span className="text-2xl font-bold text-gray-900">1,247</span><span className="flex items-center gap-1 text-sm font-medium text-green-600"><ArrowUpRight className="h-4 w-4" />+8.3%</span></div><div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100"><Users className="h-6 w-6 text-blue-600" /></div></div></CardContent></Card>
-        <Card><CardContent className="p-5"><div className="flex items-center justify-between"><div className="flex flex-col gap-1"><span className="text-sm font-medium text-gray-500">Open Positions</span><span className="text-2xl font-bold text-gray-900">23</span><span className="flex items-center gap-1 text-sm font-medium text-red-600"><ArrowDownRight className="h-4 w-4" />-2.1%</span></div><div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100"><Briefcase className="h-6 w-6 text-purple-600" /></div></div></CardContent></Card>
-        <Card><CardContent className="p-5"><div className="flex items-center justify-between"><div className="flex flex-col gap-1"><span className="text-sm font-medium text-gray-500">Employee Count</span><span className="text-2xl font-bold text-gray-900">156</span><span className="flex items-center gap-1 text-sm font-medium text-green-600"><ArrowUpRight className="h-4 w-4" />+4.7%</span></div><div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100"><TrendingUp className="h-6 w-6 text-orange-600" /></div></div></CardContent></Card>
+        <KpiCard label="Total Revenue (YTD)" value="EGP 48.2M" delta="+14.2%" trend="up" icon={DollarSign} color="bg-green-100 text-green-600" />
+        <KpiCard label="Active Users" value={156} delta="+8.3%" trend="up" icon={Users} color="bg-blue-100 text-blue-600" />
+        <KpiCard label="GMP Compliance" value="98.5%" delta="+0.4%" trend="up" icon={ShieldCheck} color="bg-purple-100 text-purple-600" />
+        <KpiCard label="Active Batches" value={24} delta="+3" trend="up" icon={FlaskConical} color="bg-orange-100 text-orange-600" />
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card><CardHeader><CardTitle className="text-base font-semibold">Revenue Overview</CardTitle></CardHeader><CardContent><RevenueChart /></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-base font-semibold">Sales Pipeline</CardTitle></CardHeader><CardContent><PipelineChart /></CardContent></Card>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card>
-          <CardHeader><CardTitle className="text-base font-semibold">Recent Activities</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            {activities.map((a, i) => { const Icon = a.icon; return (
-              <div key={i} className="flex items-start gap-3"><div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${a.iconBg}`}><Icon className={`h-4 w-4 ${a.iconColor}`} /></div><div className="flex-1 min-w-0"><p className="text-sm text-gray-800 leading-snug">{a.description}</p><p className="mt-0.5 flex items-center gap-1 text-xs text-gray-400"><Clock className="h-3 w-3" />{a.time}</p></div></div>
-            ); })}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-base font-semibold">Open Tickets</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            {tickets.map((t, i) => (
-              <div key={i} className="flex items-start gap-3"><span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${t.priorityColor}`} /><div className="flex-1 min-w-0"><p className="text-sm font-medium text-gray-800 leading-snug truncate">{t.subject}</p><p className="text-xs text-gray-500 truncate">{t.account}</p><p className="mt-0.5 flex items-center gap-1 text-xs text-gray-400"><Clock className="h-3 w-3" />{t.time}<span className="ml-1 rounded px-1 py-0.5 text-[10px] font-semibold uppercase bg-gray-100 text-gray-600">{t.priority}</span></p></div></div>
+          <CardHeader><CardTitle className="text-base">Module Health</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {[
+              { name: "Accounting", status: "Healthy", color: "bg-green-500" },
+              { name: "Inventory & Batches", status: "Healthy", color: "bg-green-500" },
+              { name: "Field Force CRM", status: "Healthy", color: "bg-green-500" },
+              { name: "Cold Chain", status: "2 alerts", color: "bg-amber-500" },
+              { name: "Regulatory (EDA)", status: "1 pending", color: "bg-amber-500" },
+              { name: "HR & Payroll", status: "Healthy", color: "bg-green-500" },
+            ].map((m) => (
+              <div key={m.name} className="flex items-center justify-between">
+                <span>{m.name}</span>
+                <span className="flex items-center gap-2">
+                  <span className={`h-2 w-2 rounded-full ${m.color}`} />
+                  <span className="text-xs text-gray-500">{m.status}</span>
+                </span>
+              </div>
             ))}
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className="text-base font-semibold">Upcoming Interviews</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            {interviews.map((iv, i) => (
-              <div key={i} className="flex items-start gap-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100"><Users className="h-4 w-4 text-indigo-600" /></div><div className="flex-1 min-w-0"><p className="text-sm font-medium text-gray-800 leading-snug">{iv.candidate}</p><p className="text-xs text-gray-500 truncate">{iv.position}</p><div className="mt-1 flex items-center gap-2"><p className="flex items-center gap-1 text-xs text-gray-400"><Clock className="h-3 w-3" />{iv.date}</p><span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${iv.typeBg}`}>{iv.type}</span></div></div></div>
+          <CardHeader><CardTitle className="text-base">Critical Alerts</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5" />
+              <div>12 batches expiring within 90 days</div>
+            </div>
+            <div className="flex items-start gap-2">
+              <Thermometer className="h-4 w-4 text-amber-500 mt-0.5" />
+              <div>Cold chain excursion: Warehouse B (2-8°C)</div>
+            </div>
+            <div className="flex items-start gap-2">
+              <FileText className="h-4 w-4 text-blue-500 mt-0.5" />
+              <div>EDA submission deadline: 7 days</div>
+            </div>
+            <div className="flex items-start gap-2">
+              <Microscope className="h-4 w-4 text-purple-500 mt-0.5" />
+              <div>8 products pending QC release</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">User Activity (24h)</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex justify-between"><span>Total logins</span><span className="font-semibold">127</span></div>
+            <div className="flex justify-between"><span>Field force GPS check-ins</span><span className="font-semibold">84</span></div>
+            <div className="flex justify-between"><span>Visits logged</span><span className="font-semibold">316</span></div>
+            <div className="flex justify-between"><span>Invoices created</span><span className="font-semibold">42</span></div>
+            <div className="flex justify-between"><span>Stock movements</span><span className="font-semibold">58</span></div>
+          </CardContent>
+        </Card>
+      </div>
+      <QuickActions items={[
+        { label: "Settings", icon: ShieldCheck, href: "/settings" },
+        { label: "Industry", icon: Pill, href: "/industry" },
+        { label: "Accounting", icon: Receipt, href: "/erp/accounting" },
+        { label: "CRM Reports", icon: TrendingUp, href: "/crm/reports" },
+        { label: "GPS Tracking", icon: MapPin, href: "/crm/gps-tracking" },
+        { label: "HR", icon: Users, href: "/erp/hr" },
+      ]} />
+    </div>
+  );
+}
+
+function BUMDashboard() {
+  const { user } = useCurrentUser();
+  return (
+    <div className="p-6 space-y-6">
+      <RoleHeader
+        title={`Welcome, ${user.name.split(" ")[0]}`}
+        subtitle="National business unit performance — Pharma Egypt"
+        badge="BUSINESS UNIT MANAGER"
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard label="BU Revenue (YTD)" value="EGP 48.2M" delta="+14.2%" trend="up" icon={DollarSign} color="bg-green-100 text-green-600" />
+        <KpiCard label="Target Achievement" value="106%" delta="+6%" trend="up" icon={Target} color="bg-blue-100 text-blue-600" />
+        <KpiCard label="National Coverage" value="87%" delta="+2.1%" trend="up" icon={MapPin} color="bg-purple-100 text-purple-600" />
+        <KpiCard label="Field Force" value={64} delta="4 new" trend="up" icon={Users} color="bg-orange-100 text-orange-600" />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-base">Marketeer Performance</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {[
+              { name: "Yasmin Salem — North", achievement: 112, coverage: 91 },
+              { name: "Omar Hassan — South", achievement: 98, coverage: 84 },
+              { name: "Nour Abdel-Latif — Delta", achievement: 104, coverage: 88 },
+            ].map((m) => (
+              <div key={m.name} className="space-y-1">
+                <div className="flex justify-between"><span>{m.name}</span><span className="font-semibold">{m.achievement}%</span></div>
+                <div className="h-2 bg-gray-100 rounded-full"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(m.achievement, 120)}%` }} /></div>
+                <div className="text-xs text-gray-500">Coverage: {m.coverage}%</div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">Top Products by Sales</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {[
+              { name: "Cardioprex 500mg", sales: "EGP 8.2M", pct: 92 },
+              { name: "Diabetex XR", sales: "EGP 6.4M", pct: 76 },
+              { name: "Nervocalm 10mg", sales: "EGP 5.1M", pct: 61 },
+              { name: "Antibio-Z 1g", sales: "EGP 4.8M", pct: 58 },
+            ].map((p) => (
+              <div key={p.name} className="space-y-1">
+                <div className="flex justify-between"><span>{p.name}</span><span className="font-semibold">{p.sales}</span></div>
+                <div className="h-2 bg-gray-100 rounded-full"><div className="h-full bg-green-500 rounded-full" style={{ width: `${p.pct}%` }} /></div>
+              </div>
             ))}
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader><CardTitle className="text-base font-semibold">Quick Actions</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-            {quickActions.map((action, i) => { const Icon = action.icon; return (
-              <Link key={i} href={action.href}><div className="w-full flex flex-col items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-4 text-sm font-medium text-gray-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 cursor-pointer"><Icon className="h-5 w-5" /><span className="text-xs">{action.label}</span></div></Link>
-            ); })}
-          </div>
-        </CardContent>
-      </Card>
+      <QuickActions items={[
+        { label: "CRM Reports", icon: TrendingUp, href: "/crm/reports" },
+        { label: "GPS Tracking", icon: MapPin, href: "/crm/gps-tracking" },
+        { label: "Accounting", icon: Receipt, href: "/erp/accounting" },
+        { label: "Collections", icon: Landmark, href: "/erp/collections" },
+        { label: "BUM View", icon: Target, href: "/crm/bum" },
+        { label: "Reports", icon: FileText, href: "/reports" },
+      ]} />
     </div>
   );
+}
+
+function MarketeerDashboard() {
+  const { user } = useCurrentUser();
+  return (
+    <div className="p-6 space-y-6">
+      <RoleHeader
+        title={`Welcome, ${user.name.split(" ")[0]}`}
+        subtitle={`Regional marketing performance — ${user.territory ?? "All Territories"}`}
+        badge="MARKETEER"
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard label="Region Revenue" value="EGP 16.4M" delta="+11.4%" trend="up" icon={DollarSign} color="bg-green-100 text-green-600" />
+        <KpiCard label="Coverage" value="91%" delta="+3.2%" trend="up" icon={MapPin} color="bg-blue-100 text-blue-600" />
+        <KpiCard label="District Managers" value={5} icon={Users} color="bg-purple-100 text-purple-600" />
+        <KpiCard label="Medical Reps" value={18} delta="2 new" trend="up" icon={Stethoscope} color="bg-orange-100 text-orange-600" />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-base">District Manager Performance</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {[
+              { name: "Ahmed Mostafa — Cairo North", achievement: 108 },
+              { name: "Mariam Fouad — Cairo South", achievement: 95 },
+              { name: "Tarek Samir — Giza", achievement: 102 },
+              { name: "Rania El-Kady — Alexandria", achievement: 89 },
+            ].map((d) => (
+              <div key={d.name} className="space-y-1">
+                <div className="flex justify-between"><span>{d.name}</span><span className="font-semibold">{d.achievement}%</span></div>
+                <div className="h-2 bg-gray-100 rounded-full"><div className={`h-full rounded-full ${d.achievement >= 100 ? "bg-green-500" : "bg-amber-500"}`} style={{ width: `${Math.min(d.achievement, 120)}%` }} /></div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">Market Activities</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex justify-between"><span>Doctor visits (MTD)</span><span className="font-semibold">1,284</span></div>
+            <div className="flex justify-between"><span>New doctors added</span><span className="font-semibold">34</span></div>
+            <div className="flex justify-between"><span>Pharmacy visits</span><span className="font-semibold">412</span></div>
+            <div className="flex justify-between"><span>Market requests raised</span><span className="font-semibold">27</span></div>
+            <div className="flex justify-between"><span>CME events sponsored</span><span className="font-semibold">3</span></div>
+          </CardContent>
+        </Card>
+      </div>
+      <QuickActions items={[
+        { label: "My Region", icon: MapPin, href: "/crm/marketeer" },
+        { label: "CRM Reports", icon: TrendingUp, href: "/crm/reports" },
+        { label: "GPS Tracking", icon: MapPin, href: "/crm/gps-tracking" },
+        { label: "Doctors", icon: Stethoscope, href: "/crm/doctors" },
+        { label: "Market Requests", icon: FileText, href: "/crm/market-requests" },
+        { label: "Messages", icon: MessageSquare, href: "/messages" },
+      ]} />
+    </div>
+  );
+}
+
+function DistrictManagerDashboard() {
+  const { user } = useCurrentUser();
+  return (
+    <div className="p-6 space-y-6">
+      <RoleHeader
+        title={`Welcome, ${user.name.split(" ")[0]}`}
+        subtitle={`District team performance — ${user.territory ?? "District"}`}
+        badge="DISTRICT MANAGER"
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard label="District Revenue (MTD)" value="EGP 2.8M" delta="+8.1%" trend="up" icon={DollarSign} color="bg-green-100 text-green-600" />
+        <KpiCard label="Team Coverage" value="88%" delta="+1.5%" trend="up" icon={MapPin} color="bg-blue-100 text-blue-600" />
+        <KpiCard label="Medical Reps" value={6} icon={Users} color="bg-purple-100 text-purple-600" />
+        <KpiCard label="Visits Today" value={42} delta="+6" trend="up" icon={Calendar} color="bg-orange-100 text-orange-600" />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-base">Medical Rep Team</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {[
+              { name: "Mohamed El-Sayed", visits: 9, target: 8, coverage: 94 },
+              { name: "Nadia Hamdy", visits: 8, target: 8, coverage: 88 },
+              { name: "Youssef Rashad", visits: 7, target: 8, coverage: 82 },
+              { name: "Heba El-Gendy", visits: 10, target: 8, coverage: 96 },
+              { name: "Mostafa Kamal", visits: 6, target: 8, coverage: 78 },
+            ].map((r) => (
+              <div key={r.name} className="flex items-center justify-between">
+                <div>
+                  <div>{r.name}</div>
+                  <div className="text-xs text-gray-500">Coverage: {r.coverage}%</div>
+                </div>
+                <Badge variant={r.visits >= r.target ? "success" : "secondary"}>
+                  {r.visits}/{r.target} visits
+                </Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">District KPIs (MTD)</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex justify-between"><span>Total visits</span><span className="font-semibold">428</span></div>
+            <div className="flex justify-between"><span>Unique doctors visited</span><span className="font-semibold">187</span></div>
+            <div className="flex justify-between"><span>New doctor listings</span><span className="font-semibold">12</span></div>
+            <div className="flex justify-between"><span>Samples distributed</span><span className="font-semibold">1,240</span></div>
+            <div className="flex justify-between"><span>Market requests</span><span className="font-semibold">8</span></div>
+          </CardContent>
+        </Card>
+      </div>
+      <QuickActions items={[
+        { label: "My Team", icon: Users, href: "/crm/district-manager" },
+        { label: "Medical Reps", icon: Stethoscope, href: "/crm/medical-rep" },
+        { label: "GPS Tracking", icon: MapPin, href: "/crm/gps-tracking" },
+        { label: "CRM Reports", icon: TrendingUp, href: "/crm/reports" },
+        { label: "Doctors", icon: Stethoscope, href: "/crm/doctors" },
+        { label: "Tasks", icon: ClipboardList, href: "/tasks" },
+      ]} />
+    </div>
+  );
+}
+
+function MedicalRepDashboard() {
+  const { user } = useCurrentUser();
+  return (
+    <div className="p-6 space-y-6">
+      <RoleHeader
+        title={`Welcome, ${user.name.split(" ")[0]}`}
+        subtitle={`Your daily field activity — ${user.territory ?? "Territory"}`}
+        badge="MEDICAL REP"
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard label="Today's Visits" value="6 / 8" icon={Calendar} color="bg-blue-100 text-blue-600" />
+        <KpiCard label="Monthly Target" value="87%" delta="+4%" trend="up" icon={Target} color="bg-green-100 text-green-600" />
+        <KpiCard label="My Doctors" value={84} icon={Stethoscope} color="bg-purple-100 text-purple-600" />
+        <KpiCard label="Samples Left" value={124} icon={Package} color="bg-orange-100 text-orange-600" />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-base">Today&apos;s Planned Visits</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {[
+              { doctor: "Dr. Ahmed El-Gamal", specialty: "Cardiologist", time: "10:00 AM", status: "Completed" },
+              { doctor: "Dr. Salma Ibrahim", specialty: "Endocrinologist", time: "11:30 AM", status: "Completed" },
+              { doctor: "Dr. Mahmoud Adel", specialty: "GP", time: "1:00 PM", status: "In Progress" },
+              { doctor: "Dr. Rania Farouk", specialty: "Pediatrician", time: "2:30 PM", status: "Pending" },
+              { doctor: "Dr. Khaled Samy", specialty: "Internist", time: "4:00 PM", status: "Pending" },
+            ].map((v) => (
+              <div key={v.doctor} className="flex items-center justify-between">
+                <div>
+                  <div className="font-medium">{v.doctor}</div>
+                  <div className="text-xs text-gray-500">{v.specialty} · {v.time}</div>
+                </div>
+                <Badge variant={v.status === "Completed" ? "success" : v.status === "In Progress" ? "default" : "secondary"}>
+                  {v.status}
+                </Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">My Performance (MTD)</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex justify-between"><span>Visits completed</span><span className="font-semibold">168</span></div>
+            <div className="flex justify-between"><span>Unique doctors</span><span className="font-semibold">72</span></div>
+            <div className="flex justify-between"><span>New listings</span><span className="font-semibold">4</span></div>
+            <div className="flex justify-between"><span>Coverage %</span><span className="font-semibold text-green-600">94%</span></div>
+            <div className="flex justify-between"><span>Market requests</span><span className="font-semibold">2</span></div>
+            <div className="flex justify-between"><span>CME invites sent</span><span className="font-semibold">9</span></div>
+          </CardContent>
+        </Card>
+      </div>
+      <QuickActions items={[
+        { label: "Check-in", icon: MapPin, href: "/crm/gps-tracking" },
+        { label: "My Doctors", icon: Stethoscope, href: "/crm/doctors" },
+        { label: "Log Visit", icon: ClipboardList, href: "/crm/medical-rep" },
+        { label: "Market Requests", icon: FileText, href: "/crm/market-requests" },
+        { label: "Tasks", icon: ClipboardList, href: "/tasks" },
+        { label: "Messages", icon: MessageSquare, href: "/messages" },
+      ]} />
+    </div>
+  );
+}
+
+function AccountantDashboard() {
+  const { user } = useCurrentUser();
+  const { config } = useAppConfig();
+  return (
+    <div className="p-6 space-y-6">
+      <RoleHeader
+        title={`Welcome, ${user.name.split(" ")[0]}`}
+        subtitle={`Financial operations — ${config.accounting.chartType} Chart of Accounts`}
+        badge="ACCOUNTANT"
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard label="AR Outstanding" value={`${config.finance.currency} 12.4M`} delta="-5.2%" trend="down" icon={Receipt} color="bg-amber-100 text-amber-600" />
+        <KpiCard label="AP Due (30d)" value={`${config.finance.currency} 6.8M`} icon={FileText} color="bg-blue-100 text-blue-600" />
+        <KpiCard label="Bank Balance" value={`${config.finance.currency} 18.2M`} delta="+3.1%" trend="up" icon={Landmark} color="bg-green-100 text-green-600" />
+        <KpiCard label="Cheques Pending" value={14} icon={FileText} color="bg-purple-100 text-purple-600" />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-base">AR Aging</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {[
+              { bucket: "0-30 days", amount: "6.2M", pct: 50, color: "bg-green-500" },
+              { bucket: "31-60 days", amount: "3.4M", pct: 27, color: "bg-blue-500" },
+              { bucket: "61-90 days", amount: "1.8M", pct: 15, color: "bg-amber-500" },
+              { bucket: "91+ days", amount: "1.0M", pct: 8, color: "bg-red-500" },
+            ].map((b) => (
+              <div key={b.bucket} className="space-y-1">
+                <div className="flex justify-between"><span>{b.bucket}</span><span className="font-semibold">{config.finance.currency} {b.amount}</span></div>
+                <div className="h-2 bg-gray-100 rounded-full"><div className={`h-full ${b.color} rounded-full`} style={{ width: `${b.pct}%` }} /></div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">Top Customers Outstanding</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {[
+              { name: "El-Ezaby Pharmacies", amount: "2.8M" },
+              { name: "Seif Pharmacies", amount: "2.1M" },
+              { name: "Ibnsina Pharma", amount: "1.8M" },
+              { name: "Ministry of Health", amount: "1.4M" },
+              { name: "Cleopatra Hospital", amount: "0.9M" },
+            ].map((c) => (
+              <div key={c.name} className="flex justify-between">
+                <span>{c.name}</span>
+                <span className="font-semibold">{config.finance.currency} {c.amount}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+      <QuickActions items={[
+        { label: "Accounting", icon: Receipt, href: "/erp/accounting" },
+        { label: "Finance", icon: DollarSign, href: "/erp/finance" },
+        { label: "Collections", icon: Landmark, href: "/erp/collections" },
+        { label: "Returns", icon: ArrowDownRight, href: "/erp/returns" },
+        { label: "Reports", icon: FileText, href: "/reports" },
+        { label: "Tasks", icon: ClipboardList, href: "/tasks" },
+      ]} />
+    </div>
+  );
+}
+
+function WarehouseDashboard() {
+  const { user } = useCurrentUser();
+  const { config } = useAppConfig();
+  return (
+    <div className="p-6 space-y-6">
+      <RoleHeader
+        title={`Welcome, ${user.name.split(" ")[0]}`}
+        subtitle="Warehouse, batch tracking, and cold chain operations"
+        badge="WAREHOUSE MANAGER"
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard label="Active Batches" value={24} icon={FlaskConical} color="bg-blue-100 text-blue-600" />
+        <KpiCard label="Expiring < 90d" value={12} delta="2 new" trend="down" icon={AlertTriangle} color="bg-amber-100 text-amber-600" />
+        <KpiCard label="Pending QC" value={8} icon={Microscope} color="bg-purple-100 text-purple-600" />
+        <KpiCard label="Pending GRN" value={5} icon={PackageCheck} color="bg-green-100 text-green-600" />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-base">Cold Chain Status ({config.inventory.enableColdChain ? "Enabled" : "Disabled"})</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {[
+              { wh: "Warehouse A — Cairo", temp: "4.2°C", status: "OK" },
+              { wh: "Warehouse B — Alex", temp: "7.8°C", status: "Alert" },
+              { wh: "Warehouse C — Delta", temp: "3.1°C", status: "OK" },
+              { wh: "Hub — Giza", temp: "5.6°C", status: "OK" },
+            ].map((w) => (
+              <div key={w.wh} className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Thermometer className={`h-4 w-4 ${w.status === "OK" ? "text-green-600" : "text-amber-600"}`} />
+                  <span>{w.wh}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">{w.temp}</span>
+                  <Badge variant={w.status === "OK" ? "success" : "destructive"}>{w.status}</Badge>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">Low-Stock & Expiring Batches</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {[
+              { product: "Cardioprex 500mg", batch: "B-24-088", exp: "45 days", issue: "Expiring" },
+              { product: "Diabetex XR 1000mg", batch: "B-24-112", exp: "72 days", issue: "Expiring" },
+              { product: "Nervocalm 10mg", batch: "B-25-001", qty: "12% of reorder", issue: "Low Stock" },
+              { product: "Antibio-Z 1g", batch: "B-24-067", exp: "28 days", issue: "Critical" },
+            ].map((b, i) => (
+              <div key={i} className="flex items-center justify-between">
+                <div>
+                  <div className="font-medium">{b.product}</div>
+                  <div className="text-xs text-gray-500">{b.batch} · {b.exp ?? b.qty}</div>
+                </div>
+                <Badge variant={b.issue === "Critical" ? "destructive" : "secondary"}>{b.issue}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+      <QuickActions items={[
+        { label: "Inventory", icon: Package, href: "/erp/inventory" },
+        { label: "Procurement", icon: ShoppingCart, href: "/erp/procurement" },
+        { label: "Returns", icon: ArrowDownRight, href: "/erp/returns" },
+        { label: "Tasks", icon: ClipboardList, href: "/tasks" },
+        { label: "Messages", icon: MessageSquare, href: "/messages" },
+        { label: "Profile", icon: Users, href: "/settings/profile" },
+      ]} />
+    </div>
+  );
+}
+
+function HRDashboard() {
+  const { user } = useCurrentUser();
+  return (
+    <div className="p-6 space-y-6">
+      <RoleHeader
+        title={`Welcome, ${user.name.split(" ")[0]}`}
+        subtitle="People operations, recruitment, and GMP training"
+        badge="HR MANAGER"
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard label="Headcount" value={156} delta="+4" trend="up" icon={Users} color="bg-blue-100 text-blue-600" />
+        <KpiCard label="Open Positions" value={12} icon={Briefcase} color="bg-purple-100 text-purple-600" />
+        <KpiCard label="GMP Training" value="94%" delta="+3%" trend="up" icon={GraduationCap} color="bg-green-100 text-green-600" />
+        <KpiCard label="Leave Today" value={7} icon={Calendar} color="bg-amber-100 text-amber-600" />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle className="text-base">Recruiting Pipeline</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {[
+              { stage: "Applied", count: 84 },
+              { stage: "Screening", count: 42 },
+              { stage: "Interview", count: 18 },
+              { stage: "Offer", count: 6 },
+              { stage: "Hired", count: 3 },
+            ].map((s) => (
+              <div key={s.stage} className="flex items-center justify-between">
+                <span>{s.stage}</span>
+                <Badge variant="secondary">{s.count}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">Upcoming Trainings</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {[
+              { title: "GMP Refresher", date: "Apr 15", attendees: 24 },
+              { title: "GDP Cold Chain", date: "Apr 18", attendees: 12 },
+              { title: "Pharmacovigilance 101", date: "Apr 22", attendees: 18 },
+              { title: "ALCOA+ Data Integrity", date: "Apr 29", attendees: 32 },
+            ].map((t) => (
+              <div key={t.title} className="flex items-center justify-between">
+                <div>
+                  <div className="font-medium">{t.title}</div>
+                  <div className="text-xs text-gray-500">{t.date}</div>
+                </div>
+                <Badge variant="secondary">{t.attendees} attendees</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+      <QuickActions items={[
+        { label: "Employees", icon: Users, href: "/erp/hr" },
+        { label: "Jobs", icon: Briefcase, href: "/ats/jobs" },
+        { label: "Candidates", icon: UserPlus, href: "/ats/candidates" },
+        { label: "Interviews", icon: Calendar, href: "/ats/interviews" },
+        { label: "Onboarding", icon: CheckCircle, href: "/ats/onboarding" },
+        { label: "Training", icon: GraduationCap, href: "/ats/training" },
+      ]} />
+    </div>
+  );
+}
+
+// ─── Router ─────────────────────────────────────────────────────────────────
+
+export default function DashboardPage() {
+  const { user } = useCurrentUser();
+  switch (user.role) {
+    case "ADMIN": return <AdminDashboard />;
+    case "BUM": return <BUMDashboard />;
+    case "MARKETEER": return <MarketeerDashboard />;
+    case "DISTRICT_MANAGER": return <DistrictManagerDashboard />;
+    case "MEDICAL_REP": return <MedicalRepDashboard />;
+    case "ACCOUNTANT": return <AccountantDashboard />;
+    case "WAREHOUSE": return <WarehouseDashboard />;
+    case "HR": return <HRDashboard />;
+    default:
+      return (
+        <div className="p-6">
+          <Card>
+            <CardHeader><CardTitle>Welcome</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-500">Role: {ROLE_LABEL[user.role as keyof typeof ROLE_LABEL] ?? user.role}</p>
+              <Button asChild className="mt-4"><Link href="/settings/profile">Go to profile</Link></Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+  }
 }

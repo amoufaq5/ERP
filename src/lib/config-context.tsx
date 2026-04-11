@@ -59,6 +59,71 @@ export interface IndustryConfig {
   enabledSolutions: Record<string, boolean>;  // solution id -> active
 }
 
+export interface SecurityConfig {
+  passwordMinLength: number;
+  passwordRequireSymbol: boolean;
+  passwordRequireNumber: boolean;
+  passwordRequireUppercase: boolean;
+  passwordExpiryDays: number;
+  sessionTimeoutMinutes: number;
+  maxLoginAttempts: number;
+  enableTwoFactor: boolean;
+  enforceSSO: boolean;
+  ipWhitelistEnabled: boolean;
+  auditLogRetentionDays: number;
+}
+
+export interface NotificationsConfig {
+  emailEnabled: boolean;
+  smsEnabled: boolean;
+  pushEnabled: boolean;
+  emailFromAddress: string;
+  digestFrequency: "Off" | "Daily" | "Weekly";
+  notifyOnExpiry: boolean;
+  notifyOnLowStock: boolean;
+  notifyOnColdChainAlert: boolean;
+  notifyOnApprovalNeeded: boolean;
+  notifyOnNewMarketRequest: boolean;
+}
+
+export interface IntegrationsConfig {
+  mapProvider: "OpenStreetMap" | "Google" | "Mapbox";
+  mapApiKey: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  smtpSecure: boolean;
+  edaApiEnabled: boolean;        // EDA (Egyptian Drug Authority) e-submission
+  whatsappEnabled: boolean;
+  whatsappNumber: string;
+  webhookUrl: string;
+}
+
+export interface BackupConfig {
+  autoBackupEnabled: boolean;
+  backupFrequency: "Hourly" | "Daily" | "Weekly";
+  retentionDays: number;
+  backupLocation: "Local" | "S3" | "Azure" | "GCP";
+  encryptBackups: boolean;
+  lastBackupAt: string;        // ISO date
+}
+
+export interface LocalizationConfig {
+  defaultLanguage: "en" | "ar" | "fr";
+  timezone: string;
+  firstDayOfWeek: "Sunday" | "Monday" | "Saturday";
+  weekendDays: string[];       // e.g., ["Friday","Saturday"] for Egypt
+  numberFormat: "1,234.56" | "1.234,56" | "1 234.56";
+}
+
+export interface AppearanceConfig {
+  theme: "light" | "dark" | "auto";
+  primaryColor: "blue" | "green" | "purple" | "orange" | "red";
+  compactMode: boolean;
+  sidebarDefaultCollapsed: boolean;
+  showCompanyLogo: boolean;
+}
+
 export interface AppConfig {
   finance: FinanceConfig;
   inventory: InventoryConfig;
@@ -67,6 +132,12 @@ export interface AppConfig {
   hr: HRConfig;
   accounting: AccountingConfig;
   industry: IndustryConfig;
+  security: SecurityConfig;
+  notifications: NotificationsConfig;
+  integrations: IntegrationsConfig;
+  backup: BackupConfig;
+  localization: LocalizationConfig;
+  appearance: AppearanceConfig;
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -129,6 +200,65 @@ export const DEFAULT_CONFIG: AppConfig = {
       "pharma-narcotics": false,
     },
   },
+  security: {
+    passwordMinLength: 10,
+    passwordRequireSymbol: true,
+    passwordRequireNumber: true,
+    passwordRequireUppercase: true,
+    passwordExpiryDays: 90,
+    sessionTimeoutMinutes: 30,
+    maxLoginAttempts: 5,
+    enableTwoFactor: false,
+    enforceSSO: false,
+    ipWhitelistEnabled: false,
+    auditLogRetentionDays: 365,
+  },
+  notifications: {
+    emailEnabled: true,
+    smsEnabled: false,
+    pushEnabled: true,
+    emailFromAddress: "no-reply@pharma.com",
+    digestFrequency: "Daily",
+    notifyOnExpiry: true,
+    notifyOnLowStock: true,
+    notifyOnColdChainAlert: true,
+    notifyOnApprovalNeeded: true,
+    notifyOnNewMarketRequest: true,
+  },
+  integrations: {
+    mapProvider: "OpenStreetMap",
+    mapApiKey: "",
+    smtpHost: "smtp.pharma.com",
+    smtpPort: 587,
+    smtpUser: "noreply@pharma.com",
+    smtpSecure: true,
+    edaApiEnabled: false,
+    whatsappEnabled: false,
+    whatsappNumber: "",
+    webhookUrl: "",
+  },
+  backup: {
+    autoBackupEnabled: true,
+    backupFrequency: "Daily",
+    retentionDays: 30,
+    backupLocation: "Local",
+    encryptBackups: true,
+    lastBackupAt: "2026-04-10T02:00:00Z",
+  },
+  localization: {
+    defaultLanguage: "en",
+    timezone: "Africa/Cairo",
+    firstDayOfWeek: "Sunday",
+    weekendDays: ["Friday", "Saturday"],
+    numberFormat: "1,234.56",
+  },
+  appearance: {
+    theme: "light",
+    primaryColor: "blue",
+    compactMode: false,
+    sidebarDefaultCollapsed: false,
+    showCompanyLogo: true,
+  },
 };
 
 interface ConfigContextValue {
@@ -139,6 +269,12 @@ interface ConfigContextValue {
   updateCRM: (patch: Partial<CRMConfig>) => void;
   updateHR: (patch: Partial<HRConfig>) => void;
   updateAccounting: (patch: Partial<AccountingConfig>) => void;
+  updateSecurity: (patch: Partial<SecurityConfig>) => void;
+  updateNotifications: (patch: Partial<NotificationsConfig>) => void;
+  updateIntegrations: (patch: Partial<IntegrationsConfig>) => void;
+  updateBackup: (patch: Partial<BackupConfig>) => void;
+  updateLocalization: (patch: Partial<LocalizationConfig>) => void;
+  updateAppearance: (patch: Partial<AppearanceConfig>) => void;
   toggleIndustrySolution: (id: string) => void;
   resetConfig: () => void;
 }
@@ -165,6 +301,12 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           crm: { ...DEFAULT_CONFIG.crm, ...parsed.crm },
           hr: { ...DEFAULT_CONFIG.hr, ...parsed.hr },
           accounting: { ...DEFAULT_CONFIG.accounting, ...parsed.accounting },
+          security: { ...DEFAULT_CONFIG.security, ...parsed.security },
+          notifications: { ...DEFAULT_CONFIG.notifications, ...parsed.notifications },
+          integrations: { ...DEFAULT_CONFIG.integrations, ...parsed.integrations },
+          backup: { ...DEFAULT_CONFIG.backup, ...parsed.backup },
+          localization: { ...DEFAULT_CONFIG.localization, ...parsed.localization },
+          appearance: { ...DEFAULT_CONFIG.appearance, ...parsed.appearance },
           industry: {
             ...DEFAULT_CONFIG.industry,
             ...parsed.industry,
@@ -199,6 +341,12 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
         updateCRM: (patch) => persist({ ...config, crm: { ...config.crm, ...patch } }),
         updateHR: (patch) => persist({ ...config, hr: { ...config.hr, ...patch } }),
         updateAccounting: (patch) => persist({ ...config, accounting: { ...config.accounting, ...patch } }),
+        updateSecurity: (patch) => persist({ ...config, security: { ...config.security, ...patch } }),
+        updateNotifications: (patch) => persist({ ...config, notifications: { ...config.notifications, ...patch } }),
+        updateIntegrations: (patch) => persist({ ...config, integrations: { ...config.integrations, ...patch } }),
+        updateBackup: (patch) => persist({ ...config, backup: { ...config.backup, ...patch } }),
+        updateLocalization: (patch) => persist({ ...config, localization: { ...config.localization, ...patch } }),
+        updateAppearance: (patch) => persist({ ...config, appearance: { ...config.appearance, ...patch } }),
         toggleIndustrySolution: (id) =>
           persist({
             ...config,
@@ -230,6 +378,12 @@ export function useAppConfig(): ConfigContextValue {
       updateCRM: () => {},
       updateHR: () => {},
       updateAccounting: () => {},
+      updateSecurity: () => {},
+      updateNotifications: () => {},
+      updateIntegrations: () => {},
+      updateBackup: () => {},
+      updateLocalization: () => {},
+      updateAppearance: () => {},
       toggleIndustrySolution: () => {},
       resetConfig: () => {},
     };
