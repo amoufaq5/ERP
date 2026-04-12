@@ -1,243 +1,319 @@
 "use client";
 
-import { useState } from "react";
-import { Stethoscope, Users, Star, Plus } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Stethoscope, Plus, MapPin, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
-import StatusBadge from "@/components/shared/status-badge";
-import { FormModal, type FormField } from "@/components/ui/form-modal";
-
-interface Doctor {
-  id: string; name: string; specialty: string; hospital: string; city: string;
-  phone: string; classification: "A" | "B" | "C"; assignedRep: string;
-  visitFrequency: string; lastVisit: string; products: string; status: string;
-}
-
-const INITIAL: Doctor[] = [
-  { id: "DR-001", name: "Dr. Tarek Hamdy", specialty: "Cardiologist", hospital: "Cairo Heart Center", city: "Cairo", phone: "+20 100 111 2222", classification: "A", assignedRep: "Ahmed Hassan", visitFrequency: "Weekly", lastVisit: "2026-03-30", products: "Cardizem, Atenol", status: "Active" },
-  { id: "DR-002", name: "Dr. Mona Abdelrahman", specialty: "Pediatrician", hospital: "Children's Hospital", city: "Cairo", phone: "+20 100 222 3333", classification: "A", assignedRep: "Ahmed Hassan", visitFrequency: "Weekly", lastVisit: "2026-03-29", products: "Augmentin, Zinnat", status: "Active" },
-  { id: "DR-003", name: "Dr. Sherif Nabil", specialty: "GP", hospital: "Alex Medical Center", city: "Alexandria", phone: "+20 100 333 4444", classification: "B", assignedRep: "Sara Mohamed", visitFrequency: "Bi-Weekly", lastVisit: "2026-03-25", products: "Panadol, Voltaren", status: "Active" },
-  { id: "DR-004", name: "Dr. Laila Saad", specialty: "Dermatologist", hospital: "Skin Care Clinic", city: "Giza", phone: "+20 100 444 5555", classification: "A", assignedRep: "Omar Khalil", visitFrequency: "Weekly", lastVisit: "2026-03-30", products: "Fucidin, Elocon", status: "Active" },
-  { id: "DR-005", name: "Dr. Hossam Ezzat", specialty: "Orthopedic", hospital: "Ortho Care Center", city: "Cairo", phone: "+20 100 555 6666", classification: "A", assignedRep: "Fatima Ali", visitFrequency: "Weekly", lastVisit: "2026-03-27", products: "Voltaren, Celebrex", status: "Active" },
-  { id: "DR-006", name: "Dr. Amira Gaber", specialty: "Neurologist", hospital: "Neuro Institute", city: "Cairo", phone: "+20 100 666 7777", classification: "A", assignedRep: "Ahmed Hassan", visitFrequency: "Weekly", lastVisit: "2026-03-26", products: "Depakine, Tegretol", status: "Active" },
-  { id: "DR-007", name: "Dr. Walid Fathy", specialty: "Oncologist", hospital: "Cancer Institute", city: "Cairo", phone: "+20 100 777 8888", classification: "A", assignedRep: "Fatima Ali", visitFrequency: "Weekly", lastVisit: "2026-03-28", products: "Herceptin, Avastin", status: "Active" },
-  { id: "DR-008", name: "Dr. Nada Hussein", specialty: "Internal Medicine", hospital: "Mansoura University", city: "Mansoura", phone: "+20 100 888 9999", classification: "B", assignedRep: "Mahmoud Farouk", visitFrequency: "Bi-Weekly", lastVisit: "2026-03-22", products: "Nexium, Losec", status: "Active" },
-  { id: "DR-009", name: "Dr. Rami Adel", specialty: "GP", hospital: "Family Clinic", city: "Tanta", phone: "+20 100 999 0000", classification: "C", assignedRep: "Nour Ibrahim", visitFrequency: "Monthly", lastVisit: "2026-02-28", products: "Panadol, Brufen", status: "Active" },
-  { id: "DR-010", name: "Dr. Yasmin Tarek", specialty: "Pediatrician", hospital: "Giza Children's Hospital", city: "Giza", phone: "+20 101 111 2222", classification: "A", assignedRep: "Omar Khalil", visitFrequency: "Weekly", lastVisit: "2026-03-30", products: "Augmentin, Klacid", status: "Active" },
-  { id: "DR-011", name: "Dr. Ashraf Zaki", specialty: "Cardiologist", hospital: "Heart & Vascular Clinic", city: "Alexandria", phone: "+20 101 222 3333", classification: "A", assignedRep: "Sara Mohamed", visitFrequency: "Weekly", lastVisit: "2026-03-29", products: "Plavix, Crestor", status: "Active" },
-  { id: "DR-012", name: "Dr. Rania Sobhy", specialty: "Dermatologist", hospital: "Skin Clinic Alex", city: "Alexandria", phone: "+20 101 333 4444", classification: "B", assignedRep: "Sara Mohamed", visitFrequency: "Bi-Weekly", lastVisit: "2026-03-24", products: "Fucidin, Differin", status: "Active" },
-  { id: "DR-013", name: "Dr. Emad Shawky", specialty: "ENT", hospital: "ENT Hospital", city: "Zagazig", phone: "+20 101 444 5555", classification: "B", assignedRep: "Karim Saeed", visitFrequency: "Bi-Weekly", lastVisit: "2026-03-23", products: "Otrivin, Avamys", status: "Active" },
-  { id: "DR-014", name: "Dr. Samia Magdy", specialty: "Psychiatrist", hospital: "Psychiatry Center", city: "Cairo", phone: "+20 101 555 6666", classification: "A", assignedRep: "Fatima Ali", visitFrequency: "Weekly", lastVisit: "2026-03-28", products: "Zoloft, Xanax", status: "Active" },
-  { id: "DR-015", name: "Dr. Khaled Adham", specialty: "Urologist", hospital: "Urology Center", city: "Ismailia", phone: "+20 101 666 7777", classification: "C", assignedRep: "Yousef Ahmad", visitFrequency: "Monthly", lastVisit: "2026-03-10", products: "Cialis, Levitra", status: "Active" },
-  { id: "DR-016", name: "Dr. Ihab Salama", specialty: "Cardiologist", hospital: "Mansoura Cardiac", city: "Mansoura", phone: "+20 101 777 8888", classification: "B", assignedRep: "Mahmoud Farouk", visitFrequency: "Bi-Weekly", lastVisit: "2026-03-20", products: "Crestor, Plavix", status: "Active" },
-  { id: "DR-017", name: "Dr. Heba Mostafa", specialty: "Pediatrician", hospital: "Tanta Children's", city: "Tanta", phone: "+20 101 888 9999", classification: "B", assignedRep: "Nour Ibrahim", visitFrequency: "Bi-Weekly", lastVisit: "2026-03-19", products: "Augmentin, Zinnat", status: "Active" },
-  { id: "DR-018", name: "Dr. Yousef Saad", specialty: "GP", hospital: "Suez Medical", city: "Suez", phone: "+20 102 111 2222", classification: "C", assignedRep: "Dina Mostafa", visitFrequency: "Monthly", lastVisit: "2026-02-25", products: "Panadol", status: "Inactive" },
-  { id: "DR-019", name: "Dr. Mariam Helmy", specialty: "Oncologist", hospital: "Alex Cancer Center", city: "Alexandria", phone: "+20 102 222 3333", classification: "A", assignedRep: "Sara Mohamed", visitFrequency: "Weekly", lastVisit: "2026-03-28", products: "Herceptin", status: "Active" },
-  { id: "DR-020", name: "Dr. Adel Farid", specialty: "Neurologist", hospital: "Assiut University", city: "Assiut", phone: "+20 102 333 4444", classification: "B", assignedRep: "Hala Samir", visitFrequency: "Bi-Weekly", lastVisit: "2026-03-15", products: "Depakine, Keppra", status: "Active" },
-];
-
-const SPECIALTIES = ["Cardiologist", "GP", "Pediatrician", "Dermatologist", "Orthopedic", "Neurologist", "Oncologist", "Internal Medicine", "ENT", "Urologist", "Psychiatrist"];
-
-const doctorFields: FormField[] = [
-  { name: "name", label: "Doctor Name", type: "text", required: true },
-  { name: "specialty", label: "Specialty", type: "select", required: true, options: SPECIALTIES.map(s => ({ label: s, value: s })) },
-  { name: "hospital", label: "Hospital/Clinic", type: "text", required: true },
-  { name: "city", label: "City", type: "text", required: true },
-  { name: "phone", label: "Phone", type: "tel" },
-  { name: "classification", label: "Classification", type: "select", required: true, options: [
-    { label: "A - High Priority", value: "A" }, { label: "B - Medium", value: "B" }, { label: "C - Low", value: "C" },
-  ]},
-  { name: "assignedRep", label: "Assigned Rep", type: "text", required: true },
-  { name: "visitFrequency", label: "Visit Frequency", type: "select", options: [
-    { label: "Weekly", value: "Weekly" }, { label: "Bi-Weekly", value: "Bi-Weekly" }, { label: "Monthly", value: "Monthly" },
-  ]},
-];
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import {
+  EntityFormModal,
+  type EntityField,
+  type EntityFormData,
+} from "@/components/shared/entity-form-modal";
+import {
+  useDataStore,
+  scopeDoctors,
+  type Doctor,
+} from "@/lib/data-store";
+import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 
 export default function DoctorsPage() {
-  const [doctors, setDoctors] = useState(INITIAL);
+  const store = useDataStore();
+  const { user, allUsers, getReportsOf } = useCurrentUser();
+
   const [search, setSearch] = useState("");
-  const [show, setShow] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({});
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Doctor | null>(null);
 
-  const aClass = doctors.filter(d => d.classification === "A").length;
-  const bClass = doctors.filter(d => d.classification === "B").length;
-  const cClass = doctors.filter(d => d.classification === "C").length;
-
-  const filtered = doctors.filter(d =>
-    d.name.toLowerCase().includes(search.toLowerCase()) ||
-    d.specialty.toLowerCase().includes(search.toLowerCase()) ||
-    d.city.toLowerCase().includes(search.toLowerCase())
+  const repsUnderMe = getReportsOf(user.id).map((u) => u.id);
+  const scoped = useMemo(
+    () => scopeDoctors(store.doctors, store.businessUnits, user.role, user.id, repsUnderMe),
+    [store.doctors, store.businessUnits, user.role, user.id, repsUnderMe]
   );
 
-  const bySpecialty = SPECIALTIES.map(s => ({
-    specialty: s,
-    count: doctors.filter(d => d.specialty === s).length,
-    aCount: doctors.filter(d => d.specialty === s && d.classification === "A").length,
-  })).filter(s => s.count > 0);
+  const uniqueCities = Array.from(new Set(scoped.map((d) => d.city))).sort();
+  const uniqueSpecialties = Array.from(new Set(scoped.map((d) => d.specialty))).sort();
+  const uniqueBUs = store.businessUnits.map((bu) => ({ label: bu.name, value: bu.id }));
 
-  const coverage = doctors.map(d => {
-    const required = d.classification === "A" ? 4 : d.classification === "B" ? 2 : 1;
-    const actual = d.lastVisit !== "N/A" ? required - 1 : 0;
-    const pct = Math.round((actual / required) * 100);
-    return { ...d, required, actual, pct, gap: pct < 100 ? "Gap" : "On Track" };
-  });
+  const filtered = useMemo(() => {
+    return scoped.filter((d) => {
+      if (search) {
+        const q = search.toLowerCase();
+        if (
+          !d.name.toLowerCase().includes(q) &&
+          !d.specialty.toLowerCase().includes(q) &&
+          !d.hospital.toLowerCase().includes(q) &&
+          !d.city.toLowerCase().includes(q) &&
+          !d.phone.includes(q)
+        )
+          return false;
+      }
+      if (filters.classification && d.classification !== filters.classification) return false;
+      if (filters.city && d.city !== filters.city) return false;
+      if (filters.specialty && d.specialty !== filters.specialty) return false;
+      if (filters.buId && d.buId !== filters.buId) return false;
+      if (filters.assignedRepId && d.assignedRepId !== filters.assignedRepId) return false;
+      return true;
+    });
+  }, [scoped, search, filters]);
+
+  const classA = scoped.filter((d) => d.classification === "A").length;
+  const classB = scoped.filter((d) => d.classification === "B").length;
+  const visitedRecently = scoped.filter(
+    (d) => d.lastVisitAt && new Date(d.lastVisitAt) > new Date(Date.now() - 14 * 86400000)
+  ).length;
+
+  const canEdit = user.role !== "MEDICAL_REP";
+  const isRep = user.role === "MEDICAL_REP";
+
+  const repOptions = allUsers
+    .filter((u) => u.role === "MEDICAL_REP")
+    .map((u) => ({ label: `${u.name}`, value: u.id }));
+
+  const buOptions = store.businessUnits.map((b) => ({ label: b.name, value: b.id }));
+
+  const fields: EntityField[] = [
+    { name: "name", label: "Name", type: "text", required: true, placeholder: "Dr. ..." },
+    { name: "specialty", label: "Specialty", type: "text", required: true },
+    { name: "hospital", label: "Hospital / Clinic", type: "text", required: true },
+    { name: "city", label: "City", type: "text", required: true },
+    { name: "phone", label: "Phone", type: "tel", required: true },
+    { name: "email", label: "Email", type: "email" },
+    {
+      name: "classification",
+      label: "Classification",
+      type: "select",
+      required: true,
+      options: [
+        { label: "A - High value", value: "A" },
+        { label: "B - Medium value", value: "B" },
+        { label: "C - Low value", value: "C" },
+        { label: "D - Occasional", value: "D" },
+      ],
+    },
+    { name: "visitFrequency", label: "Required visits/month", type: "number", required: true, defaultValue: 2 },
+    { name: "assignedRepId", label: "Assigned Rep", type: "select", options: repOptions },
+    { name: "buId", label: "Business Unit", type: "select", options: buOptions },
+    { name: "notes", label: "Notes", type: "textarea", fullWidth: true },
+  ];
+
+  function handleCreate() {
+    setEditing(null);
+    setFormOpen(true);
+  }
+
+  function handleEdit(d: Doctor) {
+    setEditing(d);
+    setFormOpen(true);
+  }
+
+  function handleSubmit(data: EntityFormData) {
+    const payload: Partial<Doctor> = {
+      name: String(data.name),
+      specialty: String(data.specialty),
+      hospital: String(data.hospital),
+      city: String(data.city),
+      phone: String(data.phone),
+      email: data.email ? String(data.email) : undefined,
+      classification: data.classification as Doctor["classification"],
+      visitFrequency: Number(data.visitFrequency),
+      assignedRepId: data.assignedRepId ? String(data.assignedRepId) : null,
+      buId: data.buId ? String(data.buId) : null,
+      notes: data.notes ? String(data.notes) : undefined,
+    };
+
+    if (editing) {
+      if (isRep) {
+        // Submit as approval request
+        store.add("marketRequests", {
+          id: store.genId("mr"),
+          type: "DOCTOR_EDIT",
+          requestedById: user.id,
+          doctorId: editing.id,
+          description: `Requested updates to doctor: ${editing.name}`,
+          priority: "MEDIUM",
+          status: "PENDING",
+          createdAt: new Date().toISOString(),
+          buId: editing.buId ?? null,
+          proposedChanges: payload,
+          targetEntityId: editing.id,
+        });
+      } else {
+        store.update("doctors", editing.id, payload);
+      }
+    } else {
+      store.add("doctors", {
+        id: store.genId("dr"),
+        ...payload,
+        name: payload.name!,
+        specialty: payload.specialty!,
+        hospital: payload.hospital!,
+        city: payload.city!,
+        phone: payload.phone!,
+        classification: payload.classification!,
+        visitFrequency: payload.visitFrequency!,
+        assignedRepId: payload.assignedRepId ?? null,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    setFormOpen(false);
+    setEditing(null);
+  }
+
+  function handleDelete(d: Doctor) {
+    store.remove("doctors", d.id);
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Doctor Directory"
-        description="Central directory of all healthcare professionals"
-        actions={<Button onClick={() => setShow(true)}><Plus className="mr-2 h-4 w-4" />Add Doctor</Button>}
+        description={`Showing ${scoped.length} doctors visible to you (${ROLE_LABEL[user.role]}).`}
+        actions={
+          <Button onClick={handleCreate}>
+            <Plus className="h-4 w-4 mr-2" /> Add Doctor
+          </Button>
+        }
       />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatsCard icon={Stethoscope} title="Total Doctors" value={doctors.length} iconColor="bg-blue-100 text-blue-700" />
-        <StatsCard icon={Star} title="A-Class" value={aClass} subtitle="High prescribers" iconColor="bg-green-100 text-green-700" />
-        <StatsCard icon={Users} title="B-Class" value={bClass} subtitle="Medium" iconColor="bg-amber-100 text-amber-700" />
-        <StatsCard icon={Users} title="C-Class" value={cClass} subtitle="Low" iconColor="bg-gray-100 text-gray-700" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard icon={Stethoscope} title="Total Doctors" value={scoped.length} iconColor="bg-blue-100 text-blue-600" />
+        <StatsCard icon={Stethoscope} title="Class A" value={classA} subtitle="High-value targets" iconColor="bg-emerald-100 text-emerald-600" />
+        <StatsCard icon={Stethoscope} title="Class B" value={classB} iconColor="bg-amber-100 text-amber-600" />
+        <StatsCard icon={Activity} title="Visited (14d)" value={visitedRecently} subtitle="In last 2 weeks" iconColor="bg-purple-100 text-purple-600" />
       </div>
 
-      <Tabs defaultValue="all">
-        <TabsList>
-          <TabsTrigger value="all">All Doctors</TabsTrigger>
-          <TabsTrigger value="specialty">By Specialty</TabsTrigger>
-          <TabsTrigger value="class">By Classification</TabsTrigger>
-          <TabsTrigger value="coverage">Visit Coverage</TabsTrigger>
-        </TabsList>
+      <FilterBar
+        searchPlaceholder="Search doctors by name, specialty, hospital, city, or phone..."
+        searchValue={search}
+        onSearchChange={setSearch}
+        fields={[
+          {
+            key: "classification",
+            label: "Class",
+            type: "select",
+            options: [
+              { label: "A", value: "A" },
+              { label: "B", value: "B" },
+              { label: "C", value: "C" },
+              { label: "D", value: "D" },
+            ],
+          },
+          { key: "city", label: "City", type: "select", options: uniqueCities.map((c) => ({ label: c, value: c })) },
+          { key: "specialty", label: "Specialty", type: "select", options: uniqueSpecialties.map((s) => ({ label: s, value: s })) },
+          { key: "buId", label: "Business Unit", type: "select", options: uniqueBUs },
+          { key: "assignedRepId", label: "Assigned Rep", type: "select", options: repOptions },
+        ]}
+        values={filters}
+        onChange={setFilters}
+        collapsible
+      />
 
-        <TabsContent value="all">
-          <Card>
-            <CardHeader><CardTitle>All Doctors ({filtered.length})</CardTitle></CardHeader>
-            <CardContent>
-              <Input placeholder="Search by name, specialty, or city..." value={search} onChange={e => setSearch(e.target.value)} className="mb-3 max-w-sm" />
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">ID</th><th className="p-3">Name</th><th className="p-3">Specialty</th><th className="p-3">Hospital</th><th className="p-3">City</th><th className="p-3">Phone</th><th className="p-3">Class</th><th className="p-3">Rep</th><th className="p-3">Frequency</th><th className="p-3">Last Visit</th><th className="p-3">Products</th><th className="p-3">Status</th></tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map(d => (
-                      <tr key={d.id} className="border-t">
-                        <td className="p-3 font-mono text-xs">{d.id}</td>
-                        <td className="p-3 font-medium">{d.name}</td>
-                        <td className="p-3">{d.specialty}</td>
-                        <td className="p-3">{d.hospital}</td>
-                        <td className="p-3">{d.city}</td>
-                        <td className="p-3 text-xs">{d.phone}</td>
-                        <td className="p-3"><Badge variant={d.classification === "A" ? "default" : "secondary"}>{d.classification}</Badge></td>
-                        <td className="p-3">{d.assignedRep}</td>
-                        <td className="p-3">{d.visitFrequency}</td>
-                        <td className="p-3">{d.lastVisit}</td>
-                        <td className="p-3 text-xs">{d.products}</td>
-                        <td className="p-3"><StatusBadge status={d.status} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="specialty">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {bySpecialty.map((s, i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2"><Stethoscope className="h-4 w-4" />{s.specialty}</CardTitle>
-                  <CardDescription>{s.count} doctors • {s.aCount} A-Class</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{s.count}</div>
-                  <div className="text-xs text-muted-foreground mt-1">Total in specialty</div>
-                </CardContent>
-              </Card>
-            ))}
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
+                <tr>
+                  <th className="text-left p-3">Doctor</th>
+                  <th className="text-left p-3">Specialty</th>
+                  <th className="text-left p-3">Hospital</th>
+                  <th className="text-left p-3">City</th>
+                  <th className="text-left p-3">Class</th>
+                  <th className="text-left p-3">Assigned Rep</th>
+                  <th className="text-left p-3">BU</th>
+                  <th className="text-left p-3">Last Visit</th>
+                  <th className="text-right p-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="p-8 text-center text-slate-500">
+                      No doctors match your filters.
+                    </td>
+                  </tr>
+                )}
+                {filtered.map((d) => {
+                  const rep = allUsers.find((u) => u.id === d.assignedRepId);
+                  const bu = d.buId ? store.businessUnits.find((b) => b.id === d.buId) : null;
+                  return (
+                    <tr key={d.id} className="border-b hover:bg-slate-50">
+                      <td className="p-3">
+                        <div className="font-medium">{d.name}</div>
+                        <div className="text-[11px] text-slate-500">{d.phone}</div>
+                      </td>
+                      <td className="p-3">{d.specialty}</td>
+                      <td className="p-3">{d.hospital}</td>
+                      <td className="p-3">{d.city}</td>
+                      <td className="p-3">
+                        <Badge variant={d.classification === "A" ? "success" : d.classification === "B" ? "default" : "secondary"}>
+                          {d.classification}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-xs">{rep?.name ?? "—"}</td>
+                      <td className="p-3 text-xs">
+                        {bu ? (
+                          <Badge variant="outline" style={{ borderColor: bu.color, color: bu.color }}>
+                            {bu.code}
+                          </Badge>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="p-3 text-xs">
+                        {d.lastVisitAt ? new Date(d.lastVisitAt).toLocaleDateString() : "Never"}
+                      </td>
+                      <td className="p-3 text-right">
+                        <EditDeleteMenu
+                          onEdit={() => handleEdit(d)}
+                          onDelete={canEdit ? () => handleDelete(d) : undefined}
+                          canDelete={canEdit}
+                          itemLabel={d.name}
+                          compact
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        </TabsContent>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="class">
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader><CardTitle>A-Class</CardTitle><CardDescription>High prescribers • Weekly visits</CardDescription></CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold text-green-600">{aClass}</div>
-                <div className="text-xs text-muted-foreground mt-1">{Math.round((aClass / doctors.length) * 100)}% of total</div>
-                <div className="mt-3 space-y-1 text-sm">
-                  {doctors.filter(d => d.classification === "A").slice(0, 5).map(d => (
-                    <div key={d.id} className="flex justify-between"><span>{d.name}</span><span className="text-muted-foreground text-xs">{d.specialty}</span></div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle>B-Class</CardTitle><CardDescription>Medium prescribers • Bi-Weekly visits</CardDescription></CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold text-amber-600">{bClass}</div>
-                <div className="text-xs text-muted-foreground mt-1">{Math.round((bClass / doctors.length) * 100)}% of total</div>
-                <div className="mt-3 space-y-1 text-sm">
-                  {doctors.filter(d => d.classification === "B").slice(0, 5).map(d => (
-                    <div key={d.id} className="flex justify-between"><span>{d.name}</span><span className="text-muted-foreground text-xs">{d.specialty}</span></div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle>C-Class</CardTitle><CardDescription>Low prescribers • Monthly visits</CardDescription></CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold text-gray-600">{cClass}</div>
-                <div className="text-xs text-muted-foreground mt-1">{Math.round((cClass / doctors.length) * 100)}% of total</div>
-                <div className="mt-3 space-y-1 text-sm">
-                  {doctors.filter(d => d.classification === "C").slice(0, 5).map(d => (
-                    <div key={d.id} className="flex justify-between"><span>{d.name}</span><span className="text-muted-foreground text-xs">{d.specialty}</span></div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="coverage">
-          <Card>
-            <CardHeader><CardTitle>Visit Coverage Analysis</CardTitle><CardDescription>Required vs actual visits per doctor</CardDescription></CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Doctor</th><th className="p-3">Class</th><th className="p-3">Required/Mo</th><th className="p-3">Actual</th><th className="p-3">Coverage</th><th className="p-3">Last Visit</th><th className="p-3">Status</th></tr>
-                  </thead>
-                  <tbody>
-                    {coverage.map(d => (
-                      <tr key={d.id} className="border-t">
-                        <td className="p-3 font-medium">{d.name}</td>
-                        <td className="p-3"><Badge variant={d.classification === "A" ? "default" : "secondary"}>{d.classification}</Badge></td>
-                        <td className="p-3">{d.required}</td>
-                        <td className="p-3">{d.actual}</td>
-                        <td className="p-3">
-                          <span className={d.pct >= 100 ? "text-green-600" : d.pct >= 50 ? "text-amber-600" : "text-red-600"}>{d.pct}%</span>
-                        </td>
-                        <td className="p-3">{d.lastVisit}</td>
-                        <td className="p-3"><StatusBadge status={d.gap} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      <FormModal open={show} onOpenChange={setShow} title="Add Doctor" fields={doctorFields}
-        onSubmit={(d) => setDoctors(prev => [{
-          id: `DR-${String(prev.length + 21).padStart(3, "0")}`, name: d.name, specialty: d.specialty,
-          hospital: d.hospital, city: d.city, phone: d.phone || "", classification: (d.classification || "B") as "A" | "B" | "C",
-          assignedRep: d.assignedRep, visitFrequency: d.visitFrequency || "Monthly", lastVisit: "-", products: "-", status: "Active",
-        }, ...prev])} />
+      <EntityFormModal
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        title={editing ? (isRep ? `Request edit: ${editing.name}` : `Edit ${editing.name}`) : "Add Doctor"}
+        description={isRep && editing ? "Your changes will be sent as an approval request to your superior." : undefined}
+        fields={fields}
+        initialData={
+          editing
+            ? {
+                name: editing.name,
+                specialty: editing.specialty,
+                hospital: editing.hospital,
+                city: editing.city,
+                phone: editing.phone,
+                email: editing.email ?? "",
+                classification: editing.classification,
+                visitFrequency: editing.visitFrequency,
+                assignedRepId: editing.assignedRepId ?? "",
+                buId: editing.buId ?? "",
+                notes: editing.notes ?? "",
+              }
+            : undefined
+        }
+        onSubmit={handleSubmit}
+        submitLabel={editing ? (isRep ? "Submit request" : "Save") : "Create"}
+        size="xl"
+      />
     </div>
   );
 }

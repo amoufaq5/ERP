@@ -88,6 +88,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: "CRM",
     items: [
+      { label: "Business Units", href: "/crm/business-units", icon: Building },
       { label: "Medical Reps", href: "/crm/medical-rep", icon: UserCheck },
       { label: "District Manager", href: "/crm/district-manager", icon: Users },
       { label: "Marketeer", href: "/crm/marketeer", icon: Target },
@@ -262,7 +263,7 @@ function SidebarContent({
 
       {/* Scrollable nav */}
       <nav className="flex-1 overflow-y-auto py-3 scrollbar-thin">
-        {NAV_SECTIONS.map((section) => (
+        {sections.map((section) => (
           <div key={section.title} className="mb-1">
             {!collapsed && (
               <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500 select-none">

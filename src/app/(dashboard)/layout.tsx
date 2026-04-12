@@ -1,6 +1,7 @@
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { UserProvider } from "@/lib/user-context";
 import { ConfigProvider } from "@/lib/config-context";
+import { DataStoreProvider } from "@/lib/data-store";
 
 export default function DashboardLayout({
   children,
@@ -10,7 +11,9 @@ export default function DashboardLayout({
   return (
     <UserProvider>
       <ConfigProvider>
-        <DashboardShell>{children}</DashboardShell>
+        <DataStoreProvider>
+          <DashboardShell>{children}</DashboardShell>
+        </DataStoreProvider>
       </ConfigProvider>
     </UserProvider>
   );

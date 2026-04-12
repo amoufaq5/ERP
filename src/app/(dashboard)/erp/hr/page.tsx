@@ -1,244 +1,703 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Users, UserCheck, Calendar, DollarSign, Plus, Clock } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog"
+import { useMemo, useState } from "react";
+import {
+  Users,
+  UserCheck,
+  Calendar,
+  DollarSign,
+  Plus,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Building2,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import PageHeader from "@/components/shared/page-header";
+import StatsCard from "@/components/shared/stats-card";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import {
+  EntityFormModal,
+  type EntityField,
+  type EntityFormData,
+} from "@/components/shared/entity-form-modal";
 
-const statusColor: Record<string, string> = {
-  ACTIVE: "bg-green-100 text-green-800",
-  ON_LEAVE: "bg-yellow-100 text-yellow-800",
-  TERMINATED: "bg-red-100 text-red-800",
-  PENDING: "bg-amber-100 text-amber-800",
-  APPROVED: "bg-green-100 text-green-800",
-  REJECTED: "bg-red-100 text-red-800",
-  DRAFT: "bg-gray-100 text-gray-800",
-  PROCESSED: "bg-blue-100 text-blue-800",
-  PAID: "bg-green-100 text-green-800",
-  PRESENT: "bg-green-100 text-green-800",
-  ABSENT: "bg-red-100 text-red-800",
-  LATE: "bg-orange-100 text-orange-800",
+/* ─── Types ────────────────────────────────────────────────────────── */
+
+interface Employee {
+  id: string;
+  employeeNumber: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  department: string;
+  position: string;
+  hireDate: string;
+  salary: number;
+  status: "ACTIVE" | "ON_LEAVE" | "TERMINATED";
 }
 
-const initialEmployees = [
-  { id: "1", employeeNumber: "EMP001", firstName: "John", lastName: "Smith", email: "john.smith@company.com", phone: "(555) 100-1001", department: "Engineering", position: "Senior Developer", hireDate: "2022-03-15", salary: 95000, status: "ACTIVE" },
-  { id: "2", employeeNumber: "EMP002", firstName: "Sarah", lastName: "Johnson", email: "sarah.j@company.com", phone: "(555) 100-1002", department: "Marketing", position: "Marketing Manager", hireDate: "2021-06-01", salary: 85000, status: "ACTIVE" },
-  { id: "3", employeeNumber: "EMP003", firstName: "Michael", lastName: "Chen", email: "m.chen@company.com", phone: "(555) 100-1003", department: "Finance", position: "Financial Analyst", hireDate: "2023-01-10", salary: 75000, status: "ACTIVE" },
-  { id: "4", employeeNumber: "EMP004", firstName: "Emily", lastName: "Davis", email: "e.davis@company.com", phone: "(555) 100-1004", department: "HR", position: "HR Specialist", hireDate: "2022-08-20", salary: 70000, status: "ON_LEAVE" },
-  { id: "5", employeeNumber: "EMP005", firstName: "Robert", lastName: "Wilson", email: "r.wilson@company.com", phone: "(555) 100-1005", department: "Sales", position: "Sales Rep", hireDate: "2023-04-12", salary: 65000, status: "ACTIVE" },
-  { id: "6", employeeNumber: "EMP006", firstName: "Lisa", lastName: "Anderson", email: "l.anderson@company.com", phone: "(555) 100-1006", department: "Engineering", position: "QA Engineer", hireDate: "2022-11-05", salary: 80000, status: "ACTIVE" },
-  { id: "7", employeeNumber: "EMP007", firstName: "David", lastName: "Martinez", email: "d.martinez@company.com", phone: "(555) 100-1007", department: "Operations", position: "Operations Lead", hireDate: "2021-02-28", salary: 90000, status: "ACTIVE" },
-  { id: "8", employeeNumber: "EMP008", firstName: "Jennifer", lastName: "Taylor", email: "j.taylor@company.com", phone: "(555) 100-1008", department: "Finance", position: "Controller", hireDate: "2020-09-14", salary: 110000, status: "ACTIVE" },
-]
+interface LeaveRequest {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  type: "ANNUAL" | "SICK" | "PERSONAL";
+  startDate: string;
+  endDate: string;
+  days: number;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  reason: string;
+}
 
-const departments = [
-  { id: "1", name: "Engineering", manager: "John Smith", employees: 24, budget: 2400000 },
-  { id: "2", name: "Marketing", manager: "Sarah Johnson", employees: 12, budget: 800000 },
-  { id: "3", name: "Finance", manager: "Jennifer Taylor", employees: 8, budget: 600000 },
-  { id: "4", name: "HR", manager: "Emily Davis", employees: 6, budget: 400000 },
-  { id: "5", name: "Sales", manager: "Robert Wilson", employees: 18, budget: 1200000 },
-  { id: "6", name: "Operations", manager: "David Martinez", employees: 15, budget: 900000 },
-]
+interface PayrollRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  period: string;
+  basicSalary: number;
+  overtime: number;
+  deductions: number;
+  bonuses: number;
+  tax: number;
+  netPay: number;
+  status: "DRAFT" | "PROCESSED" | "PAID";
+}
 
-const initialLeaves = [
-  { id: "1", employee: "Emily Davis", type: "ANNUAL", startDate: "2024-03-25", endDate: "2024-03-29", days: 5, status: "APPROVED", reason: "Family vacation" },
-  { id: "2", employee: "John Smith", type: "SICK", startDate: "2024-03-20", endDate: "2024-03-21", days: 2, status: "APPROVED", reason: "Medical appointment" },
-  { id: "3", employee: "Lisa Anderson", type: "PERSONAL", startDate: "2024-04-05", endDate: "2024-04-05", days: 1, status: "PENDING", reason: "Personal matter" },
-  { id: "4", employee: "Robert Wilson", type: "ANNUAL", startDate: "2024-04-15", endDate: "2024-04-19", days: 5, status: "PENDING", reason: "Spring break travel" },
-  { id: "5", employee: "Michael Chen", type: "SICK", startDate: "2024-03-18", endDate: "2024-03-18", days: 1, status: "REJECTED", reason: "Not enough sick leave balance" },
-]
+interface Department {
+  id: string;
+  name: string;
+  managerId: string;
+  managerName: string;
+  budget: number;
+}
 
-const payrollData = [
-  { id: "1", employee: "John Smith", period: "Mar 2024", basicSalary: 7916.67, overtime: 450, deductions: 890, bonuses: 500, tax: 1785, netPay: 6191.67, status: "PAID" },
-  { id: "2", employee: "Sarah Johnson", period: "Mar 2024", basicSalary: 7083.33, overtime: 0, deductions: 780, bonuses: 300, tax: 1520, netPay: 5083.33, status: "PAID" },
-  { id: "3", employee: "Michael Chen", period: "Mar 2024", basicSalary: 6250.00, overtime: 200, deductions: 650, bonuses: 0, tax: 1310, netPay: 4490.00, status: "PROCESSED" },
-  { id: "4", employee: "Emily Davis", period: "Mar 2024", basicSalary: 5833.33, overtime: 0, deductions: 620, bonuses: 0, tax: 1190, netPay: 4023.33, status: "DRAFT" },
-  { id: "5", employee: "Robert Wilson", period: "Mar 2024", basicSalary: 5416.67, overtime: 350, deductions: 580, bonuses: 800, tax: 1250, netPay: 4736.67, status: "PAID" },
-  { id: "6", employee: "Lisa Anderson", period: "Mar 2024", basicSalary: 6666.67, overtime: 0, deductions: 710, bonuses: 250, tax: 1430, netPay: 4776.67, status: "PROCESSED" },
-]
+/* ─── Seed Data ────────────────────────────────────────────────────── */
+
+const SEED_EMPLOYEES: Employee[] = [
+  { id: "emp-1", employeeNumber: "EMP001", firstName: "John", lastName: "Smith", email: "john.smith@company.com", phone: "(555) 100-1001", department: "Engineering", position: "Senior Developer", hireDate: "2022-03-15", salary: 95000, status: "ACTIVE" },
+  { id: "emp-2", employeeNumber: "EMP002", firstName: "Sarah", lastName: "Johnson", email: "sarah.j@company.com", phone: "(555) 100-1002", department: "Marketing", position: "Marketing Manager", hireDate: "2021-06-01", salary: 85000, status: "ACTIVE" },
+  { id: "emp-3", employeeNumber: "EMP003", firstName: "Michael", lastName: "Chen", email: "m.chen@company.com", phone: "(555) 100-1003", department: "Finance", position: "Financial Analyst", hireDate: "2023-01-10", salary: 75000, status: "ACTIVE" },
+  { id: "emp-4", employeeNumber: "EMP004", firstName: "Emily", lastName: "Davis", email: "e.davis@company.com", phone: "(555) 100-1004", department: "HR", position: "HR Specialist", hireDate: "2022-08-20", salary: 70000, status: "ON_LEAVE" },
+  { id: "emp-5", employeeNumber: "EMP005", firstName: "Robert", lastName: "Wilson", email: "r.wilson@company.com", phone: "(555) 100-1005", department: "Sales", position: "Sales Rep", hireDate: "2023-04-12", salary: 65000, status: "ACTIVE" },
+  { id: "emp-6", employeeNumber: "EMP006", firstName: "Lisa", lastName: "Anderson", email: "l.anderson@company.com", phone: "(555) 100-1006", department: "Engineering", position: "QA Engineer", hireDate: "2022-11-05", salary: 80000, status: "ACTIVE" },
+  { id: "emp-7", employeeNumber: "EMP007", firstName: "David", lastName: "Martinez", email: "d.martinez@company.com", phone: "(555) 100-1007", department: "Operations", position: "Operations Lead", hireDate: "2021-02-28", salary: 90000, status: "ACTIVE" },
+  { id: "emp-8", employeeNumber: "EMP008", firstName: "Jennifer", lastName: "Taylor", email: "j.taylor@company.com", phone: "(555) 100-1008", department: "Finance", position: "Controller", hireDate: "2020-09-14", salary: 110000, status: "ACTIVE" },
+];
+
+const SEED_LEAVES: LeaveRequest[] = [
+  { id: "lv-1", employeeId: "emp-4", employeeName: "Emily Davis", type: "ANNUAL", startDate: "2024-03-25", endDate: "2024-03-29", days: 5, status: "APPROVED", reason: "Family vacation" },
+  { id: "lv-2", employeeId: "emp-1", employeeName: "John Smith", type: "SICK", startDate: "2024-03-20", endDate: "2024-03-21", days: 2, status: "APPROVED", reason: "Medical appointment" },
+  { id: "lv-3", employeeId: "emp-6", employeeName: "Lisa Anderson", type: "PERSONAL", startDate: "2024-04-05", endDate: "2024-04-05", days: 1, status: "PENDING", reason: "Personal matter" },
+  { id: "lv-4", employeeId: "emp-5", employeeName: "Robert Wilson", type: "ANNUAL", startDate: "2024-04-15", endDate: "2024-04-19", days: 5, status: "PENDING", reason: "Spring break travel" },
+  { id: "lv-5", employeeId: "emp-3", employeeName: "Michael Chen", type: "SICK", startDate: "2024-03-18", endDate: "2024-03-18", days: 1, status: "REJECTED", reason: "Not enough sick leave balance" },
+];
+
+const SEED_PAYROLL: PayrollRecord[] = [
+  { id: "pr-1", employeeId: "emp-1", employeeName: "John Smith", period: "Mar 2024", basicSalary: 7916.67, overtime: 450, deductions: 890, bonuses: 500, tax: 1785, netPay: 6191.67, status: "PAID" },
+  { id: "pr-2", employeeId: "emp-2", employeeName: "Sarah Johnson", period: "Mar 2024", basicSalary: 7083.33, overtime: 0, deductions: 780, bonuses: 300, tax: 1520, netPay: 5083.33, status: "PAID" },
+  { id: "pr-3", employeeId: "emp-3", employeeName: "Michael Chen", period: "Mar 2024", basicSalary: 6250.00, overtime: 200, deductions: 650, bonuses: 0, tax: 1310, netPay: 4490.00, status: "PROCESSED" },
+  { id: "pr-4", employeeId: "emp-4", employeeName: "Emily Davis", period: "Mar 2024", basicSalary: 5833.33, overtime: 0, deductions: 620, bonuses: 0, tax: 1190, netPay: 4023.33, status: "DRAFT" },
+  { id: "pr-5", employeeId: "emp-5", employeeName: "Robert Wilson", period: "Mar 2024", basicSalary: 5416.67, overtime: 350, deductions: 580, bonuses: 800, tax: 1250, netPay: 4736.67, status: "PAID" },
+  { id: "pr-6", employeeId: "emp-6", employeeName: "Lisa Anderson", period: "Mar 2024", basicSalary: 6666.67, overtime: 0, deductions: 710, bonuses: 250, tax: 1430, netPay: 4776.67, status: "PROCESSED" },
+];
+
+const SEED_DEPARTMENTS: Department[] = [
+  { id: "dept-1", name: "Engineering", managerId: "emp-1", managerName: "John Smith", budget: 2400000 },
+  { id: "dept-2", name: "Marketing", managerId: "emp-2", managerName: "Sarah Johnson", budget: 800000 },
+  { id: "dept-3", name: "Finance", managerId: "emp-8", managerName: "Jennifer Taylor", budget: 600000 },
+  { id: "dept-4", name: "HR", managerId: "emp-4", managerName: "Emily Davis", budget: 400000 },
+  { id: "dept-5", name: "Sales", managerId: "emp-5", managerName: "Robert Wilson", budget: 1200000 },
+  { id: "dept-6", name: "Operations", managerId: "emp-7", managerName: "David Martinez", budget: 900000 },
+];
+
+/* ─── Component ────────────────────────────────────────────────────── */
 
 export default function HRPage() {
-  const [tab, setTab] = useState("employees")
-  const [employees, setEmployees] = useState(initialEmployees)
-  const [leaves, setLeaves] = useState(initialLeaves)
-  const [search, setSearch] = useState("")
-  const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", department: "", position: "", salary: "" })
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 
-  const fmt = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n)
-  const tabs = ["employees", "departments", "leave", "payroll"]
+  // State
+  const [employees, setEmployees] = useState<Employee[]>(SEED_EMPLOYEES);
+  const [leaves, setLeaves] = useState<LeaveRequest[]>(SEED_LEAVES);
+  const [payroll, setPayroll] = useState<PayrollRecord[]>(SEED_PAYROLL);
+  const [departments, setDepartments] = useState<Department[]>(SEED_DEPARTMENTS);
 
-  const filteredEmployees = employees.filter(e =>
-    `${e.firstName} ${e.lastName} ${e.email} ${e.department}`.toLowerCase().includes(search.toLowerCase())
-  )
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<FilterState>({});
+  const [leaveFilters, setLeaveFilters] = useState<FilterState>({});
+  const [payrollFilters, setPayrollFilters] = useState<FilterState>({});
 
-  const addEmployee = () => {
-    if (!form.firstName || !form.lastName) return
-    setEmployees(prev => [...prev, {
-      id: String(prev.length + 1),
-      employeeNumber: `EMP${String(prev.length + 1).padStart(3, "0")}`,
-      firstName: form.firstName,
-      lastName: form.lastName,
-      email: form.email || `${form.firstName.toLowerCase()}@company.com`,
-      phone: "(555) 100-" + String(1000 + prev.length + 1),
-      department: form.department || "Engineering",
-      position: form.position || "Employee",
-      hireDate: new Date().toISOString().split("T")[0],
-      salary: Number(form.salary) || 60000,
-      status: "ACTIVE",
-    }])
-    setForm({ firstName: "", lastName: "", email: "", department: "", position: "", salary: "" })
-    setShowAdd(false)
+  const [empFormOpen, setEmpFormOpen] = useState(false);
+  const [editingEmp, setEditingEmp] = useState<Employee | null>(null);
+  const [leaveFormOpen, setLeaveFormOpen] = useState(false);
+  const [editingLeave, setEditingLeave] = useState<LeaveRequest | null>(null);
+  const [deptFormOpen, setDeptFormOpen] = useState(false);
+  const [editingDept, setEditingDept] = useState<Department | null>(null);
+  const [payrollFormOpen, setPayrollFormOpen] = useState(false);
+  const [editingPayroll, setEditingPayroll] = useState<PayrollRecord | null>(null);
+
+  let nextId = Date.now();
+  const genId = (prefix: string) => `${prefix}-${(nextId++).toString(36).slice(-6)}`;
+
+  // Derived
+  const uniqueDepts = Array.from(new Set(employees.map((e) => e.department))).sort();
+  const uniqueStatuses: Employee["status"][] = ["ACTIVE", "ON_LEAVE", "TERMINATED"];
+
+  const filteredEmployees = useMemo(() => {
+    return employees.filter((e) => {
+      if (search) {
+        const q = search.toLowerCase();
+        if (
+          !`${e.firstName} ${e.lastName}`.toLowerCase().includes(q) &&
+          !e.email.toLowerCase().includes(q) &&
+          !e.department.toLowerCase().includes(q) &&
+          !e.position.toLowerCase().includes(q)
+        )
+          return false;
+      }
+      if (filters.department && e.department !== filters.department) return false;
+      if (filters.status && e.status !== filters.status) return false;
+      return true;
+    });
+  }, [employees, search, filters]);
+
+  const filteredLeaves = useMemo(() => {
+    return leaves.filter((l) => {
+      if (leaveFilters.status && l.status !== leaveFilters.status) return false;
+      if (leaveFilters.type && l.type !== leaveFilters.type) return false;
+      return true;
+    });
+  }, [leaves, leaveFilters]);
+
+  const filteredPayroll = useMemo(() => {
+    return payroll.filter((p) => {
+      if (payrollFilters.status && p.status !== payrollFilters.status) return false;
+      return true;
+    });
+  }, [payroll, payrollFilters]);
+
+  const pendingLeaves = leaves.filter((l) => l.status === "PENDING");
+
+  // Stats
+  const totalPayroll = payroll.reduce((s, p) => s + p.netPay, 0);
+  const onLeaveCount = employees.filter((e) => e.status === "ON_LEAVE").length;
+
+  /* ─── Employee CRUD ─── */
+  const empFields: EntityField[] = [
+    { name: "firstName", label: "First Name", type: "text", required: true },
+    { name: "lastName", label: "Last Name", type: "text", required: true },
+    { name: "email", label: "Email", type: "email", required: true },
+    { name: "phone", label: "Phone", type: "tel" },
+    { name: "department", label: "Department", type: "select", required: true, options: uniqueDepts.map((d) => ({ label: d, value: d })) },
+    { name: "position", label: "Position", type: "text", required: true },
+    { name: "hireDate", label: "Hire Date", type: "date", required: true },
+    { name: "salary", label: "Annual Salary", type: "number", required: true },
+    { name: "status", label: "Status", type: "select", required: true, options: uniqueStatuses.map((s) => ({ label: s, value: s })) },
+  ];
+
+  function handleCreateEmp() { setEditingEmp(null); setEmpFormOpen(true); }
+  function handleEditEmp(e: Employee) { setEditingEmp(e); setEmpFormOpen(true); }
+  function handleEmpSubmit(data: EntityFormData) {
+    if (editingEmp) {
+      setEmployees((prev) =>
+        prev.map((e) =>
+          e.id === editingEmp.id
+            ? { ...e, firstName: String(data.firstName), lastName: String(data.lastName), email: String(data.email), phone: String(data.phone || e.phone), department: String(data.department), position: String(data.position), hireDate: String(data.hireDate), salary: Number(data.salary), status: data.status as Employee["status"] }
+            : e
+        )
+      );
+    } else {
+      const num = employees.length + 1;
+      setEmployees((prev) => [
+        ...prev,
+        {
+          id: genId("emp"),
+          employeeNumber: `EMP${String(num).padStart(3, "0")}`,
+          firstName: String(data.firstName),
+          lastName: String(data.lastName),
+          email: String(data.email),
+          phone: String(data.phone || ""),
+          department: String(data.department),
+          position: String(data.position),
+          hireDate: String(data.hireDate || new Date().toISOString().split("T")[0]),
+          salary: Number(data.salary) || 60000,
+          status: (data.status as Employee["status"]) || "ACTIVE",
+        },
+      ]);
+    }
+    setEmpFormOpen(false);
+    setEditingEmp(null);
   }
+  function handleDeleteEmp(e: Employee) {
+    setEmployees((prev) => prev.filter((x) => x.id !== e.id));
+  }
+
+  /* ─── Leave CRUD ─── */
+  const leaveFields: EntityField[] = [
+    { name: "employeeId", label: "Employee", type: "select", required: true, options: employees.map((e) => ({ label: `${e.firstName} ${e.lastName}`, value: e.id })) },
+    { name: "type", label: "Type", type: "select", required: true, options: [{ label: "Annual", value: "ANNUAL" }, { label: "Sick", value: "SICK" }, { label: "Personal", value: "PERSONAL" }] },
+    { name: "startDate", label: "Start Date", type: "date", required: true },
+    { name: "endDate", label: "End Date", type: "date", required: true },
+    { name: "reason", label: "Reason", type: "textarea", required: true, fullWidth: true },
+  ];
+
+  function handleCreateLeave() { setEditingLeave(null); setLeaveFormOpen(true); }
+  function handleEditLeave(l: LeaveRequest) { setEditingLeave(l); setLeaveFormOpen(true); }
+  function handleLeaveSubmit(data: EntityFormData) {
+    const emp = employees.find((e) => e.id === String(data.employeeId));
+    const start = new Date(String(data.startDate));
+    const end = new Date(String(data.endDate));
+    const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
+
+    if (editingLeave) {
+      setLeaves((prev) =>
+        prev.map((l) =>
+          l.id === editingLeave.id
+            ? { ...l, employeeId: String(data.employeeId), employeeName: emp ? `${emp.firstName} ${emp.lastName}` : l.employeeName, type: data.type as LeaveRequest["type"], startDate: String(data.startDate), endDate: String(data.endDate), days, reason: String(data.reason) }
+            : l
+        )
+      );
+    } else {
+      setLeaves((prev) => [
+        ...prev,
+        {
+          id: genId("lv"),
+          employeeId: String(data.employeeId),
+          employeeName: emp ? `${emp.firstName} ${emp.lastName}` : "Unknown",
+          type: data.type as LeaveRequest["type"],
+          startDate: String(data.startDate),
+          endDate: String(data.endDate),
+          days,
+          status: "PENDING",
+          reason: String(data.reason),
+        },
+      ]);
+    }
+    setLeaveFormOpen(false);
+    setEditingLeave(null);
+  }
+  function handleDeleteLeave(l: LeaveRequest) {
+    setLeaves((prev) => prev.filter((x) => x.id !== l.id));
+  }
+  function handleApproveLeave(l: LeaveRequest) {
+    setLeaves((prev) => prev.map((x) => (x.id === l.id ? { ...x, status: "APPROVED" as const } : x)));
+  }
+  function handleRejectLeave(l: LeaveRequest) {
+    setLeaves((prev) => prev.map((x) => (x.id === l.id ? { ...x, status: "REJECTED" as const } : x)));
+  }
+
+  /* ─── Department CRUD ─── */
+  const deptFields: EntityField[] = [
+    { name: "name", label: "Department Name", type: "text", required: true },
+    { name: "managerId", label: "Manager", type: "select", required: true, options: employees.map((e) => ({ label: `${e.firstName} ${e.lastName}`, value: e.id })) },
+    { name: "budget", label: "Annual Budget", type: "number", required: true },
+  ];
+
+  function handleCreateDept() { setEditingDept(null); setDeptFormOpen(true); }
+  function handleEditDept(d: Department) { setEditingDept(d); setDeptFormOpen(true); }
+  function handleDeptSubmit(data: EntityFormData) {
+    const mgr = employees.find((e) => e.id === String(data.managerId));
+    if (editingDept) {
+      setDepartments((prev) =>
+        prev.map((d) =>
+          d.id === editingDept.id
+            ? { ...d, name: String(data.name), managerId: String(data.managerId), managerName: mgr ? `${mgr.firstName} ${mgr.lastName}` : d.managerName, budget: Number(data.budget) }
+            : d
+        )
+      );
+    } else {
+      setDepartments((prev) => [
+        ...prev,
+        { id: genId("dept"), name: String(data.name), managerId: String(data.managerId), managerName: mgr ? `${mgr.firstName} ${mgr.lastName}` : "—", budget: Number(data.budget) || 0 },
+      ]);
+    }
+    setDeptFormOpen(false);
+    setEditingDept(null);
+  }
+  function handleDeleteDept(d: Department) {
+    setDepartments((prev) => prev.filter((x) => x.id !== d.id));
+  }
+
+  /* ─── Payroll CRUD ─── */
+  const payrollFields: EntityField[] = [
+    { name: "employeeId", label: "Employee", type: "select", required: true, options: employees.map((e) => ({ label: `${e.firstName} ${e.lastName}`, value: e.id })) },
+    { name: "period", label: "Period", type: "text", required: true, placeholder: "e.g. Apr 2024" },
+    { name: "basicSalary", label: "Basic Salary", type: "number", required: true },
+    { name: "overtime", label: "Overtime", type: "number", defaultValue: 0 },
+    { name: "deductions", label: "Deductions", type: "number", defaultValue: 0 },
+    { name: "bonuses", label: "Bonuses", type: "number", defaultValue: 0 },
+    { name: "tax", label: "Tax", type: "number", defaultValue: 0 },
+    { name: "status", label: "Status", type: "select", required: true, options: [{ label: "Draft", value: "DRAFT" }, { label: "Processed", value: "PROCESSED" }, { label: "Paid", value: "PAID" }] },
+  ];
+
+  function handleCreatePayroll() { setEditingPayroll(null); setPayrollFormOpen(true); }
+  function handleEditPayroll(p: PayrollRecord) { setEditingPayroll(p); setPayrollFormOpen(true); }
+  function handlePayrollSubmit(data: EntityFormData) {
+    const emp = employees.find((e) => e.id === String(data.employeeId));
+    const basic = Number(data.basicSalary) || 0;
+    const ot = Number(data.overtime) || 0;
+    const ded = Number(data.deductions) || 0;
+    const bon = Number(data.bonuses) || 0;
+    const tax = Number(data.tax) || 0;
+    const net = basic + ot + bon - ded - tax;
+
+    if (editingPayroll) {
+      setPayroll((prev) =>
+        prev.map((p) =>
+          p.id === editingPayroll.id
+            ? { ...p, employeeId: String(data.employeeId), employeeName: emp ? `${emp.firstName} ${emp.lastName}` : p.employeeName, period: String(data.period), basicSalary: basic, overtime: ot, deductions: ded, bonuses: bon, tax, netPay: net, status: data.status as PayrollRecord["status"] }
+            : p
+        )
+      );
+    } else {
+      setPayroll((prev) => [
+        ...prev,
+        { id: genId("pr"), employeeId: String(data.employeeId), employeeName: emp ? `${emp.firstName} ${emp.lastName}` : "—", period: String(data.period), basicSalary: basic, overtime: ot, deductions: ded, bonuses: bon, tax, netPay: net, status: (data.status as PayrollRecord["status"]) || "DRAFT" },
+      ]);
+    }
+    setPayrollFormOpen(false);
+    setEditingPayroll(null);
+  }
+  function handleDeletePayroll(p: PayrollRecord) {
+    setPayroll((prev) => prev.filter((x) => x.id !== p.id));
+  }
+
+  /* ─── Status badge helper ─── */
+  const statusColor: Record<string, string> = {
+    ACTIVE: "bg-green-100 text-green-800",
+    ON_LEAVE: "bg-yellow-100 text-yellow-800",
+    TERMINATED: "bg-red-100 text-red-800",
+    PENDING: "bg-amber-100 text-amber-800",
+    APPROVED: "bg-green-100 text-green-800",
+    REJECTED: "bg-red-100 text-red-800",
+    DRAFT: "bg-gray-100 text-gray-800",
+    PROCESSED: "bg-blue-100 text-blue-800",
+    PAID: "bg-green-100 text-green-800",
+    ANNUAL: "bg-blue-100 text-blue-800",
+    SICK: "bg-red-100 text-red-800",
+    PERSONAL: "bg-purple-100 text-purple-800",
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">HR & Payroll</h1>
-          <p className="text-gray-500">Manage employees, departments, leave requests, and payroll</p>
-        </div>
-        <Dialog open={showAdd} onOpenChange={setShowAdd}>
-          <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" />Add Employee</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Add New Employee</DialogTitle></DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div><Label>First Name</Label><Input value={form.firstName} onChange={e => setForm(p => ({ ...p, firstName: e.target.value }))} /></div>
-                <div><Label>Last Name</Label><Input value={form.lastName} onChange={e => setForm(p => ({ ...p, lastName: e.target.value }))} /></div>
-              </div>
-              <div><Label>Email</Label><Input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} /></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><Label>Department</Label><Input value={form.department} onChange={e => setForm(p => ({ ...p, department: e.target.value }))} /></div>
-                <div><Label>Position</Label><Input value={form.position} onChange={e => setForm(p => ({ ...p, position: e.target.value }))} /></div>
-              </div>
-              <div><Label>Salary</Label><Input type="number" value={form.salary} onChange={e => setForm(p => ({ ...p, salary: e.target.value }))} /></div>
-            </div>
-            <DialogFooter>
-              <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-              <Button onClick={addEmployee}>Add Employee</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      <PageHeader
+        title="HR & Payroll"
+        description="Manage employees, departments, leave requests, and payroll"
+        actions={
+          <Button onClick={handleCreateEmp}>
+            <Plus className="h-4 w-4 mr-2" /> Add Employee
+          </Button>
+        }
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard icon={Users} title="Total Employees" value={employees.length} iconColor="bg-blue-100 text-blue-600" />
+        <StatsCard icon={Calendar} title="On Leave" value={onLeaveCount} iconColor="bg-yellow-100 text-yellow-600" />
+        <StatsCard icon={UserCheck} title="Departments" value={departments.length} iconColor="bg-green-100 text-green-600" />
+        <StatsCard icon={DollarSign} title="Monthly Payroll" value={fmt(totalPayroll)} iconColor="bg-purple-100 text-purple-600" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><Users className="h-5 w-5 text-blue-600" /></div><div><p className="text-sm text-gray-500">Total Employees</p><p className="text-2xl font-bold">{employees.length}</p></div></div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-yellow-100 rounded-lg"><Calendar className="h-5 w-5 text-yellow-600" /></div><div><p className="text-sm text-gray-500">On Leave</p><p className="text-2xl font-bold">{employees.filter(e => e.status === "ON_LEAVE").length}</p></div></div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><UserCheck className="h-5 w-5 text-green-600" /></div><div><p className="text-sm text-gray-500">Departments</p><p className="text-2xl font-bold">{departments.length}</p></div></div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><DollarSign className="h-5 w-5 text-purple-600" /></div><div><p className="text-sm text-gray-500">Monthly Payroll</p><p className="text-2xl font-bold">{fmt(payrollData.reduce((s, p) => s + p.netPay, 0))}</p></div></div></CardContent></Card>
-      </div>
+      <Tabs defaultValue="employees">
+        <TabsList>
+          <TabsTrigger value="employees"><Users className="h-3.5 w-3.5 mr-1.5" />Employees ({employees.length})</TabsTrigger>
+          <TabsTrigger value="departments"><Building2 className="h-3.5 w-3.5 mr-1.5" />Departments</TabsTrigger>
+          <TabsTrigger value="leave"><Calendar className="h-3.5 w-3.5 mr-1.5" />Leave ({pendingLeaves.length} pending)</TabsTrigger>
+          <TabsTrigger value="payroll"><DollarSign className="h-3.5 w-3.5 mr-1.5" />Payroll</TabsTrigger>
+        </TabsList>
 
-      <div className="flex gap-2 border-b">
-        {tabs.map(t => (
-          <button key={t} onClick={() => setTab(t)} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === t ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
-          </button>
-        ))}
-      </div>
+        {/* ── Employees ── */}
+        <TabsContent value="employees" className="space-y-3">
+          <FilterBar
+            searchPlaceholder="Search employees by name, email, department, or position..."
+            searchValue={search}
+            onSearchChange={setSearch}
+            fields={[
+              { key: "department", label: "Department", type: "select", options: uniqueDepts.map((d) => ({ label: d, value: d })) },
+              { key: "status", label: "Status", type: "select", options: uniqueStatuses.map((s) => ({ label: s, value: s })) },
+            ]}
+            values={filters}
+            onChange={setFilters}
+          />
 
-      {tab === "employees" && (
-        <Card>
-          <CardHeader><div className="flex items-center justify-between"><CardTitle>Employee Directory</CardTitle><Input placeholder="Search employees..." className="max-w-xs" value={search} onChange={e => setSearch(e.target.value)} /></div></CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b bg-gray-50">
-                  <th className="text-left p-3 font-medium">Employee</th><th className="text-left p-3 font-medium">Department</th><th className="text-left p-3 font-medium">Position</th><th className="text-left p-3 font-medium">Hire Date</th><th className="text-right p-3 font-medium">Salary</th><th className="text-left p-3 font-medium">Status</th>
-                </tr></thead>
-                <tbody>
-                  {filteredEmployees.map(emp => (
-                    <tr key={emp.id} className="border-b hover:bg-gray-50">
-                      <td className="p-3"><div><p className="font-medium">{emp.firstName} {emp.lastName}</p><p className="text-gray-500 text-xs">{emp.email}</p></div></td>
-                      <td className="p-3">{emp.department}</td>
-                      <td className="p-3">{emp.position}</td>
-                      <td className="p-3">{emp.hireDate}</td>
-                      <td className="p-3 text-right">{fmt(emp.salary)}</td>
-                      <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[emp.status]}`}>{emp.status}</span></td>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
+                    <tr>
+                      <th className="text-left p-3">Employee</th>
+                      <th className="text-left p-3">Department</th>
+                      <th className="text-left p-3">Position</th>
+                      <th className="text-left p-3">Hire Date</th>
+                      <th className="text-right p-3">Salary</th>
+                      <th className="text-left p-3">Status</th>
+                      <th className="text-right p-3">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                  </thead>
+                  <tbody>
+                    {filteredEmployees.length === 0 && (
+                      <tr><td colSpan={7} className="p-8 text-center text-slate-500">No employees match your filters.</td></tr>
+                    )}
+                    {filteredEmployees.map((emp) => (
+                      <tr key={emp.id} className="border-b hover:bg-slate-50">
+                        <td className="p-3">
+                          <div className="font-medium">{emp.firstName} {emp.lastName}</div>
+                          <div className="text-[11px] text-slate-500">{emp.email}</div>
+                        </td>
+                        <td className="p-3">{emp.department}</td>
+                        <td className="p-3">{emp.position}</td>
+                        <td className="p-3">{emp.hireDate}</td>
+                        <td className="p-3 text-right font-medium">{fmt(emp.salary)}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[emp.status]}`}>{emp.status}</span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <EditDeleteMenu
+                            onEdit={() => handleEditEmp(emp)}
+                            onDelete={() => handleDeleteEmp(emp)}
+                            itemLabel={`${emp.firstName} ${emp.lastName}`}
+                            compact
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {tab === "departments" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {departments.map(dept => (
-            <Card key={dept.id}>
-              <CardContent className="pt-6">
-                <h3 className="font-semibold text-lg">{dept.name}</h3>
-                <p className="text-sm text-gray-500 mt-1">Manager: {dept.manager}</p>
-                <div className="mt-4 flex justify-between text-sm">
-                  <span className="text-gray-500"><Users className="h-4 w-4 inline mr-1" />{dept.employees} employees</span>
-                  <span className="font-medium">{fmt(dept.budget)}</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+        {/* ── Departments ── */}
+        <TabsContent value="departments" className="space-y-3">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={handleCreateDept}><Plus className="h-3.5 w-3.5 mr-1" />Add Department</Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {departments.map((dept) => {
+              const empCount = employees.filter((e) => e.department === dept.name).length;
+              return (
+                <Card key={dept.id}>
+                  <CardContent className="pt-6">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-lg">{dept.name}</h3>
+                        <p className="text-sm text-gray-500 mt-1">Manager: {dept.managerName}</p>
+                      </div>
+                      <EditDeleteMenu
+                        onEdit={() => handleEditDept(dept)}
+                        onDelete={() => handleDeleteDept(dept)}
+                        itemLabel={dept.name}
+                        compact
+                      />
+                    </div>
+                    <div className="mt-4 flex justify-between text-sm">
+                      <span className="text-gray-500"><Users className="h-4 w-4 inline mr-1" />{empCount} employees</span>
+                      <span className="font-medium">{fmt(dept.budget)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </TabsContent>
 
-      {tab === "leave" && (
-        <Card>
-          <CardHeader><CardTitle>Leave Requests</CardTitle></CardHeader>
-          <CardContent>
-            <table className="w-full text-sm">
-              <thead><tr className="border-b bg-gray-50">
-                <th className="text-left p-3 font-medium">Employee</th><th className="text-left p-3 font-medium">Type</th><th className="text-left p-3 font-medium">From</th><th className="text-left p-3 font-medium">To</th><th className="text-right p-3 font-medium">Days</th><th className="text-left p-3 font-medium">Status</th><th className="text-left p-3 font-medium">Reason</th>
-              </tr></thead>
-              <tbody>
-                {leaves.map(l => (
-                  <tr key={l.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 font-medium">{l.employee}</td>
-                    <td className="p-3"><Badge variant="outline">{l.type}</Badge></td>
-                    <td className="p-3">{l.startDate}</td>
-                    <td className="p-3">{l.endDate}</td>
-                    <td className="p-3 text-right">{l.days}</td>
-                    <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[l.status]}`}>{l.status}</span></td>
-                    <td className="p-3 text-gray-500">{l.reason}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      )}
+        {/* ── Leave ── */}
+        <TabsContent value="leave" className="space-y-3">
+          <FilterBar
+            searchPlaceholder=""
+            searchValue=""
+            onSearchChange={() => {}}
+            fields={[
+              { key: "status", label: "Status", type: "select", options: [{ label: "Pending", value: "PENDING" }, { label: "Approved", value: "APPROVED" }, { label: "Rejected", value: "REJECTED" }] },
+              { key: "type", label: "Type", type: "select", options: [{ label: "Annual", value: "ANNUAL" }, { label: "Sick", value: "SICK" }, { label: "Personal", value: "PERSONAL" }] },
+            ]}
+            values={leaveFilters}
+            onChange={setLeaveFilters}
+            rightSlot={
+              <Button size="sm" onClick={handleCreateLeave}><Plus className="h-3.5 w-3.5 mr-1" />Request Leave</Button>
+            }
+          />
 
-      {tab === "payroll" && (
-        <Card>
-          <CardHeader><CardTitle>Payroll - March 2024</CardTitle></CardHeader>
-          <CardContent>
-            <table className="w-full text-sm">
-              <thead><tr className="border-b bg-gray-50">
-                <th className="text-left p-3 font-medium">Employee</th><th className="text-left p-3 font-medium">Period</th><th className="text-right p-3 font-medium">Basic</th><th className="text-right p-3 font-medium">Overtime</th><th className="text-right p-3 font-medium">Deductions</th><th className="text-right p-3 font-medium">Tax</th><th className="text-right p-3 font-medium">Net Pay</th><th className="text-left p-3 font-medium">Status</th>
-              </tr></thead>
-              <tbody>
-                {payrollData.map(p => (
-                  <tr key={p.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 font-medium">{p.employee}</td>
-                    <td className="p-3">{p.period}</td>
-                    <td className="p-3 text-right">{fmt(p.basicSalary)}</td>
-                    <td className="p-3 text-right">{fmt(p.overtime)}</td>
-                    <td className="p-3 text-right text-red-600">-{fmt(p.deductions)}</td>
-                    <td className="p-3 text-right text-red-600">-{fmt(p.tax)}</td>
-                    <td className="p-3 text-right font-semibold">{fmt(p.netPay)}</td>
-                    <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[p.status]}`}>{p.status}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      )}
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
+                    <tr>
+                      <th className="text-left p-3">Employee</th>
+                      <th className="text-left p-3">Type</th>
+                      <th className="text-left p-3">From</th>
+                      <th className="text-left p-3">To</th>
+                      <th className="text-right p-3">Days</th>
+                      <th className="text-left p-3">Status</th>
+                      <th className="text-left p-3">Reason</th>
+                      <th className="text-right p-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLeaves.length === 0 && (
+                      <tr><td colSpan={8} className="p-8 text-center text-slate-500">No leave requests match your filters.</td></tr>
+                    )}
+                    {filteredLeaves.map((l) => (
+                      <tr key={l.id} className="border-b hover:bg-slate-50">
+                        <td className="p-3 font-medium">{l.employeeName}</td>
+                        <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[l.type]}`}>{l.type}</span></td>
+                        <td className="p-3">{l.startDate}</td>
+                        <td className="p-3">{l.endDate}</td>
+                        <td className="p-3 text-right">{l.days}</td>
+                        <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[l.status]}`}>{l.status}</span></td>
+                        <td className="p-3 text-gray-500 max-w-[200px] truncate">{l.reason}</td>
+                        <td className="p-3 text-right">
+                          <EditDeleteMenu
+                            onEdit={() => handleEditLeave(l)}
+                            onDelete={() => handleDeleteLeave(l)}
+                            itemLabel={`Leave: ${l.employeeName}`}
+                            compact
+                            extraItems={
+                              l.status === "PENDING"
+                                ? [
+                                    { label: "Approve", onClick: () => handleApproveLeave(l), icon: <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> },
+                                    { label: "Reject", onClick: () => handleRejectLeave(l), icon: <XCircle className="h-3.5 w-3.5 text-red-600" /> },
+                                  ]
+                                : undefined
+                            }
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Payroll ── */}
+        <TabsContent value="payroll" className="space-y-3">
+          <FilterBar
+            searchPlaceholder=""
+            searchValue=""
+            onSearchChange={() => {}}
+            fields={[
+              { key: "status", label: "Status", type: "select", options: [{ label: "Draft", value: "DRAFT" }, { label: "Processed", value: "PROCESSED" }, { label: "Paid", value: "PAID" }] },
+            ]}
+            values={payrollFilters}
+            onChange={setPayrollFilters}
+            rightSlot={
+              <Button size="sm" onClick={handleCreatePayroll}><Plus className="h-3.5 w-3.5 mr-1" />Add Payroll</Button>
+            }
+          />
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
+                    <tr>
+                      <th className="text-left p-3">Employee</th>
+                      <th className="text-left p-3">Period</th>
+                      <th className="text-right p-3">Basic</th>
+                      <th className="text-right p-3">Overtime</th>
+                      <th className="text-right p-3">Deductions</th>
+                      <th className="text-right p-3">Tax</th>
+                      <th className="text-right p-3">Net Pay</th>
+                      <th className="text-left p-3">Status</th>
+                      <th className="text-right p-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredPayroll.length === 0 && (
+                      <tr><td colSpan={9} className="p-8 text-center text-slate-500">No payroll records match your filters.</td></tr>
+                    )}
+                    {filteredPayroll.map((p) => (
+                      <tr key={p.id} className="border-b hover:bg-slate-50">
+                        <td className="p-3 font-medium">{p.employeeName}</td>
+                        <td className="p-3">{p.period}</td>
+                        <td className="p-3 text-right">{fmt(p.basicSalary)}</td>
+                        <td className="p-3 text-right">{fmt(p.overtime)}</td>
+                        <td className="p-3 text-right text-red-600">-{fmt(p.deductions)}</td>
+                        <td className="p-3 text-right text-red-600">-{fmt(p.tax)}</td>
+                        <td className="p-3 text-right font-semibold">{fmt(p.netPay)}</td>
+                        <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[p.status]}`}>{p.status}</span></td>
+                        <td className="p-3 text-right">
+                          <EditDeleteMenu
+                            onEdit={() => handleEditPayroll(p)}
+                            onDelete={() => handleDeletePayroll(p)}
+                            itemLabel={`Payroll: ${p.employeeName}`}
+                            compact
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredPayroll.length > 0 && (
+                      <tr className="border-t-2 bg-slate-50 font-bold text-sm">
+                        <td className="p-3" colSpan={2}>Total</td>
+                        <td className="p-3 text-right">{fmt(filteredPayroll.reduce((s, p) => s + p.basicSalary, 0))}</td>
+                        <td className="p-3 text-right">{fmt(filteredPayroll.reduce((s, p) => s + p.overtime, 0))}</td>
+                        <td className="p-3 text-right text-red-600">-{fmt(filteredPayroll.reduce((s, p) => s + p.deductions, 0))}</td>
+                        <td className="p-3 text-right text-red-600">-{fmt(filteredPayroll.reduce((s, p) => s + p.tax, 0))}</td>
+                        <td className="p-3 text-right">{fmt(filteredPayroll.reduce((s, p) => s + p.netPay, 0))}</td>
+                        <td colSpan={2}></td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* ── Modals ── */}
+      <EntityFormModal
+        open={empFormOpen}
+        onOpenChange={setEmpFormOpen}
+        title={editingEmp ? `Edit ${editingEmp.firstName} ${editingEmp.lastName}` : "Add Employee"}
+        fields={empFields}
+        initialData={editingEmp ? { firstName: editingEmp.firstName, lastName: editingEmp.lastName, email: editingEmp.email, phone: editingEmp.phone, department: editingEmp.department, position: editingEmp.position, hireDate: editingEmp.hireDate, salary: editingEmp.salary, status: editingEmp.status } : undefined}
+        onSubmit={handleEmpSubmit}
+        submitLabel={editingEmp ? "Save" : "Create"}
+        size="lg"
+      />
+
+      <EntityFormModal
+        open={leaveFormOpen}
+        onOpenChange={setLeaveFormOpen}
+        title={editingLeave ? "Edit Leave Request" : "Request Leave"}
+        fields={leaveFields}
+        initialData={editingLeave ? { employeeId: editingLeave.employeeId, type: editingLeave.type, startDate: editingLeave.startDate, endDate: editingLeave.endDate, reason: editingLeave.reason } : undefined}
+        onSubmit={handleLeaveSubmit}
+        submitLabel={editingLeave ? "Save" : "Submit Request"}
+        size="md"
+      />
+
+      <EntityFormModal
+        open={deptFormOpen}
+        onOpenChange={setDeptFormOpen}
+        title={editingDept ? `Edit ${editingDept.name}` : "Add Department"}
+        fields={deptFields}
+        initialData={editingDept ? { name: editingDept.name, managerId: editingDept.managerId, budget: editingDept.budget } : undefined}
+        onSubmit={handleDeptSubmit}
+        submitLabel={editingDept ? "Save" : "Create"}
+        size="md"
+      />
+
+      <EntityFormModal
+        open={payrollFormOpen}
+        onOpenChange={setPayrollFormOpen}
+        title={editingPayroll ? `Edit Payroll: ${editingPayroll.employeeName}` : "Add Payroll Record"}
+        fields={payrollFields}
+        initialData={editingPayroll ? { employeeId: editingPayroll.employeeId, period: editingPayroll.period, basicSalary: editingPayroll.basicSalary, overtime: editingPayroll.overtime, deductions: editingPayroll.deductions, bonuses: editingPayroll.bonuses, tax: editingPayroll.tax, status: editingPayroll.status } : undefined}
+        onSubmit={handlePayrollSubmit}
+        submitLabel={editingPayroll ? "Save" : "Create"}
+        size="lg"
+      />
     </div>
-  )
+  );
 }

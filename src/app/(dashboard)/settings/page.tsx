@@ -15,6 +15,9 @@ import {
   Globe,
   Palette,
   FileClock,
+  Plus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,8 +29,15 @@ import {
   ROLE_LABEL,
   ROLE_ROUTES,
   type AppUser,
+  type UserRole,
 } from "@/lib/user-context";
 import { useAppConfig } from "@/lib/config-context";
+import {
+  EntityFormModal,
+  type EntityField,
+  type EntityFormData,
+} from "@/components/shared/entity-form-modal";
+import { DeleteConfirmDialog } from "@/components/shared/edit-delete-menu";
 
 // All routes that exist in the app — admin can grant/deny each per user
 const ALL_ROUTES: { href: string; label: string; group: string }[] = [
@@ -82,7 +92,15 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 export default function SettingsPage() {
-  const { user, allUsers, navOverrides, setNavOverride } = useCurrentUser();
+  const {
+    user,
+    allUsers,
+    navOverrides,
+    setNavOverride,
+    createUser,
+    updateUser,
+    deleteUser,
+  } = useCurrentUser();
   const {
     config,
     updateFinance,
@@ -102,6 +120,70 @@ export default function SettingsPage() {
 
   const [tab, setTab] = useState<TabId>("general");
   const [selectedUserId, setSelectedUserId] = useState<string>(allUsers[0]?.id ?? "");
+  const [userFormOpen, setUserFormOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<AppUser | null>(null);
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+
+  const userFormFields: EntityField[] = [
+    { name: "name", label: "Full Name", type: "text", required: true, placeholder: "e.g. Dr. Sarah Ahmed" },
+    { name: "email", label: "Email", type: "email", required: true, placeholder: "name@pharma.com" },
+    {
+      name: "role",
+      label: "Role",
+      type: "select",
+      required: true,
+      options: [
+        { label: "Administrator", value: "ADMIN" },
+        { label: "Business Unit Manager", value: "BUM" },
+        { label: "Marketeer", value: "MARKETEER" },
+        { label: "District Manager", value: "DISTRICT_MANAGER" },
+        { label: "Medical Representative", value: "MEDICAL_REP" },
+        { label: "Accountant", value: "ACCOUNTANT" },
+        { label: "Warehouse Manager", value: "WAREHOUSE" },
+        { label: "HR Manager", value: "HR" },
+      ],
+    },
+    { name: "department", label: "Department", type: "text", required: true, placeholder: "e.g. Sales" },
+    { name: "territory", label: "Territory", type: "text", placeholder: "e.g. Cairo North" },
+  ];
+
+  function handleCreateUser() {
+    setEditingUser(null);
+    setUserFormOpen(true);
+  }
+
+  function handleEditUser(u: AppUser) {
+    setEditingUser(u);
+    setUserFormOpen(true);
+  }
+
+  function handleUserSubmit(data: EntityFormData) {
+    const payload = {
+      name: String(data.name),
+      email: String(data.email),
+      role: String(data.role) as UserRole,
+      department: String(data.department),
+      territory: data.territory ? String(data.territory) : undefined,
+    };
+    if (editingUser) {
+      updateUser(editingUser.id, payload);
+    } else {
+      const created = createUser(payload);
+      setSelectedUserId(created.id);
+    }
+    setUserFormOpen(false);
+    setEditingUser(null);
+  }
+
+  function confirmDeleteUser() {
+    if (deleteUserId) {
+      deleteUser(deleteUserId);
+      if (selectedUserId === deleteUserId) {
+        setSelectedUserId(allUsers[0]?.id ?? "");
+      }
+    }
+    setDeleteUserId(null);
+  }
 
   const isAdmin = user.role === "ADMIN";
   const selectedUser = allUsers.find((u) => u.id === selectedUserId);
@@ -252,10 +334,15 @@ export default function SettingsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* User list */}
           <Card className="lg:col-span-1">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">Users</CardTitle>
+              {isAdmin && (
+                <Button size="sm" onClick={handleCreateUser}>
+                  <Plus className="h-3 w-3 mr-1" /> Add
+                </Button>
+              )}
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-0 max-h-[560px] overflow-y-auto">
               <ul className="divide-y">
                 {allUsers.map((u) => (
                   <li
@@ -266,18 +353,46 @@ export default function SettingsPage() {
                     onClick={() => setSelectedUserId(u.id)}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{u.name}</p>
                         <p className="text-[11px] text-muted-foreground truncate">
                           {ROLE_LABEL[u.role]}
                           {u.territory ? ` · ${u.territory}` : ""}
                         </p>
                       </div>
-                      {navOverrides[u.id] && (
-                        <Badge variant="warning" className="shrink-0 text-[10px]">
-                          Custom
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {navOverrides[u.id] && (
+                          <Badge variant="warning" className="text-[10px]">
+                            Custom
+                          </Badge>
+                        )}
+                        {isAdmin && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditUser(u);
+                              }}
+                              className="p-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                              title="Edit user"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            {u.id !== "u-admin" && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteUserId(u.id);
+                                }}
+                                className="p-1 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded"
+                                title="Delete user"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </li>
                 ))}
@@ -1243,6 +1358,36 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* User CRUD modal */}
+      <EntityFormModal
+        open={userFormOpen}
+        onOpenChange={setUserFormOpen}
+        title={editingUser ? `Edit ${editingUser.name}` : "Create User"}
+        description="Assign a role that determines which modules this user can access."
+        fields={userFormFields}
+        initialData={
+          editingUser
+            ? {
+                name: editingUser.name,
+                email: editingUser.email,
+                role: editingUser.role,
+                department: editingUser.department,
+                territory: editingUser.territory ?? "",
+              }
+            : undefined
+        }
+        onSubmit={handleUserSubmit}
+        submitLabel={editingUser ? "Save changes" : "Create user"}
+      />
+
+      <DeleteConfirmDialog
+        open={!!deleteUserId}
+        onOpenChange={(v) => !v && setDeleteUserId(null)}
+        onConfirm={confirmDeleteUser}
+        itemLabel={allUsers.find((u) => u.id === deleteUserId)?.name ?? "this user"}
+        title="Delete user"
+      />
     </div>
   );
 }

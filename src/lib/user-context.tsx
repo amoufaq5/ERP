@@ -32,14 +32,14 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
   BUM: [
     "/dashboard", "/messages", "/tasks",
     "/crm/bum", "/crm/marketeer", "/crm/district-manager", "/crm/medical-rep",
-    "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests", "/crm/reports",
+    "/crm/business-units", "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests", "/crm/reports",
     "/erp/finance", "/erp/accounting", "/erp/collections", "/erp/returns",
     "/reports", "/settings/profile",
   ],
   MARKETEER: [
     "/dashboard", "/messages", "/tasks",
     "/crm/marketeer", "/crm/district-manager", "/crm/medical-rep",
-    "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests", "/crm/reports",
+    "/crm/business-units", "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests", "/crm/reports",
     "/settings/profile",
   ],
   DISTRICT_MANAGER: [
@@ -91,15 +91,27 @@ interface UserContextValue {
   setNavOverride: (userId: string, allowedHrefs: string[] | null) => void;
   canAccess: (href: string) => boolean;
   allowedRoutes: string[];
+  // User CRUD (admin only)
+  createUser: (u: Omit<AppUser, "id"> & { id?: string }) => AppUser;
+  updateUser: (userId: string, patch: Partial<AppUser>) => void;
+  deleteUser: (userId: string) => void;
+  // Helpers for scoping
+  getReportsOf: (managerId: string) => AppUser[];
 }
 
 const UserContext = createContext<UserContextValue | null>(null);
 
 const STORAGE_USER = "pharma.currentUser";
 const STORAGE_OVERRIDES = "pharma.navOverrides";
+const STORAGE_ALL_USERS = "pharma.allUsers";
+
+function genUserId(): string {
+  return `u-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<AppUser>(DEMO_USERS[0]);
+  const [allUsers, setAllUsers] = useState<AppUser[]>(DEMO_USERS);
   const [navOverrides, setNavOverrides] = useState<Record<string, string[] | null>>({});
   const [ready, setReady] = useState(false);
 
@@ -109,11 +121,34 @@ export function UserProvider({ children }: { children: ReactNode }) {
       if (saved) setUserState(JSON.parse(saved));
       const overrides = localStorage.getItem(STORAGE_OVERRIDES);
       if (overrides) setNavOverrides(JSON.parse(overrides));
+      const savedUsers = localStorage.getItem(STORAGE_ALL_USERS);
+      if (savedUsers) {
+        const parsed: AppUser[] = JSON.parse(savedUsers);
+        // Merge with demo users so seed user list is always present
+        const merged = [...DEMO_USERS];
+        parsed.forEach((u) => {
+          const existing = merged.findIndex((m) => m.id === u.id);
+          if (existing >= 0) {
+            merged[existing] = u;
+          } else {
+            merged.push(u);
+          }
+        });
+        setAllUsers(merged);
+      }
     } catch {
       // ignore
     }
     setReady(true);
   }, []);
+
+  function persistUsers(next: AppUser[]) {
+    try {
+      localStorage.setItem(STORAGE_ALL_USERS, JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  }
 
   function setUser(u: AppUser) {
     setUserState(u);
@@ -134,6 +169,66 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
       return next;
     });
+  }
+
+  function createUser(u: Omit<AppUser, "id"> & { id?: string }): AppUser {
+    const newUser: AppUser = { ...u, id: u.id ?? genUserId() } as AppUser;
+    setAllUsers((prev) => {
+      const next = [...prev, newUser];
+      persistUsers(next);
+      return next;
+    });
+    return newUser;
+  }
+
+  function updateUser(userId: string, patch: Partial<AppUser>) {
+    setAllUsers((prev) => {
+      const next = prev.map((u) => (u.id === userId ? { ...u, ...patch } : u));
+      persistUsers(next);
+      return next;
+    });
+    // If editing current user, update the active user too
+    if (user.id === userId) {
+      const updated = { ...user, ...patch };
+      setUserState(updated);
+      try {
+        localStorage.setItem(STORAGE_USER, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  function deleteUser(userId: string) {
+    // Don't allow deleting the admin seed user
+    if (userId === "u-admin") return;
+    setAllUsers((prev) => {
+      const next = prev.filter((u) => u.id !== userId);
+      persistUsers(next);
+      return next;
+    });
+  }
+
+  function getReportsOf(managerId: string): AppUser[] {
+    const manager = allUsers.find((u) => u.id === managerId);
+    if (!manager) return [];
+    // Simple hierarchy: DM manages reps in same territory/region;
+    // Marketeer manages DMs; BUM manages marketeers & DMs in their BU.
+    // For now, return users whose role is one rank below.
+    if (manager.role === "DISTRICT_MANAGER") {
+      return allUsers.filter((u) => u.role === "MEDICAL_REP" && u.department === manager.department);
+    }
+    if (manager.role === "MARKETEER") {
+      return allUsers.filter(
+        (u) => u.role === "DISTRICT_MANAGER" || u.role === "MEDICAL_REP"
+      );
+    }
+    if (manager.role === "BUM") {
+      return allUsers.filter(
+        (u) => u.role === "MARKETEER" || u.role === "DISTRICT_MANAGER" || u.role === "MEDICAL_REP"
+      );
+    }
+    return [];
   }
 
   // Compute allowed routes — user's override takes precedence over role defaults
@@ -157,11 +252,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         setUser,
-        allUsers: DEMO_USERS,
+        allUsers,
         navOverrides,
         setNavOverride,
         canAccess,
         allowedRoutes,
+        createUser,
+        updateUser,
+        deleteUser,
+        getReportsOf,
       }}
     >
       {children}
@@ -181,6 +280,10 @@ export function useCurrentUser(): UserContextValue {
       setNavOverride: () => {},
       canAccess: () => true,
       allowedRoutes: ["*"],
+      createUser: (u) => ({ ...u, id: u.id ?? "u-stub" } as AppUser),
+      updateUser: () => {},
+      deleteUser: () => {},
+      getReportsOf: () => [],
     };
   }
   return ctx;

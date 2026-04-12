@@ -1,131 +1,420 @@
 "use client";
 
-import { useState } from "react";
-import { ClipboardList, Clock, CheckCircle2, DollarSign, Plus } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  ClipboardList,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  DollarSign,
+  Plus,
+  ArrowRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
-import StatusBadge from "@/components/shared/status-badge";
-import { FormModal, type FormField } from "@/components/ui/form-modal";
-
-const REQUESTS = [
-  { id: "REQ-001", requester: "Ahmed Hassan", role: "Med Rep", type: "Product Sample", description: "Cardizem 60mg samples", amount: "$450", priority: "High", date: "2026-03-28", currentApprover: "DM", status: "Approved" },
-  { id: "REQ-002", requester: "Sara Mohamed", role: "Med Rep", type: "Conference Sponsorship", description: "Alex Cardiology Conference", amount: "$1,200", priority: "High", date: "2026-03-27", currentApprover: "Marketeer", status: "Pending" },
-  { id: "REQ-003", requester: "Omar Khalil", role: "Med Rep", type: "Promo Material", description: "Brochures derma line", amount: "$320", priority: "Medium", date: "2026-03-26", currentApprover: "DM", status: "Approved" },
-  { id: "REQ-004", requester: "Fatima Ali", role: "Med Rep", type: "Doctor Sponsorship", description: "Dr. Walid Fathy - Int'l Oncology", amount: "$3,500", priority: "Urgent", date: "2026-03-25", currentApprover: "BUM", status: "Pending" },
-  { id: "REQ-005", requester: "Mahmoud Farouk", role: "Med Rep", type: "Medical Literature", description: "Nexium clinical pack", amount: "$180", priority: "Low", date: "2026-03-24", currentApprover: "DM", status: "Fulfilled" },
-  { id: "REQ-006", requester: "Hany Mansour", role: "DM", type: "Event Budget", description: "Cairo cardiology event", amount: "$2,500", priority: "High", date: "2026-03-23", currentApprover: "Marketeer", status: "Approved" },
-  { id: "REQ-007", requester: "Karim Saeed", role: "Med Rep", type: "Conference Sponsorship", description: "ENT meeting Zagazig", amount: "$800", priority: "Medium", date: "2026-03-22", currentApprover: "DM", status: "Rejected" },
-  { id: "REQ-008", requester: "Reem Saleh", role: "DM", type: "Promo Material", description: "Q2 promotional kits", amount: "$1,500", priority: "Medium", date: "2026-03-21", currentApprover: "Marketeer", status: "Approved" },
-  { id: "REQ-009", requester: "Yousef Ahmad", role: "Med Rep", type: "Product Sample", description: "New launch samples", amount: "$380", priority: "High", date: "2026-03-20", currentApprover: "DM", status: "Pending" },
-  { id: "REQ-010", requester: "Hala Samir", role: "Med Rep", type: "Doctor Sponsorship", description: "Dr. Khaled - Urology Symposium", amount: "$1,800", priority: "High", date: "2026-03-19", currentApprover: "Marketeer", status: "Pending" },
-  { id: "REQ-011", requester: "Khaled Sherif", role: "Marketeer", type: "Strategic Investment", description: "Cardiology study sponsorship", amount: "$45,000", priority: "Urgent", date: "2026-03-15", currentApprover: "BUM", status: "Pending" },
-  { id: "REQ-012", requester: "Lina Habib", role: "DM", type: "Travel Request", description: "Multi-city KOL tour", amount: "$1,900", priority: "Medium", date: "2026-03-12", currentApprover: "Marketeer", status: "Approved" },
-  { id: "REQ-013", requester: "Nour Ibrahim", role: "Med Rep", type: "Product Sample", description: "Panadol Extra samples", amount: "$210", priority: "Low", date: "2026-03-10", currentApprover: "DM", status: "Fulfilled" },
-  { id: "REQ-014", requester: "Mariam Adly", role: "Marketeer", type: "Event Budget", description: "Upper Egypt symposium", amount: "$3,200", priority: "High", date: "2026-03-08", currentApprover: "BUM", status: "Approved" },
-  { id: "REQ-015", requester: "Dina Mostafa", role: "Med Rep", type: "Promo Material", description: "Branded merchandise", amount: "$550", priority: "Low", date: "2026-03-05", currentApprover: "DM", status: "Approved" },
-];
-
-const BUDGETS = [
-  { category: "Product Samples", allocated: "$15,000", used: "$8,750", remaining: "$6,250", pct: 58 },
-  { category: "Conference Sponsorship", allocated: "$25,000", used: "$15,200", remaining: "$9,800", pct: 61 },
-  { category: "Doctor Sponsorship", allocated: "$30,000", used: "$22,400", remaining: "$7,600", pct: 75 },
-  { category: "Promo Materials", allocated: "$12,000", used: "$5,800", remaining: "$6,200", pct: 48 },
-  { category: "Medical Literature", allocated: "$8,000", used: "$3,200", remaining: "$4,800", pct: 40 },
-  { category: "Event Budget", allocated: "$20,000", used: "$11,500", remaining: "$8,500", pct: 58 },
-  { category: "Travel Requests", allocated: "$18,000", used: "$9,400", remaining: "$8,600", pct: 52 },
-];
-
-const SAMPLES = [
-  { product: "Cardizem 60mg", stock: 1200, distributed: 450, byRep: "Ahmed: 200, Sara: 150, Others: 100", reorder: 500, status: "OK" },
-  { product: "Augmentin 625mg Tab", stock: 2400, distributed: 880, byRep: "Omar: 350, Ahmed: 280, Others: 250", reorder: 1000, status: "OK" },
-  { product: "Augmentin Susp", stock: 1800, distributed: 720, byRep: "Sara: 280, Omar: 240, Others: 200", reorder: 800, status: "OK" },
-  { product: "Voltaren 75mg", stock: 950, distributed: 380, byRep: "Fatima: 150, Karim: 130, Others: 100", reorder: 400, status: "Low" },
-  { product: "Nexium 40mg", stock: 1500, distributed: 520, byRep: "Mahmoud: 200, Others: 320", reorder: 600, status: "OK" },
-  { product: "Plavix 75mg", stock: 800, distributed: 350, byRep: "Sara: 180, Others: 170", reorder: 350, status: "Low" },
-  { product: "Crestor 20mg", stock: 1100, distributed: 410, byRep: "Sara: 220, Others: 190", reorder: 500, status: "OK" },
-  { product: "Fucidin H Cream", stock: 600, distributed: 280, byRep: "Omar: 180, Others: 100", reorder: 250, status: "OK" },
-  { product: "Zoloft 50mg", stock: 700, distributed: 210, byRep: "Fatima: 120, Others: 90", reorder: 300, status: "OK" },
-  { product: "Otrivin Spray", stock: 450, distributed: 200, byRep: "Karim: 150, Others: 50", reorder: 200, status: "Low" },
-];
-
-const requestFields: FormField[] = [
-  { name: "requester", label: "Requester Name", type: "text", required: true },
-  { name: "role", label: "Role", type: "select", required: true, options: [
-    "Med Rep", "DM", "Marketeer", "BUM",
-  ].map(r => ({ label: r, value: r })) },
-  { name: "type", label: "Request Type", type: "select", required: true, options: [
-    "Product Sample", "Promo Material", "Conference Sponsorship", "Doctor Sponsorship",
-    "Medical Literature", "Event Budget", "Travel Request",
-  ].map(t => ({ label: t, value: t })) },
-  { name: "description", label: "Description", type: "textarea", required: true },
-  { name: "amount", label: "Amount", type: "text", required: true, placeholder: "$0" },
-  { name: "priority", label: "Priority", type: "select", options: [
-    "Urgent", "High", "Medium", "Low",
-  ].map(p => ({ label: p, value: p })) },
-];
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import {
+  EntityFormModal,
+  type EntityField,
+  type EntityFormData,
+} from "@/components/shared/entity-form-modal";
+import {
+  useDataStore,
+  scopeMarketRequests,
+  type MarketRequest,
+} from "@/lib/data-store";
+import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 
 export default function MarketRequestsPage() {
-  const [requests, setRequests] = useState(REQUESTS);
-  const [show, setShow] = useState(false);
+  const store = useDataStore();
+  const { user, allUsers, getReportsOf } = useCurrentUser();
 
-  const pending = requests.filter(r => r.status === "Pending").length;
-  const approved = requests.filter(r => r.status === "Approved" || r.status === "Fulfilled").length;
-  const totalBudget = "$128,000";
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<FilterState>({});
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<MarketRequest | null>(null);
 
-  const repPending = requests.filter(r => r.currentApprover === "DM" && r.status === "Pending").length;
-  const dmPending = requests.filter(r => r.currentApprover === "Marketeer" && r.status === "Pending").length;
-  const marketeerPending = requests.filter(r => r.currentApprover === "BUM" && r.status === "Pending").length;
+  const repsUnderMe = getReportsOf(user.id).map((u) => u.id);
+
+  const myRequests = useMemo(
+    () =>
+      scopeMarketRequests(
+        store.marketRequests,
+        store.businessUnits,
+        user.role,
+        user.id,
+        repsUnderMe
+      ),
+    [store.marketRequests, store.businessUnits, user.role, user.id, repsUnderMe]
+  );
+
+  const filteredRequests = useMemo(() => {
+    return myRequests.filter((r) => {
+      if (search) {
+        const q = search.toLowerCase();
+        const requester = allUsers.find((u) => u.id === r.requestedById);
+        if (
+          !r.description.toLowerCase().includes(q) &&
+          !r.type.toLowerCase().includes(q) &&
+          !(requester?.name.toLowerCase().includes(q) ?? false)
+        )
+          return false;
+      }
+      if (filters.status && r.status !== filters.status) return false;
+      if (filters.type && r.type !== filters.type) return false;
+      if (filters.priority && r.priority !== filters.priority) return false;
+      return true;
+    });
+  }, [myRequests, search, filters, allUsers]);
+
+  // Stats
+  const pending = myRequests.filter((r) => r.status === "PENDING").length;
+  const approved = myRequests.filter(
+    (r) => r.status === "APPROVED" || r.status === "FULFILLED"
+  ).length;
+  const rejected = myRequests.filter((r) => r.status === "REJECTED").length;
+  const totalAmount = myRequests
+    .filter((r) => r.amount)
+    .reduce((s, r) => s + (r.amount ?? 0), 0);
+
+  // Can this user approve? (DM, Marketeer, BUM, Admin)
+  const canApprove =
+    user.role === "ADMIN" ||
+    user.role === "BUM" ||
+    user.role === "MARKETEER" ||
+    user.role === "DISTRICT_MANAGER";
+
+  // ─── Form fields ───────────────────────────────────────────────────────
+  const doctorOptions = store.doctors.map((d) => ({
+    label: `${d.name} — ${d.hospital}`,
+    value: d.id,
+  }));
+  const productOptions = store.products.map((p) => ({
+    label: `${p.code} - ${p.name}`,
+    value: p.id,
+  }));
+  const buOptions = store.businessUnits.map((bu) => ({
+    label: bu.name,
+    value: bu.id,
+  }));
+
+  const formFields: EntityField[] = [
+    {
+      name: "type",
+      label: "Request Type",
+      type: "select",
+      required: true,
+      options: [
+        { label: "Product Sample", value: "SAMPLE" },
+        { label: "Medical Literature", value: "LITERATURE" },
+        { label: "Event / Conference", value: "EVENT" },
+        { label: "Discount Request", value: "DISCOUNT" },
+        { label: "Doctor Edit Request", value: "DOCTOR_EDIT" },
+        { label: "Other", value: "OTHER" },
+      ],
+    },
+    {
+      name: "priority",
+      label: "Priority",
+      type: "select",
+      required: true,
+      defaultValue: "MEDIUM",
+      options: [
+        { label: "Low", value: "LOW" },
+        { label: "Medium", value: "MEDIUM" },
+        { label: "High", value: "HIGH" },
+        { label: "Urgent", value: "URGENT" },
+      ],
+    },
+    { name: "doctorId", label: "Related Doctor", type: "select", options: doctorOptions },
+    { name: "productId", label: "Related Product", type: "select", options: productOptions },
+    { name: "buId", label: "Business Unit", type: "select", options: buOptions },
+    { name: "quantity", label: "Quantity", type: "number" },
+    { name: "amount", label: "Amount (EGP)", type: "number" },
+    {
+      name: "description",
+      label: "Description",
+      type: "textarea",
+      required: true,
+      fullWidth: true,
+      placeholder: "Describe your request in detail",
+    },
+  ];
+
+  function handleCreate() {
+    setEditing(null);
+    setFormOpen(true);
+  }
+
+  function handleEdit(r: MarketRequest) {
+    setEditing(r);
+    setFormOpen(true);
+  }
+
+  function handleSubmit(data: EntityFormData) {
+    const payload = {
+      type: String(data.type) as MarketRequest["type"],
+      priority: String(data.priority) as MarketRequest["priority"],
+      description: String(data.description),
+      doctorId: data.doctorId ? String(data.doctorId) : undefined,
+      productId: data.productId ? String(data.productId) : undefined,
+      buId: data.buId ? String(data.buId) : null,
+      quantity: data.quantity ? Number(data.quantity) : undefined,
+      amount: data.amount ? Number(data.amount) : undefined,
+    };
+
+    if (editing) {
+      store.update("marketRequests", editing.id, payload);
+    } else {
+      store.add("marketRequests", {
+        id: store.genId("mr"),
+        ...payload,
+        requestedById: user.id,
+        status: "PENDING",
+        createdAt: new Date().toISOString(),
+      });
+    }
+    setFormOpen(false);
+    setEditing(null);
+  }
+
+  function handleApprove(r: MarketRequest) {
+    store.update("marketRequests", r.id, {
+      status: "APPROVED",
+      approvedById: user.id,
+      approvedAt: new Date().toISOString(),
+    });
+    // If it was a DOCTOR_EDIT request, apply the proposed changes
+    if (r.type === "DOCTOR_EDIT" && r.targetEntityId && r.proposedChanges) {
+      store.update("doctors", r.targetEntityId, r.proposedChanges);
+    }
+  }
+
+  function handleReject(r: MarketRequest, reason?: string) {
+    store.update("marketRequests", r.id, {
+      status: "REJECTED",
+      approvedById: user.id,
+      rejectionReason: reason ?? "Rejected by supervisor",
+    });
+  }
+
+  function handleDelete(r: MarketRequest) {
+    store.remove("marketRequests", r.id);
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Market Requests & Approvals"
-        description="Centralized request system with multi-level approval workflow"
-        actions={<Button onClick={() => setShow(true)}><Plus className="mr-2 h-4 w-4" />New Request</Button>}
+        description="Submit, track, and approve market requests through the hierarchy chain."
+        actions={
+          <Button onClick={handleCreate}>
+            <Plus className="h-4 w-4 mr-2" /> New Request
+          </Button>
+        }
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatsCard icon={ClipboardList} title="Total Requests" value={requests.length} iconColor="bg-blue-100 text-blue-700" />
-        <StatsCard icon={Clock} title="Pending Approval" value={pending} iconColor="bg-amber-100 text-amber-700" />
-        <StatsCard icon={CheckCircle2} title="Approved This Month" value={approved} iconColor="bg-green-100 text-green-700" />
-        <StatsCard icon={DollarSign} title="Total Budget" value={totalBudget} subtitle="Allocated" iconColor="bg-purple-100 text-purple-700" />
+        <StatsCard
+          icon={ClipboardList}
+          title="Total Requests"
+          value={myRequests.length}
+          iconColor="bg-blue-100 text-blue-700"
+        />
+        <StatsCard
+          icon={Clock}
+          title="Pending Approval"
+          value={pending}
+          iconColor="bg-amber-100 text-amber-700"
+        />
+        <StatsCard
+          icon={CheckCircle2}
+          title="Approved / Fulfilled"
+          value={approved}
+          iconColor="bg-green-100 text-green-700"
+        />
+        <StatsCard
+          icon={DollarSign}
+          title="Total Amount"
+          value={`EGP ${totalAmount.toLocaleString()}`}
+          subtitle={`${rejected} rejected`}
+          iconColor="bg-purple-100 text-purple-700"
+        />
       </div>
 
       <Tabs defaultValue="all">
         <TabsList>
           <TabsTrigger value="all">All Requests</TabsTrigger>
+          <TabsTrigger value="pending">
+            Pending ({pending})
+          </TabsTrigger>
           <TabsTrigger value="chain">Approval Chain</TabsTrigger>
-          <TabsTrigger value="budget">Budget Tracking</TabsTrigger>
-          <TabsTrigger value="samples">Sample Management</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="all">
+        {/* All Requests */}
+        <TabsContent value="all" className="space-y-3">
+          <FilterBar
+            searchPlaceholder="Search requests..."
+            searchValue={search}
+            onSearchChange={setSearch}
+            fields={[
+              {
+                key: "status",
+                label: "Status",
+                type: "select",
+                options: [
+                  { label: "Pending", value: "PENDING" },
+                  { label: "Approved", value: "APPROVED" },
+                  { label: "Rejected", value: "REJECTED" },
+                  { label: "Fulfilled", value: "FULFILLED" },
+                ],
+              },
+              {
+                key: "type",
+                label: "Type",
+                type: "select",
+                options: [
+                  { label: "Sample", value: "SAMPLE" },
+                  { label: "Literature", value: "LITERATURE" },
+                  { label: "Event", value: "EVENT" },
+                  { label: "Discount", value: "DISCOUNT" },
+                  { label: "Doctor Edit", value: "DOCTOR_EDIT" },
+                  { label: "Other", value: "OTHER" },
+                ],
+              },
+              {
+                key: "priority",
+                label: "Priority",
+                type: "select",
+                options: [
+                  { label: "Low", value: "LOW" },
+                  { label: "Medium", value: "MEDIUM" },
+                  { label: "High", value: "HIGH" },
+                  { label: "Urgent", value: "URGENT" },
+                ],
+              },
+            ]}
+            values={filters}
+            onChange={setFilters}
+            collapsible
+          />
+
           <Card>
-            <CardHeader><CardTitle>All Market Requests</CardTitle><CardDescription>{requests.length} requests across all hierarchy levels</CardDescription></CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Request#</th><th className="p-3">Requester</th><th className="p-3">Role</th><th className="p-3">Type</th><th className="p-3">Description</th><th className="p-3">Amount</th><th className="p-3">Priority</th><th className="p-3">Date</th><th className="p-3">Current Approver</th><th className="p-3">Status</th></tr>
+                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
+                    <tr>
+                      <th className="text-left p-3">Type</th>
+                      <th className="text-left p-3">Requester</th>
+                      <th className="text-left p-3">Description</th>
+                      <th className="text-left p-3">Priority</th>
+                      <th className="text-left p-3">Amount</th>
+                      <th className="text-left p-3">Status</th>
+                      <th className="text-left p-3">Date</th>
+                      <th className="text-right p-3">Actions</th>
+                    </tr>
                   </thead>
                   <tbody>
-                    {requests.map(r => (
-                      <tr key={r.id} className="border-t">
-                        <td className="p-3 font-mono">{r.id}</td>
-                        <td className="p-3 font-medium">{r.requester}</td>
-                        <td className="p-3"><StatusBadge status={r.role} /></td>
-                        <td className="p-3">{r.type}</td>
-                        <td className="p-3 max-w-xs truncate">{r.description}</td>
-                        <td className="p-3 font-semibold">{r.amount}</td>
-                        <td className="p-3"><StatusBadge status={r.priority} /></td>
-                        <td className="p-3">{r.date}</td>
-                        <td className="p-3">{r.currentApprover}</td>
-                        <td className="p-3"><StatusBadge status={r.status} /></td>
+                    {filteredRequests.length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="p-8 text-center text-slate-500">
+                          No requests match your filters.
+                        </td>
                       </tr>
-                    ))}
+                    )}
+                    {filteredRequests
+                      .slice()
+                      .sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))
+                      .map((r) => {
+                        const requester = allUsers.find((u) => u.id === r.requestedById);
+                        return (
+                          <tr key={r.id} className="border-b hover:bg-slate-50">
+                            <td className="p-3">
+                              <Badge variant="outline">{r.type}</Badge>
+                            </td>
+                            <td className="p-3">
+                              <div className="font-medium text-sm">
+                                {requester?.name ?? "—"}
+                              </div>
+                              <div className="text-[11px] text-slate-500">
+                                {requester ? ROLE_LABEL[requester.role] : ""}
+                              </div>
+                            </td>
+                            <td className="p-3 max-w-xs truncate">{r.description}</td>
+                            <td className="p-3">
+                              <Badge
+                                variant={
+                                  r.priority === "URGENT"
+                                    ? "destructive"
+                                    : r.priority === "HIGH"
+                                    ? "warning"
+                                    : "secondary"
+                                }
+                              >
+                                {r.priority}
+                              </Badge>
+                            </td>
+                            <td className="p-3 font-semibold">
+                              {r.amount ? `EGP ${r.amount.toLocaleString()}` : "—"}
+                            </td>
+                            <td className="p-3">
+                              <Badge
+                                variant={
+                                  r.status === "APPROVED"
+                                    ? "success"
+                                    : r.status === "REJECTED"
+                                    ? "destructive"
+                                    : r.status === "FULFILLED"
+                                    ? "default"
+                                    : "warning"
+                                }
+                              >
+                                {r.status}
+                              </Badge>
+                            </td>
+                            <td className="p-3 text-xs">
+                              {new Date(r.createdAt).toLocaleDateString()}
+                            </td>
+                            <td className="p-3 text-right">
+                              <EditDeleteMenu
+                                onEdit={
+                                  r.status === "PENDING" ? () => handleEdit(r) : undefined
+                                }
+                                canEdit={r.status === "PENDING"}
+                                onDelete={() => handleDelete(r)}
+                                itemLabel={r.description.slice(0, 40)}
+                                extraItems={
+                                  canApprove && r.status === "PENDING"
+                                    ? [
+                                        {
+                                          label: "Approve",
+                                          onClick: () => handleApprove(r),
+                                          icon: (
+                                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                          ),
+                                        },
+                                        {
+                                          label: "Reject",
+                                          onClick: () => handleReject(r),
+                                          icon: (
+                                            <XCircle className="h-4 w-4 text-red-600" />
+                                          ),
+                                          destructive: true,
+                                        },
+                                      ]
+                                    : []
+                                }
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
@@ -133,114 +422,267 @@ export default function MarketRequestsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="chain">
-          <Card>
-            <CardHeader><CardTitle>Approval Workflow</CardTitle><CardDescription>Multi-level approval chain: Med Rep → DM → Marketeer → BUM</CardDescription></CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-4">
-                <div className="rounded-lg border p-4 bg-blue-50 dark:bg-blue-900/10">
-                  <div className="text-xs text-muted-foreground">LEVEL 1</div>
-                  <div className="font-semibold">Med Rep</div>
-                  <div className="text-xs text-muted-foreground mt-1">Initiates request</div>
-                  <div className="mt-3 text-2xl font-bold">{requests.filter(r => r.role === "Med Rep").length}</div>
-                  <div className="text-xs">Total submitted</div>
-                </div>
-                <div className="rounded-lg border p-4 bg-green-50 dark:bg-green-900/10">
-                  <div className="text-xs text-muted-foreground">LEVEL 2</div>
-                  <div className="font-semibold">District Manager</div>
-                  <div className="text-xs text-muted-foreground mt-1">First-line approval</div>
-                  <div className="mt-3 text-2xl font-bold text-amber-600">{repPending}</div>
-                  <div className="text-xs">Pending review</div>
-                </div>
-                <div className="rounded-lg border p-4 bg-purple-50 dark:bg-purple-900/10">
-                  <div className="text-xs text-muted-foreground">LEVEL 3</div>
-                  <div className="font-semibold">Marketeer</div>
-                  <div className="text-xs text-muted-foreground mt-1">Regional approval</div>
-                  <div className="mt-3 text-2xl font-bold text-amber-600">{dmPending}</div>
-                  <div className="text-xs">Pending review</div>
-                </div>
-                <div className="rounded-lg border p-4 bg-amber-50 dark:bg-amber-900/10">
-                  <div className="text-xs text-muted-foreground">LEVEL 4</div>
-                  <div className="font-semibold">BUM</div>
-                  <div className="text-xs text-muted-foreground mt-1">Strategic approval</div>
-                  <div className="mt-3 text-2xl font-bold text-amber-600">{marketeerPending}</div>
-                  <div className="text-xs">Pending review</div>
-                </div>
-              </div>
-              <div className="mt-6">
-                <h4 className="font-semibold mb-3">Recent Approval Actions</h4>
-                <div className="space-y-2">
-                  {requests.filter(r => r.status !== "Pending").slice(0, 6).map(r => (
-                    <div key={r.id} className="flex items-center justify-between rounded border p-2 text-sm">
-                      <div>
-                        <span className="font-mono text-xs">{r.id}</span> • <span className="font-medium">{r.requester}</span> • {r.type}
+        {/* Pending requests */}
+        <TabsContent value="pending" className="space-y-3">
+          {myRequests.filter((r) => r.status === "PENDING").length === 0 ? (
+            <Card className="p-8 text-center text-slate-500">
+              <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-emerald-300" />
+              <p className="font-medium">All caught up!</p>
+              <p className="text-xs">No pending requests need your attention.</p>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {myRequests
+                .filter((r) => r.status === "PENDING")
+                .sort((a, b) => {
+                  const pMap: Record<string, number> = {
+                    URGENT: 0,
+                    HIGH: 1,
+                    MEDIUM: 2,
+                    LOW: 3,
+                  };
+                  return (pMap[a.priority] ?? 2) - (pMap[b.priority] ?? 2);
+                })
+                .map((r) => {
+                  const requester = allUsers.find((u) => u.id === r.requestedById);
+                  const doctor = r.doctorId
+                    ? store.doctors.find((d) => d.id === r.doctorId)
+                    : null;
+                  return (
+                    <Card key={r.id} className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline">{r.type}</Badge>
+                            <Badge
+                              variant={
+                                r.priority === "URGENT"
+                                  ? "destructive"
+                                  : r.priority === "HIGH"
+                                  ? "warning"
+                                  : "secondary"
+                              }
+                            >
+                              {r.priority}
+                            </Badge>
+                            {r.amount && (
+                              <span className="text-sm font-bold text-slate-700">
+                                EGP {r.amount.toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm mt-2">{r.description}</p>
+                          <div className="flex items-center gap-4 mt-2 text-[11px] text-slate-500">
+                            <span>By: {requester?.name ?? "—"}</span>
+                            {doctor && <span>Doctor: {doctor.name}</span>}
+                            <span>
+                              {new Date(r.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          {r.type === "DOCTOR_EDIT" && r.proposedChanges && (
+                            <div className="mt-2 text-xs bg-blue-50 rounded p-2 border border-blue-100">
+                              <p className="font-semibold text-blue-700 mb-1">
+                                Proposed doctor changes:
+                              </p>
+                              {Object.entries(r.proposedChanges).map(
+                                ([key, val]) =>
+                                  val !== undefined && (
+                                    <p key={key} className="text-blue-600">
+                                      {key}: {String(val)}
+                                    </p>
+                                  )
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        {canApprove && (
+                          <div className="flex gap-2 shrink-0">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:bg-red-50"
+                              onClick={() => handleReject(r)}
+                            >
+                              <XCircle className="h-3.5 w-3.5 mr-1" />
+                              Reject
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-emerald-600 hover:bg-emerald-700"
+                              onClick={() => handleApprove(r)}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                              Approve
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                      <StatusBadge status={r.status} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                    </Card>
+                  );
+                })}
+            </div>
+          )}
         </TabsContent>
 
-        <TabsContent value="budget">
+        {/* Approval chain */}
+        <TabsContent value="chain">
           <Card>
-            <CardHeader><CardTitle>Budget Tracking</CardTitle><CardDescription>Allocation and utilization by category</CardDescription></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">Approval Workflow</CardTitle>
+              <CardDescription>
+                Multi-level approval chain: Med Rep → DM → Marketeer → BUM
+              </CardDescription>
+            </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {BUDGETS.map((b, i) => (
-                  <div key={i}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="font-medium">{b.category}</span>
-                      <span className="text-muted-foreground">{b.used} / {b.allocated} ({b.pct}%)</span>
+              <div className="grid gap-4 md:grid-cols-4">
+                {[
+                  {
+                    level: 1,
+                    label: "Medical Rep",
+                    desc: "Initiates request",
+                    count: myRequests.filter((r) => {
+                      const req = allUsers.find(
+                        (u) => u.id === r.requestedById
+                      );
+                      return req?.role === "MEDICAL_REP";
+                    }).length,
+                    bg: "bg-blue-50",
+                  },
+                  {
+                    level: 2,
+                    label: "District Manager",
+                    desc: "First-line approval",
+                    count: myRequests.filter(
+                      (r) => r.status === "PENDING"
+                    ).length,
+                    bg: "bg-green-50",
+                  },
+                  {
+                    level: 3,
+                    label: "Marketeer",
+                    desc: "Regional approval",
+                    count: myRequests.filter(
+                      (r) => r.status === "APPROVED" && r.amount && r.amount > 5000
+                    ).length,
+                    bg: "bg-purple-50",
+                  },
+                  {
+                    level: 4,
+                    label: "BUM",
+                    desc: "Strategic approval",
+                    count: myRequests.filter(
+                      (r) =>
+                        r.status === "APPROVED" && r.amount && r.amount > 20000
+                    ).length,
+                    bg: "bg-amber-50",
+                  },
+                ].map((step) => (
+                  <div
+                    key={step.level}
+                    className={`rounded-lg border p-4 ${step.bg}`}
+                  >
+                    <div className="text-xs text-slate-500">
+                      LEVEL {step.level}
                     </div>
-                    <div className="h-3 w-full rounded bg-muted overflow-hidden">
-                      <div className={`h-full ${b.pct > 75 ? "bg-red-500" : b.pct > 50 ? "bg-amber-500" : "bg-green-500"}`} style={{ width: `${b.pct}%` }} />
+                    <div className="font-semibold">{step.label}</div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      {step.desc}
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">Remaining: {b.remaining}</div>
+                    <div className="mt-3 text-2xl font-bold">{step.count}</div>
+                    <div className="text-xs">Requests</div>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
-        <TabsContent value="samples">
-          <Card>
-            <CardHeader><CardTitle>Sample Management</CardTitle><CardDescription>Product sample inventory and distribution</CardDescription></CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Product</th><th className="p-3">Available Stock</th><th className="p-3">Distributed</th><th className="p-3">Distribution by Rep</th><th className="p-3">Reorder Level</th><th className="p-3">Status</th></tr>
-                  </thead>
-                  <tbody>
-                    {SAMPLES.map((s, i) => (
-                      <tr key={i} className="border-t">
-                        <td className="p-3 font-medium">{s.product}</td>
-                        <td className="p-3">{s.stock}</td>
-                        <td className="p-3">{s.distributed}</td>
-                        <td className="p-3 text-xs text-muted-foreground">{s.byRep}</td>
-                        <td className="p-3">{s.reorder}</td>
-                        <td className="p-3"><StatusBadge status={s.status} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex items-center justify-center gap-2 mt-6 text-xs text-slate-500">
+                <span className="font-medium">Rep</span>
+                <ArrowRight className="h-3 w-3" />
+                <span className="font-medium">DM</span>
+                <ArrowRight className="h-3 w-3" />
+                <span className="font-medium">Marketeer</span>
+                <ArrowRight className="h-3 w-3" />
+                <span className="font-medium">BUM</span>
+              </div>
+
+              <div className="mt-6">
+                <h4 className="font-semibold text-sm mb-3">
+                  Recent Approval Actions
+                </h4>
+                <div className="space-y-2">
+                  {myRequests
+                    .filter(
+                      (r) =>
+                        r.status === "APPROVED" || r.status === "REJECTED"
+                    )
+                    .slice(0, 6)
+                    .map((r) => {
+                      const requester = allUsers.find(
+                        (u) => u.id === r.requestedById
+                      );
+                      const approver = r.approvedById
+                        ? allUsers.find((u) => u.id === r.approvedById)
+                        : null;
+                      return (
+                        <div
+                          key={r.id}
+                          className="flex items-center justify-between rounded border p-2 text-sm"
+                        >
+                          <div>
+                            <span className="font-medium">
+                              {requester?.name ?? "—"}
+                            </span>{" "}
+                            — {r.type} — {r.description.slice(0, 50)}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {approver && (
+                              <span className="text-[11px] text-slate-500">
+                                by {approver.name}
+                              </span>
+                            )}
+                            <Badge
+                              variant={
+                                r.status === "APPROVED"
+                                  ? "success"
+                                  : "destructive"
+                              }
+                            >
+                              {r.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      <FormModal open={show} onOpenChange={setShow} title="New Market Request" fields={requestFields}
-        onSubmit={(d) => setRequests(prev => [{
-          id: `REQ-${String(prev.length + 16).padStart(3, "0")}`, requester: d.requester, role: d.role,
-          type: d.type, description: d.description, amount: d.amount,
-          priority: d.priority || "Medium", date: new Date().toISOString().slice(0, 10),
-          currentApprover: "DM", status: "Pending",
-        }, ...prev])} />
+      <EntityFormModal
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        title={editing ? "Edit Request" : "New Market Request"}
+        description="Submit a request for samples, events, sponsorships, or other market needs."
+        fields={formFields}
+        initialData={
+          editing
+            ? {
+                type: editing.type,
+                priority: editing.priority,
+                description: editing.description,
+                doctorId: editing.doctorId ?? "",
+                productId: editing.productId ?? "",
+                buId: editing.buId ?? "",
+                quantity: editing.quantity ?? "",
+                amount: editing.amount ?? "",
+              }
+            : undefined
+        }
+        onSubmit={handleSubmit}
+        submitLabel={editing ? "Save changes" : "Submit Request"}
+        size="lg"
+      />
     </div>
   );
 }
