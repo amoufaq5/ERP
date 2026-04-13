@@ -204,49 +204,51 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
           />
         </div>
 
-        {/* Role switcher (demo) */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className="hidden md:flex items-center gap-1.5 h-9 px-2.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors border border-input"
-              aria-label="Switch user role"
-              title="Switch demo user / role"
-            >
-              <Users className="h-3.5 w-3.5" />
-              Switch Role
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-72">
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Demo: switch logged-in user
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {allUsers.map((u) => {
-              const active = u.id === user.id;
-              return (
-                <DropdownMenuItem
-                  key={u.id}
-                  onClick={() => setUser(u)}
-                  className="cursor-pointer flex items-start gap-2 py-2"
-                >
-                  <Avatar className="h-7 w-7 mt-0.5">
-                    <AvatarFallback className="bg-blue-600 text-white text-[10px] font-semibold">
-                      {getInitials(u.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{u.name}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">
-                      {ROLE_LABEL[u.role]}
-                      {u.territory ? ` · ${u.territory}` : ""}
-                    </p>
-                  </div>
-                  {active && <Check className="h-3.5 w-3.5 text-blue-600 mt-1.5" />}
-                </DropdownMenuItem>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Role switcher — admin only */}
+        {user.role === "ADMIN" && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="hidden md:flex items-center gap-1.5 h-9 px-2.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors border border-input"
+                aria-label="Switch user role"
+                title="Switch user (Admin only)"
+              >
+                <Users className="h-3.5 w-3.5" />
+                Switch Role
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                Admin: switch logged-in user
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {allUsers.map((u) => {
+                const active = u.id === user.id;
+                return (
+                  <DropdownMenuItem
+                    key={u.id}
+                    onClick={() => setUser(u)}
+                    className="cursor-pointer flex items-start gap-2 py-2"
+                  >
+                    <Avatar className="h-7 w-7 mt-0.5">
+                      <AvatarFallback className="bg-blue-600 text-white text-[10px] font-semibold">
+                        {getInitials(u.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{u.name}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {ROLE_LABEL[u.role]}
+                        {u.territory ? ` · ${u.territory}` : ""}
+                      </p>
+                    </div>
+                    {active && <Check className="h-3.5 w-3.5 text-blue-600 mt-1.5" />}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {/* Notifications */}
         <button

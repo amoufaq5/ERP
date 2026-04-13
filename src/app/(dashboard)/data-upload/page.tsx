@@ -465,15 +465,55 @@ export default function DataUploadPage() {
         <TabsContent value="export" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Card className="lg:col-span-2">
-              <CardHeader><CardTitle className="text-base">Export Data</CardTitle><CardDescription className="text-xs">Select module and format to export</CardDescription></CardHeader>
+              <CardHeader><CardTitle className="text-base">Export Data</CardTitle><CardDescription className="text-xs">Select module and format to export from live data store</CardDescription></CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-xs text-muted-foreground">Module</label><select className="w-full text-sm border rounded px-2 py-1.5 mt-1">{targetModules.map(m => <option key={m}>{m}</option>)}</select></div>
-                  <div><label className="text-xs text-muted-foreground">Format</label><select className="w-full text-sm border rounded px-2 py-1.5 mt-1"><option>CSV</option><option>JSON</option><option>XML</option><option>Excel (.xlsx)</option><option>PDF</option></select></div>
-                  <div><label className="text-xs text-muted-foreground">From Date</label><Input type="date" className="h-8 text-sm mt-1" /></div>
-                  <div><label className="text-xs text-muted-foreground">To Date</label><Input type="date" className="h-8 text-sm mt-1" /></div>
+                  <div><label className="text-xs text-muted-foreground">Module</label>
+                    <select id="exportModule" className="w-full text-sm border rounded px-2 py-1.5 mt-1">
+                      {["Customers", "Vendors", "Products", "Cheques", "Invoices", "Doctors", "Visits", "Tasks"].map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div><label className="text-xs text-muted-foreground">Format</label>
+                    <select id="exportFormat" className="w-full text-sm border rounded px-2 py-1.5 mt-1"><option value="csv">CSV</option><option value="json">JSON</option></select>
+                  </div>
                 </div>
-                <Button className="gap-1"><Download className="h-4 w-4" />Export Data</Button>
+                <Button className="gap-1" onClick={() => {
+                  const mod = (document.getElementById("exportModule") as HTMLSelectElement)?.value || "Customers";
+                  const fmt = (document.getElementById("exportFormat") as HTMLSelectElement)?.value || "csv";
+                  const keyMap: Record<string, string> = { Customers: "customers", Vendors: "vendors", Products: "products", Cheques: "cheques", Invoices: "invoices", Doctors: "doctors", Visits: "visits", Tasks: "tasks" };
+                  const key = keyMap[mod];
+                  if (!key) return;
+                  const data = (store as Record<string, unknown>)[key];
+                  if (!Array.isArray(data) || data.length === 0) { alert("No data to export for " + mod); return; }
+
+                  let content: string;
+                  let mimeType: string;
+                  let ext: string;
+
+                  if (fmt === "json") {
+                    content = JSON.stringify(data, null, 2);
+                    mimeType = "application/json";
+                    ext = "json";
+                  } else {
+                    const headers = Object.keys(data[0]);
+                    const rows = data.map((row: Record<string, unknown>) => headers.map(h => {
+                      const v = row[h];
+                      const s = v === null || v === undefined ? "" : String(v);
+                      return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+                    }).join(","));
+                    content = [headers.join(","), ...rows].join("\n");
+                    mimeType = "text/csv";
+                    ext = "csv";
+                  }
+
+                  const blob = new Blob([content], { type: mimeType });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `${mod.toLowerCase()}_export_${new Date().toISOString().split("T")[0]}.${ext}`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}><Download className="h-4 w-4" />Export Data</Button>
               </CardContent>
             </Card>
             <Card>
