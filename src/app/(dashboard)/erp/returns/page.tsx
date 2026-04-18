@@ -8,7 +8,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import StatusBadge from "@/components/shared/status-badge";
-import { FormModal, type FormField } from "@/components/ui/form-modal";
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 
 const RETURNS = [
   { id: "RET-1001", customer: "Al-Shifa Pharmacy", product: "Augmentin 625mg Tab", batch: "AUG2024-08", qty: 120, reason: "Near-Expiry", invoice: "INV-2401", value: "$1,440", date: "2026-03-28", status: "Pending" },
@@ -55,22 +57,52 @@ const REASON_BREAKDOWN = [
   { reason: "Temperature Excursion", count: 4, pct: 4 },
 ];
 
-const returnFields: FormField[] = [
+const REASONS = ["Near-Expiry", "Expired", "Damaged Packaging", "Product Recall", "Wrong Product", "Excess Stock", "Temperature Excursion"];
+
+const returnFields: EntityField[] = [
   { name: "customer", label: "Customer", type: "text", required: true },
   { name: "product", label: "Product", type: "text", required: true },
   { name: "batch", label: "Batch#", type: "text", required: true },
   { name: "qty", label: "Quantity", type: "number", required: true },
-  { name: "reason", label: "Reason", type: "select", required: true, options: [
-    "Near-Expiry", "Expired", "Damaged Packaging", "Product Recall",
-    "Wrong Product", "Excess Stock", "Temperature Excursion",
-  ].map(r => ({ label: r, value: r })) },
+  { name: "reason", label: "Reason", type: "select", required: true, options: REASONS.map(r => ({ label: r, value: r })) },
   { name: "invoice", label: "Original Invoice#", type: "text", required: true },
   { name: "value", label: "Return Value", type: "text", placeholder: "$0" },
 ];
 
+const creditFields: EntityField[] = [
+  { name: "returnRef", label: "Return Reference", type: "text", required: true },
+  { name: "customer", label: "Customer", type: "text", required: true },
+  { name: "amount", label: "Amount", type: "text", required: true, placeholder: "$0" },
+  { name: "taxAdj", label: "Tax Adjustment", type: "text", placeholder: "$0" },
+  { name: "net", label: "Net Credit", type: "text", placeholder: "$0" },
+  { name: "appliedTo", label: "Applied To Invoice", type: "text", placeholder: "INV-XXXX or Pending" },
+];
+
+const destructionFields: EntityField[] = [
+  { name: "product", label: "Product", type: "text", required: true },
+  { name: "batch", label: "Batch#", type: "text", required: true },
+  { name: "qty", label: "Quantity", type: "number", required: true },
+  { name: "reason", label: "Reason", type: "select", required: true, options: [
+    { label: "Expired", value: "Expired" }, { label: "Recalled", value: "Recalled" },
+    { label: "Failed QC", value: "Failed QC" }, { label: "Damaged", value: "Damaged" },
+    { label: "Failed QC (Temp)", value: "Failed QC (Temp)" },
+  ]},
+  { name: "method", label: "Method", type: "select", required: true, options: [
+    { label: "Incineration", value: "Incineration" }, { label: "Crushing & Disposal", value: "Crushing & Disposal" },
+    { label: "Special Hazardous Disposal", value: "Special Hazardous Disposal" },
+  ]},
+  { name: "witnessed", label: "Witnessed By", type: "text", required: true },
+  { name: "date", label: "Scheduled Date", type: "date", required: true },
+];
+
+type ModalType = { kind: "return"; editing: typeof RETURNS[0] | null } | { kind: "credit"; editing: typeof CREDIT_NOTES[0] | null } | { kind: "destruction"; editing: typeof DESTRUCTION[0] | null } | null;
+
 export default function ReturnsPage() {
   const [returns, setReturns] = useState(RETURNS);
-  const [show, setShow] = useState(false);
+  const [credits, setCredits] = useState(CREDIT_NOTES);
+  const [destructions, setDestructions] = useState(DESTRUCTION);
+  const [modal, setModal] = useState<ModalType>(null);
+  const [retFilters, setRetFilters] = useState<FilterState>({});
 
   const pending = returns.filter(r => r.status === "Pending").length;
   const totalValue = returns.reduce((s, r) => s + parseFloat(r.value.replace(/[$,]/g, "")), 0);
@@ -81,7 +113,7 @@ export default function ReturnsPage() {
       <PageHeader
         title="Goods Returns Management"
         description="Manage returned products, credit notes, and destruction logs"
-        actions={<Button onClick={() => setShow(true)}><Plus className="mr-2 h-4 w-4" />New Return Request</Button>}
+        actions={<Button onClick={() => setModal({ kind: "return", editing: null })}><Plus className="mr-2 h-4 w-4" />New Return Request</Button>}
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -99,30 +131,65 @@ export default function ReturnsPage() {
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="requests">
+        <TabsContent value="requests" className="space-y-4">
+          <FilterBar
+            searchPlaceholder="Search returns..."
+            searchValue={retFilters._search ?? ""}
+            onSearchChange={(v) => setRetFilters(prev => ({ ...prev, _search: v }))}
+            fields={[
+              { key: "status", label: "Status", type: "select", options: [
+                { label: "Pending", value: "Pending" }, { label: "Approved", value: "Approved" },
+                { label: "Received", value: "Received" }, { label: "Credit Issued", value: "Credit Issued" },
+                { label: "Rejected", value: "Rejected" },
+              ]},
+              { key: "reason", label: "Reason", type: "select", options: REASONS.map(r => ({ label: r, value: r })) },
+            ]}
+            values={retFilters}
+            onChange={setRetFilters}
+            rightSlot={<Button size="sm" onClick={() => setModal({ kind: "return", editing: null })}><Plus className="mr-2 h-4 w-4" />Add Return</Button>}
+          />
           <Card>
             <CardHeader><CardTitle>Return Requests</CardTitle><CardDescription>{returns.length} return requests</CardDescription></CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Return#</th><th className="p-3">Customer</th><th className="p-3">Product</th><th className="p-3">Batch#</th><th className="p-3">Qty</th><th className="p-3">Reason</th><th className="p-3">Invoice</th><th className="p-3">Value</th><th className="p-3">Date</th><th className="p-3">Status</th></tr>
+                    <tr><th className="p-3">Return#</th><th className="p-3">Customer</th><th className="p-3">Product</th><th className="p-3">Batch#</th><th className="p-3">Qty</th><th className="p-3">Reason</th><th className="p-3">Invoice</th><th className="p-3">Value</th><th className="p-3">Date</th><th className="p-3">Status</th><th className="p-3">Actions</th></tr>
                   </thead>
                   <tbody>
-                    {returns.map(r => (
-                      <tr key={r.id} className="border-t">
-                        <td className="p-3 font-mono">{r.id}</td>
-                        <td className="p-3 font-medium">{r.customer}</td>
-                        <td className="p-3">{r.product}</td>
-                        <td className="p-3 font-mono text-xs">{r.batch}</td>
-                        <td className="p-3">{r.qty}</td>
-                        <td className="p-3"><StatusBadge status={r.reason} /></td>
-                        <td className="p-3 font-mono text-xs">{r.invoice}</td>
-                        <td className="p-3 font-semibold">{r.value}</td>
-                        <td className="p-3">{r.date}</td>
-                        <td className="p-3"><StatusBadge status={r.status} /></td>
-                      </tr>
-                    ))}
+                    {returns
+                      .filter(r => !retFilters._search || r.id.toLowerCase().includes(retFilters._search.toLowerCase()) || r.customer.toLowerCase().includes(retFilters._search.toLowerCase()) || r.product.toLowerCase().includes(retFilters._search.toLowerCase()))
+                      .filter(r => !retFilters.status || r.status === retFilters.status)
+                      .filter(r => !retFilters.reason || r.reason === retFilters.reason)
+                      .map(r => {
+                        const flow: Record<string, string> = { "Pending": "Approved", "Approved": "Received", "Received": "Credit Issued" };
+                        const next = flow[r.status];
+                        return (
+                          <tr key={r.id} className="border-t">
+                            <td className="p-3 font-mono">{r.id}</td>
+                            <td className="p-3 font-medium">{r.customer}</td>
+                            <td className="p-3">{r.product}</td>
+                            <td className="p-3 font-mono text-xs">{r.batch}</td>
+                            <td className="p-3">{r.qty}</td>
+                            <td className="p-3"><StatusBadge status={r.reason} /></td>
+                            <td className="p-3 font-mono text-xs">{r.invoice}</td>
+                            <td className="p-3 font-semibold">{r.value}</td>
+                            <td className="p-3">{r.date}</td>
+                            <td className="p-3"><StatusBadge status={r.status} /></td>
+                            <td className="p-3">
+                              <EditDeleteMenu
+                                onEdit={() => setModal({ kind: "return", editing: r })}
+                                onDelete={() => setReturns(prev => prev.filter(x => x.id !== r.id))}
+                                itemLabel={r.id}
+                                extraItems={[
+                                  ...(next ? [{ label: `→ ${next}`, onClick: () => setReturns(prev => prev.map(x => x.id === r.id ? { ...x, status: next } : x)) }] : []),
+                                  ...(r.status === "Pending" ? [{ label: "Reject", onClick: () => setReturns(prev => prev.map(x => x.id === r.id ? { ...x, status: "Rejected" } : x)), destructive: true }] : []),
+                                ]}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
@@ -130,29 +197,43 @@ export default function ReturnsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="credits">
+        <TabsContent value="credits" className="space-y-4">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => setModal({ kind: "credit", editing: null })}><Plus className="mr-2 h-4 w-4" />Issue Credit Note</Button>
+          </div>
           <Card>
             <CardHeader><CardTitle>Credit Notes</CardTitle><CardDescription>Issued credit notes for approved returns</CardDescription></CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Credit Note#</th><th className="p-3">Return Ref</th><th className="p-3">Customer</th><th className="p-3">Amount</th><th className="p-3">Tax Adj</th><th className="p-3">Net Credit</th><th className="p-3">Issue Date</th><th className="p-3">Applied To</th><th className="p-3">Status</th></tr>
+                    <tr><th className="p-3">Credit Note#</th><th className="p-3">Return Ref</th><th className="p-3">Customer</th><th className="p-3">Amount</th><th className="p-3">Tax Adj</th><th className="p-3">Net Credit</th><th className="p-3">Issue Date</th><th className="p-3">Applied To</th><th className="p-3">Status</th><th className="p-3">Actions</th></tr>
                   </thead>
                   <tbody>
-                    {CREDIT_NOTES.map(c => (
-                      <tr key={c.id} className="border-t">
-                        <td className="p-3 font-mono">{c.id}</td>
-                        <td className="p-3 font-mono text-xs">{c.returnRef}</td>
-                        <td className="p-3 font-medium">{c.customer}</td>
-                        <td className="p-3">{c.amount}</td>
-                        <td className="p-3">{c.taxAdj}</td>
-                        <td className="p-3 font-semibold">{c.net}</td>
-                        <td className="p-3">{c.date}</td>
-                        <td className="p-3">{c.appliedTo}</td>
-                        <td className="p-3"><StatusBadge status={c.status} /></td>
-                      </tr>
-                    ))}
+                    {credits.map(c => {
+                      const nextCn = c.status === "Issued" ? "Applied" : undefined;
+                      return (
+                        <tr key={c.id} className="border-t">
+                          <td className="p-3 font-mono">{c.id}</td>
+                          <td className="p-3 font-mono text-xs">{c.returnRef}</td>
+                          <td className="p-3 font-medium">{c.customer}</td>
+                          <td className="p-3">{c.amount}</td>
+                          <td className="p-3">{c.taxAdj}</td>
+                          <td className="p-3 font-semibold">{c.net}</td>
+                          <td className="p-3">{c.date}</td>
+                          <td className="p-3">{c.appliedTo}</td>
+                          <td className="p-3"><StatusBadge status={c.status} /></td>
+                          <td className="p-3">
+                            <EditDeleteMenu
+                              onEdit={() => setModal({ kind: "credit", editing: c })}
+                              onDelete={() => setCredits(prev => prev.filter(x => x.id !== c.id))}
+                              itemLabel={c.id}
+                              extraItems={nextCn ? [{ label: `→ ${nextCn}`, onClick: () => setCredits(prev => prev.map(x => x.id === c.id ? { ...x, status: nextCn } : x)) }] : []}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -160,7 +241,10 @@ export default function ReturnsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="destruction">
+        <TabsContent value="destruction" className="space-y-4">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => setModal({ kind: "destruction", editing: null })}><Plus className="mr-2 h-4 w-4" />Schedule Destruction</Button>
+          </div>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-500" />Destruction Log</CardTitle>
@@ -170,23 +254,34 @@ export default function ReturnsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Log#</th><th className="p-3">Product</th><th className="p-3">Batch#</th><th className="p-3">Qty</th><th className="p-3">Reason</th><th className="p-3">Method</th><th className="p-3">Witnessed By</th><th className="p-3">Date</th><th className="p-3">Certificate#</th><th className="p-3">Status</th></tr>
+                    <tr><th className="p-3">Log#</th><th className="p-3">Product</th><th className="p-3">Batch#</th><th className="p-3">Qty</th><th className="p-3">Reason</th><th className="p-3">Method</th><th className="p-3">Witnessed By</th><th className="p-3">Date</th><th className="p-3">Certificate#</th><th className="p-3">Status</th><th className="p-3">Actions</th></tr>
                   </thead>
                   <tbody>
-                    {DESTRUCTION.map(d => (
-                      <tr key={d.id} className="border-t">
-                        <td className="p-3 font-mono">{d.id}</td>
-                        <td className="p-3 font-medium">{d.product}</td>
-                        <td className="p-3 font-mono text-xs">{d.batch}</td>
-                        <td className="p-3">{d.qty}</td>
-                        <td className="p-3"><StatusBadge status={d.reason} /></td>
-                        <td className="p-3">{d.method}</td>
-                        <td className="p-3 text-xs">{d.witnessed}</td>
-                        <td className="p-3">{d.date}</td>
-                        <td className="p-3 font-mono text-xs">{d.certificate}</td>
-                        <td className="p-3"><StatusBadge status={d.status} /></td>
-                      </tr>
-                    ))}
+                    {destructions.map(d => {
+                      const nextD = d.status === "Scheduled" ? "Completed" : undefined;
+                      return (
+                        <tr key={d.id} className="border-t">
+                          <td className="p-3 font-mono">{d.id}</td>
+                          <td className="p-3 font-medium">{d.product}</td>
+                          <td className="p-3 font-mono text-xs">{d.batch}</td>
+                          <td className="p-3">{d.qty}</td>
+                          <td className="p-3"><StatusBadge status={d.reason} /></td>
+                          <td className="p-3">{d.method}</td>
+                          <td className="p-3 text-xs">{d.witnessed}</td>
+                          <td className="p-3">{d.date}</td>
+                          <td className="p-3 font-mono text-xs">{d.certificate}</td>
+                          <td className="p-3"><StatusBadge status={d.status} /></td>
+                          <td className="p-3">
+                            <EditDeleteMenu
+                              onEdit={() => setModal({ kind: "destruction", editing: d })}
+                              onDelete={() => setDestructions(prev => prev.filter(x => x.id !== d.id))}
+                              itemLabel={d.id}
+                              extraItems={nextD ? [{ label: `→ ${nextD}`, onClick: () => setDestructions(prev => prev.map(x => x.id === d.id ? { ...x, status: nextD, certificate: `CERT-2026-${String(32 + prev.indexOf(x)).padStart(3, "0")}` } : x)) }] : []}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -243,12 +338,98 @@ export default function ReturnsPage() {
         </TabsContent>
       </Tabs>
 
-      <FormModal open={show} onOpenChange={setShow} title="New Return Request" fields={returnFields}
-        onSubmit={(d) => setReturns(prev => [{
-          id: `RET-${1013 + prev.length}`, customer: d.customer, product: d.product,
-          batch: d.batch, qty: Number(d.qty), reason: d.reason, invoice: d.invoice,
-          value: d.value || "$0", date: new Date().toISOString().slice(0, 10), status: "Pending",
-        }, ...prev])} />
+      {/* Return Modal */}
+      {modal?.kind === "return" && (
+        <EntityFormModal
+          open
+          onOpenChange={() => setModal(null)}
+          title={modal.editing ? `Edit ${modal.editing.id}` : "New Return Request"}
+          fields={returnFields}
+          initialData={modal.editing ? {
+            customer: modal.editing.customer, product: modal.editing.product,
+            batch: modal.editing.batch, qty: modal.editing.qty,
+            reason: modal.editing.reason, invoice: modal.editing.invoice, value: modal.editing.value,
+          } : undefined}
+          submitLabel={modal.editing ? "Update" : "Create"}
+          onSubmit={(d) => {
+            if (modal.editing) {
+              setReturns(prev => prev.map(r => r.id === modal.editing!.id ? {
+                ...r, customer: String(d.customer), product: String(d.product),
+                batch: String(d.batch), qty: Number(d.qty), reason: String(d.reason),
+                invoice: String(d.invoice), value: String(d.value) || r.value,
+              } : r));
+            } else {
+              setReturns(prev => [{
+                id: `RET-${1013 + prev.length}`, customer: String(d.customer), product: String(d.product),
+                batch: String(d.batch), qty: Number(d.qty), reason: String(d.reason), invoice: String(d.invoice),
+                value: String(d.value) || "$0", date: new Date().toISOString().slice(0, 10), status: "Pending",
+              }, ...prev]);
+            }
+          }}
+        />
+      )}
+      {/* Credit Note Modal */}
+      {modal?.kind === "credit" && (
+        <EntityFormModal
+          open
+          onOpenChange={() => setModal(null)}
+          title={modal.editing ? `Edit ${modal.editing.id}` : "Issue Credit Note"}
+          fields={creditFields}
+          initialData={modal.editing ? {
+            returnRef: modal.editing.returnRef, customer: modal.editing.customer,
+            amount: modal.editing.amount, taxAdj: modal.editing.taxAdj,
+            net: modal.editing.net, appliedTo: modal.editing.appliedTo,
+          } : undefined}
+          submitLabel={modal.editing ? "Update" : "Issue"}
+          onSubmit={(d) => {
+            if (modal.editing) {
+              setCredits(prev => prev.map(c => c.id === modal.editing!.id ? {
+                ...c, returnRef: String(d.returnRef), customer: String(d.customer),
+                amount: String(d.amount), taxAdj: String(d.taxAdj),
+                net: String(d.net), appliedTo: String(d.appliedTo) || "Pending",
+              } : c));
+            } else {
+              setCredits(prev => [{
+                id: `CN-${509 + prev.length}`, returnRef: String(d.returnRef), customer: String(d.customer),
+                amount: String(d.amount), taxAdj: String(d.taxAdj), net: String(d.net),
+                date: new Date().toISOString().slice(0, 10),
+                appliedTo: String(d.appliedTo) || "Pending", status: "Issued",
+              }, ...prev]);
+            }
+          }}
+        />
+      )}
+      {/* Destruction Modal */}
+      {modal?.kind === "destruction" && (
+        <EntityFormModal
+          open
+          onOpenChange={() => setModal(null)}
+          title={modal.editing ? `Edit ${modal.editing.id}` : "Schedule Destruction"}
+          fields={destructionFields}
+          initialData={modal.editing ? {
+            product: modal.editing.product, batch: modal.editing.batch,
+            qty: modal.editing.qty, reason: modal.editing.reason,
+            method: modal.editing.method, witnessed: modal.editing.witnessed, date: modal.editing.date,
+          } : undefined}
+          submitLabel={modal.editing ? "Update" : "Schedule"}
+          onSubmit={(d) => {
+            if (modal.editing) {
+              setDestructions(prev => prev.map(x => x.id === modal.editing!.id ? {
+                ...x, product: String(d.product), batch: String(d.batch),
+                qty: Number(d.qty), reason: String(d.reason), method: String(d.method),
+                witnessed: String(d.witnessed), date: String(d.date),
+              } : x));
+            } else {
+              setDestructions(prev => [{
+                id: `DES-${207 + prev.length}`, product: String(d.product), batch: String(d.batch),
+                qty: Number(d.qty), reason: String(d.reason), method: String(d.method),
+                witnessed: String(d.witnessed), date: String(d.date),
+                certificate: "Pending", status: "Scheduled",
+              }, ...prev]);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

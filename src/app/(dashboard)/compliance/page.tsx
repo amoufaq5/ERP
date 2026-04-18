@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { FormModal, type FormField } from "@/components/ui/form-modal";
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,7 +114,7 @@ function riskColor(score: number) {
 const sevBadge: Record<string, "destructive" | "default" | "secondary"> = { Critical: "destructive", Major: "destructive", Minor: "secondary" };
 const statusBadge: Record<string, "default" | "destructive" | "secondary" | "outline"> = { Active: "default", "Under Review": "secondary", Pending: "secondary", Expired: "outline", Planned: "secondary", "In Progress": "default", Completed: "default", "Follow-up": "secondary", Open: "destructive", Investigating: "default", Remediated: "secondary", Closed: "outline" };
 
-const regulationFields: FormField[] = [
+const regulationFields: EntityField[] = [
   { name: "name", label: "Regulation Name", type: "text", required: true },
   { name: "authority", label: "Authority", type: "text", required: true },
   { name: "category", label: "Category", type: "select", options: [
@@ -129,9 +131,12 @@ const regulationFields: FormField[] = [
 ];
 
 export default function CompliancePage() {
-  const [searchQuery, setSearchQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editingReg, setEditingReg] = useState<typeof regulations[0] | null>(null);
   const [regs, setRegs] = useState(regulations);
+  const [viols, setViols] = useState(violations);
+  const [regFilters, setRegFilters] = useState<FilterState>({});
+  const [violFilters, setViolFilters] = useState<FilterState>({});
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -140,7 +145,7 @@ export default function CompliancePage() {
           <div className="flex items-center gap-2"><Scale className="h-6 w-6 text-primary" /><h1 className="text-2xl font-bold tracking-tight">Compliance Management</h1></div>
           <p className="text-muted-foreground text-sm mt-1">Regulatory compliance, audits, policies, and risk management</p>
         </div>
-        <Button size="sm" className="gap-1.5" onClick={() => setShowForm(true)}><Plus className="h-4 w-4" />New Regulation</Button>
+        <Button size="sm" className="gap-1.5" onClick={() => { setEditingReg(null); setShowForm(true); }}><Plus className="h-4 w-4" />New Regulation</Button>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
@@ -172,12 +177,40 @@ export default function CompliancePage() {
         </TabsContent>
 
         <TabsContent value="regulations" className="space-y-4">
-          <div className="relative max-w-sm"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" /><Input placeholder="Search regulations..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-8 h-8 text-sm" /></div>
+          <FilterBar
+            searchPlaceholder="Search regulations..."
+            searchValue={regFilters._search ?? ""}
+            onSearchChange={(v) => setRegFilters(prev => ({ ...prev, _search: v }))}
+            fields={[
+              { key: "category", label: "Category", type: "select", options: [
+                { label: "Financial", value: "Financial" }, { label: "Data Privacy", value: "Data Privacy" },
+                { label: "Environmental", value: "Environmental" }, { label: "Health & Safety", value: "Health & Safety" },
+                { label: "Labor", value: "Labor" }, { label: "Industry Standards", value: "Industry Standards" },
+              ]},
+              { key: "impact", label: "Impact", type: "select", options: [
+                { label: "High", value: "High" }, { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
+              ]},
+            ]}
+            values={regFilters}
+            onChange={setRegFilters}
+            rightSlot={<Button size="sm" onClick={() => { setEditingReg(null); setShowForm(true); }}><Plus className="mr-2 h-4 w-4" />Add</Button>}
+          />
           <Card><CardContent className="p-0"><table className="w-full text-sm">
-            <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Regulation", "Authority", "Category", "Jurisdiction", "Effective", "Status", "Impact", "Department"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-            <tbody>{regs.filter(r => !searchQuery || r.name.toLowerCase().includes(searchQuery.toLowerCase())).map(r => (
+            <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Regulation", "Authority", "Category", "Jurisdiction", "Effective", "Status", "Impact", "Dept", "Actions"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
+            <tbody>{regs
+              .filter(r => !regFilters._search || r.name.toLowerCase().includes(regFilters._search.toLowerCase()))
+              .filter(r => !regFilters.category || r.category === regFilters.category)
+              .filter(r => !regFilters.impact || r.impact === regFilters.impact)
+              .map(r => (
               <tr key={r.id} className="border-b last:border-0 hover:bg-muted/50">
                 <td className="p-3 font-mono text-xs">{r.id}</td><td className="p-3 text-xs font-medium">{r.name}</td><td className="p-3 text-xs">{r.authority}</td><td className="p-3"><Badge variant="outline" className="text-xs">{r.category}</Badge></td><td className="p-3 text-xs">{r.jurisdiction}</td><td className="p-3 text-xs">{r.effective}</td><td className="p-3"><Badge variant={statusBadge[r.status] || "secondary"} className="text-xs">{r.status}</Badge></td><td className="p-3"><Badge variant={r.impact === "High" ? "destructive" : "secondary"} className="text-xs">{r.impact}</Badge></td><td className="p-3 text-xs">{r.dept}</td>
+                <td className="p-3">
+                  <EditDeleteMenu
+                    onEdit={() => { setEditingReg(r); setShowForm(true); }}
+                    onDelete={() => setRegs(prev => prev.filter(x => x.id !== r.id))}
+                    itemLabel={r.name}
+                  />
+                </td>
               </tr>
             ))}</tbody>
           </table></CardContent></Card>
@@ -208,13 +241,46 @@ export default function CompliancePage() {
         </TabsContent>
 
         <TabsContent value="violations" className="space-y-4">
+          <FilterBar
+            searchPlaceholder="Search violations..."
+            searchValue={violFilters._search ?? ""}
+            onSearchChange={(v) => setViolFilters(prev => ({ ...prev, _search: v }))}
+            fields={[
+              { key: "severity", label: "Severity", type: "select", options: [
+                { label: "Critical", value: "Critical" }, { label: "Major", value: "Major" }, { label: "Minor", value: "Minor" },
+              ]},
+              { key: "status", label: "Status", type: "select", options: [
+                { label: "Open", value: "Open" }, { label: "Investigating", value: "Investigating" },
+                { label: "Remediated", value: "Remediated" }, { label: "Closed", value: "Closed" },
+              ]},
+            ]}
+            values={violFilters}
+            onChange={setViolFilters}
+          />
           <Card><CardContent className="p-0"><table className="w-full text-sm">
-            <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Type", "Regulation", "Description", "Severity", "Detected", "Status", "Deadline", "Assigned", "Fine"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-            <tbody>{violations.map(v => (
-              <tr key={v.id} className="border-b last:border-0 hover:bg-muted/50">
-                <td className="p-3 font-mono text-xs">{v.id}</td><td className="p-3"><Badge variant="outline" className="text-xs">{v.type}</Badge></td><td className="p-3 text-xs font-medium">{v.regulation}</td><td className="p-3 text-xs max-w-[180px] truncate">{v.desc}</td><td className="p-3"><Badge variant={sevBadge[v.severity] || "secondary"} className="text-xs">{v.severity}</Badge></td><td className="p-3 text-xs">{v.detected}</td><td className="p-3"><Badge variant={statusBadge[v.status] || "secondary"} className="text-xs">{v.status}</Badge></td><td className="p-3 text-xs">{v.deadline}</td><td className="p-3 text-xs">{v.assignee}</td><td className="p-3 text-xs font-medium">{v.fine}</td>
-              </tr>
-            ))}</tbody>
+            <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Type", "Regulation", "Description", "Severity", "Detected", "Status", "Deadline", "Assigned", "Fine", "Actions"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
+            <tbody>{viols
+              .filter(v => !violFilters._search || v.desc.toLowerCase().includes(violFilters._search.toLowerCase()) || v.regulation.toLowerCase().includes(violFilters._search.toLowerCase()))
+              .filter(v => !violFilters.severity || v.severity === violFilters.severity)
+              .filter(v => !violFilters.status || v.status === violFilters.status)
+              .map(v => {
+                const flow: Record<string, string> = { "Open": "Investigating", "Investigating": "Remediated", "Remediated": "Closed" };
+                const next = flow[v.status];
+                return (
+                  <tr key={v.id} className="border-b last:border-0 hover:bg-muted/50">
+                    <td className="p-3 font-mono text-xs">{v.id}</td><td className="p-3"><Badge variant="outline" className="text-xs">{v.type}</Badge></td><td className="p-3 text-xs font-medium">{v.regulation}</td><td className="p-3 text-xs max-w-[180px] truncate">{v.desc}</td><td className="p-3"><Badge variant={sevBadge[v.severity] || "secondary"} className="text-xs">{v.severity}</Badge></td><td className="p-3 text-xs">{v.detected}</td><td className="p-3"><Badge variant={statusBadge[v.status] || "secondary"} className="text-xs">{v.status}</Badge></td><td className="p-3 text-xs">{v.deadline}</td><td className="p-3 text-xs">{v.assignee}</td><td className="p-3 text-xs font-medium">{v.fine}</td>
+                    <td className="p-3">
+                      <EditDeleteMenu
+                        onEdit={() => {}}
+                        onDelete={() => setViols(prev => prev.filter(x => x.id !== v.id))}
+                        canEdit={false}
+                        itemLabel={v.id}
+                        extraItems={next ? [{ label: `→ ${next}`, onClick: () => setViols(prev => prev.map(x => x.id === v.id ? { ...x, status: next } : x)) }] : []}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}</tbody>
           </table></CardContent></Card>
         </TabsContent>
 
@@ -243,24 +309,39 @@ export default function CompliancePage() {
         </TabsContent>
       </Tabs>
 
-      <FormModal
+      <EntityFormModal
         open={showForm}
-        onOpenChange={setShowForm}
-        title="New Regulation"
+        onOpenChange={(v) => { setShowForm(v); if (!v) setEditingReg(null); }}
+        title={editingReg ? `Edit ${editingReg.name}` : "New Regulation"}
         fields={regulationFields}
+        initialData={editingReg ? {
+          name: editingReg.name, authority: editingReg.authority,
+          category: editingReg.category, jurisdiction: editingReg.jurisdiction,
+          effectiveDate: editingReg.effective, impact: editingReg.impact, dept: editingReg.dept,
+        } : undefined}
+        submitLabel={editingReg ? "Update" : "Add"}
         onSubmit={(data) => {
-          const newReg = {
-            id: `REG-${String(regs.length + 1).padStart(3, "0")}`,
-            name: data.name,
-            authority: data.authority,
-            category: data.category || "Financial",
-            jurisdiction: data.jurisdiction || "—",
-            effective: data.effectiveDate || new Date().toISOString().split("T")[0],
-            status: "Active",
-            impact: data.impact || "Medium",
-            dept: data.dept || "—",
-          };
-          setRegs((prev) => [newReg, ...prev]);
+          if (editingReg) {
+            setRegs(prev => prev.map(r => r.id === editingReg.id ? {
+              ...r, name: String(data.name), authority: String(data.authority),
+              category: String(data.category) || r.category,
+              jurisdiction: String(data.jurisdiction) || r.jurisdiction,
+              effective: String(data.effectiveDate) || r.effective,
+              impact: String(data.impact) || r.impact,
+              dept: String(data.dept) || r.dept,
+            } : r));
+          } else {
+            setRegs(prev => [{
+              id: `REG-${String(prev.length + 1).padStart(3, "0")}`,
+              name: String(data.name), authority: String(data.authority),
+              category: String(data.category) || "Financial",
+              jurisdiction: String(data.jurisdiction) || "—",
+              effective: String(data.effectiveDate) || new Date().toISOString().split("T")[0],
+              status: "Active",
+              impact: String(data.impact) || "Medium",
+              dept: String(data.dept) || "—",
+            }, ...prev]);
+          }
         }}
       />
     </div>
