@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { FormModal, type FormField } from "@/components/ui/form-modal";
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -149,21 +151,52 @@ function contractStatusBadge(status: string) {
   }
 }
 
-const poFields: FormField[] = [
+const poFields: EntityField[] = [
   { name: "supplier", label: "Supplier", type: "text", required: true },
-  { name: "items", label: "Items", type: "text", required: true },
-  { name: "totalValue", label: "Total Value", type: "number", required: true, placeholder: "$" },
+  { name: "items", label: "Number of Items", type: "number", required: true },
+  { name: "totalValue", label: "Total Value ($)", type: "number", required: true, placeholder: "0" },
   { name: "expectedDelivery", label: "Expected Delivery", type: "date", required: true },
   { name: "buyer", label: "Buyer", type: "text", required: true },
   { name: "priority", label: "Priority", type: "select", defaultValue: "Medium", options: [
     { label: "High", value: "High" }, { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
   ]},
+  { name: "status", label: "Status", type: "select", defaultValue: "Draft", options: [
+    { label: "Draft", value: "Draft" }, { label: "Pending Approval", value: "Pending Approval" },
+    { label: "Confirmed", value: "Confirmed" }, { label: "In Transit", value: "In Transit" },
+    { label: "Delivered", value: "Delivered" },
+  ]},
 ];
+
+const supplierFields: EntityField[] = [
+  { name: "name", label: "Supplier Name", type: "text", required: true },
+  { name: "category", label: "Category", type: "select", required: true, options: [
+    { label: "Raw Materials", value: "Raw Materials" }, { label: "Electronics", value: "Electronics" },
+    { label: "Metals", value: "Metals" }, { label: "Chemicals", value: "Chemicals" },
+    { label: "Logistics", value: "Logistics" }, { label: "Mechanical Parts", value: "Mechanical Parts" },
+    { label: "Hardware", value: "Hardware" }, { label: "Polymers", value: "Polymers" },
+  ]},
+  { name: "location", label: "Location", type: "text", required: true },
+  { name: "rating", label: "Rating (1-5)", type: "number", min: 1, max: 5, step: 0.1 },
+  { name: "onTime", label: "On-Time Delivery %", type: "text" },
+  { name: "spend", label: "Annual Spend", type: "text" },
+  { name: "status", label: "Status", type: "select", defaultValue: "Approved", options: [
+    { label: "Preferred", value: "Preferred" }, { label: "Approved", value: "Approved" },
+    { label: "Conditional", value: "Conditional" },
+  ]},
+  { name: "risk", label: "Risk Level", type: "select", defaultValue: "Low", options: [
+    { label: "Low", value: "Low" }, { label: "Medium", value: "Medium" }, { label: "High", value: "High" },
+  ]},
+];
+
+type ModalMode = { type: "po"; editing: typeof purchaseOrders[0] | null } | { type: "supplier"; editing: typeof suppliers[0] | null } | null;
 
 export default function SupplyChainPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [showForm, setShowForm] = useState(false);
+  const [modal, setModal] = useState<ModalMode>(null);
   const [pos, setPos] = useState(purchaseOrders);
+  const [supplierList, setSupplierList] = useState(suppliers);
+  const [poFilters, setPoFilters] = useState<FilterState>({});
+  const [supFilters, setSupFilters] = useState<FilterState>({});
 
   return (
     <div className="space-y-6 p-6">
@@ -174,7 +207,7 @@ export default function SupplyChainPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm"><Download className="mr-2 h-4 w-4" />Export</Button>
-          <Button size="sm" onClick={() => setShowForm(true)}><Plus className="mr-2 h-4 w-4" />New Purchase Order</Button>
+          <Button size="sm" onClick={() => setModal({ type: "po", editing: null })}><Plus className="mr-2 h-4 w-4" />New Purchase Order</Button>
         </div>
       </div>
 
@@ -251,13 +284,24 @@ export default function SupplyChainPage() {
 
         {/* Procurement Tab */}
         <TabsContent value="procurement" className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search purchase orders..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-            </div>
-            <Button variant="outline" size="sm"><Filter className="mr-2 h-4 w-4" />Filter</Button>
-          </div>
+          <FilterBar
+            searchPlaceholder="Search purchase orders..."
+            searchValue={searchTerm}
+            onSearchChange={setSearchTerm}
+            fields={[
+              { key: "status", label: "Status", type: "select", options: [
+                { label: "Draft", value: "Draft" }, { label: "Pending Approval", value: "Pending Approval" },
+                { label: "Confirmed", value: "Confirmed" }, { label: "In Transit", value: "In Transit" },
+                { label: "Delivered", value: "Delivered" },
+              ]},
+              { key: "priority", label: "Priority", type: "select", options: [
+                { label: "High", value: "High" }, { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
+              ]},
+            ]}
+            values={poFilters}
+            onChange={setPoFilters}
+            rightSlot={<Button size="sm" onClick={() => setModal({ type: "po", editing: null })}><Plus className="mr-2 h-4 w-4" />Add PO</Button>}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Purchase Orders</CardTitle>
@@ -280,23 +324,36 @@ export default function SupplyChainPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pos.filter(po => po.id.toLowerCase().includes(searchTerm.toLowerCase()) || po.supplier.toLowerCase().includes(searchTerm.toLowerCase())).map((po) => (
-                      <tr key={po.id} className="border-b last:border-0">
-                        <td className="py-3 font-medium">{po.id}</td>
-                        <td className="py-3">{po.supplier}</td>
-                        <td className="py-3">{po.items}</td>
-                        <td className="py-3">{po.total}</td>
-                        <td className="py-3">{po.ordered}</td>
-                        <td className="py-3">{po.eta}</td>
-                        <td className="py-3">{poStatusBadge(po.status)}</td>
-                        <td className="py-3">
-                          <Badge variant={po.priority === "High" ? "destructive" : po.priority === "Medium" ? "secondary" : "outline"}>{po.priority}</Badge>
-                        </td>
-                        <td className="py-3">
-                          <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
-                        </td>
-                      </tr>
-                    ))}
+                    {pos
+                      .filter(po => !searchTerm || po.id.toLowerCase().includes(searchTerm.toLowerCase()) || po.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
+                      .filter(po => !poFilters.status || po.status === poFilters.status)
+                      .filter(po => !poFilters.priority || po.priority === poFilters.priority)
+                      .map((po) => {
+                        const statusFlow: Record<string, string> = { "Draft": "Pending Approval", "Pending Approval": "Confirmed", "Confirmed": "In Transit", "In Transit": "Delivered" };
+                        const nextStatus = statusFlow[po.status];
+                        return (
+                          <tr key={po.id} className="border-b last:border-0">
+                            <td className="py-3 font-medium">{po.id}</td>
+                            <td className="py-3">{po.supplier}</td>
+                            <td className="py-3">{po.items}</td>
+                            <td className="py-3">{po.total}</td>
+                            <td className="py-3">{po.ordered}</td>
+                            <td className="py-3">{po.eta}</td>
+                            <td className="py-3">{poStatusBadge(po.status)}</td>
+                            <td className="py-3">
+                              <Badge variant={po.priority === "High" ? "destructive" : po.priority === "Medium" ? "secondary" : "outline"}>{po.priority}</Badge>
+                            </td>
+                            <td className="py-3">
+                              <EditDeleteMenu
+                                onEdit={() => setModal({ type: "po", editing: po })}
+                                onDelete={() => setPos(prev => prev.filter(p => p.id !== po.id))}
+                                itemLabel={po.id}
+                                extraItems={nextStatus ? [{ label: `→ ${nextStatus}`, onClick: () => setPos(prev => prev.map(p => p.id === po.id ? { ...p, status: nextStatus } : p)) }] : []}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
@@ -306,13 +363,22 @@ export default function SupplyChainPage() {
 
         {/* Suppliers Tab */}
         <TabsContent value="suppliers" className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search suppliers..." className="pl-8" />
-            </div>
-            <Button size="sm"><Plus className="mr-2 h-4 w-4" />Add Supplier</Button>
-          </div>
+          <FilterBar
+            searchPlaceholder="Search suppliers..."
+            searchValue={supFilters._search ?? ""}
+            onSearchChange={(v) => setSupFilters(prev => ({ ...prev, _search: v }))}
+            fields={[
+              { key: "status", label: "Status", type: "select", options: [
+                { label: "Preferred", value: "Preferred" }, { label: "Approved", value: "Approved" }, { label: "Conditional", value: "Conditional" },
+              ]},
+              { key: "risk", label: "Risk", type: "select", options: [
+                { label: "Low", value: "Low" }, { label: "Medium", value: "Medium" }, { label: "High", value: "High" },
+              ]},
+            ]}
+            values={supFilters}
+            onChange={setSupFilters}
+            rightSlot={<Button size="sm" onClick={() => setModal({ type: "supplier", editing: null })}><Plus className="mr-2 h-4 w-4" />Add Supplier</Button>}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Supplier Directory</CardTitle>
@@ -332,10 +398,15 @@ export default function SupplyChainPage() {
                       <th className="pb-3 font-medium">Annual Spend</th>
                       <th className="pb-3 font-medium">Status</th>
                       <th className="pb-3 font-medium">Risk</th>
+                      <th className="pb-3 font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {suppliers.map((s) => (
+                    {supplierList
+                      .filter(s => !supFilters._search || s.name.toLowerCase().includes(supFilters._search.toLowerCase()) || s.id.toLowerCase().includes(supFilters._search.toLowerCase()))
+                      .filter(s => !supFilters.status || s.status === supFilters.status)
+                      .filter(s => !supFilters.risk || s.risk === supFilters.risk)
+                      .map((s) => (
                       <tr key={s.id} className="border-b last:border-0">
                         <td className="py-3 font-medium">{s.id}</td>
                         <td className="py-3">{s.name}</td>
@@ -348,6 +419,13 @@ export default function SupplyChainPage() {
                         <td className="py-3">{s.spend}</td>
                         <td className="py-3">{supplierStatusBadge(s.status)}</td>
                         <td className="py-3">{riskBadge(s.risk)}</td>
+                        <td className="py-3">
+                          <EditDeleteMenu
+                            onEdit={() => setModal({ type: "supplier", editing: s })}
+                            onDelete={() => setSupplierList(prev => prev.filter(x => x.id !== s.id))}
+                            itemLabel={s.name}
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -681,26 +759,97 @@ export default function SupplyChainPage() {
         </TabsContent>
       </Tabs>
 
-      <FormModal
-        open={showForm}
-        onOpenChange={setShowForm}
-        title="New Purchase Order"
-        fields={poFields}
-        onSubmit={(data) => {
-          const today = new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-          const newPo = {
-            id: `PO-${4510 + pos.length + 1}`,
-            supplier: data.supplier,
-            items: parseInt(data.items) || 1,
-            total: `$${Number(data.totalValue).toLocaleString()}`,
-            ordered: today,
-            eta: data.expectedDelivery,
-            status: "Draft",
-            priority: data.priority || "Medium",
-          };
-          setPos((prev) => [newPo, ...prev]);
-        }}
-      />
+      {/* PO Modal */}
+      {modal?.type === "po" && (
+        <EntityFormModal
+          open
+          onOpenChange={() => setModal(null)}
+          title={modal.editing ? `Edit ${modal.editing.id}` : "New Purchase Order"}
+          fields={poFields}
+          initialData={modal.editing ? {
+            supplier: modal.editing.supplier,
+            items: modal.editing.items,
+            totalValue: parseFloat(modal.editing.total.replace(/[$,]/g, "")) || 0,
+            expectedDelivery: modal.editing.eta,
+            buyer: "",
+            priority: modal.editing.priority,
+            status: modal.editing.status,
+          } : undefined}
+          submitLabel={modal.editing ? "Update" : "Create"}
+          onSubmit={(data) => {
+            if (modal.editing) {
+              setPos(prev => prev.map(p => p.id === modal.editing!.id ? {
+                ...p,
+                supplier: String(data.supplier),
+                items: Number(data.items) || p.items,
+                total: `$${Number(data.totalValue).toLocaleString()}`,
+                eta: String(data.expectedDelivery),
+                priority: String(data.priority) || p.priority,
+                status: String(data.status) || p.status,
+              } : p));
+            } else {
+              const today = new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+              setPos(prev => [{
+                id: `PO-${4510 + prev.length + 1}`,
+                supplier: String(data.supplier),
+                items: Number(data.items) || 1,
+                total: `$${Number(data.totalValue).toLocaleString()}`,
+                ordered: today,
+                eta: String(data.expectedDelivery),
+                status: "Draft",
+                priority: String(data.priority) || "Medium",
+              }, ...prev]);
+            }
+          }}
+        />
+      )}
+      {/* Supplier Modal */}
+      {modal?.type === "supplier" && (
+        <EntityFormModal
+          open
+          onOpenChange={() => setModal(null)}
+          title={modal.editing ? `Edit ${modal.editing.name}` : "Add Supplier"}
+          fields={supplierFields}
+          initialData={modal.editing ? {
+            name: modal.editing.name,
+            category: modal.editing.category,
+            location: modal.editing.location,
+            rating: modal.editing.rating,
+            onTime: modal.editing.onTime,
+            spend: modal.editing.spend,
+            status: modal.editing.status,
+            risk: modal.editing.risk,
+          } : undefined}
+          submitLabel={modal.editing ? "Update" : "Add"}
+          onSubmit={(data) => {
+            if (modal.editing) {
+              setSupplierList(prev => prev.map(s => s.id === modal.editing!.id ? {
+                ...s,
+                name: String(data.name),
+                category: String(data.category),
+                location: String(data.location),
+                rating: Number(data.rating) || s.rating,
+                onTime: String(data.onTime) || s.onTime,
+                spend: String(data.spend) || s.spend,
+                status: String(data.status) || s.status,
+                risk: String(data.risk) || s.risk,
+              } : s));
+            } else {
+              setSupplierList(prev => [{
+                id: `SUP-${String(prev.length + 1).padStart(3, "0")}`,
+                name: String(data.name),
+                category: String(data.category),
+                location: String(data.location),
+                rating: Number(data.rating) || 0,
+                onTime: String(data.onTime) || "0%",
+                spend: String(data.spend) || "$0",
+                status: String(data.status) || "Approved",
+                risk: String(data.risk) || "Low",
+              }, ...prev]);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

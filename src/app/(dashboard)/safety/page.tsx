@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { FormModal, type FormField } from "@/components/ui/form-modal";
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,39 +112,26 @@ function riskScore(l: number, i: number) {
 
 // ─── Page ──────────────────────────────────────────────────────────────────
 
+const incidentFields: EntityField[] = [
+  { name: "type", label: "Incident Type", type: "select", required: true, options: [
+    { label: "Injury", value: "Injury" }, { label: "Near Miss", value: "Near Miss" },
+    { label: "Property Damage", value: "Property Damage" }, { label: "Environmental", value: "Environmental" },
+    { label: "Fire", value: "Fire" },
+  ]},
+  { name: "severity", label: "Severity", type: "select", required: true, options: [
+    { label: "Critical", value: "Critical" }, { label: "High", value: "High" },
+    { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
+  ]},
+  { name: "location", label: "Location", type: "text", required: true, placeholder: "e.g. Warehouse B" },
+  { name: "assignee", label: "Assigned To", type: "text", required: true, placeholder: "Name" },
+  { name: "desc", label: "Description", type: "textarea", required: true, fullWidth: true, placeholder: "Describe the incident..." },
+];
+
 export default function SafetyPage() {
-  const [searchQuery, setSearchQuery] = useState("");
   const [showIncidentForm, setShowIncidentForm] = useState(false);
+  const [editingIncident, setEditingIncident] = useState<typeof incidents[0] | null>(null);
   const [incidentList, setIncidentList] = useState(incidents);
-
-  const incidentFields: FormField[] = [
-    { name: "type", label: "Incident Type", type: "select", required: true, options: [
-      { label: "Injury", value: "Injury" }, { label: "Near Miss", value: "Near Miss" },
-      { label: "Property Damage", value: "Property Damage" }, { label: "Environmental", value: "Environmental" },
-      { label: "Fire", value: "Fire" },
-    ]},
-    { name: "severity", label: "Severity", type: "select", required: true, options: [
-      { label: "Critical", value: "Critical" }, { label: "High", value: "High" },
-      { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
-    ]},
-    { name: "location", label: "Location", type: "text", required: true, placeholder: "e.g. Warehouse B" },
-    { name: "assignee", label: "Assigned To", type: "text", required: true, placeholder: "Name" },
-    { name: "desc", label: "Description", type: "textarea", required: true, placeholder: "Describe the incident..." },
-  ];
-
-  function handleAddIncident(data: Record<string, string>) {
-    const newInc = {
-      id: `INC-${String(incidentList.length + 1).padStart(3, "0")}`,
-      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      type: data.type,
-      location: data.location,
-      severity: data.severity,
-      status: "Open",
-      assignee: data.assignee,
-      desc: data.desc,
-    };
-    setIncidentList(prev => [newInc, ...prev]);
-  }
+  const [incFilters, setIncFilters] = useState<FilterState>({});
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -154,7 +143,7 @@ export default function SafetyPage() {
           </div>
           <p className="text-muted-foreground text-sm mt-1">Enterprise health, safety & environment (HSE) system</p>
         </div>
-        <Button size="sm" className="gap-1.5" onClick={() => setShowIncidentForm(true)}><Plus className="h-4 w-4" />Report Incident</Button>
+        <Button size="sm" className="gap-1.5" onClick={() => { setEditingIncident(null); setShowIncidentForm(true); }}><Plus className="h-4 w-4" />Report Incident</Button>
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-4">
@@ -217,24 +206,60 @@ export default function SafetyPage() {
 
         {/* ── Incidents ── */}
         <TabsContent value="incidents" className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1 max-w-sm"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" /><Input placeholder="Search incidents..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-8 h-8 text-sm" /></div>
-          </div>
+          <FilterBar
+            searchPlaceholder="Search incidents..."
+            searchValue={incFilters._search ?? ""}
+            onSearchChange={(v) => setIncFilters(prev => ({ ...prev, _search: v }))}
+            fields={[
+              { key: "severity", label: "Severity", type: "select", options: [
+                { label: "Critical", value: "Critical" }, { label: "High", value: "High" },
+                { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
+              ]},
+              { key: "status", label: "Status", type: "select", options: [
+                { label: "Open", value: "Open" }, { label: "Investigating", value: "Investigating" },
+                { label: "Resolved", value: "Resolved" }, { label: "Closed", value: "Closed" },
+              ]},
+              { key: "type", label: "Type", type: "select", options: [
+                { label: "Injury", value: "Injury" }, { label: "Near Miss", value: "Near Miss" },
+                { label: "Property Damage", value: "Property Damage" }, { label: "Environmental", value: "Environmental" },
+                { label: "Fire", value: "Fire" },
+              ]},
+            ]}
+            values={incFilters}
+            onChange={setIncFilters}
+          />
           <Card><CardContent className="p-0">
             <table className="w-full text-sm">
-              <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Date", "Type", "Location", "Severity", "Status", "Assigned To", "Description"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-              <tbody>{incidentList.filter(i => !searchQuery || i.desc.toLowerCase().includes(searchQuery.toLowerCase()) || i.id.toLowerCase().includes(searchQuery.toLowerCase())).map(inc => (
-                <tr key={inc.id} className="border-b last:border-0 hover:bg-muted/50">
-                  <td className="p-3 font-mono text-xs">{inc.id}</td>
-                  <td className="p-3 text-xs">{inc.date}</td>
-                  <td className="p-3"><Badge variant="outline" className="text-xs">{inc.type}</Badge></td>
-                  <td className="p-3 text-xs">{inc.location}</td>
-                  <td className="p-3"><span className={`inline-flex items-center gap-1 text-xs`}><span className={`h-2 w-2 rounded-full ${sevColor[inc.severity]}`} />{inc.severity}</span></td>
-                  <td className="p-3"><Badge variant={statusColor[inc.status] || "secondary"} className="text-xs">{inc.status}</Badge></td>
-                  <td className="p-3 text-xs">{inc.assignee}</td>
-                  <td className="p-3 text-xs text-muted-foreground max-w-[200px] truncate">{inc.desc}</td>
-                </tr>
-              ))}</tbody>
+              <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Date", "Type", "Location", "Severity", "Status", "Assigned To", "Description", "Actions"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
+              <tbody>{incidentList
+                .filter(i => !incFilters._search || i.desc.toLowerCase().includes(incFilters._search.toLowerCase()) || i.id.toLowerCase().includes(incFilters._search.toLowerCase()))
+                .filter(i => !incFilters.severity || i.severity === incFilters.severity)
+                .filter(i => !incFilters.status || i.status === incFilters.status)
+                .filter(i => !incFilters.type || i.type === incFilters.type)
+                .map(inc => {
+                  const flow: Record<string, string> = { "Open": "Investigating", "Investigating": "Resolved", "Resolved": "Closed" };
+                  const next = flow[inc.status];
+                  return (
+                    <tr key={inc.id} className="border-b last:border-0 hover:bg-muted/50">
+                      <td className="p-3 font-mono text-xs">{inc.id}</td>
+                      <td className="p-3 text-xs">{inc.date}</td>
+                      <td className="p-3"><Badge variant="outline" className="text-xs">{inc.type}</Badge></td>
+                      <td className="p-3 text-xs">{inc.location}</td>
+                      <td className="p-3"><span className="inline-flex items-center gap-1 text-xs"><span className={`h-2 w-2 rounded-full ${sevColor[inc.severity]}`} />{inc.severity}</span></td>
+                      <td className="p-3"><Badge variant={statusColor[inc.status] || "secondary"} className="text-xs">{inc.status}</Badge></td>
+                      <td className="p-3 text-xs">{inc.assignee}</td>
+                      <td className="p-3 text-xs text-muted-foreground max-w-[200px] truncate">{inc.desc}</td>
+                      <td className="p-3">
+                        <EditDeleteMenu
+                          onEdit={() => { setEditingIncident(inc); setShowIncidentForm(true); }}
+                          onDelete={() => setIncidentList(prev => prev.filter(x => x.id !== inc.id))}
+                          itemLabel={inc.id}
+                          extraItems={next ? [{ label: `→ ${next}`, onClick: () => setIncidentList(prev => prev.map(x => x.id === inc.id ? { ...x, status: next } : x)) }] : []}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}</tbody>
             </table>
           </CardContent></Card>
         </TabsContent>
@@ -393,14 +418,43 @@ export default function SafetyPage() {
         </TabsContent>
       </Tabs>
 
-      <FormModal
+      <EntityFormModal
         open={showIncidentForm}
-        onOpenChange={setShowIncidentForm}
-        title="Report New Incident"
-        description="Fill out the details of the safety incident"
+        onOpenChange={(v) => { setShowIncidentForm(v); if (!v) setEditingIncident(null); }}
+        title={editingIncident ? `Edit ${editingIncident.id}` : "Report New Incident"}
+        description={editingIncident ? undefined : "Fill out the details of the safety incident"}
         fields={incidentFields}
-        onSubmit={handleAddIncident}
-        submitLabel="Report Incident"
+        initialData={editingIncident ? {
+          type: editingIncident.type,
+          severity: editingIncident.severity,
+          location: editingIncident.location,
+          assignee: editingIncident.assignee,
+          desc: editingIncident.desc,
+        } : undefined}
+        submitLabel={editingIncident ? "Update" : "Report Incident"}
+        onSubmit={(data) => {
+          if (editingIncident) {
+            setIncidentList(prev => prev.map(i => i.id === editingIncident.id ? {
+              ...i,
+              type: String(data.type),
+              severity: String(data.severity),
+              location: String(data.location),
+              assignee: String(data.assignee),
+              desc: String(data.desc),
+            } : i));
+          } else {
+            setIncidentList(prev => [{
+              id: `INC-${String(prev.length + 1).padStart(3, "0")}`,
+              date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+              type: String(data.type),
+              location: String(data.location),
+              severity: String(data.severity),
+              status: "Open",
+              assignee: String(data.assignee),
+              desc: String(data.desc),
+            }, ...prev]);
+          }
+        }}
       />
     </div>
   );

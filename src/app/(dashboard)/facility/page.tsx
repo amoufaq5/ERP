@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { FormModal, type FormField } from "@/components/ui/form-modal";
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -145,25 +147,28 @@ function conditionBadge(condition: string) {
 
 // ── Component ───────────────────────────────────────────────────────────────
 
-const workOrderFields: FormField[] = [
-  { name: "type", label: "Type", type: "select", defaultValue: "Corrective", options: [
-    { label: "Corrective", value: "Corrective" }, { label: "Preventive", value: "Preventive" },
-    { label: "Emergency", value: "Emergency" }, { label: "Inspection", value: "Inspection" },
+const workOrderFields: EntityField[] = [
+  { name: "title", label: "Title", type: "text", required: true, fullWidth: true },
+  { name: "category", label: "Category", type: "select", defaultValue: "Corrective", options: [
+    { label: "HVAC", value: "HVAC" }, { label: "Electrical", value: "Electrical" },
+    { label: "Plumbing", value: "Plumbing" }, { label: "Structural", value: "Structural" },
+    { label: "Fire Safety", value: "Fire Safety" }, { label: "Mechanical", value: "Mechanical" },
+    { label: "Safety", value: "Safety" }, { label: "Grounds", value: "Grounds" },
   ]},
   { name: "priority", label: "Priority", type: "select", defaultValue: "Medium", options: [
     { label: "Critical", value: "Critical" }, { label: "High", value: "High" },
     { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
   ]},
   { name: "building", label: "Building", type: "text", required: true },
-  { name: "description", label: "Description", type: "textarea", required: true },
-  { name: "assignedTo", label: "Assigned To", type: "text", required: true },
-  { name: "dueDate", label: "Due Date", type: "date", required: true },
+  { name: "assignee", label: "Assigned To", type: "text", required: true },
+  { name: "due", label: "Due Date", type: "date", required: true },
 ];
 
 export default function FacilityPage() {
-  const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editingWo, setEditingWo] = useState<typeof workOrders[0] | null>(null);
   const [wos, setWos] = useState(workOrders);
+  const [woFilters, setWoFilters] = useState<FilterState>({});
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -174,11 +179,7 @@ export default function FacilityPage() {
           <p className="text-muted-foreground">Manage buildings, spaces, maintenance, assets, energy, visitors, and vendors</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search facilities..." className="pl-9 w-[260px]" value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-          <Button onClick={() => setShowForm(true)}><Plus className="mr-2 h-4 w-4" />New Work Order</Button>
+          <Button onClick={() => { setEditingWo(null); setShowForm(true); }}><Plus className="mr-2 h-4 w-4" />New Work Order</Button>
         </div>
       </div>
 
@@ -295,16 +296,29 @@ export default function FacilityPage() {
         </TabsContent>
 
         {/* ── Maintenance ───────────────────────────────────────────── */}
-        <TabsContent value="maintenance">
+        <TabsContent value="maintenance" className="space-y-4">
+          <FilterBar
+            searchPlaceholder="Search work orders..."
+            searchValue={woFilters._search ?? ""}
+            onSearchChange={(v) => setWoFilters(prev => ({ ...prev, _search: v }))}
+            fields={[
+              { key: "priority", label: "Priority", type: "select", options: [
+                { label: "Critical", value: "Critical" }, { label: "High", value: "High" },
+                { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
+              ]},
+              { key: "status", label: "Status", type: "select", options: [
+                { label: "Scheduled", value: "Scheduled" }, { label: "In Progress", value: "In Progress" },
+                { label: "Completed", value: "Completed" }, { label: "Overdue", value: "Overdue" },
+              ]},
+            ]}
+            values={woFilters}
+            onChange={setWoFilters}
+            rightSlot={<Button size="sm" onClick={() => { setEditingWo(null); setShowForm(true); }}><Plus className="mr-2 h-4 w-4" />Create Work Order</Button>}
+          />
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Work Orders</CardTitle>
-                  <CardDescription>Track and manage facility maintenance requests</CardDescription>
-                </div>
-                <Button size="sm"><Plus className="mr-2 h-4 w-4" />Create Work Order</Button>
-              </div>
+              <CardTitle>Work Orders</CardTitle>
+              <CardDescription>Track and manage facility maintenance requests</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -319,21 +333,38 @@ export default function FacilityPage() {
                       <th className="pb-3 font-medium">Assignee</th>
                       <th className="pb-3 font-medium">Due Date</th>
                       <th className="pb-3 font-medium">Status</th>
+                      <th className="pb-3 font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {wos.map((wo) => (
-                      <tr key={wo.id} className="border-b last:border-0">
-                        <td className="py-3 font-mono text-xs">{wo.id}</td>
-                        <td className="py-3 font-medium max-w-[260px] truncate">{wo.title}</td>
-                        <td className="py-3">{wo.building}</td>
-                        <td className="py-3">{priorityBadge(wo.priority)}</td>
-                        <td className="py-3">{wo.category}</td>
-                        <td className="py-3">{wo.assignee}</td>
-                        <td className="py-3">{wo.due}</td>
-                        <td className="py-3">{statusBadge(wo.status)}</td>
-                      </tr>
-                    ))}
+                    {wos
+                      .filter(wo => !woFilters._search || wo.title.toLowerCase().includes(woFilters._search.toLowerCase()) || wo.id.toLowerCase().includes(woFilters._search.toLowerCase()))
+                      .filter(wo => !woFilters.priority || wo.priority === woFilters.priority)
+                      .filter(wo => !woFilters.status || wo.status === woFilters.status)
+                      .map((wo) => {
+                        const flow: Record<string, string> = { "Scheduled": "In Progress", "In Progress": "Completed", "Overdue": "In Progress" };
+                        const next = flow[wo.status];
+                        return (
+                          <tr key={wo.id} className="border-b last:border-0">
+                            <td className="py-3 font-mono text-xs">{wo.id}</td>
+                            <td className="py-3 font-medium max-w-[260px] truncate">{wo.title}</td>
+                            <td className="py-3">{wo.building}</td>
+                            <td className="py-3">{priorityBadge(wo.priority)}</td>
+                            <td className="py-3">{wo.category}</td>
+                            <td className="py-3">{wo.assignee}</td>
+                            <td className="py-3">{wo.due}</td>
+                            <td className="py-3">{statusBadge(wo.status)}</td>
+                            <td className="py-3">
+                              <EditDeleteMenu
+                                onEdit={() => { setEditingWo(wo); setShowForm(true); }}
+                                onDelete={() => setWos(prev => prev.filter(w => w.id !== wo.id))}
+                                itemLabel={wo.id}
+                                extraItems={next ? [{ label: `→ ${next}`, onClick: () => setWos(prev => prev.map(w => w.id === wo.id ? { ...w, status: next } : w)) }] : []}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
@@ -535,25 +566,45 @@ export default function FacilityPage() {
         </TabsContent>
       </Tabs>
 
-      <FormModal
+      <EntityFormModal
         open={showForm}
-        onOpenChange={setShowForm}
-        title="New Work Order"
+        onOpenChange={(v) => { setShowForm(v); if (!v) setEditingWo(null); }}
+        title={editingWo ? `Edit ${editingWo.id}` : "New Work Order"}
         fields={workOrderFields}
+        initialData={editingWo ? {
+          title: editingWo.title,
+          category: editingWo.category,
+          priority: editingWo.priority,
+          building: editingWo.building,
+          assignee: editingWo.assignee,
+          due: editingWo.due,
+        } : undefined}
+        submitLabel={editingWo ? "Update" : "Create"}
         onSubmit={(data) => {
-          const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-          const newWo = {
-            id: `WO-${1010 + wos.length + 1}`,
-            title: data.description,
-            building: data.building,
-            priority: data.priority || "Medium",
-            category: data.type || "Corrective",
-            assignee: data.assignedTo,
-            created: today,
-            due: data.dueDate,
-            status: "Scheduled",
-          };
-          setWos((prev) => [newWo, ...prev]);
+          if (editingWo) {
+            setWos(prev => prev.map(w => w.id === editingWo.id ? {
+              ...w,
+              title: String(data.title),
+              category: String(data.category) || w.category,
+              priority: String(data.priority) || w.priority,
+              building: String(data.building),
+              assignee: String(data.assignee),
+              due: String(data.due),
+            } : w));
+          } else {
+            const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+            setWos(prev => [{
+              id: `WO-${1010 + prev.length + 1}`,
+              title: String(data.title),
+              building: String(data.building),
+              priority: String(data.priority) || "Medium",
+              category: String(data.category) || "HVAC",
+              assignee: String(data.assignee),
+              created: today,
+              due: String(data.due),
+              status: "Scheduled",
+            }, ...prev]);
+          }
         }}
       />
     </div>

@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FormModal, type FormField } from "@/components/ui/form-modal";
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import {
   Search, Plus, Eye, CheckCircle2, XCircle, AlertTriangle, FileText,
   ClipboardList, BarChart3, ShieldCheck, TrendingUp, TrendingDown,
@@ -148,29 +150,28 @@ function capabilityColor(cpk: number) {
 
 // ─── Page ──────────────────────────────────────────────────────────────────
 
-const ncrFormFields: FormField[] = [
+const ncrFormFields: EntityField[] = [
   { name: "product", label: "Product", type: "text", required: true },
-  { name: "description", label: "Description", type: "textarea", required: true },
+  { name: "description", label: "Description", type: "textarea", required: true, fullWidth: true },
   { name: "source", label: "Source", type: "select", options: [
-    { label: "Internal", value: "Internal" },
-    { label: "Customer", value: "Customer" },
-    { label: "Supplier", value: "Supplier" },
-    { label: "Audit", value: "Audit" },
+    { label: "Final Inspection", value: "Final Inspection" }, { label: "In-Process", value: "In-Process" },
+    { label: "Incoming", value: "Incoming" }, { label: "Lab Testing", value: "Lab Testing" },
+    { label: "NDT", value: "NDT" }, { label: "Customer", value: "Customer" },
   ]},
   { name: "severity", label: "Severity", type: "select", options: [
-    { label: "Critical", value: "Critical" },
-    { label: "Major", value: "Major" },
-    { label: "Minor", value: "Minor" },
+    { label: "Critical", value: "Critical" }, { label: "Major", value: "Major" }, { label: "Minor", value: "Minor" },
   ]},
-  { name: "rootCause", label: "Root Cause", type: "text" },
-  { name: "correctiveAction", label: "Corrective Action", type: "textarea" },
+  { name: "rootCause", label: "Root Cause", type: "text", fullWidth: true },
   { name: "owner", label: "Owner", type: "text", required: true },
+  { name: "cost", label: "Estimated Cost ($)", type: "text" },
 ];
 
 export default function QAQCPage() {
   const [search, setSearch] = useState("");
+  const [editingNcr, setEditingNcr] = useState<typeof initialNcrs[0] | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [ncrs, setNcrs] = useState(initialNcrs);
+  const [ncrFilters, setNcrFilters] = useState<FilterState>({});
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -181,13 +182,8 @@ export default function QAQCPage() {
           <p className="text-muted-foreground">Quality assurance, inspection management, and compliance tracking</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search quality records..." className="pl-9 w-[260px]" value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-          <Button variant="outline" size="icon"><Filter className="h-4 w-4" /></Button>
           <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
-          <Button onClick={() => setShowForm(true)}><Plus className="mr-2 h-4 w-4" />New NCR</Button>
+          <Button onClick={() => { setEditingNcr(null); setShowForm(true); }}><Plus className="mr-2 h-4 w-4" />New NCR</Button>
         </div>
       </div>
 
@@ -272,6 +268,23 @@ export default function QAQCPage() {
 
         {/* ── NCR ──────────────────────────────────────────────────────── */}
         <TabsContent value="ncr" className="space-y-4">
+          <FilterBar
+            searchPlaceholder="Search NCRs..."
+            searchValue={ncrFilters._search ?? ""}
+            onSearchChange={(v) => setNcrFilters(prev => ({ ...prev, _search: v }))}
+            fields={[
+              { key: "severity", label: "Severity", type: "select", options: [
+                { label: "Critical", value: "Critical" }, { label: "Major", value: "Major" }, { label: "Minor", value: "Minor" },
+              ]},
+              { key: "status", label: "Status", type: "select", options: [
+                { label: "Open", value: "Open" }, { label: "Containment", value: "Containment" },
+                { label: "CAPA Issued", value: "CAPA Issued" }, { label: "Closed", value: "Closed" },
+              ]},
+            ]}
+            values={ncrFilters}
+            onChange={setNcrFilters}
+            rightSlot={<Button size="sm" onClick={() => { setEditingNcr(null); setShowForm(true); }}><Plus className="mr-2 h-4 w-4" />Add NCR</Button>}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Nonconformance Reports</CardTitle>
@@ -288,27 +301,42 @@ export default function QAQCPage() {
                       <th className="pb-3 font-medium">Description</th>
                       <th className="pb-3 font-medium">Source</th>
                       <th className="pb-3 font-medium">Severity</th>
-                      <th className="pb-3 font-medium">Root Cause</th>
                       <th className="pb-3 font-medium">Status</th>
                       <th className="pb-3 font-medium">Owner</th>
                       <th className="pb-3 font-medium">Cost</th>
+                      <th className="pb-3 font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {ncrs.map((n) => (
-                      <tr key={n.id} className="border-b last:border-0">
-                        <td className="py-3 font-mono text-xs">{n.id}</td>
-                        <td className="py-3 text-muted-foreground">{n.date}</td>
-                        <td className="py-3">{n.product}</td>
-                        <td className="py-3 max-w-[200px] truncate">{n.desc}</td>
-                        <td className="py-3"><Badge variant="outline">{n.source}</Badge></td>
-                        <td className="py-3">{severityBadge(n.severity)}</td>
-                        <td className="py-3 max-w-[180px] truncate">{n.rootCause}</td>
-                        <td className="py-3">{statusBadge(n.status)}</td>
-                        <td className="py-3">{n.owner}</td>
-                        <td className="py-3 font-medium">{n.cost}</td>
-                      </tr>
-                    ))}
+                    {ncrs
+                      .filter(n => !ncrFilters._search || n.id.toLowerCase().includes(ncrFilters._search.toLowerCase()) || n.product.toLowerCase().includes(ncrFilters._search.toLowerCase()))
+                      .filter(n => !ncrFilters.severity || n.severity === ncrFilters.severity)
+                      .filter(n => !ncrFilters.status || n.status === ncrFilters.status)
+                      .map((n) => {
+                        const flow: Record<string, string> = { "Open": "Containment", "Containment": "CAPA Issued", "CAPA Issued": "Closed" };
+                        const next = flow[n.status];
+                        return (
+                          <tr key={n.id} className="border-b last:border-0">
+                            <td className="py-3 font-mono text-xs">{n.id}</td>
+                            <td className="py-3 text-muted-foreground">{n.date}</td>
+                            <td className="py-3">{n.product}</td>
+                            <td className="py-3 max-w-[200px] truncate">{n.desc}</td>
+                            <td className="py-3"><Badge variant="outline">{n.source}</Badge></td>
+                            <td className="py-3">{severityBadge(n.severity)}</td>
+                            <td className="py-3">{statusBadge(n.status)}</td>
+                            <td className="py-3">{n.owner}</td>
+                            <td className="py-3 font-medium">{n.cost}</td>
+                            <td className="py-3">
+                              <EditDeleteMenu
+                                onEdit={() => { setEditingNcr(n); setShowForm(true); }}
+                                onDelete={() => setNcrs(prev => prev.filter(x => x.id !== n.id))}
+                                itemLabel={n.id}
+                                extraItems={next ? [{ label: `→ ${next}`, onClick: () => setNcrs(prev => prev.map(x => x.id === n.id ? { ...x, status: next } : x)) }] : []}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
@@ -524,28 +552,50 @@ export default function QAQCPage() {
         </TabsContent>
       </Tabs>
 
-      <FormModal
+      <EntityFormModal
         open={showForm}
-        onOpenChange={setShowForm}
-        title="New Nonconformance Report"
-        description="Log a new NCR for tracking and resolution."
+        onOpenChange={(v) => { setShowForm(v); if (!v) setEditingNcr(null); }}
+        title={editingNcr ? `Edit ${editingNcr.id}` : "New Nonconformance Report"}
+        description={editingNcr ? undefined : "Log a new NCR for tracking and resolution."}
         fields={ncrFormFields}
-        submitLabel="Create NCR"
+        initialData={editingNcr ? {
+          product: editingNcr.product,
+          description: editingNcr.desc,
+          source: editingNcr.source,
+          severity: editingNcr.severity,
+          rootCause: editingNcr.rootCause,
+          owner: editingNcr.owner,
+          cost: editingNcr.cost,
+        } : undefined}
+        submitLabel={editingNcr ? "Update" : "Create NCR"}
         onSubmit={(data) => {
-          const id = `NCR-${String(ncrs.length + 458).padStart(4, "0")}`;
-          const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-          setNcrs([{
-            id,
-            date: today,
-            product: data.product,
-            desc: data.description,
-            source: data.source || "Internal",
-            severity: data.severity || "Minor",
-            rootCause: data.rootCause || "Pending investigation",
-            status: "Open",
-            owner: data.owner,
-            cost: "$0",
-          }, ...ncrs]);
+          if (editingNcr) {
+            setNcrs(prev => prev.map(n => n.id === editingNcr.id ? {
+              ...n,
+              product: String(data.product),
+              desc: String(data.description),
+              source: String(data.source) || n.source,
+              severity: String(data.severity) || n.severity,
+              rootCause: String(data.rootCause) || n.rootCause,
+              owner: String(data.owner),
+              cost: String(data.cost) || n.cost,
+            } : n));
+          } else {
+            const id = `NCR-${String(ncrs.length + 458).padStart(4, "0")}`;
+            const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+            setNcrs([{
+              id,
+              date: today,
+              product: String(data.product),
+              desc: String(data.description),
+              source: String(data.source) || "Final Inspection",
+              severity: String(data.severity) || "Minor",
+              rootCause: String(data.rootCause) || "Pending investigation",
+              status: "Open",
+              owner: String(data.owner),
+              cost: String(data.cost) || "$0",
+            }, ...ncrs]);
+          }
         }}
       />
     </div>
