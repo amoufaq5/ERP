@@ -10,7 +10,6 @@ import {
   Monitor,
   ShieldAlert,
   Boxes,
-  Search,
   Plus,
   ArrowUpRight,
   ArrowDownRight,
@@ -19,10 +18,11 @@ import {
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FormModal, type FormField } from "@/components/ui/form-modal"
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
 
 const initialStrategicGoals = [
   { id: "SG-001", goal: "Expand APAC Market Presence", owner: "Sarah Chen", department: "Sales", target: "15% revenue share", progress: 72, status: "On Track", deadline: "2026-12-31" },
@@ -136,13 +136,13 @@ function getPriorityBadge(priority: string): "default" | "secondary" | "destruct
   }
 }
 
-const planFormFields: FormField[] = [
-  { name: "objective", label: "Objective", type: "text", required: true },
-  { name: "kpi", label: "KPI", type: "text", required: true },
-  { name: "target", label: "Target", type: "text", required: true },
-  { name: "owner", label: "Owner", type: "text", required: true },
-  { name: "timeline", label: "Timeline", type: "text", required: true, placeholder: "e.g. Q2 2026" },
-  { name: "status", label: "Status", type: "select", options: [
+const planFormFields: EntityField[] = [
+  { key: "objective", label: "Objective", type: "text", required: true },
+  { key: "kpi", label: "KPI / Department", type: "text", required: true },
+  { key: "target", label: "Target", type: "text", required: true },
+  { key: "owner", label: "Owner", type: "text", required: true },
+  { key: "timeline", label: "Timeline", type: "text", required: true },
+  { key: "status", label: "Status", type: "select", options: [
     { label: "On Track", value: "On Track" },
     { label: "At Risk", value: "At Risk" },
     { label: "Behind", value: "Behind" },
@@ -150,9 +150,10 @@ const planFormFields: FormField[] = [
 ]
 
 export default function PlanningPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [showForm, setShowForm] = useState(false)
   const [strategicGoals, setStrategicGoals] = useState(initialStrategicGoals)
+  const [editingGoal, setEditingGoal] = useState<typeof initialStrategicGoals[0] | null>(null)
+  const [showForm, setShowForm] = useState(false)
+  const [filters, setFilters] = useState<FilterState>({ _search: "", status: "" })
 
   return (
     <div className="space-y-6">
@@ -161,13 +162,7 @@ export default function PlanningPage() {
           <h1 className="text-3xl font-bold tracking-tight">Department Planning</h1>
           <p className="text-muted-foreground mt-1">Enterprise planning, budgets, workforce, and resource management</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search plans..." className="pl-9 w-64" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-          </div>
-          <Button onClick={() => setShowForm(true)}><Plus className="mr-2 h-4 w-4" /> New Plan</Button>
-        </div>
+        <Button onClick={() => { setEditingGoal(null); setShowForm(true); }}><Plus className="mr-2 h-4 w-4" /> New Plan</Button>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
@@ -238,10 +233,26 @@ export default function PlanningPage() {
             <CardHeader>
               <CardTitle>Strategic Goals FY2026</CardTitle>
               <CardDescription>Enterprise-level strategic objectives and progress tracking</CardDescription>
+              <FilterBar
+                searchValue={filters._search}
+                onSearchChange={(v) => setFilters((f) => ({ ...f, _search: v }))}
+                fields={[{ key: "status", label: "Status", type: "select", options: [
+                  { label: "On Track", value: "On Track" }, { label: "At Risk", value: "At Risk" }, { label: "Behind", value: "Behind" },
+                ]}]}
+                values={filters}
+                onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
+              />
             </CardHeader>
             <CardContent>
               <div className="space-y-5">
-                {strategicGoals.map((goal) => (
+                {strategicGoals.filter((g) => {
+                  if (filters.status && g.status !== filters.status) return false;
+                  if (filters._search) {
+                    const q = filters._search.toLowerCase();
+                    return g.goal.toLowerCase().includes(q) || g.owner.toLowerCase().includes(q) || g.department.toLowerCase().includes(q);
+                  }
+                  return true;
+                }).map((goal) => (
                   <div key={goal.id} className="flex items-center gap-4 p-4 border rounded-lg">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -267,6 +278,11 @@ export default function PlanningPage() {
                         />
                       </div>
                     </div>
+                    <EditDeleteMenu
+                      onEdit={() => { setEditingGoal(goal); setShowForm(true); }}
+                      onDelete={() => setStrategicGoals(prev => prev.filter(g => g.id !== goal.id))}
+                      itemLabel={goal.goal}
+                    />
                   </div>
                 ))}
               </div>
@@ -586,25 +602,21 @@ export default function PlanningPage() {
         </TabsContent>
       </Tabs>
 
-      <FormModal
+      <EntityFormModal
         open={showForm}
-        onOpenChange={setShowForm}
-        title="New Strategic Plan"
-        description="Add a new strategic goal to the planning board."
+        onOpenChange={(open) => { if (!open) { setShowForm(false); setEditingGoal(null); } }}
+        title={editingGoal ? "Edit Strategic Goal" : "New Strategic Plan"}
         fields={planFormFields}
-        submitLabel="Create Plan"
+        initialData={editingGoal ? { objective: editingGoal.goal, kpi: editingGoal.department, target: editingGoal.target, owner: editingGoal.owner, timeline: editingGoal.deadline, status: editingGoal.status } : undefined}
         onSubmit={(data) => {
-          const id = `SG-${String(strategicGoals.length + 1).padStart(3, "0")}`
-          setStrategicGoals([{
-            id,
-            goal: data.objective,
-            owner: data.owner,
-            department: data.kpi,
-            target: data.target,
-            progress: 0,
-            status: data.status || "On Track",
-            deadline: data.timeline,
-          }, ...strategicGoals])
+          if (editingGoal) {
+            setStrategicGoals(prev => prev.map(g => g.id === editingGoal.id ? { ...g, goal: data.objective as string, owner: data.owner as string, department: data.kpi as string, target: data.target as string, status: (data.status as string) || g.status, deadline: data.timeline as string } : g));
+          } else {
+            const id = `SG-${String(strategicGoals.length + 1).padStart(3, "0")}`;
+            setStrategicGoals(prev => [{ id, goal: data.objective as string, owner: data.owner as string, department: data.kpi as string, target: data.target as string, progress: 0, status: (data.status as string) || "On Track", deadline: data.timeline as string }, ...prev]);
+          }
+          setShowForm(false);
+          setEditingGoal(null);
         }}
       />
     </div>

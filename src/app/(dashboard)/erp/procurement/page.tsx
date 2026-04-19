@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import StatusBadge from "@/components/shared/status-badge";
-import { FormModal, type FormField } from "@/components/ui/form-modal";
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 
 const PURCHASE_ORDERS = [
   { id: "PO-4001", supplier: "Aurobindo Pharma (API)", category: "Raw Material", items: "Amoxicillin Trihydrate (API)", qty: "500 kg", unitPrice: "$85/kg", total: "$42,500", orderDate: "2026-03-10", expectedDate: "2026-04-15", status: "Approved" },
@@ -58,24 +58,24 @@ const QC_TESTS = [
   { id: "QC-810", grn: "GRN-603", material: "Opadry II Film Coating", test: "Viscosity", specification: "80-120 cP", result: "98 cP", status: "Pass" },
 ];
 
-const poFields: FormField[] = [
-  { name: "supplier", label: "Supplier", type: "select", required: true, options: SUPPLIERS.filter(s => s.status === "Approved").map(s => ({ value: s.name, label: `${s.name} (${s.type})` })) },
-  { name: "category", label: "Category", type: "select", required: true, options: [{ value: "Raw Material", label: "Raw Material (API)" }, { value: "Excipient", label: "Excipient" }, { value: "Packaging", label: "Packaging Material" }, { value: "Finished Product", label: "Finished Product" }] },
-  { name: "items", label: "Material / Product", type: "text", required: true },
-  { name: "qty", label: "Quantity", type: "text", required: true },
-  { name: "unitPrice", label: "Unit Price", type: "text", required: true },
-  { name: "total", label: "Total Amount ($)", type: "number", required: true },
-  { name: "expectedDate", label: "Expected Delivery", type: "date", required: true },
-  { name: "notes", label: "Special Requirements", type: "textarea" },
+const poFields: EntityField[] = [
+  { key: "supplier", label: "Supplier", type: "select", required: true, options: SUPPLIERS.filter(s => s.status === "Approved").map(s => ({ value: s.name, label: `${s.name} (${s.type})` })) },
+  { key: "category", label: "Category", type: "select", required: true, options: [{ value: "Raw Material", label: "Raw Material (API)" }, { value: "Excipient", label: "Excipient" }, { value: "Packaging", label: "Packaging Material" }, { value: "Finished Product", label: "Finished Product" }] },
+  { key: "items", label: "Material / Product", type: "text", required: true },
+  { key: "qty", label: "Quantity", type: "text", required: true },
+  { key: "unitPrice", label: "Unit Price", type: "text", required: true },
+  { key: "total", label: "Total Amount ($)", type: "number", required: true },
+  { key: "expectedDate", label: "Expected Delivery", type: "date", required: true },
+  { key: "notes", label: "Special Requirements", type: "textarea" },
 ];
 
-const supplierFields: FormField[] = [
-  { name: "name", label: "Company Name", type: "text", required: true },
-  { name: "type", label: "Supplier Type", type: "select", required: true, options: [{ value: "API Manufacturer", label: "API Manufacturer" }, { value: "Excipient Supplier", label: "Excipient Supplier" }, { value: "Packaging Supplier", label: "Packaging Supplier" }, { value: "Finished Product", label: "Finished Product Supplier" }] },
-  { name: "country", label: "Country", type: "text", required: true },
-  { name: "contact", label: "Contact Person", type: "text", required: true },
-  { name: "email", label: "Email", type: "email", required: true },
-  { name: "gmpStatus", label: "GMP Certification", type: "select", required: true, options: [{ value: "EU-GMP Certified", label: "EU-GMP Certified" }, { value: "FDA Approved", label: "FDA Approved" }, { value: "WHO-GMP", label: "WHO-GMP" }, { value: "ISO 15378", label: "ISO 15378" }, { value: "Pending", label: "Pending Audit" }] },
+const supplierFields: EntityField[] = [
+  { key: "name", label: "Company Name", type: "text", required: true },
+  { key: "type", label: "Supplier Type", type: "select", required: true, options: [{ value: "API Manufacturer", label: "API Manufacturer" }, { value: "Excipient Supplier", label: "Excipient Supplier" }, { value: "Packaging Supplier", label: "Packaging Supplier" }, { value: "Finished Product", label: "Finished Product Supplier" }] },
+  { key: "country", label: "Country", type: "text", required: true },
+  { key: "contact", label: "Contact Person", type: "text", required: true },
+  { key: "email", label: "Email", type: "email", required: true },
+  { key: "gmpStatus", label: "GMP Certification", type: "select", required: true, options: [{ value: "EU-GMP Certified", label: "EU-GMP Certified" }, { value: "FDA Approved", label: "FDA Approved" }, { value: "WHO-GMP", label: "WHO-GMP" }, { value: "ISO 15378", label: "ISO 15378" }, { value: "Pending", label: "Pending Audit" }] },
 ];
 
 export default function ProcurementPage() {
@@ -388,19 +388,19 @@ export default function ProcurementPage() {
         </TabsContent>
       </Tabs>
 
-      <FormModal
+      <EntityFormModal
         open={showPOModal}
-        onClose={() => setShowPOModal(false)}
+        onOpenChange={setShowPOModal}
         title="New Purchase Order"
         fields={poFields}
-        onSubmit={(data) => { console.log("PO created:", data); setShowPOModal(false); }}
+        onSubmit={() => setShowPOModal(false)}
       />
-      <FormModal
+      <EntityFormModal
         open={showSupplierModal}
-        onClose={() => setShowSupplierModal(false)}
+        onOpenChange={setShowSupplierModal}
         title="Add Pharmaceutical Supplier"
         fields={supplierFields}
-        onSubmit={(data) => { console.log("Supplier added:", data); setShowSupplierModal(false); }}
+        onSubmit={() => setShowSupplierModal(false)}
       />
     </div>
   );

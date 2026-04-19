@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FormModal, type FormField } from "@/components/ui/form-modal";
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import {
   Card,
   CardContent,
@@ -176,16 +176,16 @@ const conversationData: Conversation = {
 
 const channels = ["All", "Finance", "Engineering", "Hiring", "CRM", "HR", "Inventory", "Design"];
 
-const messageFields: FormField[] = [
-  { name: "recipient", label: "Recipient", type: "text", required: true },
-  { name: "subject", label: "Subject", type: "text", required: true },
-  { name: "channel", label: "Channel", type: "select", options: [
+const messageFields: EntityField[] = [
+  { key: "recipient", label: "Recipient", type: "text", required: true },
+  { key: "subject", label: "Subject", type: "text", required: true },
+  { key: "channel", label: "Channel", type: "select", options: [
     { label: "Finance", value: "Finance" }, { label: "Engineering", value: "Engineering" },
     { label: "Hiring", value: "Hiring" }, { label: "CRM", value: "CRM" },
     { label: "HR", value: "HR" }, { label: "Inventory", value: "Inventory" },
     { label: "Design", value: "Design" },
   ]},
-  { name: "message", label: "Message", type: "textarea", required: true },
+  { key: "message", label: "Message", type: "textarea", required: true },
 ];
 
 export default function MessagesPage() {
@@ -406,23 +406,23 @@ export default function MessagesPage() {
           )}
         </Card>
       </div>
-      <FormModal
+      <EntityFormModal
         open={showForm}
         onOpenChange={setShowForm}
         title="New Message"
         fields={messageFields}
         onSubmit={(data) => {
-          const initials = data.recipient.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+          const initials = (data.recipient as string).split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
           const newMsg: Message = {
             id: String(messages.length + 1),
-            sender: data.recipient,
+            sender: data.recipient as string,
             avatar: initials || "??",
-            subject: data.subject,
-            preview: data.message,
+            subject: data.subject as string,
+            preview: data.message as string,
             time: "Just now",
             unread: false,
             starred: false,
-            channel: data.channel || "HR",
+            channel: (data.channel as string) || "HR",
           };
           setMessages((prev) => [newMsg, ...prev]);
         }}

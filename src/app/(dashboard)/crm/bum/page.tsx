@@ -8,7 +8,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import StatusBadge from "@/components/shared/status-badge";
-import { FormModal, type FormField } from "@/components/ui/form-modal";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 
 const HIERARCHY = [
   {
@@ -71,22 +73,43 @@ const REGIONAL_COMPARISON = [
   { region: "West Region", sales: 82, compliance: 79, callRate: 76 },
 ];
 
-const visitFields: FormField[] = [
-  { name: "region", label: "Region", type: "select", options: ["North", "South", "East", "West"].map(r => ({ label: `${r} Region`, value: `${r} Region` })) },
-  { name: "accompanied", label: "Accompanied", type: "text", required: true },
-  { name: "doctor", label: "Doctor/KOL", type: "text", required: true },
-  { name: "date", label: "Date", type: "date", required: true },
-  { name: "purpose", label: "Purpose", type: "select", options: [
+const visitFields: EntityField[] = [
+  { key: "region", label: "Region", type: "select", options: ["North", "South", "East", "West"].map(r => ({ label: `${r} Region`, value: `${r} Region` })) },
+  { key: "accompanied", label: "Accompanied", type: "text", required: true },
+  { key: "doctor", label: "Doctor/KOL", type: "text", required: true },
+  { key: "date", label: "Date", type: "date", required: true },
+  { key: "purpose", label: "Purpose", type: "select", options: [
     "KOL Management", "Strategic Account", "Launch Event", "Performance Review",
   ].map(p => ({ label: p, value: p })) },
-  { name: "notes", label: "Notes", type: "textarea" },
-  { name: "actions", label: "Action Items", type: "textarea" },
+  { key: "notes", label: "Notes", type: "textarea" },
+  { key: "actions", label: "Action Items", type: "textarea" },
 ];
 
 export default function BUMPage() {
   const [approvals, setApprovals] = useState(STRATEGIC_APPROVALS);
   const [visits, setVisits] = useState(FIELD_VISITS);
+  const [editingVisit, setEditingVisit] = useState<typeof FIELD_VISITS[0] | null>(null);
   const [showVisit, setShowVisit] = useState(false);
+  const [approvalFilters, setApprovalFilters] = useState<FilterState>({ _search: "", decision: "" });
+  const [visitFilters, setVisitFilters] = useState<FilterState>({ _search: "", region: "" });
+
+  const filteredApprovals = approvals.filter((a) => {
+    if (approvalFilters.decision && a.decision !== approvalFilters.decision) return false;
+    if (approvalFilters._search) {
+      const q = approvalFilters._search.toLowerCase();
+      return a.id.toLowerCase().includes(q) || a.from.toLowerCase().includes(q) || a.description.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const filteredVisits = visits.filter((v) => {
+    if (visitFilters.region && v.region !== visitFilters.region) return false;
+    if (visitFilters._search) {
+      const q = visitFilters._search.toLowerCase();
+      return v.accompanied.toLowerCase().includes(q) || v.doctor.toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   const totalForce = HIERARCHY.reduce((s, m) => s + m.dms.reduce((ss, d) => ss + d.reps, 0), 0);
   const totalDoctors = HIERARCHY.reduce((s, m) => s + m.dms.reduce((ss, d) => ss + d.doctors, 0), 0);
@@ -176,15 +199,27 @@ export default function BUMPage() {
 
         <TabsContent value="strategic">
           <Card>
-            <CardHeader><CardTitle>Strategic Approvals</CardTitle><CardDescription>High-value requests escalated from Marketeers — {pendingStrategic} pending</CardDescription></CardHeader>
+            <CardHeader>
+              <CardTitle>Strategic Approvals</CardTitle>
+              <CardDescription>High-value requests escalated from Marketeers — {pendingStrategic} pending</CardDescription>
+              <FilterBar
+                searchValue={approvalFilters._search}
+                onSearchChange={(v) => setApprovalFilters((f) => ({ ...f, _search: v }))}
+                fields={[{ key: "decision", label: "Decision", type: "select", options: [
+                  { label: "Pending", value: "Pending" }, { label: "Approved", value: "Approved" }, { label: "Rejected", value: "Rejected" },
+                ]}]}
+                values={approvalFilters}
+                onChange={(k, v) => setApprovalFilters((f) => ({ ...f, [k]: v }))}
+              />
+            </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Request#</th><th className="p-3">From</th><th className="p-3">Type</th><th className="p-3">Description</th><th className="p-3">Value</th><th className="p-3">Justification</th><th className="p-3">Decision</th><th className="p-3">Actions</th></tr>
+                    <tr><th className="p-3">Request#</th><th className="p-3">From</th><th className="p-3">Type</th><th className="p-3">Description</th><th className="p-3">Value</th><th className="p-3">Justification</th><th className="p-3">Decision</th><th className="p-3"></th></tr>
                   </thead>
                   <tbody>
-                    {approvals.map(a => (
+                    {filteredApprovals.map(a => (
                       <tr key={a.id} className="border-t">
                         <td className="p-3 font-mono">{a.id}</td>
                         <td className="p-3">{a.from}</td>
@@ -194,14 +229,15 @@ export default function BUMPage() {
                         <td className="p-3 max-w-xs truncate text-muted-foreground">{a.justification}</td>
                         <td className="p-3"><StatusBadge status={a.decision} /></td>
                         <td className="p-3">
-                          {a.decision === "Pending" && (
-                            <div className="flex gap-1">
-                              <Button size="sm" variant="outline" className="h-7 text-green-600"
-                                onClick={() => setApprovals(prev => prev.map(x => x.id === a.id ? { ...x, decision: "Approved" } : x))}>Approve</Button>
-                              <Button size="sm" variant="outline" className="h-7 text-red-600"
-                                onClick={() => setApprovals(prev => prev.map(x => x.id === a.id ? { ...x, decision: "Rejected" } : x))}>Reject</Button>
-                            </div>
-                          )}
+                          <EditDeleteMenu
+                            onDelete={() => setApprovals(prev => prev.filter(x => x.id !== a.id))}
+                            itemLabel={a.id}
+                            canEdit={false}
+                            extraItems={a.decision === "Pending" ? [
+                              { label: "Approve", onClick: () => setApprovals(prev => prev.map(x => x.id === a.id ? { ...x, decision: "Approved" } : x)) },
+                              { label: "Reject", onClick: () => setApprovals(prev => prev.map(x => x.id === a.id ? { ...x, decision: "Rejected" } : x)), destructive: true },
+                            ] : []}
+                          />
                         </td>
                       </tr>
                     ))}
@@ -215,17 +251,27 @@ export default function BUMPage() {
         <TabsContent value="visits">
           <Card>
             <CardHeader className="flex-row items-center justify-between">
-              <div><CardTitle>BUM Field Visits</CardTitle><CardDescription>Strategic visits and KOL management</CardDescription></div>
-              <Button size="sm" onClick={() => setShowVisit(true)}><Plus className="mr-2 h-4 w-4" />Register Visit</Button>
+              <div>
+                <CardTitle>BUM Field Visits</CardTitle>
+                <CardDescription>Strategic visits and KOL management</CardDescription>
+              </div>
+              <Button size="sm" onClick={() => { setEditingVisit(null); setShowVisit(true); }}><Plus className="mr-2 h-4 w-4" />Register Visit</Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <FilterBar
+                searchValue={visitFilters._search}
+                onSearchChange={(v) => setVisitFilters((f) => ({ ...f, _search: v }))}
+                fields={[{ key: "region", label: "Region", type: "select", options: ["North", "South", "East", "West"].map(r => ({ label: `${r} Region`, value: `${r} Region` })) }]}
+                values={visitFilters}
+                onChange={(k, v) => setVisitFilters((f) => ({ ...f, [k]: v }))}
+              />
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Visit#</th><th className="p-3">Region</th><th className="p-3">Accompanied</th><th className="p-3">Doctor/KOL</th><th className="p-3">Date</th><th className="p-3">Purpose</th><th className="p-3">Notes</th><th className="p-3">Action Items</th></tr>
+                    <tr><th className="p-3">Visit#</th><th className="p-3">Region</th><th className="p-3">Accompanied</th><th className="p-3">Doctor/KOL</th><th className="p-3">Date</th><th className="p-3">Purpose</th><th className="p-3">Notes</th><th className="p-3"></th></tr>
                   </thead>
                   <tbody>
-                    {visits.map(v => (
+                    {filteredVisits.map(v => (
                       <tr key={v.id} className="border-t">
                         <td className="p-3 font-mono">{v.id}</td>
                         <td className="p-3">{v.region}</td>
@@ -234,7 +280,13 @@ export default function BUMPage() {
                         <td className="p-3">{v.date}</td>
                         <td className="p-3"><StatusBadge status={v.purpose} /></td>
                         <td className="p-3 max-w-xs truncate">{v.notes}</td>
-                        <td className="p-3 max-w-xs truncate">{v.actions}</td>
+                        <td className="p-3">
+                          <EditDeleteMenu
+                            onEdit={() => { setEditingVisit(v); setShowVisit(true); }}
+                            onDelete={() => setVisits(prev => prev.filter(x => x.id !== v.id))}
+                            itemLabel={v.id}
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -281,12 +333,22 @@ export default function BUMPage() {
         </TabsContent>
       </Tabs>
 
-      <FormModal open={showVisit} onOpenChange={setShowVisit} title="Register BUM Visit" fields={visitFields}
-        onSubmit={(d) => setVisits(prev => [{
-          id: `BV-${String(prev.length + 1).padStart(3, "0")}`, region: d.region || "North Region",
-          accompanied: d.accompanied, doctor: d.doctor, date: d.date, purpose: d.purpose || "KOL Management",
-          notes: d.notes || "", actions: d.actions || "",
-        }, ...prev])} />
+      <EntityFormModal
+        open={showVisit}
+        onOpenChange={(open) => { if (!open) { setShowVisit(false); setEditingVisit(null); } }}
+        title={editingVisit ? "Edit Visit" : "Register BUM Visit"}
+        fields={visitFields}
+        initialData={editingVisit ? { region: editingVisit.region, accompanied: editingVisit.accompanied, doctor: editingVisit.doctor, date: editingVisit.date, purpose: editingVisit.purpose, notes: editingVisit.notes, actions: editingVisit.actions } : undefined}
+        onSubmit={(d) => {
+          if (editingVisit) {
+            setVisits(prev => prev.map(v => v.id === editingVisit.id ? { ...v, region: (d.region as string) || v.region, accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || v.purpose, notes: (d.notes as string) || "", actions: (d.actions as string) || "" } : v));
+          } else {
+            setVisits(prev => [{ id: `BV-${String(prev.length + 1).padStart(3, "0")}`, region: (d.region as string) || "North Region", accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || "KOL Management", notes: (d.notes as string) || "", actions: (d.actions as string) || "" }, ...prev]);
+          }
+          setShowVisit(false);
+          setEditingVisit(null);
+        }}
+      />
     </div>
   );
 }

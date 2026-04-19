@@ -8,7 +8,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import StatusBadge from "@/components/shared/status-badge";
-import { FormModal, type FormField } from "@/components/ui/form-modal";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 
 const DISTRICTS = [
   { dm: "Hany Mansour", district: "Greater Cairo", reps: 8, doctors: 320, callRate: 88, compliance: 91, budget: "62%", rating: "A" },
@@ -57,21 +59,42 @@ const MARKET_ANALYSIS = [
   { product: "Zoloft 50mg", territory: "Delta Region", target: "$45K", actual: "$41K", growth: "+2%", share: "16%", competition: "Generic pressure" },
 ];
 
-const visitFields: FormField[] = [
-  { name: "accompanied", label: "Accompanied (DM/Rep)", type: "text", required: true },
-  { name: "doctor", label: "Doctor Visited", type: "text", required: true },
-  { name: "date", label: "Date", type: "date", required: true },
-  { name: "purpose", label: "Purpose", type: "select", options: [
+const visitFields: EntityField[] = [
+  { key: "accompanied", label: "Accompanied (DM/Rep)", type: "text", required: true },
+  { key: "doctor", label: "Doctor Visited", type: "text", required: true },
+  { key: "date", label: "Date", type: "date", required: true },
+  { key: "purpose", label: "Purpose", type: "select", options: [
     "KOL Engagement", "Coaching", "Strategic Account", "New Product Launch", "Performance Review",
   ].map(p => ({ label: p, value: p })) },
-  { name: "observations", label: "Key Observations", type: "textarea" },
-  { name: "followUp", label: "Follow-up Actions", type: "textarea" },
+  { key: "observations", label: "Key Observations", type: "textarea" },
+  { key: "followUp", label: "Follow-up Actions", type: "textarea" },
 ];
 
 export default function MarketeerPage() {
   const [escalated, setEscalated] = useState(ESCALATED);
   const [doubleVisits, setDoubleVisits] = useState(DOUBLE_VISITS);
+  const [editing, setEditing] = useState<typeof DOUBLE_VISITS[0] | null>(null);
   const [showVisit, setShowVisit] = useState(false);
+  const [approvalFilters, setApprovalFilters] = useState<FilterState>({ _search: "", decision: "" });
+  const [visitFilters, setVisitFilters] = useState<FilterState>({ _search: "", purpose: "" });
+
+  const filteredEscalated = escalated.filter((e) => {
+    if (approvalFilters.decision && e.decision !== approvalFilters.decision) return false;
+    if (approvalFilters._search) {
+      const q = approvalFilters._search.toLowerCase();
+      return e.id.toLowerCase().includes(q) || e.from.toLowerCase().includes(q) || e.description.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const filteredVisits = doubleVisits.filter((v) => {
+    if (visitFilters.purpose && v.purpose !== visitFilters.purpose) return false;
+    if (visitFilters._search) {
+      const q = visitFilters._search.toLowerCase();
+      return v.accompanied.toLowerCase().includes(q) || v.doctor.toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   const totalReps = DISTRICTS.reduce((s, d) => s + d.reps, 0);
   const totalDoctors = DISTRICTS.reduce((s, d) => s + d.doctors, 0);
@@ -155,15 +178,27 @@ export default function MarketeerPage() {
 
         <TabsContent value="approvals">
           <Card>
-            <CardHeader><CardTitle>Escalated Requests</CardTitle><CardDescription>Requests escalated from District Managers</CardDescription></CardHeader>
+            <CardHeader>
+              <CardTitle>Escalated Requests</CardTitle>
+              <CardDescription>Requests escalated from District Managers</CardDescription>
+              <FilterBar
+                searchValue={approvalFilters._search}
+                onSearchChange={(v) => setApprovalFilters((f) => ({ ...f, _search: v }))}
+                fields={[{ key: "decision", label: "Decision", type: "select", options: [
+                  { label: "Pending", value: "Pending" }, { label: "Approved", value: "Approved" }, { label: "Rejected", value: "Rejected" },
+                ]}]}
+                values={approvalFilters}
+                onChange={(k, v) => setApprovalFilters((f) => ({ ...f, [k]: v }))}
+              />
+            </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Request#</th><th className="p-3">From DM</th><th className="p-3">Rep</th><th className="p-3">Type</th><th className="p-3">Description</th><th className="p-3">Cost</th><th className="p-3">DM Recommendation</th><th className="p-3">Decision</th><th className="p-3">Actions</th></tr>
+                    <tr><th className="p-3">Request#</th><th className="p-3">From DM</th><th className="p-3">Rep</th><th className="p-3">Type</th><th className="p-3">Description</th><th className="p-3">Cost</th><th className="p-3">DM Recommendation</th><th className="p-3">Decision</th><th className="p-3"></th></tr>
                   </thead>
                   <tbody>
-                    {escalated.map(e => (
+                    {filteredEscalated.map(e => (
                       <tr key={e.id} className="border-t">
                         <td className="p-3 font-mono">{e.id}</td>
                         <td className="p-3">{e.from}</td>
@@ -174,14 +209,15 @@ export default function MarketeerPage() {
                         <td className="p-3">{e.recommendation}</td>
                         <td className="p-3"><StatusBadge status={e.decision} /></td>
                         <td className="p-3">
-                          {e.decision === "Pending" && (
-                            <div className="flex gap-1">
-                              <Button size="sm" variant="outline" className="h-7 text-green-600"
-                                onClick={() => setEscalated(prev => prev.map(x => x.id === e.id ? { ...x, decision: "Approved" } : x))}>Approve</Button>
-                              <Button size="sm" variant="outline" className="h-7 text-red-600"
-                                onClick={() => setEscalated(prev => prev.map(x => x.id === e.id ? { ...x, decision: "Rejected" } : x))}>Reject</Button>
-                            </div>
-                          )}
+                          <EditDeleteMenu
+                            onDelete={() => setEscalated(prev => prev.filter(x => x.id !== e.id))}
+                            itemLabel={e.id}
+                            canEdit={false}
+                            extraItems={e.decision === "Pending" ? [
+                              { label: "Approve", onClick: () => setEscalated(prev => prev.map(x => x.id === e.id ? { ...x, decision: "Approved" } : x)) },
+                              { label: "Reject", onClick: () => setEscalated(prev => prev.map(x => x.id === e.id ? { ...x, decision: "Rejected" } : x)), destructive: true },
+                            ] : []}
+                          />
                         </td>
                       </tr>
                     ))}
@@ -195,17 +231,29 @@ export default function MarketeerPage() {
         <TabsContent value="visits">
           <Card>
             <CardHeader className="flex-row items-center justify-between">
-              <div><CardTitle>Double Visits</CardTitle><CardDescription>Field visits accompanying DMs and reps</CardDescription></div>
-              <Button size="sm" onClick={() => setShowVisit(true)}><Plus className="mr-2 h-4 w-4" />Register Visit</Button>
+              <div>
+                <CardTitle>Double Visits</CardTitle>
+                <CardDescription>Field visits accompanying DMs and reps</CardDescription>
+              </div>
+              <Button size="sm" onClick={() => { setEditing(null); setShowVisit(true); }}><Plus className="mr-2 h-4 w-4" />Register Visit</Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <FilterBar
+                searchValue={visitFilters._search}
+                onSearchChange={(v) => setVisitFilters((f) => ({ ...f, _search: v }))}
+                fields={[{ key: "purpose", label: "Purpose", type: "select", options: [
+                  "KOL Engagement", "Coaching", "Strategic Account", "New Product Launch", "Performance Review",
+                ].map(p => ({ label: p, value: p })) }]}
+                values={visitFilters}
+                onChange={(k, v) => setVisitFilters((f) => ({ ...f, [k]: v }))}
+              />
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Visit#</th><th className="p-3">Accompanied</th><th className="p-3">Doctor</th><th className="p-3">Date</th><th className="p-3">Purpose</th><th className="p-3">Observations</th><th className="p-3">Follow-up</th><th className="p-3">Status</th></tr>
+                    <tr><th className="p-3">Visit#</th><th className="p-3">Accompanied</th><th className="p-3">Doctor</th><th className="p-3">Date</th><th className="p-3">Purpose</th><th className="p-3">Observations</th><th className="p-3">Follow-up</th><th className="p-3"></th></tr>
                   </thead>
                   <tbody>
-                    {doubleVisits.map(v => (
+                    {filteredVisits.map(v => (
                       <tr key={v.id} className="border-t">
                         <td className="p-3 font-mono">{v.id}</td>
                         <td className="p-3 font-medium">{v.accompanied}</td>
@@ -214,7 +262,13 @@ export default function MarketeerPage() {
                         <td className="p-3"><StatusBadge status={v.purpose} /></td>
                         <td className="p-3 max-w-xs truncate">{v.observations}</td>
                         <td className="p-3 max-w-xs truncate">{v.followUp}</td>
-                        <td className="p-3"><StatusBadge status={v.status} /></td>
+                        <td className="p-3">
+                          <EditDeleteMenu
+                            onEdit={() => { setEditing(v); setShowVisit(true); }}
+                            onDelete={() => setDoubleVisits(prev => prev.filter(x => x.id !== v.id))}
+                            itemLabel={v.id}
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -279,12 +333,22 @@ export default function MarketeerPage() {
         </TabsContent>
       </Tabs>
 
-      <FormModal open={showVisit} onOpenChange={setShowVisit} title="Register Double Visit" fields={visitFields}
-        onSubmit={(d) => setDoubleVisits(prev => [{
-          id: `MV-${String(prev.length + 1).padStart(3, "0")}`, accompanied: d.accompanied, doctor: d.doctor,
-          date: d.date, purpose: d.purpose || "KOL Engagement", observations: d.observations || "",
-          followUp: d.followUp || "", status: "Completed",
-        }, ...prev])} />
+      <EntityFormModal
+        open={showVisit}
+        onOpenChange={(open) => { if (!open) { setShowVisit(false); setEditing(null); } }}
+        title={editing ? "Edit Visit" : "Register Double Visit"}
+        fields={visitFields}
+        initialData={editing ? { accompanied: editing.accompanied, doctor: editing.doctor, date: editing.date, purpose: editing.purpose, observations: editing.observations, followUp: editing.followUp } : undefined}
+        onSubmit={(d) => {
+          if (editing) {
+            setDoubleVisits(prev => prev.map(v => v.id === editing.id ? { ...v, accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || v.purpose, observations: (d.observations as string) || "", followUp: (d.followUp as string) || "" } : v));
+          } else {
+            setDoubleVisits(prev => [{ id: `MV-${String(prev.length + 1).padStart(3, "0")}`, accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || "KOL Engagement", observations: (d.observations as string) || "", followUp: (d.followUp as string) || "", status: "Completed" }, ...prev]);
+          }
+          setShowVisit(false);
+          setEditing(null);
+        }}
+      />
     </div>
   );
 }
