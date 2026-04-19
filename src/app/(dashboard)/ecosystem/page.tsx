@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import {
-  Search,
   Download,
   ExternalLink,
   Check,
@@ -27,10 +26,11 @@ import {
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FormModal, type FormField } from "@/components/ui/form-modal"
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
 
 const marketplaceApps = [
   { id: 1, name: "Slack", category: "Communication", description: "Team messaging and notifications for real-time collaboration.", installs: "12.4k", rating: 4.8, installed: true, icon: "💬" },
@@ -143,16 +143,16 @@ const initialRoles = [
   { id: 8, name: "External Auditor", users: 3, permissions: "Read-Only", description: "View-only access to financial records and audit logs.", editable: true },
 ]
 
-const fieldFormFields: FormField[] = [
-  { name: "entity", label: "Entity", type: "select", options: [
+const fieldFormFields: EntityField[] = [
+  { key: "entity", label: "Entity", type: "select", options: [
     { label: "CRM Contact", value: "CRM" },
     { label: "CRM Lead", value: "Sales" },
     { label: "HR Employee", value: "HR" },
     { label: "Finance Invoice", value: "Finance" },
     { label: "Inventory Product", value: "Inventory" },
   ]},
-  { name: "fieldName", label: "Field Name", type: "text", required: true },
-  { name: "fieldType", label: "Field Type", type: "select", options: [
+  { key: "fieldName", label: "Field Name", type: "text", required: true },
+  { key: "fieldType", label: "Field Type", type: "select", options: [
     { label: "Text", value: "Text" },
     { label: "Number", value: "Number" },
     { label: "Date", value: "Date" },
@@ -160,53 +160,63 @@ const fieldFormFields: FormField[] = [
     { label: "Boolean", value: "Boolean" },
     { label: "Formula", value: "Formula" },
   ]},
-  { name: "required", label: "Required", type: "select", options: [
+  { key: "required", label: "Required", type: "select", options: [
     { label: "Yes", value: "Yes" },
     { label: "No", value: "No" },
   ]},
-  { name: "defaultValue", label: "Default Value", type: "text" },
+  { key: "defaultValue", label: "Default Value", type: "text" },
 ]
 
-const workflowFormFields: FormField[] = [
-  { name: "name", label: "Name", type: "text", required: true },
-  { name: "trigger", label: "Trigger", type: "select", options: [
+const workflowFormFields: EntityField[] = [
+  { key: "name", label: "Name", type: "text", required: true },
+  { key: "trigger", label: "Trigger", type: "select", options: [
     { label: "Record Created", value: "Record Created" },
     { label: "Record Updated", value: "Record Updated" },
     { label: "Field Changed", value: "Field Changed" },
     { label: "Scheduled", value: "Scheduled" },
     { label: "Manual", value: "Manual" },
   ]},
-  { name: "conditions", label: "Conditions", type: "text" },
-  { name: "actions", label: "Actions", type: "textarea", required: true },
+  { key: "conditions", label: "Conditions", type: "text" },
+  { key: "actions", label: "Actions", type: "textarea", required: true },
 ]
 
-const roleFormFields: FormField[] = [
-  { name: "roleName", label: "Role Name", type: "text", required: true },
-  { name: "description", label: "Description", type: "textarea", required: true },
-  { name: "permissions", label: "Permissions", type: "text", placeholder: "comma-separated permissions" },
+const roleFormFields: EntityField[] = [
+  { key: "roleName", label: "Role Name", type: "text", required: true },
+  { key: "description", label: "Description", type: "textarea", required: true },
+  { key: "permissions", label: "Permissions", type: "text" },
 ]
+
+type EcoModalMode =
+  | { kind: "field"; editing: typeof initialCustomFields[0] | null }
+  | { kind: "workflow"; editing: typeof initialWorkflows[0] | null }
+  | { kind: "role"; editing: typeof initialRoles[0] | null }
+  | null;
 
 export default function EcosystemPage() {
-  const [marketplaceSearch, setMarketplaceSearch] = useState("")
-  const [templateSearch, setTemplateSearch] = useState("")
-  const [showFieldForm, setShowFieldForm] = useState(false)
-  const [showWorkflowForm, setShowWorkflowForm] = useState(false)
-  const [showRoleForm, setShowRoleForm] = useState(false)
   const [customFields, setCustomFields] = useState(initialCustomFields)
   const [workflows, setWorkflows] = useState(initialWorkflows)
   const [roles, setRoles] = useState(initialRoles)
+  const [modal, setModal] = useState<EcoModalMode>(null)
+  const [mpFilters, setMpFilters] = useState<FilterState>({ _search: "", category: "" })
+  const [tplFilters, setTplFilters] = useState<FilterState>({ _search: "", type: "" })
 
-  const filteredApps = marketplaceApps.filter(
-    (app) =>
-      app.name.toLowerCase().includes(marketplaceSearch.toLowerCase()) ||
-      app.category.toLowerCase().includes(marketplaceSearch.toLowerCase())
-  )
+  const filteredApps = marketplaceApps.filter((app) => {
+    if (mpFilters.category && app.category !== mpFilters.category) return false;
+    if (mpFilters._search) {
+      const q = mpFilters._search.toLowerCase();
+      return app.name.toLowerCase().includes(q) || app.category.toLowerCase().includes(q);
+    }
+    return true;
+  })
 
-  const filteredTemplates = templates.filter(
-    (t) =>
-      t.name.toLowerCase().includes(templateSearch.toLowerCase()) ||
-      t.category.toLowerCase().includes(templateSearch.toLowerCase())
-  )
+  const filteredTemplates = templates.filter((t) => {
+    if (tplFilters.type && t.type !== tplFilters.type) return false;
+    if (tplFilters._search) {
+      const q = tplFilters._search.toLowerCase();
+      return t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q);
+    }
+    return true;
+  })
 
   const methodColor = (method: string) => {
     switch (method) {
@@ -291,18 +301,13 @@ export default function EcosystemPage() {
 
         {/* Marketplace Tab */}
         <TabsContent value="marketplace" className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search apps by name or category..."
-                className="pl-9"
-                value={marketplaceSearch}
-                onChange={(e) => setMarketplaceSearch(e.target.value)}
-              />
-            </div>
-            <p className="text-sm text-muted-foreground">{filteredApps.length} apps found</p>
-          </div>
+          <FilterBar
+            searchValue={mpFilters._search}
+            onSearchChange={(v) => setMpFilters((f) => ({ ...f, _search: v }))}
+            fields={[{ key: "category", label: "Category", type: "select", options: [...new Set(marketplaceApps.map((a) => a.category))].map((c) => ({ label: c, value: c })) }]}
+            values={mpFilters}
+            onChange={(k, v) => setMpFilters((f) => ({ ...f, [k]: v }))}
+          />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {filteredApps.map((app) => (
               <Card key={app.id} className="flex flex-col justify-between">
@@ -406,7 +411,7 @@ export default function EcosystemPage() {
                 <CardTitle>Custom Fields</CardTitle>
                 <CardDescription>Extend modules with additional data fields.</CardDescription>
               </div>
-              <Button size="sm" onClick={() => setShowFieldForm(true)}><Plus className="mr-2 h-4 w-4" />Add Field</Button>
+              <Button size="sm" onClick={() => setModal({ kind: "field", editing: null })}><Plus className="mr-2 h-4 w-4" />Add Field</Button>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -418,6 +423,7 @@ export default function EcosystemPage() {
                       <th className="pb-3 font-medium">Type</th>
                       <th className="pb-3 font-medium">Required</th>
                       <th className="pb-3 font-medium">Options / Range</th>
+                      <th className="pb-3 font-medium"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -434,6 +440,13 @@ export default function EcosystemPage() {
                           )}
                         </td>
                         <td className="py-3 text-muted-foreground text-xs max-w-[200px] truncate">{field.options || "—"}</td>
+                        <td className="py-3">
+                          <EditDeleteMenu
+                            onEdit={() => setModal({ kind: "field", editing: field })}
+                            onDelete={() => setCustomFields((prev) => prev.filter((f) => f.id !== field.id))}
+                            itemLabel={field.name}
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -448,7 +461,7 @@ export default function EcosystemPage() {
                 <CardTitle>Automated Workflows</CardTitle>
                 <CardDescription>Event-driven automations that run across modules.</CardDescription>
               </div>
-              <Button size="sm" onClick={() => setShowWorkflowForm(true)}><Plus className="mr-2 h-4 w-4" />New Workflow</Button>
+              <Button size="sm" onClick={() => setModal({ kind: "workflow", editing: null })}><Plus className="mr-2 h-4 w-4" />New Workflow</Button>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -461,6 +474,7 @@ export default function EcosystemPage() {
                       <th className="pb-3 font-medium">Status</th>
                       <th className="pb-3 font-medium">Total Runs</th>
                       <th className="pb-3 font-medium">Last Run</th>
+                      <th className="pb-3 font-medium"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -476,6 +490,17 @@ export default function EcosystemPage() {
                         </td>
                         <td className="py-3 text-muted-foreground">{wf.runs.toLocaleString()}</td>
                         <td className="py-3 text-muted-foreground">{wf.lastRun}</td>
+                        <td className="py-3">
+                          <EditDeleteMenu
+                            onEdit={() => setModal({ kind: "workflow", editing: wf })}
+                            onDelete={() => setWorkflows((prev) => prev.filter((w) => w.id !== wf.id))}
+                            itemLabel={wf.name}
+                            extraItems={[{
+                              label: wf.status === "Active" ? "Pause" : "Activate",
+                              onClick: () => setWorkflows((prev) => prev.map((w) => w.id === wf.id ? { ...w, status: w.status === "Active" ? "Paused" : "Active" } : w)),
+                            }]}
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -579,18 +604,13 @@ export default function EcosystemPage() {
 
         {/* Templates Tab */}
         <TabsContent value="templates" className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search templates..."
-                className="pl-9"
-                value={templateSearch}
-                onChange={(e) => setTemplateSearch(e.target.value)}
-              />
-            </div>
-            <p className="text-sm text-muted-foreground">{filteredTemplates.length} templates</p>
-          </div>
+          <FilterBar
+            searchValue={tplFilters._search}
+            onSearchChange={(v) => setTplFilters((f) => ({ ...f, _search: v }))}
+            fields={[{ key: "type", label: "Type", type: "select", options: [...new Set(templates.map((t) => t.type))].map((t) => ({ label: t, value: t })) }]}
+            values={tplFilters}
+            onChange={(k, v) => setTplFilters((f) => ({ ...f, [k]: v }))}
+          />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredTemplates.map((tpl) => (
               <Card key={tpl.id}>
@@ -624,7 +644,7 @@ export default function EcosystemPage() {
                 <CardTitle>Roles & Permissions</CardTitle>
                 <CardDescription>Define access levels and permission scopes for your organization.</CardDescription>
               </div>
-              <Button size="sm" onClick={() => setShowRoleForm(true)}><Plus className="mr-2 h-4 w-4" />Create Role</Button>
+              <Button size="sm" onClick={() => setModal({ kind: "role", editing: null })}><Plus className="mr-2 h-4 w-4" />Create Role</Button>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -649,14 +669,15 @@ export default function EcosystemPage() {
                         <td className="py-3"><Badge variant="secondary">{role.permissions}</Badge></td>
                         <td className="py-3 text-muted-foreground">{role.users}</td>
                         <td className="py-3">
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="sm" disabled={!role.editable}>
-                              <Settings className="h-3 w-3" />
-                            </Button>
-                            <Button variant="ghost" size="sm" disabled={!role.editable}>
-                              <Users className="h-3 w-3" />
-                            </Button>
-                          </div>
+                          {role.editable ? (
+                            <EditDeleteMenu
+                              onEdit={() => setModal({ kind: "role", editing: role })}
+                              onDelete={() => setRoles((prev) => prev.filter((r) => r.id !== role.id))}
+                              itemLabel={role.name}
+                            />
+                          ) : (
+                            <Lock className="h-4 w-4 text-muted-foreground" />
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -668,61 +689,51 @@ export default function EcosystemPage() {
         </TabsContent>
       </Tabs>
 
-      <FormModal
-        open={showFieldForm}
-        onOpenChange={setShowFieldForm}
-        title="Add Custom Field"
-        description="Extend a module with an additional data field."
+      <EntityFormModal
+        open={modal?.kind === "field"}
+        onOpenChange={(open) => !open && setModal(null)}
+        title={modal?.kind === "field" && modal.editing ? "Edit Custom Field" : "Add Custom Field"}
         fields={fieldFormFields}
-        submitLabel="Add Field"
+        initialData={modal?.kind === "field" && modal.editing ? { entity: modal.editing.module, fieldName: modal.editing.name, fieldType: modal.editing.type, required: modal.editing.required ? "Yes" : "No", defaultValue: modal.editing.options } : undefined}
         onSubmit={(data) => {
-          setCustomFields([{
-            id: customFields.length + 1,
-            module: data.entity || "CRM",
-            name: data.fieldName,
-            type: data.fieldType || "Text",
-            required: data.required === "Yes",
-            options: data.defaultValue || "",
-          }, ...customFields])
+          if (modal?.kind === "field" && modal.editing) {
+            setCustomFields((prev) => prev.map((f) => f.id === modal.editing!.id ? { ...f, module: (data.entity as string) || f.module, name: data.fieldName as string, type: (data.fieldType as string) || f.type, required: data.required === "Yes", options: (data.defaultValue as string) || "" } : f));
+          } else {
+            setCustomFields((prev) => [{ id: prev.length + 1, module: (data.entity as string) || "CRM", name: data.fieldName as string, type: (data.fieldType as string) || "Text", required: data.required === "Yes", options: (data.defaultValue as string) || "" }, ...prev]);
+          }
+          setModal(null);
         }}
       />
 
-      <FormModal
-        open={showWorkflowForm}
-        onOpenChange={setShowWorkflowForm}
-        title="New Workflow"
-        description="Create an event-driven automation workflow."
+      <EntityFormModal
+        open={modal?.kind === "workflow"}
+        onOpenChange={(open) => !open && setModal(null)}
+        title={modal?.kind === "workflow" && modal.editing ? "Edit Workflow" : "New Workflow"}
         fields={workflowFormFields}
-        submitLabel="Create Workflow"
+        initialData={modal?.kind === "workflow" && modal.editing ? { name: modal.editing.name, trigger: modal.editing.trigger, conditions: "", actions: "" } : undefined}
         onSubmit={(data) => {
-          setWorkflows([{
-            id: workflows.length + 1,
-            name: data.name,
-            trigger: data.trigger || "Manual",
-            actions: 1,
-            status: "Active",
-            lastRun: "Never",
-            runs: 0,
-          }, ...workflows])
+          if (modal?.kind === "workflow" && modal.editing) {
+            setWorkflows((prev) => prev.map((w) => w.id === modal.editing!.id ? { ...w, name: data.name as string, trigger: (data.trigger as string) || w.trigger } : w));
+          } else {
+            setWorkflows((prev) => [{ id: prev.length + 1, name: data.name as string, trigger: (data.trigger as string) || "Manual", actions: 1, status: "Active", lastRun: "Never", runs: 0 }, ...prev]);
+          }
+          setModal(null);
         }}
       />
 
-      <FormModal
-        open={showRoleForm}
-        onOpenChange={setShowRoleForm}
-        title="Create Role"
-        description="Define a new access role for your organization."
+      <EntityFormModal
+        open={modal?.kind === "role"}
+        onOpenChange={(open) => !open && setModal(null)}
+        title={modal?.kind === "role" && modal.editing ? "Edit Role" : "Create Role"}
         fields={roleFormFields}
-        submitLabel="Create Role"
+        initialData={modal?.kind === "role" && modal.editing ? { roleName: modal.editing.name, description: modal.editing.description, permissions: modal.editing.permissions } : undefined}
         onSubmit={(data) => {
-          setRoles([{
-            id: roles.length + 1,
-            name: data.roleName,
-            users: 0,
-            permissions: data.permissions || "Custom",
-            description: data.description,
-            editable: true,
-          }, ...roles])
+          if (modal?.kind === "role" && modal.editing) {
+            setRoles((prev) => prev.map((r) => r.id === modal.editing!.id ? { ...r, name: data.roleName as string, description: data.description as string, permissions: (data.permissions as string) || r.permissions } : r));
+          } else {
+            setRoles((prev) => [{ id: prev.length + 1, name: data.roleName as string, users: 0, permissions: (data.permissions as string) || "Custom", description: data.description as string, editable: true }, ...prev]);
+          }
+          setModal(null);
         }}
       />
     </div>

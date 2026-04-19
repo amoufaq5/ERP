@@ -9,8 +9,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { Switch } from "@/components/ui/switch";
 import { useAppConfig } from "@/lib/config-context";
 import { useCurrentUser } from "@/lib/user-context";
@@ -134,13 +134,16 @@ export default function IndustryPage() {
   const { config, toggleIndustrySolution } = useAppConfig();
   const { user } = useCurrentUser();
   const isAdmin = user.role === "ADMIN";
-  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<FilterState>({ _search: "", category: "" });
 
-  const filtered = PHARMA_SOLUTIONS.filter(
-    (s) =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.description.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = PHARMA_SOLUTIONS.filter((s) => {
+    if (filters.category && s.category !== filters.category) return false;
+    if (filters._search) {
+      const q = filters._search.toLowerCase();
+      return s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   const enabledCount = PHARMA_SOLUTIONS.filter(
     (s) => config.industry.enabledSolutions[s.id]
@@ -225,32 +228,36 @@ export default function IndustryPage() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              placeholder="Search pharma solutions..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 h-8 w-64 text-sm"
-            />
+      <FilterBar
+        searchValue={filters._search}
+        onSearchChange={(v) => setFilters((f) => ({ ...f, _search: v }))}
+        fields={[{ key: "category", label: "Category", type: "select", options: [
+          { label: "Production", value: "Production" },
+          { label: "Quality", value: "Quality" },
+          { label: "Regulatory", value: "Regulatory" },
+          { label: "Distribution", value: "Distribution" },
+          { label: "R&D", value: "R&D" },
+        ]}]}
+        values={filters}
+        onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
+        rightSlot={
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs whitespace-nowrap">
+              <Activity className="h-3 w-3 mr-1" />
+              {enabledCount} / {PHARMA_SOLUTIONS.length} active
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-sm gap-1.5 whitespace-nowrap"
+              onClick={handleDownloadTemplate}
+            >
+              <Download className="h-4 w-4" />
+              Download Configuration
+            </Button>
           </div>
-          <Badge variant="outline" className="text-xs whitespace-nowrap">
-            <Activity className="h-3 w-3 mr-1" />
-            {enabledCount} / {PHARMA_SOLUTIONS.length} active
-          </Badge>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-sm gap-1.5 whitespace-nowrap"
-          onClick={handleDownloadTemplate}
-        >
-          <Download className="h-4 w-4" />
-          Download Configuration
-        </Button>
-      </div>
+        }
+      />
 
       {/* Solutions grid */}
       {filtered.length > 0 ? (
@@ -305,16 +312,16 @@ export default function IndustryPage() {
           <p className="text-sm">
             No solutions found matching{" "}
             <span className="font-medium text-foreground">
-              &ldquo;{search}&rdquo;
+              &ldquo;{filters._search}&rdquo;
             </span>
           </p>
           <Button
             variant="ghost"
             size="sm"
             className="text-xs mt-1"
-            onClick={() => setSearch("")}
+            onClick={() => setFilters({ _search: "", category: "" })}
           >
-            Clear search
+            Clear filters
           </Button>
         </div>
       )}

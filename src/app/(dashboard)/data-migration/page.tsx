@@ -12,8 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Database,
-  Upload,
-  Download,
   FileSpreadsheet,
   CheckCircle2,
   Clock,
@@ -24,11 +22,14 @@ import {
   HardDrive,
   Layers,
   FileText,
-  Settings,
   Play,
   Pause,
   RotateCcw,
+  Plus,
 } from "lucide-react";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 
 interface MigrationJob {
   id: string;
@@ -137,8 +138,54 @@ const statusConfig = {
   failed: { label: "Failed", icon: XCircle, color: "text-red-600", bg: "bg-red-100", badgeVariant: "destructive" as const },
 };
 
+const jobFields: EntityField[] = [
+  { key: "name", label: "Job Name", type: "text", required: true },
+  { key: "source", label: "Source", type: "text", required: true },
+  { key: "destination", label: "Destination", type: "select", required: true, options: [
+    { label: "CRM Contacts", value: "CRM Contacts" },
+    { label: "Inventory Module", value: "Inventory Module" },
+    { label: "HR & Payroll", value: "HR & Payroll" },
+    { label: "Finance Module", value: "Finance Module" },
+    { label: "Procurement", value: "Procurement" },
+  ]},
+  { key: "recordsTotal", label: "Estimated Records", type: "number" },
+];
+
+const sourceFields: EntityField[] = [
+  { key: "name", label: "Source Name", type: "text", required: true },
+  { key: "type", label: "Connection Type", type: "select", required: true, options: [
+    { label: "File Upload", value: "File Upload" },
+    { label: "API Connection", value: "API Connection" },
+    { label: "Integration", value: "Integration" },
+  ]},
+  { key: "recordCount", label: "Record Count", type: "number" },
+];
+
+type ModalMode =
+  | { kind: "job"; editing: MigrationJob | null }
+  | { kind: "source"; editing: DataSource | null }
+  | null;
+
+const sourceIcons: Record<string, React.ReactNode> = {
+  "File Upload": <FileSpreadsheet className="h-5 w-5" />,
+  "API Connection": <HardDrive className="h-5 w-5" />,
+  "Integration": <FileText className="h-5 w-5" />,
+};
+
 export default function DataMigrationPage() {
-  const [jobs] = useState(migrationJobs);
+  const [jobs, setJobs] = useState(migrationJobs);
+  const [sources, setSources] = useState(dataSources);
+  const [modal, setModal] = useState<ModalMode>(null);
+  const [jobFilters, setJobFilters] = useState<FilterState>({ _search: "", status: "" });
+
+  const filteredJobs = jobs.filter((j) => {
+    if (jobFilters.status && j.status !== jobFilters.status) return false;
+    if (jobFilters._search) {
+      const q = jobFilters._search.toLowerCase();
+      return j.name.toLowerCase().includes(q) || j.id.toLowerCase().includes(q) || j.source.toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   const stats = {
     total: jobs.length,
@@ -161,16 +208,10 @@ export default function DataMigrationPage() {
             Import, export, and migrate data between systems
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
-          <Button size="sm" className="gap-1.5">
-            <Upload className="h-4 w-4" />
-            New Import
-          </Button>
-        </div>
+        <Button size="sm" className="gap-1.5" onClick={() => setModal({ kind: "job", editing: null })}>
+          <Plus className="h-4 w-4" />
+          New Import
+        </Button>
       </div>
 
       {/* Stats Row */}
@@ -221,6 +262,20 @@ export default function DataMigrationPage() {
         <CardHeader>
           <CardTitle className="text-base font-semibold">Migration Jobs</CardTitle>
           <CardDescription className="text-xs">Recent and active data migration tasks</CardDescription>
+          <FilterBar
+            searchValue={jobFilters._search}
+            onSearchChange={(v) => setJobFilters((f) => ({ ...f, _search: v }))}
+            fields={[
+              { key: "status", label: "Status", type: "select", options: [
+                { label: "Completed", value: "completed" },
+                { label: "Running", value: "running" },
+                { label: "Pending", value: "pending" },
+                { label: "Failed", value: "failed" },
+              ]},
+            ]}
+            values={jobFilters}
+            onChange={(k, v) => setJobFilters((f) => ({ ...f, [k]: v }))}
+          />
         </CardHeader>
         <CardContent className="p-0">
           <table className="w-full">
@@ -236,7 +291,7 @@ export default function DataMigrationPage() {
               </tr>
             </thead>
             <tbody>
-              {jobs.map((job) => {
+              {filteredJobs.map((job) => {
                 const config = statusConfig[job.status];
                 const StatusIcon = config.icon;
                 return (
@@ -285,26 +340,25 @@ export default function DataMigrationPage() {
                     </td>
                     <td className="p-3 text-xs text-muted-foreground">{job.duration}</td>
                     <td className="p-3">
-                      <div className="flex items-center gap-1">
-                        {job.status === "running" && (
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                            <Pause className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {job.status === "pending" && (
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                            <Play className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {job.status === "failed" && (
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                            <RotateCcw className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                          <Settings className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ kind: "job", editing: job })}
+                        onDelete={() => setJobs((prev) => prev.filter((j) => j.id !== job.id))}
+                        itemLabel={job.name}
+                        extraItems={(() => {
+                          const flow: Record<string, { label: string; status: MigrationJob["status"]; progress?: number }> = {
+                            pending: { label: "Start Job", status: "running" },
+                            running: { label: "Pause Job", status: "pending" },
+                            failed: { label: "Retry Job", status: "running", progress: 0 },
+                          };
+                          const next = flow[job.status];
+                          if (!next) return [];
+                          return [{
+                            label: next.label,
+                            icon: job.status === "pending" ? <Play className="h-4 w-4" /> : job.status === "running" ? <Pause className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />,
+                            onClick: () => setJobs((prev) => prev.map((j) => j.id === job.id ? { ...j, status: next.status, ...(next.progress !== undefined ? { progress: next.progress } : {}) } : j)),
+                          }];
+                        })()}
+                      />
                     </td>
                   </tr>
                 );
@@ -322,7 +376,7 @@ export default function DataMigrationPage() {
               <CardTitle className="text-base font-semibold">Connected Data Sources</CardTitle>
               <CardDescription className="text-xs">Manage your import/export connections</CardDescription>
             </div>
-            <Button variant="outline" size="sm" className="text-xs gap-1.5">
+            <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => setModal({ kind: "source", editing: null })}>
               <Plus className="h-3.5 w-3.5" />
               Add Source
             </Button>
@@ -330,17 +384,28 @@ export default function DataMigrationPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-            {dataSources.map((source) => (
+            {sources.map((source) => (
               <Card key={source.id} className="hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="text-primary">{source.icon}</div>
-                    <Badge
-                      variant={source.status === "connected" ? "success" : "destructive"}
-                      className="text-[10px]"
-                    >
-                      {source.status === "connected" ? "Connected" : "Disconnected"}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      <Badge
+                        variant={source.status === "connected" ? "success" : "destructive"}
+                        className="text-[10px]"
+                      >
+                        {source.status === "connected" ? "Connected" : "Disconnected"}
+                      </Badge>
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ kind: "source", editing: source })}
+                        onDelete={() => setSources((prev) => prev.filter((s) => s.id !== source.id))}
+                        itemLabel={source.name}
+                        extraItems={[{
+                          label: source.status === "connected" ? "Disconnect" : "Connect",
+                          onClick: () => setSources((prev) => prev.map((s) => s.id === source.id ? { ...s, status: s.status === "connected" ? "disconnected" : "connected" } : s)),
+                        }]}
+                      />
+                    </div>
                   </div>
                   <p className="text-sm font-semibold">{source.name}</p>
                   <p className="text-xs text-muted-foreground">{source.type}</p>
@@ -354,14 +419,70 @@ export default function DataMigrationPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
-}
+      {/* Job Modal */}
+      <EntityFormModal
+        open={modal?.kind === "job"}
+        onOpenChange={(open) => !open && setModal(null)}
+        title={modal?.kind === "job" && modal.editing ? "Edit Migration Job" : "New Migration Job"}
+        fields={jobFields}
+        initialData={modal?.kind === "job" && modal.editing ? {
+          name: modal.editing.name,
+          source: modal.editing.source,
+          destination: modal.editing.destination,
+          recordsTotal: modal.editing.recordsTotal,
+        } : undefined}
+        onSubmit={(data) => {
+          if (modal?.kind === "job" && modal.editing) {
+            setJobs((prev) => prev.map((j) => j.id === modal.editing!.id ? { ...j, name: data.name as string, source: data.source as string, destination: data.destination as string, recordsTotal: (data.recordsTotal as number) || j.recordsTotal } : j));
+          } else {
+            const newJob: MigrationJob = {
+              id: `MIG-${String(jobs.length + 1).padStart(3, "0")}`,
+              name: data.name as string,
+              source: data.source as string,
+              destination: data.destination as string,
+              status: "pending",
+              progress: 0,
+              recordsTotal: (data.recordsTotal as number) || 0,
+              recordsMigrated: 0,
+              startedAt: "Scheduled",
+              duration: "—",
+              errors: 0,
+            };
+            setJobs((prev) => [...prev, newJob]);
+          }
+          setModal(null);
+        }}
+      />
 
-function Plus(props: React.SVGProps<SVGSVGElement> & { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M5 12h14" /><path d="M12 5v14" />
-    </svg>
+      {/* Source Modal */}
+      <EntityFormModal
+        open={modal?.kind === "source"}
+        onOpenChange={(open) => !open && setModal(null)}
+        title={modal?.kind === "source" && modal.editing ? "Edit Data Source" : "Add Data Source"}
+        fields={sourceFields}
+        initialData={modal?.kind === "source" && modal.editing ? {
+          name: modal.editing.name,
+          type: modal.editing.type,
+          recordCount: modal.editing.recordCount,
+        } : undefined}
+        onSubmit={(data) => {
+          if (modal?.kind === "source" && modal.editing) {
+            setSources((prev) => prev.map((s) => s.id === modal.editing!.id ? { ...s, name: data.name as string, type: data.type as string, recordCount: (data.recordCount as number) || s.recordCount, icon: sourceIcons[data.type as string] || <Database className="h-5 w-5" /> } : s));
+          } else {
+            const newSource: DataSource = {
+              id: `ds-${sources.length + 1}`,
+              name: data.name as string,
+              type: data.type as string,
+              icon: sourceIcons[data.type as string] || <Database className="h-5 w-5" />,
+              recordCount: (data.recordCount as number) || 0,
+              lastSync: "Never",
+              status: "disconnected",
+            };
+            setSources((prev) => [...prev, newSource]);
+          }
+          setModal(null);
+        }}
+      />
+    </div>
   );
 }

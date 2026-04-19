@@ -1,15 +1,36 @@
 "use client"
 
 import { useState } from "react"
-import { Zap, Play, CheckCircle, Clock, Plus, Trash2, Edit } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Zap, Play, CheckCircle, Clock, Plus } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog"
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
 
-const initialWorkflows = [
+interface Workflow {
+  id: string;
+  name: string;
+  module: string;
+  trigger: string;
+  conditions: string;
+  actions: string;
+  isActive: boolean;
+  runCount: number;
+  lastRun: string;
+}
+
+const workflowFields: EntityField[] = [
+  { key: "name", label: "Workflow Name", type: "text", required: true },
+  { key: "module", label: "Module", type: "select", required: true, options: [
+    { label: "CRM", value: "CRM" }, { label: "ERP", value: "ERP" }, { label: "ATS", value: "ATS" },
+  ]},
+  { key: "trigger", label: "Trigger", type: "text", required: true },
+  { key: "conditions", label: "Conditions", type: "text" },
+  { key: "actions", label: "Actions", type: "text" },
+];
+
+const initialWorkflows: Workflow[] = [
   { id: "1", name: "Auto-assign new leads", module: "CRM", trigger: "When a new lead is created", conditions: "Lead source is WEB or SOCIAL", actions: "Assign to next available sales rep", isActive: true, runCount: 342, lastRun: "5 min ago" },
   { id: "2", name: "Invoice overdue reminder", module: "ERP", trigger: "When invoice is 7 days past due", conditions: "Invoice status is SENT and amount > $500", actions: "Send email reminder to customer", isActive: true, runCount: 156, lastRun: "2 hours ago" },
   { id: "3", name: "Ticket SLA escalation", module: "CRM", trigger: "When ticket SLA deadline approaches", conditions: "Priority is HIGH or CRITICAL, 2 hours before deadline", actions: "Escalate to manager, send notification", isActive: true, runCount: 89, lastRun: "1 hour ago" },
@@ -22,49 +43,27 @@ const moduleColors: Record<string, string> = { CRM: "bg-blue-100 text-blue-800",
 
 export default function AutomationPage() {
   const [workflows, setWorkflows] = useState(initialWorkflows)
-  const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState({ name: "", module: "CRM", trigger: "", conditions: "", actions: "" })
+  const [editing, setEditing] = useState<Workflow | null>(null)
+  const [showModal, setShowModal] = useState(false)
+  const [filters, setFilters] = useState<FilterState>({ _search: "", module: "" })
 
   const activeCount = workflows.filter(w => w.isActive).length
   const totalRuns = workflows.reduce((s, w) => s + w.runCount, 0)
 
-  const toggleWorkflow = (id: string) => {
-    setWorkflows(prev => prev.map(w => w.id === id ? { ...w, isActive: !w.isActive } : w))
-  }
-
-  const deleteWorkflow = (id: string) => {
-    setWorkflows(prev => prev.filter(w => w.id !== id))
-  }
-
-  const addWorkflow = () => {
-    if (!form.name || !form.trigger) return
-    setWorkflows(prev => [...prev, { id: String(prev.length + 1), name: form.name, module: form.module, trigger: form.trigger, conditions: form.conditions || "None", actions: form.actions || "Log event", isActive: true, runCount: 0, lastRun: "Never" }])
-    setForm({ name: "", module: "CRM", trigger: "", conditions: "", actions: "" })
-    setShowAdd(false)
-  }
+  const filtered = workflows.filter((w) => {
+    if (filters.module && w.module !== filters.module) return false;
+    if (filters._search) {
+      const q = filters._search.toLowerCase();
+      return w.name.toLowerCase().includes(q) || w.trigger.toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h1 className="text-2xl font-bold text-gray-900">Workflow Automation</h1><p className="text-gray-500">Create automated workflows with triggers, conditions, and actions</p></div>
-        <Dialog open={showAdd} onOpenChange={setShowAdd}>
-          <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />New Workflow</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Create Workflow</DialogTitle></DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div><Label>Workflow Name</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Auto-assign leads" /></div>
-              <div><Label>Module</Label>
-                <select className="w-full rounded-md border px-3 py-2 text-sm" value={form.module} onChange={e => setForm(p => ({ ...p, module: e.target.value }))}>
-                  <option value="CRM">CRM</option><option value="ERP">ERP</option><option value="ATS">ATS</option>
-                </select>
-              </div>
-              <div><Label>Trigger</Label><Input value={form.trigger} onChange={e => setForm(p => ({ ...p, trigger: e.target.value }))} placeholder="When..." /></div>
-              <div><Label>Conditions</Label><Input value={form.conditions} onChange={e => setForm(p => ({ ...p, conditions: e.target.value }))} placeholder="If..." /></div>
-              <div><Label>Actions</Label><Input value={form.actions} onChange={e => setForm(p => ({ ...p, actions: e.target.value }))} placeholder="Then..." /></div>
-            </div>
-            <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button onClick={addWorkflow}>Create</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => { setEditing(null); setShowModal(true); }}><Plus className="h-4 w-4 mr-2" />New Workflow</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -74,8 +73,18 @@ export default function AutomationPage() {
         <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-orange-100 rounded-lg"><Clock className="h-5 w-5 text-orange-600" /></div><div><p className="text-sm text-gray-500">Last 24h Triggers</p><p className="text-2xl font-bold">23</p></div></div></CardContent></Card>
       </div>
 
+      <FilterBar
+        searchValue={filters._search}
+        onSearchChange={(v) => setFilters((f) => ({ ...f, _search: v }))}
+        fields={[{ key: "module", label: "Module", type: "select", options: [
+          { label: "CRM", value: "CRM" }, { label: "ERP", value: "ERP" }, { label: "ATS", value: "ATS" },
+        ]}]}
+        values={filters}
+        onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
+      />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {workflows.map(w => (
+        {filtered.map(w => (
           <Card key={w.id} className={`transition-all ${!w.isActive ? "opacity-60" : ""}`}>
             <CardContent className="pt-6">
               <div className="flex items-start justify-between">
@@ -94,17 +103,37 @@ export default function AutomationPage() {
                     <span><Clock className="h-3 w-3 inline mr-1" />Last: {w.lastRun}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 ml-4">
-                  <button onClick={() => toggleWorkflow(w.id)} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${w.isActive ? "bg-blue-600" : "bg-gray-300"}`}>
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${w.isActive ? "translate-x-6" : "translate-x-1"}`} />
-                  </button>
-                  <button onClick={() => deleteWorkflow(w.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
-                </div>
+                <EditDeleteMenu
+                  onEdit={() => { setEditing(w); setShowModal(true); }}
+                  onDelete={() => setWorkflows(prev => prev.filter(x => x.id !== w.id))}
+                  itemLabel={w.name}
+                  extraItems={[{
+                    label: w.isActive ? "Deactivate" : "Activate",
+                    onClick: () => setWorkflows(prev => prev.map(x => x.id === w.id ? { ...x, isActive: !x.isActive } : x)),
+                  }]}
+                />
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      <EntityFormModal
+        open={showModal}
+        onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null); } }}
+        title={editing ? "Edit Workflow" : "Create Workflow"}
+        fields={workflowFields}
+        initialData={editing ? { name: editing.name, module: editing.module, trigger: editing.trigger, conditions: editing.conditions, actions: editing.actions } : undefined}
+        onSubmit={(data) => {
+          if (editing) {
+            setWorkflows(prev => prev.map(w => w.id === editing.id ? { ...w, name: data.name as string, module: data.module as string, trigger: data.trigger as string, conditions: (data.conditions as string) || "None", actions: (data.actions as string) || "Log event" } : w));
+          } else {
+            setWorkflows(prev => [...prev, { id: String(prev.length + 1), name: data.name as string, module: data.module as string, trigger: data.trigger as string, conditions: (data.conditions as string) || "None", actions: (data.actions as string) || "Log event", isActive: true, runCount: 0, lastRun: "Never" }]);
+          }
+          setShowModal(false);
+          setEditing(null);
+        }}
+      />
     </div>
   )
 }

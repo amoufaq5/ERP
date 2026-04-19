@@ -1,10 +1,57 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, ArrowDownUp, CheckCircle2, Clock, Database, Link2, RefreshCw, Server, ShieldCheck, Wifi, WifiOff, XCircle, Zap } from "lucide-react";
+import { Activity, ArrowDownUp, CheckCircle2, Clock, Database, Link2, Plus, RefreshCw, Server, ShieldCheck, Wifi, WifiOff, XCircle, Zap } from "lucide-react";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+
+interface Connection {
+  name: string;
+  type: string;
+  status: "connected" | "disconnected" | "error";
+  latency: string;
+}
+
+interface DataFlow {
+  id: string;
+  source: string;
+  dest: string;
+  type: string;
+  frequency: string;
+  status: "active" | "paused" | "error";
+  lastRun: string;
+  records: string;
+}
+
+const connectionFields: EntityField[] = [
+  { key: "name", label: "Connection Name", type: "text", required: true },
+  { key: "type", label: "Type", type: "select", required: true, options: [
+    { label: "ERP", value: "ERP" }, { label: "CRM", value: "CRM" },
+    { label: "Payment", value: "Payment" }, { label: "Storage", value: "Storage" },
+    { label: "Messaging", value: "Messaging" }, { label: "Project Mgmt", value: "Project Mgmt" },
+    { label: "Data Warehouse", value: "Data Warehouse" }, { label: "Marketing", value: "Marketing" },
+  ]},
+  { key: "latency", label: "Expected Latency (ms)", type: "text" },
+];
+
+const dataFlowFields: EntityField[] = [
+  { key: "source", label: "Source", type: "text", required: true },
+  { key: "dest", label: "Destination", type: "text", required: true },
+  { key: "type", label: "Type", type: "select", required: true, options: [
+    { label: "Batch", value: "Batch" }, { label: "Real-time", value: "Real-time" }, { label: "Webhook", value: "Webhook" },
+  ]},
+  { key: "frequency", label: "Frequency", type: "text", required: true },
+];
+
+type ModalMode =
+  | { kind: "connection"; editing: Connection | null }
+  | { kind: "flow"; editing: DataFlow | null }
+  | null;
 
 const kpis = [
   { title: "Active Connections", value: "24", icon: Link2, change: "+3 this week" },
@@ -26,7 +73,7 @@ const moduleHealth = [
   { name: "Analytics Engine", status: "healthy", lastSync: "3 min ago" },
 ];
 
-const connections = [
+const initialConnections: Connection[] = [
   { name: "SAP ERP", type: "ERP", status: "connected", latency: "34ms" },
   { name: "Salesforce", type: "CRM", status: "connected", latency: "67ms" },
   { name: "Stripe", type: "Payment", status: "connected", latency: "45ms" },
@@ -37,7 +84,7 @@ const connections = [
   { name: "HubSpot", type: "Marketing", status: "error", latency: "—" },
 ];
 
-const dataFlows = [
+const initialDataFlows: DataFlow[] = [
   { id: "DF-001", source: "SAP ERP", dest: "Snowflake", type: "Batch", frequency: "Every 15m", status: "active", lastRun: "2 min ago", records: "12,450" },
   { id: "DF-002", source: "Salesforce", dest: "SAP ERP", type: "Real-time", frequency: "Streaming", status: "active", lastRun: "Just now", records: "342" },
   { id: "DF-003", source: "Stripe", dest: "SAP ERP", type: "Webhook", frequency: "On event", status: "active", lastRun: "8 min ago", records: "89" },
@@ -82,6 +129,30 @@ const levelBadge = (level: string) => {
 };
 
 export default function IntegrationPage() {
+  const [connections, setConnections] = useState(initialConnections);
+  const [flows, setFlows] = useState(initialDataFlows);
+  const [modal, setModal] = useState<ModalMode>(null);
+  const [connFilters, setConnFilters] = useState<FilterState>({ _search: "", status: "" });
+  const [flowFilters, setFlowFilters] = useState<FilterState>({ _search: "", status: "" });
+
+  const filteredConns = connections.filter((c) => {
+    if (connFilters.status && c.status !== connFilters.status) return false;
+    if (connFilters._search) {
+      const q = connFilters._search.toLowerCase();
+      return c.name.toLowerCase().includes(q) || c.type.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const filteredFlows = flows.filter((f) => {
+    if (flowFilters.status && f.status !== flowFilters.status) return false;
+    if (flowFilters._search) {
+      const q = flowFilters._search.toLowerCase();
+      return f.source.toLowerCase().includes(q) || f.dest.toLowerCase().includes(q) || f.id.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
@@ -89,7 +160,10 @@ export default function IntegrationPage() {
           <h1 className="text-3xl font-bold tracking-tight">Integration Hub</h1>
           <p className="text-muted-foreground">Monitor and manage all system integrations</p>
         </div>
-        <Button><RefreshCw className="mr-2 h-4 w-4" /> Refresh All</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline"><RefreshCw className="mr-2 h-4 w-4" /> Refresh All</Button>
+          <Button onClick={() => setModal({ kind: "connection", editing: null })}><Plus className="mr-2 h-4 w-4" /> Add Connection</Button>
+        </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
@@ -138,13 +212,33 @@ export default function IntegrationPage() {
         </TabsContent>
 
         {/* Connections Tab */}
-        <TabsContent value="connections">
+        <TabsContent value="connections" className="space-y-4">
+          <FilterBar
+            searchValue={connFilters._search}
+            onSearchChange={(v) => setConnFilters((f) => ({ ...f, _search: v }))}
+            fields={[{ key: "status", label: "Status", type: "select", options: [
+              { label: "Connected", value: "connected" }, { label: "Disconnected", value: "disconnected" }, { label: "Error", value: "error" },
+            ]}]}
+            values={connFilters}
+            onChange={(k, v) => setConnFilters((f) => ({ ...f, [k]: v }))}
+          />
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {connections.map((c) => (
+            {filteredConns.map((c) => (
               <Card key={c.name}>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium">{c.name}</CardTitle>
-                  {c.status === "connected" ? <Wifi className="h-4 w-4 text-green-500" /> : <WifiOff className="h-4 w-4 text-destructive" />}
+                  <div className="flex items-center gap-1">
+                    {c.status === "connected" ? <Wifi className="h-4 w-4 text-green-500" /> : <WifiOff className="h-4 w-4 text-destructive" />}
+                    <EditDeleteMenu
+                      onEdit={() => setModal({ kind: "connection", editing: c })}
+                      onDelete={() => setConnections((prev) => prev.filter((x) => x.name !== c.name))}
+                      itemLabel={c.name}
+                      extraItems={[{
+                        label: c.status === "connected" ? "Disconnect" : "Connect",
+                        onClick: () => setConnections((prev) => prev.map((x) => x.name === c.name ? { ...x, status: x.status === "connected" ? "disconnected" : "connected", latency: x.status === "connected" ? "—" : x.latency } : x)),
+                      }]}
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -168,8 +262,20 @@ export default function IntegrationPage() {
         {/* Data Flows Tab */}
         <TabsContent value="data-flows">
           <Card>
-            <CardHeader><CardTitle>Data Flows</CardTitle></CardHeader>
-            <CardContent>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Data Flows</CardTitle>
+              <Button size="sm" onClick={() => setModal({ kind: "flow", editing: null })}><Plus className="mr-2 h-4 w-4" /> Add Flow</Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FilterBar
+                searchValue={flowFilters._search}
+                onSearchChange={(v) => setFlowFilters((f) => ({ ...f, _search: v }))}
+                fields={[{ key: "status", label: "Status", type: "select", options: [
+                  { label: "Active", value: "active" }, { label: "Paused", value: "paused" }, { label: "Error", value: "error" },
+                ]}]}
+                values={flowFilters}
+                onChange={(k, v) => setFlowFilters((f) => ({ ...f, [k]: v }))}
+              />
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -182,10 +288,11 @@ export default function IntegrationPage() {
                       <th className="pb-2 font-medium">Status</th>
                       <th className="pb-2 font-medium">Last Run</th>
                       <th className="pb-2 font-medium text-right">Records</th>
+                      <th className="pb-2 font-medium"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {dataFlows.map((f) => (
+                    {filteredFlows.map((f) => (
                       <tr key={f.id} className="border-b last:border-0">
                         <td className="py-2 font-mono">{f.id}</td>
                         <td className="py-2">{f.source}</td>
@@ -195,6 +302,23 @@ export default function IntegrationPage() {
                         <td className="py-2">{statusBadge(f.status)}</td>
                         <td className="py-2 text-muted-foreground">{f.lastRun}</td>
                         <td className="py-2 text-right font-mono">{f.records}</td>
+                        <td className="py-2">
+                          <EditDeleteMenu
+                            onEdit={() => setModal({ kind: "flow", editing: f })}
+                            onDelete={() => setFlows((prev) => prev.filter((x) => x.id !== f.id))}
+                            itemLabel={f.id}
+                            extraItems={(() => {
+                              const flow: Record<string, { label: string; status: DataFlow["status"] }> = {
+                                active: { label: "Pause Flow", status: "paused" },
+                                paused: { label: "Resume Flow", status: "active" },
+                                error: { label: "Retry Flow", status: "active" },
+                              };
+                              const next = flow[f.status];
+                              if (!next) return [];
+                              return [{ label: next.label, onClick: () => setFlows((prev) => prev.map((x) => x.id === f.id ? { ...x, status: next.status } : x)) }];
+                            })()}
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -238,6 +362,44 @@ export default function IntegrationPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Connection Modal */}
+      <EntityFormModal
+        open={modal?.kind === "connection"}
+        onOpenChange={(open) => !open && setModal(null)}
+        title={modal?.kind === "connection" && modal.editing ? "Edit Connection" : "Add Connection"}
+        fields={connectionFields}
+        initialData={modal?.kind === "connection" && modal.editing ? {
+          name: modal.editing.name, type: modal.editing.type, latency: modal.editing.latency,
+        } : undefined}
+        onSubmit={(data) => {
+          if (modal?.kind === "connection" && modal.editing) {
+            setConnections((prev) => prev.map((c) => c.name === modal.editing!.name ? { ...c, name: data.name as string, type: data.type as string, latency: (data.latency as string) || c.latency } : c));
+          } else {
+            setConnections((prev) => [...prev, { name: data.name as string, type: data.type as string, status: "disconnected", latency: (data.latency as string) || "—" }]);
+          }
+          setModal(null);
+        }}
+      />
+
+      {/* Data Flow Modal */}
+      <EntityFormModal
+        open={modal?.kind === "flow"}
+        onOpenChange={(open) => !open && setModal(null)}
+        title={modal?.kind === "flow" && modal.editing ? "Edit Data Flow" : "Add Data Flow"}
+        fields={dataFlowFields}
+        initialData={modal?.kind === "flow" && modal.editing ? {
+          source: modal.editing.source, dest: modal.editing.dest, type: modal.editing.type, frequency: modal.editing.frequency,
+        } : undefined}
+        onSubmit={(data) => {
+          if (modal?.kind === "flow" && modal.editing) {
+            setFlows((prev) => prev.map((f) => f.id === modal.editing!.id ? { ...f, source: data.source as string, dest: data.dest as string, type: data.type as string, frequency: data.frequency as string } : f));
+          } else {
+            setFlows((prev) => [...prev, { id: `DF-${String(prev.length + 1).padStart(3, "0")}`, source: data.source as string, dest: data.dest as string, type: data.type as string, frequency: data.frequency as string, status: "paused", lastRun: "Never", records: "—" }]);
+          }
+          setModal(null);
+        }}
+      />
     </div>
   );
 }
