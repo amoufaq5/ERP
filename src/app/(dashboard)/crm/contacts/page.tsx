@@ -159,7 +159,7 @@ export default function ContactsPage() {
             } : c));
           } else {
             const newContact: Contact = {
-              id: `CON-${String(contacts.length + 1).padStart(3, "0")}`,
+              id: `CON-${Date.now().toString(36)}`,
               firstName: data.firstName as string,
               lastName: (data.lastName as string) || "",
               title: (data.title as string) || "",

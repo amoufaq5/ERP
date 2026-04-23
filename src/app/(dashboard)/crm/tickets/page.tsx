@@ -128,7 +128,7 @@ export default function TicketsPage() {
             onEdit={() => { setEditing(t); setShowModal(true); }}
             onDelete={() => setTickets((prev) => prev.filter((x) => x.id !== t.id))}
             itemLabel={t.ticketNumber}
-            extraItems={next ? [{ label: `Move to ${next.replace("_", " ")}`, onClick: () => setTickets((prev) => prev.map((x) => x.id === t.id ? { ...x, status: next } : x)) }] : []}
+            extraItems={next ? [{ label: `Move to ${next.replace(/_/g, " ")}`, onClick: () => setTickets((prev) => prev.map((x) => x.id === t.id ? { ...x, status: next } : x)) }] : []}
           />
         );
       },
@@ -180,10 +180,10 @@ export default function TicketsPage() {
               slaDeadline: (data.slaDeadline as string) || t.slaDeadline,
             } : t));
           } else {
-            const nextNum = String(341 + tickets.length + 1).padStart(5, "0");
+            const uniqueId = Date.now().toString(36);
             const newTicket: SupportTicket = {
-              id: String(tickets.length + 1),
-              ticketNumber: `TKT-${nextNum}`,
+              id: uniqueId,
+              ticketNumber: `TKT-${uniqueId}`,
               subject: data.subject as string,
               account: (data.account as string) || "",
               priority: (data.priority as Priority) || "MEDIUM",

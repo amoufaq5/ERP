@@ -108,7 +108,7 @@ const FILTER_FIELDS = [
 function StatusBadge({ status }: { status: LeadStatus }) {
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[status]}`}>
-      {status.replace("_", " ")}
+      {status.replace(/_/g, " ")}
     </span>
   );
 }
@@ -185,7 +185,7 @@ export default function LeadsPage() {
             {
               key: "source",
               label: "Source",
-              render: (v: unknown) => <span>{String(v).replace("_", " ")}</span>,
+              render: (v: unknown) => <span>{String(v).replace(/_/g, " ")}</span>,
             },
             {
               key: "score",
@@ -236,7 +236,7 @@ export default function LeadsPage() {
                     extraItems={(() => {
                       const next = statusFlow[lead.status];
                       if (!next) return [];
-                      return [{ label: `Move to ${next.replace("_", " ")}`, onClick: () => setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, status: next } : l)) }];
+                      return [{ label: `Move to ${next.replace(/_/g, " ")}`, onClick: () => setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, status: next } : l)) }];
                     })()}
                   />
                 );
@@ -268,7 +268,7 @@ export default function LeadsPage() {
             } : l));
           } else {
             const newLead: Lead = {
-              id: `L-${String(leads.length + 1).padStart(3, "0")}`,
+              id: `L-${Date.now().toString(36)}`,
               firstName: data.firstName as string,
               lastName: (data.lastName as string) || "",
               email: data.email as string,

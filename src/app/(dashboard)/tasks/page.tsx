@@ -285,7 +285,7 @@ export default function TasksPage() {
               s === "DONE" ? "success" : s === "BLOCKED" ? "destructive" : s === "IN_PROGRESS" ? "default" : "outline"
             }
           >
-            {s.replace("_", " ")}
+            {s.replace(/_/g, " ")}
           </Badge>
         );
       },

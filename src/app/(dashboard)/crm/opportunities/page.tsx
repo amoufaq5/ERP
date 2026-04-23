@@ -55,17 +55,17 @@ const OPP_FIELDS: EntityField[] = [
   { name: "account", label: "Account", type: "text", placeholder: "Company name", required: true },
   { name: "value", label: "Value ($)", type: "number", placeholder: "0" },
   { name: "probability", label: "Probability (%)", type: "number", placeholder: "50", min: 0, max: 100 },
-  { name: "stage", label: "Stage", type: "select", defaultValue: "PROSPECTING", options: STAGES.map((s) => ({ label: s.replace("_", " "), value: s })) },
+  { name: "stage", label: "Stage", type: "select", defaultValue: "PROSPECTING", options: STAGES.map((s) => ({ label: s.replace(/_/g, " "), value: s })) },
   { name: "owner", label: "Owner", type: "text", placeholder: "Sales rep name" },
   { name: "expectedClose", label: "Expected Close Date", type: "text", placeholder: "YYYY-MM-DD" },
 ];
 
 const FILTER_FIELDS = [
-  { key: "stage", label: "Stage", type: "select" as const, options: STAGES.map((s) => ({ label: s.replace("_", " "), value: s })) },
+  { key: "stage", label: "Stage", type: "select" as const, options: STAGES.map((s) => ({ label: s.replace(/_/g, " "), value: s })) },
 ];
 
 function StageBadge({ stage }: { stage: Stage }) {
-  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STAGE_COLORS[stage]}`}>{stage.replace("_", " ")}</span>;
+  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STAGE_COLORS[stage]}`}>{stage.replace(/_/g, " ")}</span>;
 }
 
 export default function OpportunitiesPage() {
@@ -123,7 +123,7 @@ export default function OpportunitiesPage() {
             onDelete={() => setOpportunities((prev) => prev.filter((x) => x.id !== o.id))}
             itemLabel={o.title}
             extraItems={[
-              ...(next ? [{ label: `Advance to ${next.replace("_", " ")}`, onClick: () => setOpportunities((prev) => prev.map((x) => x.id === o.id ? { ...x, stage: next } : x)) }] : []),
+              ...(next ? [{ label: `Advance to ${next.replace(/_/g, " ")}`, onClick: () => setOpportunities((prev) => prev.map((x) => x.id === o.id ? { ...x, stage: next } : x)) }] : []),
               ...(o.stage !== "CLOSED_WON" && o.stage !== "CLOSED_LOST" ? [{ label: "Mark Lost", onClick: () => setOpportunities((prev) => prev.map((x) => x.id === o.id ? { ...x, stage: "CLOSED_LOST" as Stage } : x)) }] : []),
             ]}
           />
@@ -172,7 +172,7 @@ export default function OpportunitiesPage() {
               return (
                 <div key={stage} className="w-64 flex-shrink-0">
                   <div className={`rounded-t-lg px-3 py-2 flex items-center justify-between ${STAGE_HEADER_COLORS[stage]}`}>
-                    <span className="text-xs font-bold uppercase tracking-wide">{stage.replace("_", " ")}</span>
+                    <span className="text-xs font-bold uppercase tracking-wide">{stage.replace(/_/g, " ")}</span>
                     <span className="text-xs font-semibold">{cards.length} · ${(stageTotal / 1000).toFixed(0)}K</span>
                   </div>
                   <div className="rounded-b-lg border border-t-0 border-border bg-muted/50 min-h-40 space-y-2 p-2">
@@ -188,7 +188,7 @@ export default function OpportunitiesPage() {
                             extraItems={(() => {
                               const next = stageFlow[opp.stage];
                               return [
-                                ...(next ? [{ label: `Advance to ${next.replace("_", " ")}`, onClick: () => setOpportunities((prev) => prev.map((x) => x.id === opp.id ? { ...x, stage: next } : x)) }] : []),
+                                ...(next ? [{ label: `Advance to ${next.replace(/_/g, " ")}`, onClick: () => setOpportunities((prev) => prev.map((x) => x.id === opp.id ? { ...x, stage: next } : x)) }] : []),
                                 ...(opp.stage !== "CLOSED_WON" && opp.stage !== "CLOSED_LOST" ? [{ label: "Mark Lost", onClick: () => setOpportunities((prev) => prev.map((x) => x.id === opp.id ? { ...x, stage: "CLOSED_LOST" as Stage } : x)) }] : []),
                               ];
                             })()}
@@ -238,7 +238,7 @@ export default function OpportunitiesPage() {
             } : o));
           } else {
             const newOpp: Opportunity = {
-              id: `OPP-${String(opportunities.length + 1).padStart(3, "0")}`,
+              id: `OPP-${Date.now().toString(36)}`,
               title: data.title as string,
               account: (data.account as string) || "",
               value: (data.value as number) || 0,

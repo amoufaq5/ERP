@@ -132,7 +132,9 @@ export default function HRPage() {
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
+  const [leaveSearch, setLeaveSearch] = useState("");
   const [leaveFilters, setLeaveFilters] = useState<FilterState>({});
+  const [payrollSearch, setPayrollSearch] = useState("");
   const [payrollFilters, setPayrollFilters] = useState<FilterState>({});
 
   const [empFormOpen, setEmpFormOpen] = useState(false);
@@ -174,18 +176,26 @@ export default function HRPage() {
 
   const filteredLeaves = useMemo(() => {
     return leaves.filter((l) => {
+      if (leaveSearch) {
+        const q = leaveSearch.toLowerCase();
+        if (!l.employeeName.toLowerCase().includes(q) && !l.reason.toLowerCase().includes(q)) return false;
+      }
       if (leaveFilters.status && l.status !== leaveFilters.status) return false;
       if (leaveFilters.type && l.type !== leaveFilters.type) return false;
       return true;
     });
-  }, [leaves, leaveFilters]);
+  }, [leaves, leaveSearch, leaveFilters]);
 
   const filteredPayroll = useMemo(() => {
     return payroll.filter((p) => {
+      if (payrollSearch) {
+        const q = payrollSearch.toLowerCase();
+        if (!p.employeeName.toLowerCase().includes(q) && !p.period.toLowerCase().includes(q)) return false;
+      }
       if (payrollFilters.status && p.status !== payrollFilters.status) return false;
       return true;
     });
-  }, [payroll, payrollFilters]);
+  }, [payroll, payrollSearch, payrollFilters]);
 
   const pendingLeaves = leaves.filter((l) => l.status === "PENDING");
 
@@ -218,12 +228,11 @@ export default function HRPage() {
         )
       );
     } else {
-      const num = employees.length + 1;
       setEmployees((prev) => [
         ...prev,
         {
           id: genId("emp"),
-          employeeNumber: `EMP${String(num).padStart(3, "0")}`,
+          employeeNumber: `EMP${Date.now().toString(36)}`,
           firstName: String(data.firstName),
           lastName: String(data.lastName),
           email: String(data.email),
@@ -495,9 +504,9 @@ export default function HRPage() {
         {/* ── Leave ── */}
         <TabsContent value="leave" className="space-y-3">
           <FilterBar
-            searchPlaceholder=""
-            searchValue=""
-            onSearchChange={() => {}}
+            searchPlaceholder="Search by employee name or reason..."
+            searchValue={leaveSearch}
+            onSearchChange={setLeaveSearch}
             fields={[
               { key: "status", label: "Status", type: "select", options: [{ label: "Pending", value: "PENDING" }, { label: "Approved", value: "APPROVED" }, { label: "Rejected", value: "REJECTED" }] },
               { key: "type", label: "Type", type: "select", options: [{ label: "Annual", value: "ANNUAL" }, { label: "Sick", value: "SICK" }, { label: "Personal", value: "PERSONAL" }] },
@@ -551,9 +560,9 @@ export default function HRPage() {
         {/* ── Payroll ── */}
         <TabsContent value="payroll" className="space-y-3">
           <FilterBar
-            searchPlaceholder=""
-            searchValue=""
-            onSearchChange={() => {}}
+            searchPlaceholder="Search by employee name or period..."
+            searchValue={payrollSearch}
+            onSearchChange={setPayrollSearch}
             fields={[
               { key: "status", label: "Status", type: "select", options: [{ label: "Draft", value: "DRAFT" }, { label: "Processed", value: "PROCESSED" }, { label: "Paid", value: "PAID" }] },
             ]}

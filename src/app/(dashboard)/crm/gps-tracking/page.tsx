@@ -133,7 +133,7 @@ export default function GpsTrackingPage() {
     }
     return FIELD_VISITS.map((v) => ({
       id: v.id, lat: v.lat, lng: v.lng, label: `${v.account}`,
-      description: `${v.rep} · ${v.status.replace("_", " ")} · ${v.address}`,
+      description: `${v.rep} · ${v.status.replace(/_/g, " ")} · ${v.address}`,
       color: v.status === "COMPLETED" ? "#10b981" : v.status === "IN_PROGRESS" ? "#f59e0b" : "#3b82f6",
     }));
   }, [mapView]);
@@ -146,7 +146,7 @@ export default function GpsTrackingPage() {
     { key: "address", label: "Address" },
     { key: "status", label: "Status", render: (v) => (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${VISIT_STATUS_STYLES[v as VisitStatus]}`}>
-        {(v as string).replace("_", " ")}
+        {(v as string).replace(/_/g, " ")}
       </span>
     )},
     { key: "distance", label: "Distance", className: "text-right" },

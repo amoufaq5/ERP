@@ -277,7 +277,7 @@ export default function LoyaltyPage() {
             } : m));
           } else {
             const newMember: LoyaltyMember = {
-              id: `LM-${String(members.length + 1).padStart(3, "0")}`,
+              id: `LM-${Date.now().toString(36)}`,
               name: data.name as string,
               account: (data.account as string) || "",
               program: (data.program as string) || INITIAL_PROGRAMS[0].name,

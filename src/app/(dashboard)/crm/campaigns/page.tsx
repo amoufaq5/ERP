@@ -105,7 +105,7 @@ export default function CampaignsPage() {
 
   const columns: Column<Record<string, unknown>>[] = [
     { key: "name", label: "Campaign Name" },
-    { key: "type", label: "Type", render: (v) => <span className="text-xs font-medium bg-muted px-2 py-0.5 rounded">{(v as string).replace("_", " ")}</span> },
+    { key: "type", label: "Type", render: (v) => <span className="text-xs font-medium bg-muted px-2 py-0.5 rounded">{(v as string).replace(/_/g, " ")}</span> },
     { key: "status", label: "Status", render: (v) => <StatusBadge status={STATUS_MAP[v as CampaignStatus]} /> },
     { key: "budget", label: "Budget vs Spent", render: (_v, row) => <BudgetProgress budget={row.budget as number} spent={row.spent as number} /> },
     { key: "leads", label: "Leads", render: (v) => <span className="font-medium">{v as number}</span> },
@@ -181,7 +181,7 @@ export default function CampaignsPage() {
             } : c));
           } else {
             const newCampaign: Campaign = {
-              id: `CAM-${String(campaigns.length + 1).padStart(3, "0")}`,
+              id: `CAM-${Date.now().toString(36)}`,
               name: data.name as string,
               type: (data.type as CampaignType) || "EMAIL",
               status: "DRAFT",

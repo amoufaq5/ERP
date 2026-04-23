@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Package, Truck, ClipboardCheck, Plus, ShieldCheck, AlertTriangle, FileText, Eye, Star } from "lucide-react";
+import { Package, Truck, ClipboardCheck, Plus, ShieldCheck, AlertTriangle, FileText, Eye, Star, CheckCircle } from "lucide-react";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -15,7 +17,7 @@ import type { Column } from "@/components/shared/data-table";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { useDataStore } from "@/lib/data-store";
 
-const PURCHASE_ORDERS = [
+const INITIAL_PURCHASE_ORDERS = [
   { id: "PO-4001", supplier: "Aurobindo Pharma (API)", category: "Raw Material", items: "Amoxicillin Trihydrate (API)", qty: "500 kg", unitPrice: "$85/kg", total: "$42,500", orderDate: "2026-03-10", expectedDate: "2026-04-15", status: "Approved" },
   { id: "PO-4002", supplier: "BASF Pharma Solutions", category: "Excipient", items: "Microcrystalline Cellulose PH-102", qty: "2,000 kg", unitPrice: "$12/kg", total: "$24,000", orderDate: "2026-03-12", expectedDate: "2026-04-10", status: "Received" },
   { id: "PO-4003", supplier: "Lonza Group", category: "Raw Material", items: "Omeprazole Pellets", qty: "300 kg", unitPrice: "$220/kg", total: "$66,000", orderDate: "2026-03-15", expectedDate: "2026-04-20", status: "Pending QC" },
@@ -28,7 +30,7 @@ const PURCHASE_ORDERS = [
   { id: "PO-4010", supplier: "SGD Pharma", category: "Packaging", items: "Amber Glass Bottles 100ml", qty: "10,000 pcs", unitPrice: "$0.65/pc", total: "$6,500", orderDate: "2026-04-01", expectedDate: "2026-04-20", status: "Approved" },
 ];
 
-const SUPPLIERS = [
+const INITIAL_SUPPLIERS = [
   { id: "SUP-01", name: "Aurobindo Pharma", type: "API Manufacturer", country: "India", contact: "Ravi Krishnan", email: "ravi@aurobindo.com", gmpStatus: "EU-GMP Certified", rating: 4.8, orders: 32, status: "Approved" },
   { id: "SUP-02", name: "BASF Pharma Solutions", type: "Excipient Supplier", country: "Germany", contact: "Hans Mueller", email: "hans@basf.com", gmpStatus: "EU-GMP Certified", rating: 4.9, orders: 28, status: "Approved" },
   { id: "SUP-03", name: "Lonza Group", type: "API Manufacturer", country: "Switzerland", contact: "Pierre Dubois", email: "pierre@lonza.com", gmpStatus: "FDA Approved", rating: 4.7, orders: 15, status: "Approved" },
@@ -41,7 +43,7 @@ const SUPPLIERS = [
   { id: "SUP-10", name: "SGD Pharma", type: "Packaging Supplier", country: "France", contact: "Claude Martin", email: "claude@sgd.com", gmpStatus: "ISO 15378", rating: 4.3, orders: 8, status: "Approved" },
 ];
 
-const GRN = [
+const INITIAL_GRN = [
   { id: "GRN-601", po: "PO-4002", supplier: "BASF Pharma Solutions", material: "Microcrystalline Cellulose PH-102", qty: "2,000 kg", receivedDate: "2026-04-08", batchNo: "MCC-2026-0412", coa: true, qcStatus: "Passed", storageCondition: "Room Temp", expiryDate: "2028-04-08", status: "Released" },
   { id: "GRN-602", po: "PO-4003", supplier: "Lonza Group", material: "Omeprazole Pellets", qty: "300 kg", receivedDate: "2026-04-18", batchNo: "OMP-2026-0318", coa: true, qcStatus: "Under Testing", storageCondition: "2-8°C", expiryDate: "2027-10-18", status: "Quarantine" },
   { id: "GRN-603", po: "PO-4004", supplier: "Colorcon Inc", material: "Opadry II Film Coating", qty: "800 kg", receivedDate: "2026-04-06", batchNo: "OPD-2026-0215", coa: true, qcStatus: "Passed", storageCondition: "Room Temp", expiryDate: "2029-02-15", status: "Released" },
@@ -50,7 +52,7 @@ const GRN = [
   { id: "GRN-606", po: "PO-4006", supplier: "Cipla Ltd", material: "Atorvastatin 20mg Tab", qty: "200 units", receivedDate: "2026-04-11", batchNo: "ATV-2026-0220", coa: true, qcStatus: "Failed", storageCondition: "Below 25°C", expiryDate: "2028-02-20", status: "Rejected" },
 ];
 
-const QC_TESTS = [
+const INITIAL_QC_TESTS = [
   { id: "QC-801", grn: "GRN-601", material: "Microcrystalline Cellulose PH-102", test: "Identity (IR)", specification: "Matches reference", result: "Conforms", status: "Pass" },
   { id: "QC-802", grn: "GRN-601", material: "Microcrystalline Cellulose PH-102", test: "Loss on Drying", specification: "≤ 5.0%", result: "3.2%", status: "Pass" },
   { id: "QC-803", grn: "GRN-601", material: "Microcrystalline Cellulose PH-102", test: "Particle Size (d50)", specification: "90-150 μm", result: "118 μm", status: "Pass" },
@@ -74,9 +76,9 @@ const supplierFields: EntityField[] = [
   { name: "gmpStatus", label: "GMP Certification", type: "select", required: true, options: [{ value: "EU-GMP Certified", label: "EU-GMP Certified" }, { value: "FDA Approved", label: "FDA Approved" }, { value: "WHO-GMP", label: "WHO-GMP" }, { value: "ISO 15378", label: "ISO 15378" }, { value: "Pending", label: "Pending Audit" }] },
 ];
 
-type PurchaseOrder = typeof PURCHASE_ORDERS[number];
-type Supplier = typeof SUPPLIERS[number];
-type GRNRecord = typeof GRN[number];
+type PurchaseOrder = typeof INITIAL_PURCHASE_ORDERS[number];
+type Supplier = typeof INITIAL_SUPPLIERS[number];
+type GRNRecord = typeof INITIAL_GRN[number];
 
 export default function ProcurementPage() {
   const store = useDataStore();
@@ -84,9 +86,45 @@ export default function ProcurementPage() {
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [activeTab, setActiveTab] = useState("orders");
 
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(INITIAL_PURCHASE_ORDERS);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(INITIAL_SUPPLIERS);
+  const [grn] = useState<GRNRecord[]>(INITIAL_GRN);
+  const [qcTests] = useState(INITIAL_QC_TESTS);
+
+  const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null);
   const [detailSupplier, setDetailSupplier] = useState<Supplier | null>(null);
   const [detailGRN, setDetailGRN] = useState<GRNRecord | null>(null);
+
+  // Filter state for PO tab
+  const [poSearch, setPOSearch] = useState("");
+  const [poFilters, setPOFilters] = useState<FilterState>({});
+  // Filter state for Supplier tab
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [supplierFilters, setSupplierFilters] = useState<FilterState>({});
+
+  // Computed stats
+  const activePOCount = purchaseOrders.length;
+  const inTransitCount = purchaseOrders.filter(po => po.status === "In Transit").length;
+  const pendingQCCount = purchaseOrders.filter(po => po.status === "Pending QC").length;
+  const approvedSupplierCount = suppliers.filter(s => s.status === "Approved").length;
+
+  // Filtered data
+  const filteredPOs = purchaseOrders.filter(po => {
+    const q = poSearch.toLowerCase();
+    if (q && !po.id.toLowerCase().includes(q) && !po.supplier.toLowerCase().includes(q) && !po.items.toLowerCase().includes(q)) return false;
+    if (poFilters.status && po.status !== poFilters.status) return false;
+    return true;
+  });
+
+  const filteredSuppliers = suppliers.filter(s => {
+    const q = supplierSearch.toLowerCase();
+    if (q && !s.id.toLowerCase().includes(q) && !s.name.toLowerCase().includes(q) && !s.contact.toLowerCase().includes(q)) return false;
+    if (supplierFilters.type && s.type !== supplierFilters.type) return false;
+    return true;
+  });
 
   const productCatalogOptions = store.products.map((p) => ({
     value: p.id,
@@ -94,7 +132,7 @@ export default function ProcurementPage() {
   }));
 
   const poFields: EntityField[] = [
-    { name: "supplier", label: "Supplier", type: "select", required: true, options: SUPPLIERS.filter(s => s.status === "Approved").map(s => ({ value: s.name, label: `${s.name} (${s.type})` })) },
+    { name: "supplier", label: "Supplier", type: "select", required: true, options: suppliers.filter(s => s.status === "Approved").map(s => ({ value: s.name, label: `${s.name} (${s.type})` })) },
     { name: "category", label: "Category", type: "select", required: true, options: [{ value: "Raw Material", label: "Raw Material (API)" }, { value: "Excipient", label: "Excipient" }, { value: "Packaging", label: "Packaging Material" }, { value: "Finished Product", label: "Finished Product" }] },
     { name: "productId", label: "Product (from catalog)", type: "select", options: productCatalogOptions, helperText: "Optionally pick from the product catalog" },
     { name: "items", label: "Material / Product", type: "text", required: true, helperText: "Auto-filled if product selected, or enter manually" },
@@ -123,10 +161,10 @@ export default function ProcurementPage() {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard icon={Package} title="Active POs" value="10" subtitle="4 raw materials, 3 excipients" iconColor="text-blue-600" trend={{ value: 15, label: "vs last month" }} />
-        <StatsCard icon={Truck} title="In Transit" value="2" subtitle="Expected this week" iconColor="text-amber-600" />
-        <StatsCard icon={ClipboardCheck} title="Pending QC" value="3" subtitle="2 APIs, 1 finished product" iconColor="text-purple-600" />
-        <StatsCard icon={ShieldCheck} title="Approved Suppliers" value="9" subtitle="All GMP certified" iconColor="text-green-600" />
+        <StatsCard icon={Package} title="Active POs" value={String(activePOCount)} subtitle={`${purchaseOrders.filter(p => p.category === "Raw Material").length} raw materials, ${purchaseOrders.filter(p => p.category === "Excipient").length} excipients`} iconColor="text-blue-600" trend={{ value: 15, label: "vs last month" }} />
+        <StatsCard icon={Truck} title="In Transit" value={String(inTransitCount)} subtitle="Expected this week" iconColor="text-amber-600" />
+        <StatsCard icon={ClipboardCheck} title="Pending QC" value={String(pendingQCCount)} subtitle="Awaiting quality check" iconColor="text-purple-600" />
+        <StatsCard icon={ShieldCheck} title="Approved Suppliers" value={String(approvedSupplierCount)} subtitle="All GMP certified" iconColor="text-green-600" />
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -138,6 +176,23 @@ export default function ProcurementPage() {
         </TabsList>
 
         <TabsContent value="orders" className="space-y-4">
+          <FilterBar
+            searchPlaceholder="Search by PO #, supplier, or material..."
+            searchValue={poSearch}
+            onSearchChange={setPOSearch}
+            fields={[
+              { key: "status", label: "Status", type: "select" as const, options: [
+                { value: "Pending Approval", label: "Pending Approval" },
+                { value: "Approved", label: "Approved" },
+                { value: "Ordered", label: "Ordered" },
+                { value: "In Transit", label: "In Transit" },
+                { value: "Received", label: "Received" },
+                { value: "Pending QC", label: "Pending QC" },
+              ]},
+            ]}
+            values={poFilters}
+            onChange={(key, value) => setPOFilters(prev => ({ ...prev, [key]: value }))}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Purchase Orders</CardTitle>
@@ -164,13 +219,18 @@ export default function ProcurementPage() {
                   { key: "id", label: "", className: "text-right w-10", render: (_v: unknown, row: Record<string, unknown>) => {
                     const po = row as unknown as PurchaseOrder;
                     return (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDetailPO(po)} title="View Details">
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
+                      <EditDeleteMenu
+                        onView={() => setDetailPO(po)}
+                        onEdit={() => { setEditingPO(po); setShowPOModal(true); }}
+                        onDelete={() => setPurchaseOrders(prev => prev.filter(p => p.id !== po.id))}
+                        canView
+                        itemLabel={po.id}
+                        compact
+                      />
                     );
                   }},
                 ] as Column<Record<string, unknown>>[]}
-                data={PURCHASE_ORDERS as unknown as Record<string, unknown>[]}
+                data={filteredPOs as unknown as Record<string, unknown>[]}
                 pagination={false}
                 emptyMessage="No purchase orders found."
               />
@@ -179,6 +239,21 @@ export default function ProcurementPage() {
         </TabsContent>
 
         <TabsContent value="suppliers" className="space-y-4">
+          <FilterBar
+            searchPlaceholder="Search by ID, name, or contact..."
+            searchValue={supplierSearch}
+            onSearchChange={setSupplierSearch}
+            fields={[
+              { key: "type", label: "Type", type: "select" as const, options: [
+                { value: "API Manufacturer", label: "API Manufacturer" },
+                { value: "Excipient Supplier", label: "Excipient Supplier" },
+                { value: "Packaging Supplier", label: "Packaging Supplier" },
+                { value: "Finished Product", label: "Finished Product" },
+              ]},
+            ]}
+            values={supplierFilters}
+            onChange={(key, value) => setSupplierFilters(prev => ({ ...prev, [key]: value }))}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Pharmaceutical Suppliers</CardTitle>
@@ -217,13 +292,18 @@ export default function ProcurementPage() {
                   { key: "id", label: "", className: "text-right w-10", render: (_v: unknown, row: Record<string, unknown>) => {
                     const s = row as unknown as Supplier;
                     return (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDetailSupplier(s)} title="View Details">
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
+                      <EditDeleteMenu
+                        onView={() => setDetailSupplier(s)}
+                        onEdit={() => { setEditingSupplier(s); setShowSupplierModal(true); }}
+                        onDelete={() => setSuppliers(prev => prev.filter(sup => sup.id !== s.id))}
+                        canView
+                        itemLabel={s.name}
+                        compact
+                      />
                     );
                   }},
                 ] as Column<Record<string, unknown>>[]}
-                data={SUPPLIERS as unknown as Record<string, unknown>[]}
+                data={filteredSuppliers as unknown as Record<string, unknown>[]}
                 pagination={false}
                 emptyMessage="No suppliers found."
               />
@@ -271,7 +351,7 @@ export default function ProcurementPage() {
                     );
                   }},
                 ] as Column<Record<string, unknown>>[]}
-                data={GRN as unknown as Record<string, unknown>[]}
+                data={grn as unknown as Record<string, unknown>[]}
                 pagination={false}
                 emptyMessage="No goods received notes found."
               />
@@ -329,7 +409,7 @@ export default function ProcurementPage() {
                     </span>
                   ) },
                 ] as Column<Record<string, unknown>>[]}
-                data={QC_TESTS as unknown as Record<string, unknown>[]}
+                data={qcTests as unknown as Record<string, unknown>[]}
                 pagination={false}
                 emptyMessage="No QC tests found."
               />
@@ -371,17 +451,91 @@ export default function ProcurementPage() {
 
       <EntityFormModal
         open={showPOModal}
-        onOpenChange={setShowPOModal}
-        title="New Purchase Order"
+        onOpenChange={(open) => { setShowPOModal(open); if (!open) setEditingPO(null); }}
+        title={editingPO ? `Edit ${editingPO.id}` : "New Purchase Order"}
         fields={poFields}
-        onSubmit={() => setShowPOModal(false)}
+        initialData={editingPO ? {
+          supplier: editingPO.supplier,
+          category: editingPO.category,
+          items: editingPO.items,
+          qty: editingPO.qty,
+          unitPrice: editingPO.unitPrice,
+          total: editingPO.total,
+          expectedDate: editingPO.expectedDate,
+        } : undefined}
+        onSubmit={(data) => {
+          if (editingPO) {
+            setPurchaseOrders(prev => prev.map(po => po.id === editingPO.id ? {
+              ...po,
+              supplier: String(data.supplier ?? po.supplier),
+              category: String(data.category ?? po.category),
+              items: String(data.items ?? po.items),
+              qty: String(data.qty ?? po.qty),
+              unitPrice: String(data.unitPrice ?? po.unitPrice),
+              total: String(data.total ? `$${Number(data.total).toLocaleString()}` : po.total),
+              expectedDate: String(data.expectedDate ?? po.expectedDate),
+            } : po));
+            setEditingPO(null);
+          } else {
+            const newPO: PurchaseOrder = {
+              id: `PO-${Date.now().toString(36)}`,
+              supplier: String(data.supplier ?? ""),
+              category: String(data.category ?? ""),
+              items: String(data.items ?? ""),
+              qty: String(data.qty ?? ""),
+              unitPrice: String(data.unitPrice ?? ""),
+              total: data.total ? `$${Number(data.total).toLocaleString()}` : "$0",
+              orderDate: new Date().toISOString().split("T")[0],
+              expectedDate: String(data.expectedDate ?? ""),
+              status: "Pending Approval",
+            };
+            setPurchaseOrders(prev => [...prev, newPO]);
+          }
+          setShowPOModal(false);
+        }}
       />
       <EntityFormModal
         open={showSupplierModal}
-        onOpenChange={setShowSupplierModal}
-        title="Add Pharmaceutical Supplier"
+        onOpenChange={(open) => { setShowSupplierModal(open); if (!open) setEditingSupplier(null); }}
+        title={editingSupplier ? `Edit ${editingSupplier.name}` : "Add Pharmaceutical Supplier"}
         fields={supplierFields}
-        onSubmit={() => setShowSupplierModal(false)}
+        initialData={editingSupplier ? {
+          name: editingSupplier.name,
+          type: editingSupplier.type,
+          country: editingSupplier.country,
+          contact: editingSupplier.contact,
+          email: editingSupplier.email,
+          gmpStatus: editingSupplier.gmpStatus,
+        } : undefined}
+        onSubmit={(data) => {
+          if (editingSupplier) {
+            setSuppliers(prev => prev.map(s => s.id === editingSupplier.id ? {
+              ...s,
+              name: String(data.name ?? s.name),
+              type: String(data.type ?? s.type),
+              country: String(data.country ?? s.country),
+              contact: String(data.contact ?? s.contact),
+              email: String(data.email ?? s.email),
+              gmpStatus: String(data.gmpStatus ?? s.gmpStatus),
+            } : s));
+            setEditingSupplier(null);
+          } else {
+            const newSupplier: Supplier = {
+              id: `SUP-${Date.now().toString(36)}`,
+              name: String(data.name ?? ""),
+              type: String(data.type ?? ""),
+              country: String(data.country ?? ""),
+              contact: String(data.contact ?? ""),
+              email: String(data.email ?? ""),
+              gmpStatus: String(data.gmpStatus ?? ""),
+              rating: 0,
+              orders: 0,
+              status: "Under Review",
+            };
+            setSuppliers(prev => [...prev, newSupplier]);
+          }
+          setShowSupplierModal(false);
+        }}
       />
 
       {/* ── Purchase Order Detail Dialog ── */}
@@ -391,7 +545,7 @@ export default function ProcurementPage() {
             <DialogTitle>Purchase Order {detailPO?.id}</DialogTitle>
           </DialogHeader>
           {detailPO && (() => {
-            const relatedGRNs = GRN.filter((g) => g.po === detailPO.id);
+            const relatedGRNs = grn.filter((g) => g.po === detailPO.id);
             const statusSteps = ["Pending Approval", "Approved", "Ordered", "In Transit", "Received", "Pending QC"];
             const currentIdx = statusSteps.indexOf(detailPO.status);
             return (
@@ -461,7 +615,7 @@ export default function ProcurementPage() {
             <DialogTitle>{detailSupplier?.name}</DialogTitle>
           </DialogHeader>
           {detailSupplier && (() => {
-            const supplierPOs = PURCHASE_ORDERS.filter((po) => po.supplier.includes(detailSupplier.name));
+            const supplierPOs = purchaseOrders.filter((po) => po.supplier.includes(detailSupplier.name));
             const fullStars = Math.floor(detailSupplier.rating);
             const hasHalf = detailSupplier.rating - fullStars >= 0.5;
             return (
@@ -519,7 +673,7 @@ export default function ProcurementPage() {
             <DialogTitle>Goods Received Note {detailGRN?.id}</DialogTitle>
           </DialogHeader>
           {detailGRN && (() => {
-            const relatedQC = QC_TESTS.filter((q) => q.grn === detailGRN.id);
+            const relatedQC = qcTests.filter((q) => q.grn === detailGRN.id);
             return (
               <div className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">

@@ -415,7 +415,7 @@ export default function ManufacturingPage() {
                         <div key={step} className="flex items-center gap-2 flex-1">
                           <div className="flex flex-col items-center flex-1">
                             <div className={`h-3 w-3 rounded-full border-2 ${isCurrent ? "bg-primary border-primary" : isActive ? "bg-primary/60 border-primary/60" : "bg-muted border-muted-foreground/30"}`} />
-                            <span className={`text-[10px] mt-1 text-center ${isCurrent ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{step.replace("_", " ")}</span>
+                            <span className={`text-[10px] mt-1 text-center ${isCurrent ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{step.replace(/_/g, " ")}</span>
                           </div>
                           {i < woStatusSteps.length - 1 && <div className={`h-0.5 flex-1 -mt-4 ${isActive && i < currentIdx ? "bg-primary/60" : "bg-muted"}`} />}
                         </div>

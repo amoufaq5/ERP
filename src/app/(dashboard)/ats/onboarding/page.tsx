@@ -99,11 +99,11 @@ const TASK_FIELDS: EntityField[] = [
   { name: "category", label: "Category", type: "select", required: true, options: CATEGORIES.map((c) => ({ label: c.replace(/_/g, " "), value: c })) },
   { name: "assignedTo", label: "Assigned To", type: "text", placeholder: "Person or team responsible" },
   { name: "dueDate", label: "Due Date", type: "text", placeholder: "YYYY-MM-DD" },
-  { name: "status", label: "Status", type: "select", defaultValue: "PENDING", options: STATUSES.map((s) => ({ label: s.replace("_", " "), value: s })) },
+  { name: "status", label: "Status", type: "select", defaultValue: "PENDING", options: STATUSES.map((s) => ({ label: s.replace(/_/g, " "), value: s })) },
 ];
 
 const FILTER_FIELDS = [
-  { key: "status", label: "Status", type: "select" as const, options: STATUSES.map((s) => ({ label: s.replace("_", " "), value: s })) },
+  { key: "status", label: "Status", type: "select" as const, options: STATUSES.map((s) => ({ label: s.replace(/_/g, " "), value: s })) },
   { key: "category", label: "Category", type: "select" as const, options: CATEGORIES.map((c) => ({ label: c.replace(/_/g, " "), value: c })) },
 ];
 
@@ -147,7 +147,7 @@ export default function OnboardingPage() {
         IN_PROGRESS: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
         COMPLETED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
       };
-      return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${colors[v as string]}`}>{(v as string).replace("_", " ")}</span>;
+      return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${colors[v as string]}`}>{(v as string).replace(/_/g, " ")}</span>;
     }},
     {
       key: "id", label: "",
@@ -161,7 +161,7 @@ export default function OnboardingPage() {
             onDelete={() => setTasks((prev) => prev.filter((x) => x.id !== t.id))}
             itemLabel={t.task}
             extraItems={[
-              ...(next ? [{ label: `Mark ${next.replace("_", " ")}`, onClick: () => setTasks((prev) => prev.map((x) => x.id === t.id ? { ...x, status: next } : x)) }] : []),
+              ...(next ? [{ label: `Mark ${next.replace(/_/g, " ")}`, onClick: () => setTasks((prev) => prev.map((x) => x.id === t.id ? { ...x, status: next } : x)) }] : []),
               ...(t.status === "COMPLETED" ? [{ label: "Reopen", onClick: () => setTasks((prev) => prev.map((x) => x.id === t.id ? { ...x, status: "PENDING" as OnboardingTask["status"] } : x)) }] : []),
             ]}
           />

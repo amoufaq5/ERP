@@ -174,7 +174,7 @@ export default function AccountsPage() {
             } : a));
           } else {
             const newAccount: Account = {
-              id: `ACC-${String(accounts.length + 1).padStart(3, "0")}`,
+              id: `ACC-${Date.now().toString(36)}`,
               name: data.name as string,
               industry: (data.industry as Industry) || "Technology",
               type: (data.type as AccountType) || "PROSPECT",

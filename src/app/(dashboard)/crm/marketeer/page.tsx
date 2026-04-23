@@ -326,7 +326,7 @@ export default function MarketeerPage() {
           if (editing) {
             setDoubleVisits(prev => prev.map(v => v.id === editing.id ? { ...v, accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || v.purpose, observations: (d.observations as string) || "", followUp: (d.followUp as string) || "" } : v));
           } else {
-            setDoubleVisits(prev => [{ id: `MV-${String(prev.length + 1).padStart(3, "0")}`, accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || "KOL Engagement", observations: (d.observations as string) || "", followUp: (d.followUp as string) || "", status: "Completed" }, ...prev]);
+            setDoubleVisits(prev => [{ id: `MV-${Date.now().toString(36)}`, accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || "KOL Engagement", observations: (d.observations as string) || "", followUp: (d.followUp as string) || "", status: "Completed" }, ...prev]);
           }
           setShowVisit(false);
           setEditing(null);

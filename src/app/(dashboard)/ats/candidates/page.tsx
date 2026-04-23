@@ -223,7 +223,7 @@ export default function CandidatesPage() {
             } : c));
           } else {
             const candidate: Candidate = {
-              id: candidates.length + 1,
+              id: Date.now(),
               name: data.name as string,
               email: data.email as string,
               degree: (data.degree as string) || "",

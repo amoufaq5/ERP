@@ -27,7 +27,8 @@ type Tab = "overview" | "invoices" | "payments" | "bank" | "vendors" | "budgets"
 export default function FinancePage() {
   const store = useDataStore();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
-  const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", type: "", method: "" });
+  const [invoiceFilters, setInvoiceFilters] = useState<FilterState>({ _search: "", status: "" });
+  const [paymentFilters, setPaymentFilters] = useState<FilterState>({ _search: "", type: "", method: "" });
 
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
@@ -75,24 +76,24 @@ export default function FinancePage() {
   // ─── Filters ───────────────────────────────────────────────────
   const filteredInvoices = useMemo(() => {
     return store.invoices.filter((i) => {
-      const q = (filters._search || "").toLowerCase();
+      const q = (invoiceFilters._search || "").toLowerCase();
       const cName = customerName(i.customerId).toLowerCase();
       const matchesSearch = !q || i.number.toLowerCase().includes(q) || cName.includes(q);
-      const matchesStatus = !filters.status || i.status === filters.status;
+      const matchesStatus = !invoiceFilters.status || i.status === invoiceFilters.status;
       return matchesSearch && matchesStatus;
     });
-  }, [store.invoices, store.customers, filters]);
+  }, [store.invoices, store.customers, invoiceFilters]);
 
   const filteredPayments = useMemo(() => {
     return store.payments.filter((p) => {
-      const q = (filters._search || "").toLowerCase();
+      const q = (paymentFilters._search || "").toLowerCase();
       const party = p.customerId ? customerName(p.customerId) : p.vendorId ? vendorName(p.vendorId) : "";
       const matchesSearch = !q || p.reference.toLowerCase().includes(q) || party.toLowerCase().includes(q);
-      const matchesType = !filters.type || p.type === filters.type;
-      const matchesMethod = !filters.method || p.method === filters.method;
+      const matchesType = !paymentFilters.type || p.type === paymentFilters.type;
+      const matchesMethod = !paymentFilters.method || p.method === paymentFilters.method;
       return matchesSearch && matchesType && matchesMethod;
     });
-  }, [store.payments, store.customers, store.vendors, filters]);
+  }, [store.payments, store.customers, store.vendors, paymentFilters]);
 
   // ─── Invoice CRUD ──────────────────────────────────────────────
   const invoiceFields: EntityField[] = [
@@ -160,7 +161,7 @@ export default function FinancePage() {
   function handlePaymentSubmit(data: EntityFormData) {
     const amount = Number(data.amount) || 0;
     const payload: Omit<Payment, "id"> = {
-      reference: `PAY-${new Date().getFullYear()}-${String(store.payments.length + 1).padStart(4, "0")}`,
+      reference: `PAY-${new Date().getFullYear()}-${Date.now().toString(36)}`,
       type: String(data.type) as Payment["type"],
       customerId: data.customerId ? String(data.customerId) : undefined,
       vendorId: data.vendorId ? String(data.vendorId) : undefined,
@@ -416,8 +417,8 @@ export default function FinancePage() {
       {activeTab === "invoices" && (
         <div className="bg-card rounded-xl border border-border shadow-sm">
           <div className="p-4 border-b border-border">
-            <FilterBar searchValue={filters._search} onSearchChange={(v) => setFilters((f) => ({ ...f, _search: v }))}
-              fields={invoiceFilterFields} values={filters} onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} />
+            <FilterBar searchValue={invoiceFilters._search} onSearchChange={(v) => setInvoiceFilters((f) => ({ ...f, _search: v }))}
+              fields={invoiceFilterFields} values={invoiceFilters} onChange={(k, v) => setInvoiceFilters((f) => ({ ...f, [k]: v }))} />
           </div>
           <DataTable columns={invoiceColumns} data={filteredInvoices as unknown as Record<string, unknown>[]} emptyMessage="No invoices found." />
         </div>
@@ -426,8 +427,8 @@ export default function FinancePage() {
       {activeTab === "payments" && (
         <div className="bg-card rounded-xl border border-border shadow-sm">
           <div className="p-4 border-b border-border">
-            <FilterBar searchValue={filters._search} onSearchChange={(v) => setFilters((f) => ({ ...f, _search: v }))}
-              fields={paymentFilterFields} values={filters} onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} />
+            <FilterBar searchValue={paymentFilters._search} onSearchChange={(v) => setPaymentFilters((f) => ({ ...f, _search: v }))}
+              fields={paymentFilterFields} values={paymentFilters} onChange={(k, v) => setPaymentFilters((f) => ({ ...f, [k]: v }))} />
           </div>
           <DataTable columns={paymentColumns} data={filteredPayments as unknown as Record<string, unknown>[]} emptyMessage="No payments found." />
         </div>

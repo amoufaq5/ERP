@@ -225,7 +225,7 @@ export default function TrainingPage() {
               render: (_v: unknown, row: unknown) => {
                 const enrollment = row as Enrollment;
                 return (
-                  <Badge className={`text-xs ${statusColors[enrollment.status]}`}>{enrollment.status.replace("_", " ")}</Badge>
+                  <Badge className={`text-xs ${statusColors[enrollment.status]}`}>{enrollment.status.replace(/_/g, " ")}</Badge>
                 );
               },
             },
@@ -273,7 +273,7 @@ export default function TrainingPage() {
             } : c))
           } else {
             setCourses((prev) => [...prev, {
-              id: prev.length + 1,
+              id: Date.now(),
               title: data.title as string,
               description: (data.description as string) || "",
               category: (data.category as string) || "General",

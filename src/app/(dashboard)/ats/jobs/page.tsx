@@ -180,7 +180,7 @@ export default function JobsPage() {
             } : j));
           } else {
             const job: Job = {
-              id: jobs.length + 1,
+              id: Date.now(),
               title: data.title as string,
               department: (data.department as string) || "",
               location: (data.location as string) || "",

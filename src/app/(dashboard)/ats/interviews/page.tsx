@@ -311,7 +311,7 @@ export default function InterviewsPage() {
             } : i));
           } else {
             setInterviews((prev) => [...prev, {
-              id: prev.length + 1,
+              id: Date.now(),
               candidate: data.candidate as string,
               job: (data.job as string) || "",
               type: (data.type as string) || "TECHNICAL",

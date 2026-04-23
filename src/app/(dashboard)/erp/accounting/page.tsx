@@ -869,7 +869,7 @@ export default function AccountingPage() {
                   columns={[
                     { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
                     { key: "name", label: "Name", render: (v) => <span className="font-medium">{v as string}</span> },
-                    { key: "type", label: "Type", render: (v) => <Badge variant="outline">{(v as string).replace("_", " & ")}</Badge> },
+                    { key: "type", label: "Type", render: (v) => <Badge variant="outline">{(v as string).replace(/_/g, " & ")}</Badge> },
                     { key: "budget", label: "Budget", className: "text-right", render: (v) => <span>{(v as number).toLocaleString()}</span> },
                     { key: "actualSpend", label: "Actual", className: "text-right", render: (v) => <span>{(v as number).toLocaleString()}</span> },
                     { key: "id", label: "Variance", className: "text-right", render: (_v, row) => {

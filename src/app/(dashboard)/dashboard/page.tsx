@@ -38,6 +38,15 @@ import {
 import Link from "next/link";
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 import { useAppConfig } from "@/lib/config-context";
+import { useDataStore } from "@/lib/data-store";
+
+const fmtEGP = (n: number) => `EGP ${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+const fmtM = (n: number) =>
+  n >= 1_000_000
+    ? `EGP ${(n / 1_000_000).toFixed(1)}M`
+    : n >= 1_000
+      ? `EGP ${(n / 1_000).toFixed(0)}K`
+      : fmtEGP(n);
 
 // ─── Shared primitives ───────────────────────────────────────────────────────
 
@@ -124,6 +133,11 @@ function RoleHeader({ title, subtitle, badge }: { title: string; subtitle: strin
 
 function AdminDashboard() {
   const { user } = useCurrentUser();
+  const store = useDataStore();
+  const totalRevenue = store.invoices
+    .filter((i) => i.status === "PAID" || i.status === "PARTIAL")
+    .reduce((s, i) => s + i.total, 0);
+  const totalCustomers = store.customers.length;
   return (
     <div className="p-6 space-y-6">
       <RoleHeader
@@ -132,8 +146,8 @@ function AdminDashboard() {
         badge="ADMINISTRATOR"
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Total Revenue (YTD)" value="EGP 48.2M" delta="+14.2%" trend="up" icon={DollarSign} color="bg-green-100 text-green-600" />
-        <KpiCard label="Active Users" value={156} delta="+8.3%" trend="up" icon={Users} color="bg-blue-100 text-blue-600" />
+        <KpiCard label="Total Revenue (YTD)" value={fmtM(totalRevenue)} delta="+14.2%" trend="up" icon={DollarSign} color="bg-green-100 text-green-600" />
+        <KpiCard label="Customers" value={totalCustomers} delta="+8.3%" trend="up" icon={Users} color="bg-blue-100 text-blue-600" />
         <KpiCard label="GMP Compliance" value="98.5%" delta="+0.4%" trend="up" icon={ShieldCheck} color="bg-purple-100 text-purple-600" />
         <KpiCard label="Active Batches" value={24} delta="+3" trend="up" icon={FlaskConical} color="bg-orange-100 text-orange-600" />
       </div>
@@ -205,6 +219,11 @@ function AdminDashboard() {
 
 function BUMDashboard() {
   const { user } = useCurrentUser();
+  const store = useDataStore();
+  const buRevenue = store.invoices
+    .filter((i) => i.status === "PAID" || i.status === "PARTIAL")
+    .reduce((s, i) => s + i.total, 0);
+  const buCount = store.businessUnits.length;
   return (
     <div className="p-6 space-y-6">
       <RoleHeader
@@ -213,8 +232,8 @@ function BUMDashboard() {
         badge="BUSINESS UNIT MANAGER"
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="BU Revenue (YTD)" value="EGP 48.2M" delta="+14.2%" trend="up" icon={DollarSign} color="bg-green-100 text-green-600" />
-        <KpiCard label="Target Achievement" value="106%" delta="+6%" trend="up" icon={Target} color="bg-blue-100 text-blue-600" />
+        <KpiCard label="BU Revenue (YTD)" value={fmtM(buRevenue)} delta="+14.2%" trend="up" icon={DollarSign} color="bg-green-100 text-green-600" />
+        <KpiCard label="Business Units" value={buCount} delta="+6%" trend="up" icon={Target} color="bg-blue-100 text-blue-600" />
         <KpiCard label="National Coverage" value="87%" delta="+2.1%" trend="up" icon={MapPin} color="bg-purple-100 text-purple-600" />
         <KpiCard label="Field Force" value={64} delta="4 new" trend="up" icon={Users} color="bg-orange-100 text-orange-600" />
       </div>
@@ -266,6 +285,11 @@ function BUMDashboard() {
 
 function MarketeerDashboard() {
   const { user } = useCurrentUser();
+  const store = useDataStore();
+  const regionRevenue = store.invoices
+    .filter((i) => i.status === "PAID" || i.status === "PARTIAL")
+    .reduce((s, i) => s + i.total, 0);
+  const doctorCount = store.doctors.length;
   return (
     <div className="p-6 space-y-6">
       <RoleHeader
@@ -274,9 +298,9 @@ function MarketeerDashboard() {
         badge="MARKETEER"
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Region Revenue" value="EGP 16.4M" delta="+11.4%" trend="up" icon={DollarSign} color="bg-green-100 text-green-600" />
+        <KpiCard label="Region Revenue" value={fmtM(regionRevenue)} delta="+11.4%" trend="up" icon={DollarSign} color="bg-green-100 text-green-600" />
         <KpiCard label="Coverage" value="91%" delta="+3.2%" trend="up" icon={MapPin} color="bg-blue-100 text-blue-600" />
-        <KpiCard label="District Managers" value={5} icon={Users} color="bg-purple-100 text-purple-600" />
+        <KpiCard label="Doctors" value={doctorCount} icon={Users} color="bg-purple-100 text-purple-600" />
         <KpiCard label="Medical Reps" value={18} delta="2 new" trend="up" icon={Stethoscope} color="bg-orange-100 text-orange-600" />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -321,6 +345,11 @@ function MarketeerDashboard() {
 
 function DistrictManagerDashboard() {
   const { user } = useCurrentUser();
+  const store = useDataStore();
+  const districtRevenue = store.invoices
+    .filter((i) => i.status === "PAID" || i.status === "PARTIAL")
+    .reduce((s, i) => s + i.total, 0);
+  const totalVisits = store.visits.length;
   return (
     <div className="p-6 space-y-6">
       <RoleHeader
@@ -329,10 +358,10 @@ function DistrictManagerDashboard() {
         badge="DISTRICT MANAGER"
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="District Revenue (MTD)" value="EGP 2.8M" delta="+8.1%" trend="up" icon={DollarSign} color="bg-green-100 text-green-600" />
+        <KpiCard label="District Revenue (MTD)" value={fmtM(districtRevenue)} delta="+8.1%" trend="up" icon={DollarSign} color="bg-green-100 text-green-600" />
         <KpiCard label="Team Coverage" value="88%" delta="+1.5%" trend="up" icon={MapPin} color="bg-blue-100 text-blue-600" />
         <KpiCard label="Medical Reps" value={6} icon={Users} color="bg-purple-100 text-purple-600" />
-        <KpiCard label="Visits Today" value={42} delta="+6" trend="up" icon={Calendar} color="bg-orange-100 text-orange-600" />
+        <KpiCard label="Total Visits" value={totalVisits} delta="+6" trend="up" icon={Calendar} color="bg-orange-100 text-orange-600" />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
@@ -382,6 +411,10 @@ function DistrictManagerDashboard() {
 
 function MedicalRepDashboard() {
   const { user } = useCurrentUser();
+  const store = useDataStore();
+  const myVisits = store.visits.filter((v) => v.repId === user.id);
+  const myDoctors = store.doctors.filter((d) => d.assignedRepId === user.id);
+  const myTasks = store.tasks.filter((t) => t.assignedToId === user.id && t.status !== "DONE");
   return (
     <div className="p-6 space-y-6">
       <RoleHeader
@@ -390,9 +423,9 @@ function MedicalRepDashboard() {
         badge="MEDICAL REP"
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Today's Visits" value="6 / 8" icon={Calendar} color="bg-blue-100 text-blue-600" />
-        <KpiCard label="Monthly Target" value="87%" delta="+4%" trend="up" icon={Target} color="bg-green-100 text-green-600" />
-        <KpiCard label="My Doctors" value={84} icon={Stethoscope} color="bg-purple-100 text-purple-600" />
+        <KpiCard label="Total Visits" value={myVisits.length} icon={Calendar} color="bg-blue-100 text-blue-600" />
+        <KpiCard label="Open Tasks" value={myTasks.length} delta="+4%" trend="up" icon={Target} color="bg-green-100 text-green-600" />
+        <KpiCard label="My Doctors" value={myDoctors.length} icon={Stethoscope} color="bg-purple-100 text-purple-600" />
         <KpiCard label="Samples Left" value={124} icon={Package} color="bg-orange-100 text-orange-600" />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -445,6 +478,13 @@ function MedicalRepDashboard() {
 function AccountantDashboard() {
   const { user } = useCurrentUser();
   const { config } = useAppConfig();
+  const store = useDataStore();
+  const arOutstanding = store.customers.reduce((s, c) => s + c.outstanding, 0);
+  const apOutstanding = store.vendors.reduce((s, v) => s + v.outstanding, 0);
+  const bankBalance = store.bankAccounts
+    .filter((b) => b.currency === "EGP" && b.status === "ACTIVE")
+    .reduce((s, b) => s + b.balance, 0);
+  const chequesPending = store.cheques.filter((c) => c.status === "PENDING").length;
   return (
     <div className="p-6 space-y-6">
       <RoleHeader
@@ -453,10 +493,10 @@ function AccountantDashboard() {
         badge="ACCOUNTANT"
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="AR Outstanding" value={`${config.finance.currency} 12.4M`} delta="-5.2%" trend="down" icon={Receipt} color="bg-amber-100 text-amber-600" />
-        <KpiCard label="AP Due (30d)" value={`${config.finance.currency} 6.8M`} icon={FileText} color="bg-blue-100 text-blue-600" />
-        <KpiCard label="Bank Balance" value={`${config.finance.currency} 18.2M`} delta="+3.1%" trend="up" icon={Landmark} color="bg-green-100 text-green-600" />
-        <KpiCard label="Cheques Pending" value={14} icon={FileText} color="bg-purple-100 text-purple-600" />
+        <KpiCard label="AR Outstanding" value={fmtM(arOutstanding)} delta="-5.2%" trend="down" icon={Receipt} color="bg-amber-100 text-amber-600" />
+        <KpiCard label="AP Outstanding" value={fmtM(apOutstanding)} icon={FileText} color="bg-blue-100 text-blue-600" />
+        <KpiCard label="Bank Balance" value={fmtM(bankBalance)} delta="+3.1%" trend="up" icon={Landmark} color="bg-green-100 text-green-600" />
+        <KpiCard label="Cheques Pending" value={chequesPending} icon={FileText} color="bg-purple-100 text-purple-600" />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
@@ -478,16 +518,14 @@ function AccountantDashboard() {
         <Card>
           <CardHeader><CardTitle className="text-base">Top Customers Outstanding</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
-            {[
-              { name: "El-Ezaby Pharmacies", amount: "2.8M" },
-              { name: "Seif Pharmacies", amount: "2.1M" },
-              { name: "Ibnsina Pharma", amount: "1.8M" },
-              { name: "Ministry of Health", amount: "1.4M" },
-              { name: "Cleopatra Hospital", amount: "0.9M" },
-            ].map((c) => (
-              <div key={c.name} className="flex justify-between">
+            {[...store.customers]
+              .filter((c) => c.outstanding > 0)
+              .sort((a, b) => b.outstanding - a.outstanding)
+              .slice(0, 5)
+              .map((c) => (
+              <div key={c.id} className="flex justify-between">
                 <span>{c.name}</span>
-                <span className="font-semibold">{config.finance.currency} {c.amount}</span>
+                <span className="font-semibold">{fmtM(c.outstanding)}</span>
               </div>
             ))}
           </CardContent>
@@ -578,6 +616,8 @@ function WarehouseDashboard() {
 
 function HRDashboard() {
   const { user } = useCurrentUser();
+  const store = useDataStore();
+  const openTasks = store.tasks.filter((t) => t.status === "TODO" || t.status === "IN_PROGRESS").length;
   return (
     <div className="p-6 space-y-6">
       <RoleHeader
@@ -587,7 +627,7 @@ function HRDashboard() {
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Headcount" value={156} delta="+4" trend="up" icon={Users} color="bg-blue-100 text-blue-600" />
-        <KpiCard label="Open Positions" value={12} icon={Briefcase} color="bg-purple-100 text-purple-600" />
+        <KpiCard label="Open Tasks" value={openTasks} icon={Briefcase} color="bg-purple-100 text-purple-600" />
         <KpiCard label="GMP Training" value="94%" delta="+3%" trend="up" icon={GraduationCap} color="bg-green-100 text-green-600" />
         <KpiCard label="Leave Today" value={7} icon={Calendar} color="bg-amber-100 text-amber-600" />
       </div>

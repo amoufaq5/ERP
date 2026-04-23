@@ -333,7 +333,7 @@ export default function BUMPage() {
           if (editingVisit) {
             setVisits(prev => prev.map(v => v.id === editingVisit.id ? { ...v, region: (d.region as string) || v.region, accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || v.purpose, notes: (d.notes as string) || "", actions: (d.actions as string) || "" } : v));
           } else {
-            setVisits(prev => [{ id: `BV-${String(prev.length + 1).padStart(3, "0")}`, region: (d.region as string) || "North Region", accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || "KOL Management", notes: (d.notes as string) || "", actions: (d.actions as string) || "" }, ...prev]);
+            setVisits(prev => [{ id: `BV-${Date.now().toString(36)}`, region: (d.region as string) || "North Region", accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || "KOL Management", notes: (d.notes as string) || "", actions: (d.actions as string) || "" }, ...prev]);
           }
           setShowVisit(false);
           setEditingVisit(null);
