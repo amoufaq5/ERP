@@ -147,6 +147,7 @@ export interface Cheque {
   id: string;
   number: string;
   bankName: string;
+  bankAccountId?: string;
   type: "INCOMING" | "OUTGOING";
   partyName: string;            // customer or vendor name
   amount: number;
@@ -182,6 +183,48 @@ export interface KPIRecord {
   setBy: string;               // userId of the superior
 }
 
+export interface BankAccount {
+  id: string;
+  code: string;
+  name: string;
+  bankName: string;
+  accountNumber: string;
+  iban?: string;
+  currency: string;
+  balance: number;
+  type: "CURRENT" | "SAVINGS" | "FOREIGN_CURRENCY";
+  status: "ACTIVE" | "DORMANT" | "CLOSED";
+  openedAt: string;
+}
+
+export interface Message {
+  id: string;
+  fromUserId: string;
+  toUserId: string;
+  channelId?: string;
+  subject: string;
+  body: string;
+  read: boolean;
+  starred: boolean;
+  createdAt: string;
+}
+
+export interface Payment {
+  id: string;
+  reference: string;
+  type: "RECEIVED" | "SENT";
+  customerId?: string;
+  vendorId?: string;
+  invoiceId?: string;
+  amount: number;
+  currency: string;
+  method: "BANK_TRANSFER" | "CHEQUE" | "CASH" | "CREDIT_CARD";
+  bankAccountId?: string;
+  chequeId?: string;
+  date: string;
+  notes?: string;
+}
+
 // ─── Store shape ─────────────────────────────────────────────────────────────
 
 export interface DataStoreState {
@@ -196,6 +239,10 @@ export interface DataStoreState {
   cheques: Cheque[];
   invoices: Invoice[];
   kpis: KPIRecord[];
+  bankAccounts: BankAccount[];
+  messages: Message[];
+  payments: Payment[];
+  nextInvoiceSeq: number;
 }
 
 // ─── Seed data ───────────────────────────────────────────────────────────────
@@ -316,6 +363,29 @@ const SEED_KPIS: KPIRecord[] = [
   { id: "kpi-003", userId: "u-dm-1", period: "2026-04", metric: "District achievement %", target: 105, actual: 103, setBy: "u-mkt-1" },
 ];
 
+const SEED_BANK_ACCOUNTS: BankAccount[] = [
+  { id: "ba-001", code: "BA-CIB-EGP", name: "CIB Main Operating", bankName: "CIB", accountNumber: "1001-2345-6789-01", iban: "EG380010100012345678901", currency: "EGP", balance: 12450000, type: "CURRENT", status: "ACTIVE", openedAt: daysAgo(1500) },
+  { id: "ba-002", code: "BA-NBE-EGP", name: "NBE Collections", bankName: "National Bank of Egypt", accountNumber: "2002-3456-7890-02", iban: "EG380020200023456789002", currency: "EGP", balance: 4820000, type: "CURRENT", status: "ACTIVE", openedAt: daysAgo(1200) },
+  { id: "ba-003", code: "BA-HSBC-USD", name: "HSBC Foreign Currency", bankName: "HSBC Egypt", accountNumber: "3003-4567-8901-03", currency: "USD", balance: 285000, type: "FOREIGN_CURRENCY", status: "ACTIVE", openedAt: daysAgo(900) },
+  { id: "ba-004", code: "BA-BM-EGP", name: "Banque Misr Payroll", bankName: "Banque Misr", accountNumber: "4004-5678-9012-04", iban: "EG380040400045678901204", currency: "EGP", balance: 2150000, type: "CURRENT", status: "ACTIVE", openedAt: daysAgo(1100) },
+];
+
+const SEED_MESSAGES: Message[] = [
+  { id: "msg-001", fromUserId: "u-admin", toUserId: "u-bum", subject: "Q2 Budget Approval", body: "The Q2 operational budget of EGP 4.2M has been approved by the board. Please distribute to your marketeers and ensure district managers are informed. Key allocations: 40% field operations, 30% samples & literature, 20% events, 10% reserve.", read: true, starred: true, createdAt: daysAgo(3) },
+  { id: "msg-002", fromUserId: "u-bum", toUserId: "u-mkt-1", subject: "Urgent: Cardio BU target adjustment", body: "Based on Q1 results, we're increasing the Cardiovascular BU visit targets by 15% for Q2. Please cascade to all DMs and ensure their reps update their plans. The new target is 184 visits/month per rep for Class A doctors.", read: true, starred: false, createdAt: daysAgo(2) },
+  { id: "msg-003", fromUserId: "u-mkt-1", toUserId: "u-dm-1", subject: "District review meeting — Thursday", body: "Reminder: We have our monthly district review this Thursday at 10 AM. Please prepare your team's coverage report, visit compliance stats, and any pending market requests. Also bring the new doctor onboarding pipeline.", read: false, starred: false, createdAt: daysAgo(1) },
+  { id: "msg-004", fromUserId: "u-dm-1", toUserId: "u-rep-1", subject: "Dr. El-Gamal follow-up", body: "Please prioritize the follow-up with Dr. El-Gamal this week. He showed strong interest in the Cardioprex bundle during the last visit. Prepare a detailed clinical study packet and bring additional samples. This is a high-value account.", read: false, starred: false, createdAt: daysAgo(0) },
+  { id: "msg-005", fromUserId: "u-rep-1", toUserId: "u-dm-1", subject: "Re: Dr. El-Gamal follow-up", body: "Noted. I have a visit scheduled for tomorrow morning at Cleopatra Hospital. I'll bring the full Cardioprex clinical dossier and 10 sample boxes. Also planning to discuss the new Atorvastat 20mg with him.", read: false, starred: false, createdAt: daysAgo(0) },
+  { id: "msg-006", fromUserId: "u-admin", toUserId: "u-hr-1", subject: "New hire onboarding — 3 medical reps", body: "We have 3 new medical reps starting next week (Cairo North district). Please ensure their onboarding packages are ready: ID badges, system access, product training schedule, and territory assignments. Coordinate with Ahmed Mostafa (DM) for field shadowing.", read: true, starred: false, createdAt: daysAgo(4) },
+];
+
+const SEED_PAYMENTS: Payment[] = [
+  { id: "pay-001", reference: "PAY-2026-0001", type: "RECEIVED", customerId: "c-001", invoiceId: "inv-001", amount: 500000, currency: "EGP", method: "BANK_TRANSFER", bankAccountId: "ba-001", date: daysAgo(10), notes: "Partial payment against INV-2026-0001" },
+  { id: "pay-002", reference: "PAY-2026-0002", type: "RECEIVED", customerId: "c-005", amount: 340000, currency: "EGP", method: "CHEQUE", bankAccountId: "ba-002", chequeId: "ch-004", date: daysAgo(8), notes: "Cheque cleared — Cleopatra Hospital" },
+  { id: "pay-003", reference: "PAY-2026-0003", type: "SENT", vendorId: "ve-002", amount: 620000, currency: "EGP", method: "BANK_TRANSFER", bankAccountId: "ba-001", date: daysAgo(5), notes: "BASF excipient shipment payment" },
+  { id: "pay-004", reference: "PAY-2026-0004", type: "RECEIVED", customerId: "c-002", invoiceId: "inv-002", amount: 300000, currency: "EGP", method: "BANK_TRANSFER", bankAccountId: "ba-002", date: daysAgo(3), notes: "Partial payment — Seif Pharmacies" },
+];
+
 export const SEED_DATA: DataStoreState = {
   businessUnits: SEED_BUS,
   products: SEED_PRODUCTS,
@@ -328,11 +398,17 @@ export const SEED_DATA: DataStoreState = {
   cheques: SEED_CHEQUES,
   invoices: SEED_INVOICES,
   kpis: SEED_KPIS,
+  bankAccounts: SEED_BANK_ACCOUNTS,
+  messages: SEED_MESSAGES,
+  payments: SEED_PAYMENTS,
+  nextInvoiceSeq: 3,
 };
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 
-type EntityKey = keyof DataStoreState;
+type EntityKey = {
+  [K in keyof DataStoreState]: DataStoreState[K] extends Array<unknown> ? K : never;
+}[keyof DataStoreState];
 
 interface DataStoreValue extends DataStoreState {
   // Generic CRUD
@@ -343,6 +419,7 @@ interface DataStoreValue extends DataStoreState {
   reset: () => void;
   // Helpers
   genId: (prefix: string) => string;
+  generateInvoiceNumber: () => string;
 }
 
 const DataStoreContext = createContext<DataStoreValue | null>(null);
@@ -392,6 +469,14 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
 
   function genId(prefix: string): string {
     return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  }
+
+  function generateInvoiceNumber(): string {
+    const year = new Date().getFullYear();
+    const seq = state.nextInvoiceSeq;
+    const next: DataStoreState = { ...state, nextInvoiceSeq: seq + 1 };
+    mutate(next);
+    return `INV-${year}-${String(seq).padStart(4, "0")}`;
   }
 
   function add<K extends EntityKey>(key: K, item: DataStoreState[K][number]) {
@@ -452,6 +537,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
         bulkAdd,
         reset,
         genId,
+        generateInvoiceNumber,
       }}
     >
       {children}
@@ -471,6 +557,7 @@ export function useDataStore(): DataStoreValue {
       bulkAdd: () => {},
       reset: () => {},
       genId: (p) => `${p}-stub`,
+      generateInvoiceNumber: () => "INV-0000-0000",
     };
   }
   return ctx;
