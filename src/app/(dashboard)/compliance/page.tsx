@@ -77,7 +77,7 @@ const policies = [
 const violations = [
   { id: "VIO-001", type: "Non-Compliance", regulation: "GDPR", desc: "Customer data retention exceeded 3-year limit", severity: "Major", detected: "Mar 20, 2026", status: "Investigating", deadline: "Apr 20, 2026", assignee: "CISO", fine: "€50,000" },
   { id: "VIO-002", type: "Process Violation", regulation: "SOX", desc: "Missing sign-off on Q4 journal entries", severity: "Minor", detected: "Mar 15, 2026", status: "Remediated", deadline: "Apr 15, 2026", assignee: "Controller", fine: "—" },
-  { id: "VIO-003", type: "Safety Violation", regulation: "OSHA", desc: "Blocked emergency exit in Warehouse B", severity: "Major", detected: "Mar 5, 2026", status: "Closed", deadline: "Mar 10, 2026", assignee: "Safety Mgr", fine: "$7,000" },
+  { id: "VIO-003", type: "Safety Violation", regulation: "OSHA", desc: "Blocked emergency exit in Warehouse B", severity: "Major", detected: "Mar 5, 2026", status: "Closed", deadline: "Mar 10, 2026", assignee: "Safety Mgr", fine: "EGP 7,000" },
   { id: "VIO-004", type: "Environmental", regulation: "EPA", desc: "Wastewater discharge slightly above limits", severity: "Minor", detected: "Feb 28, 2026", status: "Remediated", deadline: "Mar 28, 2026", assignee: "Env. Officer", fine: "—" },
   { id: "VIO-005", type: "Data Breach", regulation: "PCI DSS", desc: "Unencrypted credit card data in test environment", severity: "Critical", detected: "Mar 25, 2026", status: "Open", deadline: "Apr 10, 2026", assignee: "CISO", fine: "TBD" },
   { id: "VIO-006", type: "Labor Violation", regulation: "FLSA", desc: "Overtime calculation error for 3 employees", severity: "Minor", detected: "Mar 1, 2026", status: "Closed", deadline: "Mar 15, 2026", assignee: "HR Director", fine: "—" },
@@ -272,6 +272,8 @@ export default function CompliancePage() {
                 .filter(r => !regFilters._search || r.name.toLowerCase().includes(regFilters._search.toLowerCase()))
                 .filter(r => !regFilters.category || r.category === regFilters.category)
                 .filter(r => !regFilters.impact || r.impact === regFilters.impact) as unknown as Record<string, unknown>[]}
+              exportable
+              exportFilename="regulations.csv"
               emptyMessage="No regulations found."
             />
           </CardContent></Card>
@@ -282,6 +284,8 @@ export default function CompliancePage() {
             <DataTable
               columns={auditColumns}
               data={audits as unknown as Record<string, unknown>[]}
+              exportable
+              exportFilename="audits.csv"
               emptyMessage="No audits found."
             />
           </CardContent></Card>
@@ -324,6 +328,8 @@ export default function CompliancePage() {
                 .filter(v => !violFilters._search || v.desc.toLowerCase().includes(violFilters._search.toLowerCase()) || v.regulation.toLowerCase().includes(violFilters._search.toLowerCase()))
                 .filter(v => !violFilters.severity || v.severity === violFilters.severity)
                 .filter(v => !violFilters.status || v.status === violFilters.status) as unknown as Record<string, unknown>[]}
+              exportable
+              exportFilename="violations.csv"
               emptyMessage="No violations found."
             />
           </CardContent></Card>
@@ -334,6 +340,8 @@ export default function CompliancePage() {
             <DataTable
               columns={riskColumns}
               data={complianceRisks as unknown as Record<string, unknown>[]}
+              exportable
+              exportFilename="compliance-risks.csv"
               emptyMessage="No compliance risks found."
             />
           </CardContent></Card>

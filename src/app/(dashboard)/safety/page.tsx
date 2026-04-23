@@ -129,11 +129,62 @@ const incidentFields: EntityField[] = [
   { name: "desc", label: "Description", type: "textarea", required: true, fullWidth: true, placeholder: "Describe the incident..." },
 ];
 
+const riskFields: EntityField[] = [
+  { name: "category", label: "Category", type: "select", required: true, options: [
+    { label: "Chemical", value: "Chemical" }, { label: "Physical", value: "Physical" },
+    { label: "Ergonomic", value: "Ergonomic" }, { label: "Biological", value: "Biological" },
+    { label: "Psychosocial", value: "Psychosocial" },
+  ]},
+  { name: "desc", label: "Description", type: "textarea", required: true, fullWidth: true, placeholder: "Describe the risk..." },
+  { name: "likelihood", label: "Likelihood (1-5)", type: "number", required: true },
+  { name: "impact", label: "Impact (1-5)", type: "number", required: true },
+  { name: "mitigation", label: "Mitigation", type: "textarea", fullWidth: true, placeholder: "Mitigation measures..." },
+  { name: "owner", label: "Owner", type: "text", required: true, placeholder: "Name" },
+];
+
+const inspectionFields: EntityField[] = [
+  { name: "type", label: "Type", type: "select", required: true, options: [
+    { label: "Fire Safety", value: "Fire Safety" }, { label: "Equipment", value: "Equipment" },
+    { label: "Workplace", value: "Workplace" }, { label: "Environmental", value: "Environmental" },
+    { label: "PPE", value: "PPE" },
+  ]},
+  { name: "area", label: "Area", type: "text", required: true, placeholder: "e.g. Building A - All Floors" },
+  { name: "inspector", label: "Inspector", type: "text", required: true, placeholder: "Inspector name" },
+  { name: "findings", label: "Findings Count", type: "number" },
+  { name: "followUp", label: "Follow-up Actions", type: "textarea", fullWidth: true, placeholder: "Actions required..." },
+];
+
+const permitFields: EntityField[] = [
+  { name: "type", label: "Permit Type", type: "select", required: true, options: [
+    { label: "Hot Work", value: "Hot Work" }, { label: "Confined Space", value: "Confined Space" },
+    { label: "Heights", value: "Heights" }, { label: "Electrical", value: "Electrical" },
+    { label: "Excavation", value: "Excavation" },
+  ]},
+  { name: "location", label: "Location", type: "text", required: true, placeholder: "e.g. Warehouse B - Roof" },
+  { name: "requestor", label: "Requestor", type: "text", required: true },
+  { name: "approver", label: "Approver", type: "text", required: true },
+  { name: "validFrom", label: "Valid From", type: "date", required: true },
+  { name: "validTo", label: "Valid To", type: "date", required: true },
+  { name: "conditions", label: "Conditions", type: "textarea", fullWidth: true, placeholder: "Safety conditions..." },
+];
+
 export default function SafetyPage() {
   const [showIncidentForm, setShowIncidentForm] = useState(false);
   const [editingIncident, setEditingIncident] = useState<typeof incidents[0] | null>(null);
   const [incidentList, setIncidentList] = useState(incidents);
   const [incFilters, setIncFilters] = useState<FilterState>({});
+
+  const [riskList, setRiskList] = useState(risks);
+  const [showRiskForm, setShowRiskForm] = useState(false);
+  const [editingRisk, setEditingRisk] = useState<typeof risks[0] | null>(null);
+
+  const [inspectionList, setInspectionList] = useState(inspections);
+  const [showInspectionForm, setShowInspectionForm] = useState(false);
+  const [editingInspection, setEditingInspection] = useState<typeof inspections[0] | null>(null);
+
+  const [permitList, setPermitList] = useState(permits);
+  const [showPermitForm, setShowPermitForm] = useState(false);
+  const [editingPermit, setEditingPermit] = useState<typeof permits[0] | null>(null);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -260,7 +311,8 @@ export default function SafetyPage() {
                 .filter(i => !incFilters.severity || i.severity === incFilters.severity)
                 .filter(i => !incFilters.status || i.status === incFilters.status)
                 .filter(i => !incFilters.type || i.type === incFilters.type) as unknown as Record<string, unknown>[]}
-              
+              exportable
+              exportFilename="safety-incidents.csv"
               emptyMessage="No incidents found."
             />
           </CardContent></Card>
@@ -268,6 +320,7 @@ export default function SafetyPage() {
 
         {/* ── Risk Assessment ── */}
         <TabsContent value="risks" className="space-y-4">
+          <div className="flex justify-end"><Button size="sm" className="gap-1.5" onClick={() => { setEditingRisk(null); setShowRiskForm(true); }}><Plus className="h-4 w-4" />Add Risk</Button></div>
           <Card><CardContent className="p-0">
             <DataTable
               columns={[
@@ -277,16 +330,27 @@ export default function SafetyPage() {
                 { key: "likelihood", label: "L", render: (v: number) => <span className="text-xs">{v}</span> },
                 { key: "impact", label: "I", render: (v: number) => <span className="text-xs">{v}</span> },
                 { key: "score", label: "Score", render: (_: unknown, row: Record<string, unknown>) => {
-                  const r = row as unknown as typeof risks[0];
+                  const r = row as unknown as typeof riskList[0];
                   const rs = riskScore(r.likelihood, r.impact);
                   return <span className={`inline-flex items-center justify-center h-7 w-7 rounded text-xs font-bold ${rs.color}`}>{rs.score}</span>;
                 }},
                 { key: "mitigation", label: "Mitigation", render: (v: string) => <span className="text-xs max-w-[200px] text-muted-foreground block">{v}</span> },
                 { key: "status", label: "Status", render: (v: string) => <Badge variant={statusColor[v] || "secondary"} className="text-xs">{v}</Badge> },
                 { key: "owner", label: "Owner", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "actions", label: "", render: (_: unknown, row: Record<string, unknown>) => {
+                  const r = row as unknown as typeof riskList[0];
+                  return (
+                    <EditDeleteMenu
+                      onEdit={() => { setEditingRisk(r); setShowRiskForm(true); }}
+                      onDelete={() => setRiskList(prev => prev.filter(x => x.id !== r.id))}
+                      itemLabel={r.id}
+                    />
+                  );
+                }},
               ] as Column<Record<string, unknown>>[]}
-              data={risks as unknown as Record<string, unknown>[]}
-              
+              data={riskList as unknown as Record<string, unknown>[]}
+              exportable
+              exportFilename="risk-assessments.csv"
               emptyMessage="No risks found."
             />
           </CardContent></Card>
@@ -294,6 +358,7 @@ export default function SafetyPage() {
 
         {/* ── Inspections ── */}
         <TabsContent value="inspections" className="space-y-4">
+          <div className="flex justify-end"><Button size="sm" className="gap-1.5" onClick={() => { setEditingInspection(null); setShowInspectionForm(true); }}><Plus className="h-4 w-4" />Schedule Inspection</Button></div>
           <Card><CardContent className="p-0">
             <DataTable
               columns={[
@@ -305,9 +370,20 @@ export default function SafetyPage() {
                 { key: "findings", label: "Findings", render: (v: number) => <span className="text-xs">{v}</span> },
                 { key: "status", label: "Status", render: (v: string) => <Badge variant={statusColor[v] || "secondary"} className="text-xs">{v}</Badge> },
                 { key: "followUp", label: "Follow-up Actions", render: (v: string) => <span className="text-xs text-muted-foreground max-w-[200px] block">{v}</span> },
+                { key: "actions", label: "", render: (_: unknown, row: Record<string, unknown>) => {
+                  const ins = row as unknown as typeof inspectionList[0];
+                  return (
+                    <EditDeleteMenu
+                      onEdit={() => { setEditingInspection(ins); setShowInspectionForm(true); }}
+                      onDelete={() => setInspectionList(prev => prev.filter(x => x.id !== ins.id))}
+                      itemLabel={ins.id}
+                    />
+                  );
+                }},
               ] as Column<Record<string, unknown>>[]}
-              data={inspections as unknown as Record<string, unknown>[]}
-              
+              data={inspectionList as unknown as Record<string, unknown>[]}
+              exportable
+              exportFilename="safety-inspections.csv"
               emptyMessage="No inspections found."
             />
           </CardContent></Card>
@@ -342,6 +418,7 @@ export default function SafetyPage() {
 
         {/* ── Work Permits ── */}
         <TabsContent value="permits" className="space-y-4">
+          <div className="flex justify-end"><Button size="sm" className="gap-1.5" onClick={() => { setEditingPermit(null); setShowPermitForm(true); }}><Plus className="h-4 w-4" />New Permit</Button></div>
           <Card><CardContent className="p-0">
             <DataTable
               columns={[
@@ -354,9 +431,23 @@ export default function SafetyPage() {
                 { key: "validTo", label: "Valid To", render: (v: string) => <span className="text-xs">{v}</span> },
                 { key: "status", label: "Status", render: (v: string) => <Badge variant={statusColor[v] || "secondary"} className="text-xs">{v}</Badge> },
                 { key: "conditions", label: "Conditions", render: (v: string) => <span className="text-xs text-muted-foreground max-w-[200px] block">{v}</span> },
+                { key: "actions", label: "", render: (_: unknown, row: Record<string, unknown>) => {
+                  const p = row as unknown as typeof permitList[0];
+                  const flow: Record<string, string> = { Pending: "Active", Active: "Expired" };
+                  const next = flow[p.status];
+                  return (
+                    <EditDeleteMenu
+                      onEdit={() => { setEditingPermit(p); setShowPermitForm(true); }}
+                      onDelete={() => setPermitList(prev => prev.filter(x => x.id !== p.id))}
+                      itemLabel={p.id}
+                      extraItems={next ? [{ label: `→ ${next}`, onClick: () => setPermitList(prev => prev.map(x => x.id === p.id ? { ...x, status: next } : x)) }] : []}
+                    />
+                  );
+                }},
               ] as Column<Record<string, unknown>>[]}
-              data={permits as unknown as Record<string, unknown>[]}
-              
+              data={permitList as unknown as Record<string, unknown>[]}
+              exportable
+              exportFilename="work-permits.csv"
               emptyMessage="No permits found."
             />
           </CardContent></Card>
@@ -456,6 +547,51 @@ export default function SafetyPage() {
               assignee: String(data.assignee),
               desc: String(data.desc),
             }, ...prev]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showRiskForm}
+        onOpenChange={(v) => { setShowRiskForm(v); if (!v) setEditingRisk(null); }}
+        title={editingRisk ? `Edit ${editingRisk.id}` : "Add Risk Assessment"}
+        fields={riskFields}
+        initialData={editingRisk ? { category: editingRisk.category, desc: editingRisk.desc, likelihood: editingRisk.likelihood, impact: editingRisk.impact, mitigation: editingRisk.mitigation, owner: editingRisk.owner } : undefined}
+        onSubmit={(data) => {
+          if (editingRisk) {
+            setRiskList(prev => prev.map(r => r.id === editingRisk.id ? { ...r, category: String(data.category), desc: String(data.desc), likelihood: Number(data.likelihood), impact: Number(data.impact), mitigation: String(data.mitigation || ""), owner: String(data.owner) } : r));
+          } else {
+            setRiskList(prev => [{ id: `RSK-${Date.now().toString(36)}`, category: String(data.category), desc: String(data.desc), likelihood: Math.min(5, Math.max(1, Number(data.likelihood))), impact: Math.min(5, Math.max(1, Number(data.impact))), mitigation: String(data.mitigation || ""), status: "Active", owner: String(data.owner) }, ...prev]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showInspectionForm}
+        onOpenChange={(v) => { setShowInspectionForm(v); if (!v) setEditingInspection(null); }}
+        title={editingInspection ? `Edit ${editingInspection.id}` : "Schedule Inspection"}
+        fields={inspectionFields}
+        initialData={editingInspection ? { type: editingInspection.type, area: editingInspection.area, inspector: editingInspection.inspector, findings: editingInspection.findings, followUp: editingInspection.followUp } : undefined}
+        onSubmit={(data) => {
+          if (editingInspection) {
+            setInspectionList(prev => prev.map(i => i.id === editingInspection.id ? { ...i, type: String(data.type), area: String(data.area), inspector: String(data.inspector), findings: Number(data.findings || 0), followUp: String(data.followUp || "None required") } : i));
+          } else {
+            setInspectionList(prev => [{ id: `INS-${Date.now().toString(36)}`, type: String(data.type), area: String(data.area), inspector: String(data.inspector), date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), findings: Number(data.findings || 0), status: "Passed", followUp: String(data.followUp || "None required") }, ...prev]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showPermitForm}
+        onOpenChange={(v) => { setShowPermitForm(v); if (!v) setEditingPermit(null); }}
+        title={editingPermit ? `Edit ${editingPermit.id}` : "New Work Permit"}
+        fields={permitFields}
+        initialData={editingPermit ? { type: editingPermit.type, location: editingPermit.location, requestor: editingPermit.requestor, approver: editingPermit.approver, validFrom: editingPermit.validFrom, validTo: editingPermit.validTo, conditions: editingPermit.conditions } : undefined}
+        onSubmit={(data) => {
+          if (editingPermit) {
+            setPermitList(prev => prev.map(p => p.id === editingPermit.id ? { ...p, type: String(data.type), location: String(data.location), requestor: String(data.requestor), approver: String(data.approver), validFrom: String(data.validFrom), validTo: String(data.validTo), conditions: String(data.conditions || "") } : p));
+          } else {
+            setPermitList(prev => [{ id: `WP-${Date.now().toString(36)}`, type: String(data.type), location: String(data.location), requestor: String(data.requestor), approver: String(data.approver), validFrom: String(data.validFrom), validTo: String(data.validTo), status: "Pending", conditions: String(data.conditions || "") }, ...prev]);
           }
         }}
       />

@@ -45,14 +45,14 @@ const initialInspections = [
 ];
 
 const initialNcrs = [
-  { id: "NCR-0458", date: "Apr 1, 2026", product: "Bearing Housing Unit", desc: "OD out of tolerance by +0.15mm on 3 units", source: "Final Inspection", severity: "Major", rootCause: "Tool wear on CNC lathe #7", status: "Open", owner: "Tom Bradley", cost: "$4,200" },
-  { id: "NCR-0457", date: "Mar 30, 2026", product: "Pneumatic Cylinder", desc: "Seal groove depth insufficient causing leakage", source: "Final Inspection", severity: "Critical", rootCause: "Incorrect program revision loaded", status: "Containment", owner: "Sarah Okafor", cost: "$8,750" },
-  { id: "NCR-0456", date: "Mar 28, 2026", product: "Control Panel PCB", desc: "Solder bridging on J4 connector - 2 boards", source: "In-Process", severity: "Minor", rootCause: "Stencil aperture oversized", status: "Closed", owner: "James Park", cost: "$320" },
-  { id: "NCR-0455", date: "Mar 25, 2026", product: "Hydraulic Valve Assembly", desc: "Hardness below spec on valve seat", source: "Lab Testing", severity: "Major", rootCause: "Heat treatment furnace temp drift", status: "CAPA Issued", owner: "Maria Chen", cost: "$6,100" },
-  { id: "NCR-0454", date: "Mar 22, 2026", product: "Gearbox Casing", desc: "Porosity detected via X-ray on 1 casting", source: "NDT", severity: "Major", rootCause: "Gas entrapment during pour", status: "Closed", owner: "David Kim", cost: "$2,800" },
-  { id: "NCR-0453", date: "Mar 18, 2026", product: "Steel Rod 12mm", desc: "Material certificate mismatch - wrong heat number", source: "Incoming", severity: "Minor", rootCause: "Supplier documentation error", status: "Closed", owner: "Tom Bradley", cost: "$150" },
-  { id: "NCR-0452", date: "Mar 15, 2026", product: "Turbine Blade Forging", desc: "Surface crack detected during FPI", source: "NDT", severity: "Critical", rootCause: "Forging temperature too low", status: "CAPA Issued", owner: "Sarah Okafor", cost: "$12,400" },
-  { id: "NCR-0451", date: "Mar 12, 2026", product: "Aluminum Sheet 3mm", desc: "Thickness variation exceeding +/- 0.05mm", source: "Incoming", severity: "Minor", rootCause: "Supplier rolling process variation", status: "Closed", owner: "David Kim", cost: "$480" },
+  { id: "NCR-0458", date: "Apr 1, 2026", product: "Bearing Housing Unit", desc: "OD out of tolerance by +0.15mm on 3 units", source: "Final Inspection", severity: "Major", rootCause: "Tool wear on CNC lathe #7", status: "Open", owner: "Tom Bradley", cost: "EGP 4,200" },
+  { id: "NCR-0457", date: "Mar 30, 2026", product: "Pneumatic Cylinder", desc: "Seal groove depth insufficient causing leakage", source: "Final Inspection", severity: "Critical", rootCause: "Incorrect program revision loaded", status: "Containment", owner: "Sarah Okafor", cost: "EGP 8,750" },
+  { id: "NCR-0456", date: "Mar 28, 2026", product: "Control Panel PCB", desc: "Solder bridging on J4 connector - 2 boards", source: "In-Process", severity: "Minor", rootCause: "Stencil aperture oversized", status: "Closed", owner: "James Park", cost: "EGP 320" },
+  { id: "NCR-0455", date: "Mar 25, 2026", product: "Hydraulic Valve Assembly", desc: "Hardness below spec on valve seat", source: "Lab Testing", severity: "Major", rootCause: "Heat treatment furnace temp drift", status: "CAPA Issued", owner: "Maria Chen", cost: "EGP 6,100" },
+  { id: "NCR-0454", date: "Mar 22, 2026", product: "Gearbox Casing", desc: "Porosity detected via X-ray on 1 casting", source: "NDT", severity: "Major", rootCause: "Gas entrapment during pour", status: "Closed", owner: "David Kim", cost: "EGP 2,800" },
+  { id: "NCR-0453", date: "Mar 18, 2026", product: "Steel Rod 12mm", desc: "Material certificate mismatch - wrong heat number", source: "Incoming", severity: "Minor", rootCause: "Supplier documentation error", status: "Closed", owner: "Tom Bradley", cost: "EGP 150" },
+  { id: "NCR-0452", date: "Mar 15, 2026", product: "Turbine Blade Forging", desc: "Surface crack detected during FPI", source: "NDT", severity: "Critical", rootCause: "Forging temperature too low", status: "CAPA Issued", owner: "Sarah Okafor", cost: "EGP 12,400" },
+  { id: "NCR-0451", date: "Mar 12, 2026", product: "Aluminum Sheet 3mm", desc: "Thickness variation exceeding +/- 0.05mm", source: "Incoming", severity: "Minor", rootCause: "Supplier rolling process variation", status: "Closed", owner: "David Kim", cost: "EGP 480" },
 ];
 
 const initialCapas = [
@@ -612,7 +612,7 @@ export default function QAQCPage() {
               rootCause: String(data.rootCause) || "Pending investigation",
               status: "Open",
               owner: String(data.owner),
-              cost: String(data.cost) || "$0",
+              cost: String(data.cost) || "EGP 0",
             }, ...ncrs]);
           }
         }}
