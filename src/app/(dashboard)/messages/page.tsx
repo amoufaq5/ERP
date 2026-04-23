@@ -177,15 +177,15 @@ const conversationData: Conversation = {
 const channels = ["All", "Finance", "Engineering", "Hiring", "CRM", "HR", "Inventory", "Design"];
 
 const messageFields: EntityField[] = [
-  { key: "recipient", label: "Recipient", type: "text", required: true },
-  { key: "subject", label: "Subject", type: "text", required: true },
-  { key: "channel", label: "Channel", type: "select", options: [
+  { name: "recipient", label: "Recipient", type: "text", required: true },
+  { name: "subject", label: "Subject", type: "text", required: true },
+  { name: "channel", label: "Channel", type: "select", options: [
     { label: "Finance", value: "Finance" }, { label: "Engineering", value: "Engineering" },
     { label: "Hiring", value: "Hiring" }, { label: "CRM", value: "CRM" },
     { label: "HR", value: "HR" }, { label: "Inventory", value: "Inventory" },
     { label: "Design", value: "Design" },
   ]},
-  { key: "message", label: "Message", type: "textarea", required: true },
+  { name: "message", label: "Message", type: "textarea", required: true },
 ];
 
 export default function MessagesPage() {

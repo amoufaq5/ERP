@@ -59,23 +59,23 @@ const QC_TESTS = [
 ];
 
 const poFields: EntityField[] = [
-  { key: "supplier", label: "Supplier", type: "select", required: true, options: SUPPLIERS.filter(s => s.status === "Approved").map(s => ({ value: s.name, label: `${s.name} (${s.type})` })) },
-  { key: "category", label: "Category", type: "select", required: true, options: [{ value: "Raw Material", label: "Raw Material (API)" }, { value: "Excipient", label: "Excipient" }, { value: "Packaging", label: "Packaging Material" }, { value: "Finished Product", label: "Finished Product" }] },
-  { key: "items", label: "Material / Product", type: "text", required: true },
-  { key: "qty", label: "Quantity", type: "text", required: true },
-  { key: "unitPrice", label: "Unit Price", type: "text", required: true },
-  { key: "total", label: "Total Amount ($)", type: "number", required: true },
-  { key: "expectedDate", label: "Expected Delivery", type: "date", required: true },
-  { key: "notes", label: "Special Requirements", type: "textarea" },
+  { name: "supplier", label: "Supplier", type: "select", required: true, options: SUPPLIERS.filter(s => s.status === "Approved").map(s => ({ value: s.name, label: `${s.name} (${s.type})` })) },
+  { name: "category", label: "Category", type: "select", required: true, options: [{ value: "Raw Material", label: "Raw Material (API)" }, { value: "Excipient", label: "Excipient" }, { value: "Packaging", label: "Packaging Material" }, { value: "Finished Product", label: "Finished Product" }] },
+  { name: "items", label: "Material / Product", type: "text", required: true },
+  { name: "qty", label: "Quantity", type: "text", required: true },
+  { name: "unitPrice", label: "Unit Price", type: "text", required: true },
+  { name: "total", label: "Total Amount ($)", type: "number", required: true },
+  { name: "expectedDate", label: "Expected Delivery", type: "date", required: true },
+  { name: "notes", label: "Special Requirements", type: "textarea" },
 ];
 
 const supplierFields: EntityField[] = [
-  { key: "name", label: "Company Name", type: "text", required: true },
-  { key: "type", label: "Supplier Type", type: "select", required: true, options: [{ value: "API Manufacturer", label: "API Manufacturer" }, { value: "Excipient Supplier", label: "Excipient Supplier" }, { value: "Packaging Supplier", label: "Packaging Supplier" }, { value: "Finished Product", label: "Finished Product Supplier" }] },
-  { key: "country", label: "Country", type: "text", required: true },
-  { key: "contact", label: "Contact Person", type: "text", required: true },
-  { key: "email", label: "Email", type: "email", required: true },
-  { key: "gmpStatus", label: "GMP Certification", type: "select", required: true, options: [{ value: "EU-GMP Certified", label: "EU-GMP Certified" }, { value: "FDA Approved", label: "FDA Approved" }, { value: "WHO-GMP", label: "WHO-GMP" }, { value: "ISO 15378", label: "ISO 15378" }, { value: "Pending", label: "Pending Audit" }] },
+  { name: "name", label: "Company Name", type: "text", required: true },
+  { name: "type", label: "Supplier Type", type: "select", required: true, options: [{ value: "API Manufacturer", label: "API Manufacturer" }, { value: "Excipient Supplier", label: "Excipient Supplier" }, { value: "Packaging Supplier", label: "Packaging Supplier" }, { value: "Finished Product", label: "Finished Product Supplier" }] },
+  { name: "country", label: "Country", type: "text", required: true },
+  { name: "contact", label: "Contact Person", type: "text", required: true },
+  { name: "email", label: "Email", type: "email", required: true },
+  { name: "gmpStatus", label: "GMP Certification", type: "select", required: true, options: [{ value: "EU-GMP Certified", label: "EU-GMP Certified" }, { value: "FDA Approved", label: "FDA Approved" }, { value: "WHO-GMP", label: "WHO-GMP" }, { value: "ISO 15378", label: "ISO 15378" }, { value: "Pending", label: "Pending Audit" }] },
 ];
 
 export default function ProcurementPage() {

@@ -9,15 +9,15 @@ import { EntityFormModal, type EntityField } from "@/components/shared/entity-fo
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
 
 const assetFields: EntityField[] = [
-  { key: "name", label: "Asset Name", type: "text", required: true },
-  { key: "category", label: "Category", type: "select", options: [
+  { name: "name", label: "Asset Name", type: "text", required: true },
+  { name: "category", label: "Category", type: "select", options: [
     { label: "Laptop", value: "Laptop" }, { label: "Monitor", value: "Monitor" },
     { label: "Printer", value: "Printer" }, { label: "Network", value: "Network" },
     { label: "Furniture", value: "Furniture" }, { label: "Other", value: "Other" },
   ]},
-  { key: "purchasePrice", label: "Purchase Price", type: "number", required: true },
-  { key: "location", label: "Location", type: "text" },
-  { key: "assignedTo", label: "Assigned To", type: "text" },
+  { name: "purchasePrice", label: "Purchase Price", type: "number", required: true },
+  { name: "location", label: "Location", type: "text" },
+  { name: "assignedTo", label: "Assigned To", type: "text" },
 ];
 
 const statusColor: Record<string, string> = {

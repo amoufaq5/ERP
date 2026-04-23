@@ -29,23 +29,23 @@ interface DataFlow {
 }
 
 const connectionFields: EntityField[] = [
-  { key: "name", label: "Connection Name", type: "text", required: true },
-  { key: "type", label: "Type", type: "select", required: true, options: [
+  { name: "name", label: "Connection Name", type: "text", required: true },
+  { name: "type", label: "Type", type: "select", required: true, options: [
     { label: "ERP", value: "ERP" }, { label: "CRM", value: "CRM" },
     { label: "Payment", value: "Payment" }, { label: "Storage", value: "Storage" },
     { label: "Messaging", value: "Messaging" }, { label: "Project Mgmt", value: "Project Mgmt" },
     { label: "Data Warehouse", value: "Data Warehouse" }, { label: "Marketing", value: "Marketing" },
   ]},
-  { key: "latency", label: "Expected Latency (ms)", type: "text" },
+  { name: "latency", label: "Expected Latency (ms)", type: "text" },
 ];
 
 const dataFlowFields: EntityField[] = [
-  { key: "source", label: "Source", type: "text", required: true },
-  { key: "dest", label: "Destination", type: "text", required: true },
-  { key: "type", label: "Type", type: "select", required: true, options: [
+  { name: "source", label: "Source", type: "text", required: true },
+  { name: "dest", label: "Destination", type: "text", required: true },
+  { name: "type", label: "Type", type: "select", required: true, options: [
     { label: "Batch", value: "Batch" }, { label: "Real-time", value: "Real-time" }, { label: "Webhook", value: "Webhook" },
   ]},
-  { key: "frequency", label: "Frequency", type: "text", required: true },
+  { name: "frequency", label: "Frequency", type: "text", required: true },
 ];
 
 type ModalMode =

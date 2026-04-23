@@ -21,13 +21,13 @@ interface Workflow {
 }
 
 const workflowFields: EntityField[] = [
-  { key: "name", label: "Workflow Name", type: "text", required: true },
-  { key: "module", label: "Module", type: "select", required: true, options: [
+  { name: "name", label: "Workflow Name", type: "text", required: true },
+  { name: "module", label: "Module", type: "select", required: true, options: [
     { label: "CRM", value: "CRM" }, { label: "ERP", value: "ERP" }, { label: "ATS", value: "ATS" },
   ]},
-  { key: "trigger", label: "Trigger", type: "text", required: true },
-  { key: "conditions", label: "Conditions", type: "text" },
-  { key: "actions", label: "Actions", type: "text" },
+  { name: "trigger", label: "Trigger", type: "text", required: true },
+  { name: "conditions", label: "Conditions", type: "text" },
+  { name: "actions", label: "Actions", type: "text" },
 ];
 
 const initialWorkflows: Workflow[] = [

@@ -60,14 +60,14 @@ const MARKET_ANALYSIS = [
 ];
 
 const visitFields: EntityField[] = [
-  { key: "accompanied", label: "Accompanied (DM/Rep)", type: "text", required: true },
-  { key: "doctor", label: "Doctor Visited", type: "text", required: true },
-  { key: "date", label: "Date", type: "date", required: true },
-  { key: "purpose", label: "Purpose", type: "select", options: [
+  { name: "accompanied", label: "Accompanied (DM/Rep)", type: "text", required: true },
+  { name: "doctor", label: "Doctor Visited", type: "text", required: true },
+  { name: "date", label: "Date", type: "date", required: true },
+  { name: "purpose", label: "Purpose", type: "select", options: [
     "KOL Engagement", "Coaching", "Strategic Account", "New Product Launch", "Performance Review",
   ].map(p => ({ label: p, value: p })) },
-  { key: "observations", label: "Key Observations", type: "textarea" },
-  { key: "followUp", label: "Follow-up Actions", type: "textarea" },
+  { name: "observations", label: "Key Observations", type: "textarea" },
+  { name: "followUp", label: "Follow-up Actions", type: "textarea" },
 ];
 
 export default function MarketeerPage() {

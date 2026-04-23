@@ -29,13 +29,13 @@ interface Doc {
 }
 
 const docFields: EntityField[] = [
-  { key: "name", label: "Document Name", type: "text", required: true },
-  { key: "type", label: "Type", type: "select", required: true, options: [
+  { name: "name", label: "Document Name", type: "text", required: true },
+  { name: "type", label: "Type", type: "select", required: true, options: [
     { label: "PDF", value: "PDF" }, { label: "DOC", value: "DOC" }, { label: "XLS", value: "XLS" },
     { label: "IMG", value: "IMG" }, { label: "PPT", value: "PPT" },
   ]},
-  { key: "category", label: "Category", type: "text" },
-  { key: "module", label: "Module", type: "select", options: [
+  { name: "category", label: "Category", type: "text" },
+  { name: "module", label: "Module", type: "select", options: [
     { label: "ERP", value: "ERP" }, { label: "CRM", value: "CRM" }, { label: "ATS", value: "ATS" },
     { label: "HR", value: "HR" }, { label: "General", value: "General" },
   ]},

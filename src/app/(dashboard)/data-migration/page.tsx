@@ -139,26 +139,26 @@ const statusConfig = {
 };
 
 const jobFields: EntityField[] = [
-  { key: "name", label: "Job Name", type: "text", required: true },
-  { key: "source", label: "Source", type: "text", required: true },
-  { key: "destination", label: "Destination", type: "select", required: true, options: [
+  { name: "name", label: "Job Name", type: "text", required: true },
+  { name: "source", label: "Source", type: "text", required: true },
+  { name: "destination", label: "Destination", type: "select", required: true, options: [
     { label: "CRM Contacts", value: "CRM Contacts" },
     { label: "Inventory Module", value: "Inventory Module" },
     { label: "HR & Payroll", value: "HR & Payroll" },
     { label: "Finance Module", value: "Finance Module" },
     { label: "Procurement", value: "Procurement" },
   ]},
-  { key: "recordsTotal", label: "Estimated Records", type: "number" },
+  { name: "recordsTotal", label: "Estimated Records", type: "number" },
 ];
 
 const sourceFields: EntityField[] = [
-  { key: "name", label: "Source Name", type: "text", required: true },
-  { key: "type", label: "Connection Type", type: "select", required: true, options: [
+  { name: "name", label: "Source Name", type: "text", required: true },
+  { name: "type", label: "Connection Type", type: "select", required: true, options: [
     { label: "File Upload", value: "File Upload" },
     { label: "API Connection", value: "API Connection" },
     { label: "Integration", value: "Integration" },
   ]},
-  { key: "recordCount", label: "Record Count", type: "number" },
+  { name: "recordCount", label: "Record Count", type: "number" },
 ];
 
 type ModalMode =

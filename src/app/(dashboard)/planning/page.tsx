@@ -137,12 +137,12 @@ function getPriorityBadge(priority: string): "default" | "secondary" | "destruct
 }
 
 const planFormFields: EntityField[] = [
-  { key: "objective", label: "Objective", type: "text", required: true },
-  { key: "kpi", label: "KPI / Department", type: "text", required: true },
-  { key: "target", label: "Target", type: "text", required: true },
-  { key: "owner", label: "Owner", type: "text", required: true },
-  { key: "timeline", label: "Timeline", type: "text", required: true },
-  { key: "status", label: "Status", type: "select", options: [
+  { name: "objective", label: "Objective", type: "text", required: true },
+  { name: "kpi", label: "KPI / Department", type: "text", required: true },
+  { name: "target", label: "Target", type: "text", required: true },
+  { name: "owner", label: "Owner", type: "text", required: true },
+  { name: "timeline", label: "Timeline", type: "text", required: true },
+  { name: "status", label: "Status", type: "select", options: [
     { label: "On Track", value: "On Track" },
     { label: "At Risk", value: "At Risk" },
     { label: "Behind", value: "Behind" },

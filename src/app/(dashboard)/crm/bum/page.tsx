@@ -74,15 +74,15 @@ const REGIONAL_COMPARISON = [
 ];
 
 const visitFields: EntityField[] = [
-  { key: "region", label: "Region", type: "select", options: ["North", "South", "East", "West"].map(r => ({ label: `${r} Region`, value: `${r} Region` })) },
-  { key: "accompanied", label: "Accompanied", type: "text", required: true },
-  { key: "doctor", label: "Doctor/KOL", type: "text", required: true },
-  { key: "date", label: "Date", type: "date", required: true },
-  { key: "purpose", label: "Purpose", type: "select", options: [
+  { name: "region", label: "Region", type: "select", options: ["North", "South", "East", "West"].map(r => ({ label: `${r} Region`, value: `${r} Region` })) },
+  { name: "accompanied", label: "Accompanied", type: "text", required: true },
+  { name: "doctor", label: "Doctor/KOL", type: "text", required: true },
+  { name: "date", label: "Date", type: "date", required: true },
+  { name: "purpose", label: "Purpose", type: "select", options: [
     "KOL Management", "Strategic Account", "Launch Event", "Performance Review",
   ].map(p => ({ label: p, value: p })) },
-  { key: "notes", label: "Notes", type: "textarea" },
-  { key: "actions", label: "Action Items", type: "textarea" },
+  { name: "notes", label: "Notes", type: "textarea" },
+  { name: "actions", label: "Action Items", type: "textarea" },
 ];
 
 export default function BUMPage() {

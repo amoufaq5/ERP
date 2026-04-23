@@ -144,15 +144,15 @@ const initialRoles = [
 ]
 
 const fieldFormFields: EntityField[] = [
-  { key: "entity", label: "Entity", type: "select", options: [
+  { name: "entity", label: "Entity", type: "select", options: [
     { label: "CRM Contact", value: "CRM" },
     { label: "CRM Lead", value: "Sales" },
     { label: "HR Employee", value: "HR" },
     { label: "Finance Invoice", value: "Finance" },
     { label: "Inventory Product", value: "Inventory" },
   ]},
-  { key: "fieldName", label: "Field Name", type: "text", required: true },
-  { key: "fieldType", label: "Field Type", type: "select", options: [
+  { name: "fieldName", label: "Field Name", type: "text", required: true },
+  { name: "fieldType", label: "Field Type", type: "select", options: [
     { label: "Text", value: "Text" },
     { label: "Number", value: "Number" },
     { label: "Date", value: "Date" },
@@ -160,30 +160,30 @@ const fieldFormFields: EntityField[] = [
     { label: "Boolean", value: "Boolean" },
     { label: "Formula", value: "Formula" },
   ]},
-  { key: "required", label: "Required", type: "select", options: [
+  { name: "required", label: "Required", type: "select", options: [
     { label: "Yes", value: "Yes" },
     { label: "No", value: "No" },
   ]},
-  { key: "defaultValue", label: "Default Value", type: "text" },
+  { name: "defaultValue", label: "Default Value", type: "text" },
 ]
 
 const workflowFormFields: EntityField[] = [
-  { key: "name", label: "Name", type: "text", required: true },
-  { key: "trigger", label: "Trigger", type: "select", options: [
+  { name: "name", label: "Name", type: "text", required: true },
+  { name: "trigger", label: "Trigger", type: "select", options: [
     { label: "Record Created", value: "Record Created" },
     { label: "Record Updated", value: "Record Updated" },
     { label: "Field Changed", value: "Field Changed" },
     { label: "Scheduled", value: "Scheduled" },
     { label: "Manual", value: "Manual" },
   ]},
-  { key: "conditions", label: "Conditions", type: "text" },
-  { key: "actions", label: "Actions", type: "textarea", required: true },
+  { name: "conditions", label: "Conditions", type: "text" },
+  { name: "actions", label: "Actions", type: "textarea", required: true },
 ]
 
 const roleFormFields: EntityField[] = [
-  { key: "roleName", label: "Role Name", type: "text", required: true },
-  { key: "description", label: "Description", type: "textarea", required: true },
-  { key: "permissions", label: "Permissions", type: "text" },
+  { name: "roleName", label: "Role Name", type: "text", required: true },
+  { name: "description", label: "Description", type: "textarea", required: true },
+  { name: "permissions", label: "Permissions", type: "text" },
 ]
 
 type EcoModalMode =
