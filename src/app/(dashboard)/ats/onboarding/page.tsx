@@ -8,6 +8,7 @@ import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { Button } from "@/components/ui/button";
@@ -115,6 +116,7 @@ export default function OnboardingPage() {
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", category: "" });
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<OnboardingTask | null>(null);
+  const [detailTask, setDetailTask] = useState<OnboardingTask | null>(null);
 
   const totalHires = employees.length;
   const inProgress = employees.filter((e) => e.progress < 100).length;
@@ -159,6 +161,8 @@ export default function OnboardingPage() {
           <EditDeleteMenu
             onEdit={() => { setEditing(t); setShowModal(true); }}
             onDelete={() => setTasks((prev) => prev.filter((x) => x.id !== t.id))}
+            onView={() => setDetailTask(t)}
+            canView
             itemLabel={t.task}
             extraItems={[
               ...(next ? [{ label: `Mark ${next.replace(/_/g, " ")}`, onClick: () => setTasks((prev) => prev.map((x) => x.id === t.id ? { ...x, status: next } : x)) }] : []),
