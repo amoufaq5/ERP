@@ -9,6 +9,7 @@ import { EntityFormModal, type EntityField } from "@/components/shared/entity-fo
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
+import { downloadCSV } from "@/lib/download";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 
@@ -173,6 +174,31 @@ export default function LeadsPage() {
           />
         </div>
         <DataTable
+          selectable
+          bulkActions={[
+            { key: "delete", label: "Delete Selected", variant: "destructive" },
+            { key: "export", label: "Export Selected" },
+          ]}
+          onBulkAction={(action, rows) => {
+            if (action === "delete") {
+              const ids = new Set((rows as unknown as Lead[]).map((r) => r.id));
+              setLeads((prev) => prev.filter((l) => !ids.has(l.id)));
+            } else if (action === "export") {
+              const csvColumns = [
+                { key: "id" as const, label: "ID" },
+                { key: "firstName" as const, label: "First Name" },
+                { key: "lastName" as const, label: "Last Name" },
+                { key: "email" as const, label: "Email" },
+                { key: "company" as const, label: "Company" },
+                { key: "source" as const, label: "Source" },
+                { key: "score" as const, label: "Score" },
+                { key: "status" as const, label: "Status" },
+                { key: "assignedTo" as const, label: "Assigned To" },
+                { key: "value" as const, label: "Value" },
+              ];
+              downloadCSV("leads-selected.csv", rows as unknown as Record<string, unknown>[], csvColumns);
+            }
+          }}
           columns={[
             {
               key: "firstName",

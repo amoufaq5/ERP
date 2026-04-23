@@ -190,13 +190,26 @@ const supplierFields: EntityField[] = [
   ]},
 ];
 
-type ModalMode = { type: "po"; editing: typeof purchaseOrders[0] | null } | { type: "supplier"; editing: typeof suppliers[0] | null } | null;
+const contractFields: EntityField[] = [
+  { name: "title", label: "Title", type: "text", required: true, fullWidth: true },
+  { name: "supplier", label: "Supplier", type: "text", required: true },
+  { name: "startDate", label: "Start Date", type: "date", required: true },
+  { name: "endDate", label: "End Date", type: "date", required: true },
+  { name: "value", label: "Value ($)", type: "number", required: true, placeholder: "0" },
+  { name: "status", label: "Status", type: "select", defaultValue: "Active", options: [
+    { label: "Active", value: "Active" }, { label: "Pending", value: "Pending" },
+    { label: "Expired", value: "Expired" },
+  ]},
+];
+
+type ModalMode = { type: "po"; editing: typeof purchaseOrders[0] | null } | { type: "supplier"; editing: typeof suppliers[0] | null } | { type: "contract" } | null;
 
 export default function SupplyChainPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [modal, setModal] = useState<ModalMode>(null);
   const [pos, setPos] = useState(purchaseOrders);
   const [supplierList, setSupplierList] = useState(suppliers);
+  const [contractList, setContractList] = useState(contracts);
   const [poFilters, setPoFilters] = useState<FilterState>({});
   const [supFilters, setSupFilters] = useState<FilterState>({});
 
@@ -538,7 +551,7 @@ export default function SupplyChainPage() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search contracts..." className="pl-8" />
             </div>
-            <Button size="sm"><Plus className="mr-2 h-4 w-4" />New Contract</Button>
+            <Button size="sm" onClick={() => setModal({ type: "contract" })}><Plus className="mr-2 h-4 w-4" />New Contract</Button>
           </div>
           <Card>
             <CardHeader>
@@ -557,8 +570,8 @@ export default function SupplyChainPage() {
                   { key: "status", label: "Status", render: (v: string) => contractStatusBadge(v) },
                   { key: "renewal", label: "Renewal", render: (v: string) => <Badge variant="outline">{v}</Badge> },
                 ] as Column<Record<string, unknown>>[]}
-                data={contracts as unknown as Record<string, unknown>[]}
-                
+                data={contractList as unknown as Record<string, unknown>[]}
+
                 emptyMessage="No contracts found."
               />
             </CardContent>
@@ -770,6 +783,28 @@ export default function SupplyChainPage() {
                 risk: String(data.risk) || "Low",
               }, ...prev]);
             }
+          }}
+        />
+      )}
+      {/* Contract Modal */}
+      {modal?.type === "contract" && (
+        <EntityFormModal
+          open
+          onOpenChange={() => setModal(null)}
+          title="New Contract"
+          fields={contractFields}
+          submitLabel="Create"
+          onSubmit={(data) => {
+            setContractList(prev => [{
+              id: `CTR-${Date.now().toString(36)}`,
+              supplier: String(data.supplier),
+              type: String(data.title),
+              value: `$${Number(data.value).toLocaleString()}`,
+              start: String(data.startDate),
+              end: String(data.endDate),
+              status: String(data.status) || "Active",
+              renewal: "Manual",
+            }, ...prev]);
           }}
         />
       )}

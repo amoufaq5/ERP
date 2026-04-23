@@ -201,8 +201,9 @@ export default function EcosystemPage() {
   const [modal, setModal] = useState<EcoModalMode>(null)
   const [mpFilters, setMpFilters] = useState<FilterState>({ _search: "", category: "" })
   const [tplFilters, setTplFilters] = useState<FilterState>({ _search: "", type: "" })
+  const [mpApps, setMpApps] = useState(marketplaceApps)
 
-  const filteredApps = marketplaceApps.filter((app) => {
+  const filteredApps = mpApps.filter((app) => {
     if (mpFilters.category && app.category !== mpFilters.category) return false;
     if (mpFilters._search) {
       const q = mpFilters._search.toLowerCase();
@@ -333,12 +334,12 @@ export default function EcosystemPage() {
                   <Badge variant="outline" className="text-xs mr-1">{app.category}</Badge>
                   <div className="mt-3">
                     {app.installed ? (
-                      <Button variant="outline" size="sm" className="w-full">
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => setMpApps(prev => prev.map(a => a.id === app.id ? { ...a, installed: false } : a))}>
                         <Settings className="mr-2 h-3 w-3" />
                         Configure
                       </Button>
                     ) : (
-                      <Button size="sm" className="w-full">
+                      <Button size="sm" className="w-full" onClick={() => setMpApps(prev => prev.map(a => a.id === app.id ? { ...a, installed: true } : a))}>
                         <Download className="mr-2 h-3 w-3" />
                         Install
                       </Button>

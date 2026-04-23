@@ -6,6 +6,7 @@ import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { Button } from "@/components/ui/button";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import DataTable from "@/components/shared/data-table";
@@ -117,6 +118,7 @@ export default function InterviewsPage() {
   const [view, setView] = useState<"table" | "calendar">("table");
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Interview | null>(null);
+  const [detailInterview, setDetailInterview] = useState<Interview | null>(null);
 
   const filtered = interviews.filter((i) => {
     const q = (filters._search || "").toLowerCase();
@@ -273,6 +275,8 @@ export default function InterviewsPage() {
                     <EditDeleteMenu
                       onEdit={() => { setEditing(iv); setShowModal(true); }}
                       onDelete={() => setInterviews((prev) => prev.filter((x) => x.id !== iv.id))}
+                      onView={() => setDetailInterview(iv)}
+                      canView
                       itemLabel={`${iv.candidate} interview`}
                       extraItems={[
                         ...(statusFlow[iv.status] ? [{ label: `Mark ${statusFlow[iv.status]}`, onClick: () => setInterviews((prev) => prev.map((x) => x.id === iv.id ? { ...x, status: statusFlow[iv.status] } : x)) }] : []),
@@ -328,6 +332,49 @@ export default function InterviewsPage() {
           setEditing(null);
         }}
       />
+
+      {/* ── Interview Detail Dialog ── */}
+      <Dialog open={!!detailInterview} onOpenChange={(open) => { if (!open) setDetailInterview(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailInterview?.candidate} &mdash; Interview</DialogTitle>
+          </DialogHeader>
+          {detailInterview && (
+            <div className="space-y-5">
+              {/* Prominent date/time banner */}
+              <div className="rounded-lg bg-primary/5 border border-primary/20 p-4 flex items-center gap-4">
+                <Calendar className="h-8 w-8 text-primary" />
+                <div>
+                  <p className="text-lg font-semibold text-foreground">{detailInterview.date} at {detailInterview.time}</p>
+                  <p className="text-sm text-muted-foreground">{detailInterview.duration} minutes &middot; {detailInterview.type.replace(/_/g, " ")}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><span className="text-sm text-muted-foreground">Candidate</span><p className="font-medium">{detailInterview.candidate}</p></div>
+                <div><span className="text-sm text-muted-foreground">Position</span><p className="font-medium">{detailInterview.job}</p></div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Interview Type</span>
+                  <p><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TYPE_COLORS[detailInterview.type] ?? ""}`}>{detailInterview.type.replace(/_/g, " ")}</span></p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <p><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[detailInterview.status] ?? ""}`}>{detailInterview.status}</span></p>
+                </div>
+                <div><span className="text-sm text-muted-foreground">Interviewer</span><p className="font-medium">{detailInterview.interviewer}</p></div>
+                <div><span className="text-sm text-muted-foreground">Interviewer Role</span><p className="font-medium">{detailInterview.interviewerRole}</p></div>
+                <div><span className="text-sm text-muted-foreground">Duration</span><p className="font-medium">{detailInterview.duration} minutes</p></div>
+              </div>
+              {/* Rating */}
+              <div>
+                <span className="text-sm text-muted-foreground">Rating</span>
+                <div className="mt-1">
+                  <StarRating rating={detailInterview.rating} />
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
 } from "@/components/shared/entity-form-modal";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
+import { downloadCSV } from "@/lib/download";
 
 /* ─── Types ────────────────────────────────────────────────────────── */
 
@@ -442,6 +443,27 @@ export default function HRPage() {
           <Card>
             <CardContent className="p-0">
               <DataTable
+                selectable
+                bulkActions={[
+                  { key: "export", label: "Export Selected" },
+                ]}
+                onBulkAction={(action, rows) => {
+                  if (action === "export") {
+                    const csvColumns = [
+                      { key: "employeeNumber" as const, label: "Employee #" },
+                      { key: "firstName" as const, label: "First Name" },
+                      { key: "lastName" as const, label: "Last Name" },
+                      { key: "email" as const, label: "Email" },
+                      { key: "phone" as const, label: "Phone" },
+                      { key: "department" as const, label: "Department" },
+                      { key: "position" as const, label: "Position" },
+                      { key: "hireDate" as const, label: "Hire Date" },
+                      { key: "salary" as const, label: "Salary" },
+                      { key: "status" as const, label: "Status" },
+                    ];
+                    downloadCSV("employees-selected.csv", rows as unknown as Record<string, unknown>[], csvColumns);
+                  }
+                }}
                 columns={[
                   { key: "firstName", label: "Employee", render: (_v, row) => {
                     const r = row as unknown as Employee;

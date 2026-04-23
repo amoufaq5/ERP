@@ -8,6 +8,7 @@ import DataTable, { Column } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 
@@ -105,6 +106,7 @@ export default function CandidatesPage() {
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", source: "" });
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Candidate | null>(null);
+  const [detailCandidate, setDetailCandidate] = useState<Candidate | null>(null);
 
   const filtered = candidates.filter((c) => {
     const q = (filters._search || "").toLowerCase();
@@ -163,6 +165,8 @@ export default function CandidatesPage() {
           <EditDeleteMenu
             onEdit={() => { setEditing(row); setShowModal(true); }}
             onDelete={() => setCandidates((prev) => prev.filter((c) => c.id !== row.id))}
+            onView={() => setDetailCandidate(row)}
+            canView
             itemLabel={row.name}
             extraItems={[
               ...(next ? [{ label: `Move to ${next}`, onClick: () => setCandidates((prev) => prev.map((c) => c.id === row.id ? { ...c, status: next } : c)) }] : []),
@@ -241,6 +245,43 @@ export default function CandidatesPage() {
           setEditing(null);
         }}
       />
+
+      {/* ── Candidate Detail Dialog ── */}
+      <Dialog open={!!detailCandidate} onOpenChange={(open) => { if (!open) setDetailCandidate(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailCandidate?.name}</DialogTitle>
+          </DialogHeader>
+          {detailCandidate && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div><span className="text-sm text-muted-foreground">Full Name</span><p className="font-medium">{detailCandidate.name}</p></div>
+                <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{detailCandidate.email}</p></div>
+                <div><span className="text-sm text-muted-foreground">Current Employer</span><p className="font-medium">{detailCandidate.currentCompany || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Applied For</span><p className="font-medium">{detailCandidate.appliedFor}</p></div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <p><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[detailCandidate.status] ?? ""}`}>{detailCandidate.status}</span></p>
+                </div>
+                <div><span className="text-sm text-muted-foreground">Source</span><p className="font-medium">{detailCandidate.source}</p></div>
+                <div><span className="text-sm text-muted-foreground">Degree / Qualification</span><p className="font-medium">{detailCandidate.degree || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Experience</span><p className="font-medium">{detailCandidate.experience || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Applied Date</span><p className="font-medium">{detailCandidate.appliedDate}</p></div>
+              </div>
+              {/* Rating with stars */}
+              <div>
+                <span className="text-sm text-muted-foreground">Rating</span>
+                <div className="flex items-center gap-1 mt-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} className={`h-5 w-5 ${s <= detailCandidate.rating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/30"}`} />
+                  ))}
+                  <span className="ml-2 font-semibold">{detailCandidate.rating} / 5</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
