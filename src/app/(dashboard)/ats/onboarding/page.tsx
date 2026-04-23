@@ -289,6 +289,43 @@ export default function OnboardingPage() {
           setEditing(null);
         }}
       />
+
+      {/* ── Onboarding Task Detail Dialog ── */}
+      <Dialog open={!!detailTask} onOpenChange={(open) => { if (!open) setDetailTask(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailTask?.task}</DialogTitle>
+          </DialogHeader>
+          {detailTask && (() => {
+            const statusColors: Record<string, string> = {
+              PENDING: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400",
+              IN_PROGRESS: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+              COMPLETED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+            };
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Employee</span><p className="font-medium">{detailTask.employee}</p></div>
+                  <div>
+                    <span className="text-sm text-muted-foreground">Category</span>
+                    <p><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${CATEGORY_COLORS[detailTask.category]}`}>{detailTask.category.replace(/_/g, " ")}</span></p>
+                  </div>
+                  <div><span className="text-sm text-muted-foreground">Assigned To</span><p className="font-medium">{detailTask.assignedTo}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Due Date</span><p className="font-medium">{detailTask.dueDate}</p></div>
+                  <div>
+                    <span className="text-sm text-muted-foreground">Status</span>
+                    <p><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusColors[detailTask.status]}`}>{detailTask.status.replace(/_/g, " ")}</span></p>
+                  </div>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Task Description</span>
+                  <p className="font-medium mt-1">{detailTask.task}</p>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
