@@ -145,7 +145,7 @@ export default function ReturnsPage() {
               { key: "reason", label: "Reason", type: "select", options: REASONS.map(r => ({ label: r, value: r })) },
             ]}
             values={retFilters}
-            onChange={setRetFilters}
+            onChange={(k, v) => setRetFilters(f => ({ ...f, [k]: v }))}
             rightSlot={<Button size="sm" onClick={() => setModal({ kind: "return", editing: null })}><Plus className="mr-2 h-4 w-4" />Add Return</Button>}
           />
           <Card>

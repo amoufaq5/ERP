@@ -262,7 +262,7 @@ export default function CompliancePage() {
               ]},
             ]}
             values={regFilters}
-            onChange={setRegFilters}
+            onChange={(k, v) => setRegFilters(f => ({ ...f, [k]: v }))}
             rightSlot={<Button size="sm" onClick={() => { setEditingReg(null); setShowForm(true); }}><Plus className="mr-2 h-4 w-4" />Add</Button>}
           />
           <Card><CardContent className="p-0">
@@ -315,7 +315,7 @@ export default function CompliancePage() {
               ]},
             ]}
             values={violFilters}
-            onChange={setViolFilters}
+            onChange={(k, v) => setViolFilters(f => ({ ...f, [k]: v }))}
           />
           <Card><CardContent className="p-0">
             <DataTable

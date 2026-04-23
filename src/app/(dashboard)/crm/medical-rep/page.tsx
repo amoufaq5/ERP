@@ -462,7 +462,7 @@ export default function MedicalRepPage() {
               },
             ]}
             values={doctorFilters}
-            onChange={setDoctorFilters}
+            onChange={(k, v) => setDoctorFilters(f => ({ ...f, [k]: v }))}
             collapsible
           />
 
@@ -566,7 +566,7 @@ export default function MedicalRepPage() {
               { key: "to", label: "To", type: "date" },
             ]}
             values={visitFilters}
-            onChange={setVisitFilters}
+            onChange={(k, v) => setVisitFilters(f => ({ ...f, [k]: v }))}
             collapsible
           />
           <Card>

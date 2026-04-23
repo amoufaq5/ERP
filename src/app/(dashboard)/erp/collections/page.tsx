@@ -349,7 +349,7 @@ export default function CollectionsPage() {
               { key: "status", label: "Status", type: "select", options: [{ label: "Draft", value: "DRAFT" }, { label: "Sent", value: "SENT" }, { label: "Partial", value: "PARTIAL" }, { label: "Overdue", value: "OVERDUE" }] },
             ]}
             values={filters}
-            onChange={setFilters}
+            onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))}
           />
           <Card>
             <CardContent className="p-0">
@@ -422,7 +422,7 @@ export default function CollectionsPage() {
               { key: "verified", label: "Verified", type: "select", options: [{ label: "Yes", value: "true" }, { label: "No", value: "false" }] },
             ]}
             values={paymentFilters}
-            onChange={setPaymentFilters}
+            onChange={(k, v) => setPaymentFilters(f => ({ ...f, [k]: v }))}
             rightSlot={<Button size="sm" onClick={handleCreatePayment}><Plus className="h-3.5 w-3.5 mr-1" />Record Payment</Button>}
           />
           <Card>
@@ -511,7 +511,7 @@ export default function CollectionsPage() {
               { key: "type", label: "Type", type: "select", options: [{ label: "Incoming", value: "INCOMING" }, { label: "Outgoing", value: "OUTGOING" }] },
             ]}
             values={chequeFilters}
-            onChange={setChequeFilters}
+            onChange={(k, v) => setChequeFilters(f => ({ ...f, [k]: v }))}
             rightSlot={<Button size="sm" onClick={handleCreateCheque}><Plus className="h-3.5 w-3.5 mr-1" />Add Cheque</Button>}
           />
 

@@ -252,7 +252,7 @@ export default function AccountingPage() {
     const rows = store.customers.map((c) => ({
       Code: c.code, Name: c.name, Type: c.type, Phone: c.phone, Outstanding: c.outstanding, CreditLimit: c.creditLimit, Status: c.status,
     }));
-    downloadCSV(rows, "customers");
+    downloadCSV("customers.csv", rows);
   }
 
   return (
@@ -293,7 +293,7 @@ export default function AccountingPage() {
               { key: "type", label: "Type", type: "select", options: ["Pharmacy Chain", "Hospital", "Distributor", "Government"].map((t) => ({ label: t, value: t })) },
             ]}
             values={custFilters}
-            onChange={setCustFilters}
+            onChange={(k, v) => setCustFilters(f => ({ ...f, [k]: v }))}
             rightSlot={
               <Button size="sm" onClick={() => { setEditingCustomer(null); setCustFormOpen(true); }}>
                 <Plus className="h-3 w-3 mr-1" /> Add
@@ -413,7 +413,7 @@ export default function AccountingPage() {
               { key: "status", label: "Status", type: "select", options: [{ label: "Pending", value: "PENDING" }, { label: "Deposited", value: "DEPOSITED" }, { label: "Cleared", value: "CLEARED" }, { label: "Bounced", value: "BOUNCED" }] },
             ]}
             values={chequeFilters}
-            onChange={setChequeFilters}
+            onChange={(k, v) => setChequeFilters(f => ({ ...f, [k]: v }))}
             rightSlot={
               <Button size="sm" onClick={() => { setEditingCheque(null); setChequeFormOpen(true); }}>
                 <Plus className="h-3 w-3 mr-1" /> Add

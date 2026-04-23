@@ -483,7 +483,7 @@ export default function DataUploadPage() {
                   const keyMap: Record<string, string> = { Customers: "customers", Vendors: "vendors", Products: "products", Cheques: "cheques", Invoices: "invoices", Doctors: "doctors", Visits: "visits", Tasks: "tasks" };
                   const key = keyMap[mod];
                   if (!key) return;
-                  const data = (store as Record<string, unknown>)[key];
+                  const data = (store as unknown as Record<string, unknown>)[key];
                   if (!Array.isArray(data) || data.length === 0) { alert("No data to export for " + mod); return; }
 
                   let content: string;

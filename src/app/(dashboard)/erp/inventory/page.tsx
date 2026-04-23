@@ -271,9 +271,9 @@ export default function InventoryPage() {
         actions={
           <>
             <Button variant="outline" onClick={() =>
-              tab === "raw" ? downloadCSV("raw-materials.csv", rawMaterials)
-              : tab === "finished" ? downloadCSV("finished-products.csv", finishedProducts)
-              : downloadCSV("warehouses.csv", warehouses)
+              tab === "raw" ? downloadCSV("raw-materials.csv", rawMaterials as unknown as Record<string, unknown>[])
+              : tab === "finished" ? downloadCSV("finished-products.csv", finishedProducts as unknown as Record<string, unknown>[])
+              : downloadCSV("warehouses.csv", warehouses as unknown as Record<string, unknown>[])
             }>
               <Download className="h-4 w-4 mr-2" /> Export
             </Button>
@@ -318,7 +318,7 @@ export default function InventoryPage() {
               { key: "qcStatus", label: "QC Status", type: "select", options: [{ label: "Approved", value: "Approved" }, { label: "Quarantine", value: "Quarantine" }, { label: "Rejected", value: "Rejected" }] },
               { key: "warehouse", label: "Warehouse", type: "select", options: warehouseNames.map((w) => ({ label: w, value: w })) },
             ]}
-            values={filters} onChange={setFilters} />
+            values={filters} onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))} />
           <Card>
             <CardContent className="overflow-x-auto p-0">
               <table className="w-full text-sm">
@@ -373,7 +373,7 @@ export default function InventoryPage() {
               { key: "form", label: "Form", type: "select", options: [{ label: "Tablet", value: "Tablet" }, { label: "Capsule", value: "Capsule" }, { label: "Syrup", value: "Syrup" }, { label: "Injection", value: "Injection" }, { label: "Cream", value: "Cream" }, { label: "Suspension", value: "Suspension" }] },
               { key: "warehouse", label: "Warehouse", type: "select", options: warehouseNames.map((w) => ({ label: w, value: w })) },
             ]}
-            values={filters} onChange={setFilters} />
+            values={filters} onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))} />
           <Card>
             <CardContent className="overflow-x-auto p-0">
               <table className="w-full text-sm">

@@ -210,7 +210,7 @@ export default function DoctorsPage() {
           { key: "assignedRepId", label: "Assigned Rep", type: "select", options: repOptions },
         ]}
         values={filters}
-        onChange={setFilters}
+        onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))}
         collapsible
       />
 

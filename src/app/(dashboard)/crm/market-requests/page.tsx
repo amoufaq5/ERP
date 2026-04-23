@@ -300,7 +300,7 @@ export default function MarketRequestsPage() {
               },
             ]}
             values={filters}
-            onChange={setFilters}
+            onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))}
             collapsible
           />
 

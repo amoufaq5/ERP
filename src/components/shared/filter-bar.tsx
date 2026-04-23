@@ -34,7 +34,7 @@ interface FilterBarProps {
   onSearchChange: (v: string) => void;
   fields?: FilterField[];
   values?: FilterState;
-  onChange?: (values: FilterState) => void;
+  onChange?: (key: string, value: string) => void;
   rightSlot?: React.ReactNode;
   collapsible?: boolean;
 }
@@ -57,17 +57,15 @@ export function FilterBar({
   );
 
   function setValue(key: string, v: string) {
-    onChange?.({ ...values, [key]: v });
+    onChange?.(key, v);
   }
 
   function clearAll() {
     onSearchChange("");
     if (onChange) {
-      const cleared: FilterState = {};
       fields.forEach((f) => {
-        cleared[f.key] = "";
+        onChange(f.key, "");
       });
-      onChange(cleared);
     }
   }
 

@@ -301,7 +301,7 @@ export default function SupplyChainPage() {
               ]},
             ]}
             values={poFilters}
-            onChange={setPoFilters}
+            onChange={(k, v) => setPoFilters(f => ({ ...f, [k]: v }))}
             rightSlot={<Button size="sm" onClick={() => setModal({ type: "po", editing: null })}><Plus className="mr-2 h-4 w-4" />Add PO</Button>}
           />
           <Card>
@@ -362,7 +362,7 @@ export default function SupplyChainPage() {
               ]},
             ]}
             values={supFilters}
-            onChange={setSupFilters}
+            onChange={(k, v) => setSupFilters(f => ({ ...f, [k]: v }))}
             rightSlot={<Button size="sm" onClick={() => setModal({ type: "supplier", editing: null })}><Plus className="mr-2 h-4 w-4" />Add Supplier</Button>}
           />
           <Card>

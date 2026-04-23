@@ -445,7 +445,7 @@ export default function TasksPage() {
               { key: "buId", label: "Business Unit", type: "select", options: buOptions },
             ]}
             values={filters}
-            onChange={setFilters}
+            onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))}
             collapsible
           />
 
@@ -492,7 +492,7 @@ export default function TasksPage() {
                 },
               ]}
               values={filters}
-              onChange={setFilters}
+              onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))}
               collapsible
             />
 

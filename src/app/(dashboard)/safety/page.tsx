@@ -228,7 +228,7 @@ export default function SafetyPage() {
               ]},
             ]}
             values={incFilters}
-            onChange={setIncFilters}
+            onChange={(k, v) => setIncFilters(f => ({ ...f, [k]: v }))}
           />
           <Card><CardContent className="p-0">
             <DataTable

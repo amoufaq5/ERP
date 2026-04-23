@@ -218,7 +218,7 @@ export default function ManufacturingPage() {
               { key: "status", label: "Status", type: "select", options: [{ label: "Planned", value: "PLANNED" }, { label: "In Progress", value: "IN_PROGRESS" }, { label: "Completed", value: "COMPLETED" }, { label: "Cancelled", value: "CANCELLED" }] },
               { key: "priority", label: "Priority", type: "select", options: [{ label: "Low", value: "LOW" }, { label: "Medium", value: "MEDIUM" }, { label: "High", value: "HIGH" }, { label: "Urgent", value: "URGENT" }] },
             ]}
-            values={filters} onChange={setFilters}
+            values={filters} onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))}
             rightSlot={<Button size="sm" onClick={handleCreateWO}><Plus className="h-3.5 w-3.5 mr-1" />New Work Order</Button>} />
 
           <Card>

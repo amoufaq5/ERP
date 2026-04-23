@@ -296,7 +296,7 @@ export default function FacilityPage() {
               ]},
             ]}
             values={woFilters}
-            onChange={setWoFilters}
+            onChange={(k, v) => setWoFilters(f => ({ ...f, [k]: v }))}
             rightSlot={<Button size="sm" onClick={() => { setEditingWo(null); setShowForm(true); }}><Plus className="mr-2 h-4 w-4" />Create Work Order</Button>}
           />
           <Card>

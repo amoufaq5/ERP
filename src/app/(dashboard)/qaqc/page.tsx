@@ -267,7 +267,7 @@ export default function QAQCPage() {
               ]},
             ]}
             values={ncrFilters}
-            onChange={setNcrFilters}
+            onChange={(k, v) => setNcrFilters(f => ({ ...f, [k]: v }))}
             rightSlot={<Button size="sm" onClick={() => { setEditingNcr(null); setShowForm(true); }}><Plus className="mr-2 h-4 w-4" />Add NCR</Button>}
           />
           <Card>

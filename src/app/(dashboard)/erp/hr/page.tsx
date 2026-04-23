@@ -421,7 +421,7 @@ export default function HRPage() {
               { key: "status", label: "Status", type: "select", options: uniqueStatuses.map((s) => ({ label: s, value: s })) },
             ]}
             values={filters}
-            onChange={setFilters}
+            onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))}
           />
 
           <Card>
@@ -518,7 +518,7 @@ export default function HRPage() {
               { key: "type", label: "Type", type: "select", options: [{ label: "Annual", value: "ANNUAL" }, { label: "Sick", value: "SICK" }, { label: "Personal", value: "PERSONAL" }] },
             ]}
             values={leaveFilters}
-            onChange={setLeaveFilters}
+            onChange={(k, v) => setLeaveFilters(f => ({ ...f, [k]: v }))}
             rightSlot={
               <Button size="sm" onClick={handleCreateLeave}><Plus className="h-3.5 w-3.5 mr-1" />Request Leave</Button>
             }
@@ -588,7 +588,7 @@ export default function HRPage() {
               { key: "status", label: "Status", type: "select", options: [{ label: "Draft", value: "DRAFT" }, { label: "Processed", value: "PROCESSED" }, { label: "Paid", value: "PAID" }] },
             ]}
             values={payrollFilters}
-            onChange={setPayrollFilters}
+            onChange={(k, v) => setPayrollFilters(f => ({ ...f, [k]: v }))}
             rightSlot={
               <Button size="sm" onClick={handleCreatePayroll}><Plus className="h-3.5 w-3.5 mr-1" />Add Payroll</Button>
             }
