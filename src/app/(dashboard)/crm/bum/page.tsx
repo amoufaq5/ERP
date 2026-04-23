@@ -53,12 +53,12 @@ const PERFORMANCE = [
 ];
 
 const STRATEGIC_APPROVALS = [
-  { id: "SREQ-001", from: "Khaled Sherif (Marketeer)", type: "Doctor Sponsorship", description: "Dr. Walid Fathy Int'l Oncology Congress - Tokyo", value: "$8,500", justification: "Top KOL, 40% market influence", decision: "Approved", date: "2026-03-25" },
-  { id: "SREQ-002", from: "Hossam Bahgat (Marketeer)", type: "Strategic Investment", description: "New product launch event - Cairo", value: "$25,000", justification: "Q2 launch critical", decision: "Approved", date: "2026-03-22" },
-  { id: "SREQ-003", from: "Mariam Adly (Marketeer)", type: "Conference Booth", description: "International Pharma Expo", value: "$12,000", justification: "Brand visibility", decision: "Pending", date: "2026-03-20" },
-  { id: "SREQ-004", from: "Yasmine Galal (Marketeer)", type: "KOL Program", description: "Annual KOL summit West region", value: "$18,000", justification: "10 top KOLs engagement", decision: "Pending", date: "2026-03-18" },
-  { id: "SREQ-005", from: "Khaled Sherif (Marketeer)", type: "Strategic Investment", description: "Cardiology Clinical Study Sponsorship", value: "$45,000", justification: "Real-world evidence", decision: "Pending", date: "2026-03-15" },
-  { id: "SREQ-006", from: "Hossam Bahgat (Marketeer)", type: "Doctor Sponsorship", description: "Multi-doctor international conference", value: "$15,000", justification: "Build prescriber base", decision: "Rejected", date: "2026-03-12" },
+  { id: "SREQ-001", from: "Khaled Sherif (Marketeer)", type: "Doctor Sponsorship", description: "Dr. Walid Fathy Int'l Oncology Congress - Tokyo", value: "EGP 8,500", justification: "Top KOL, 40% market influence", decision: "Approved", date: "2026-03-25" },
+  { id: "SREQ-002", from: "Hossam Bahgat (Marketeer)", type: "Strategic Investment", description: "New product launch event - Cairo", value: "EGP 25,000", justification: "Q2 launch critical", decision: "Approved", date: "2026-03-22" },
+  { id: "SREQ-003", from: "Mariam Adly (Marketeer)", type: "Conference Booth", description: "International Pharma Expo", value: "EGP 12,000", justification: "Brand visibility", decision: "Pending", date: "2026-03-20" },
+  { id: "SREQ-004", from: "Yasmine Galal (Marketeer)", type: "KOL Program", description: "Annual KOL summit West region", value: "EGP 18,000", justification: "10 top KOLs engagement", decision: "Pending", date: "2026-03-18" },
+  { id: "SREQ-005", from: "Khaled Sherif (Marketeer)", type: "Strategic Investment", description: "Cardiology Clinical Study Sponsorship", value: "EGP 45,000", justification: "Real-world evidence", decision: "Pending", date: "2026-03-15" },
+  { id: "SREQ-006", from: "Hossam Bahgat (Marketeer)", type: "Doctor Sponsorship", description: "Multi-doctor international conference", value: "EGP 15,000", justification: "Build prescriber base", decision: "Rejected", date: "2026-03-12" },
 ];
 
 const FIELD_VISITS = [

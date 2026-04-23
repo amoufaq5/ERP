@@ -31,7 +31,7 @@ const kpis = [
   { label: "Audit Score", value: "96.8%", icon: Award, color: "text-emerald-600", bg: "bg-emerald-100", sub: "Last external audit" },
 ];
 
-const inspections = [
+const initialInspections = [
   { id: "INS-2601", type: "Incoming", product: "Steel Rod 12mm", lot: "LOT-4410", inspector: "Maria Chen", date: "Apr 2, 2026", sampleSize: 50, defects: 0, result: "Pass", aql: "1.0" },
   { id: "INS-2602", type: "In-Process", product: "Hydraulic Valve Assembly", lot: "LOT-4411", inspector: "James Park", date: "Apr 2, 2026", sampleSize: 32, defects: 1, result: "Pass", aql: "2.5" },
   { id: "INS-2603", type: "Final", product: "Bearing Housing Unit", lot: "LOT-4398", inspector: "Sarah Okafor", date: "Apr 1, 2026", sampleSize: 80, defects: 3, result: "Fail", aql: "1.0" },
@@ -55,7 +55,7 @@ const initialNcrs = [
   { id: "NCR-0451", date: "Mar 12, 2026", product: "Aluminum Sheet 3mm", desc: "Thickness variation exceeding +/- 0.05mm", source: "Incoming", severity: "Minor", rootCause: "Supplier rolling process variation", status: "Closed", owner: "David Kim", cost: "$480" },
 ];
 
-const capas = [
+const initialCapas = [
   { id: "CAPA-0112", type: "Corrective", sourceNcr: "NCR-0457", desc: "Implement program version control for CNC machines", method: "Poka-yoke barcode verification system", due: "Apr 30, 2026", status: "In Progress", effectiveness: "Pending" },
   { id: "CAPA-0111", type: "Preventive", sourceNcr: "NCR-0455", desc: "Install redundant thermocouple on furnace #3", method: "Equipment modification and calibration", due: "Apr 25, 2026", status: "In Progress", effectiveness: "Pending" },
   { id: "CAPA-0110", type: "Corrective", sourceNcr: "NCR-0452", desc: "Revise forging temperature control procedure", method: "Process parameter update and operator retraining", due: "Apr 15, 2026", status: "In Progress", effectiveness: "Pending" },
@@ -168,12 +168,55 @@ const ncrFormFields: EntityField[] = [
   { name: "cost", label: "Estimated Cost ($)", type: "text" },
 ];
 
+const inspectionFormFields: EntityField[] = [
+  { name: "type", label: "Type", type: "select", required: true, options: [
+    { label: "Incoming", value: "Incoming" }, { label: "In-Process", value: "In-Process" }, { label: "Final", value: "Final" },
+  ]},
+  { name: "product", label: "Product", type: "text", required: true },
+  { name: "lot", label: "Lot", type: "text", required: true },
+  { name: "inspector", label: "Inspector", type: "text", required: true },
+  { name: "sampleSize", label: "Sample Size", type: "number", required: true, min: 1 },
+  { name: "defects", label: "Defects", type: "number", min: 0 },
+  { name: "result", label: "Result", type: "select", required: true, options: [
+    { label: "Pass", value: "Pass" }, { label: "Fail", value: "Fail" },
+  ]},
+  { name: "aql", label: "AQL", type: "text" },
+];
+
+const capaFormFields: EntityField[] = [
+  { name: "type", label: "Type", type: "select", required: true, options: [
+    { label: "Corrective", value: "Corrective" }, { label: "Preventive", value: "Preventive" },
+  ]},
+  { name: "sourceNcr", label: "Source NCR", type: "text", placeholder: "e.g. NCR-0457 or N/A" },
+  { name: "description", label: "Description", type: "textarea", required: true, fullWidth: true },
+  { name: "method", label: "Method", type: "textarea", fullWidth: true },
+  { name: "due", label: "Due Date", type: "text", required: true, placeholder: "e.g. Apr 30, 2026" },
+  { name: "status", label: "Status", type: "select", options: [
+    { label: "Planning", value: "Planning" }, { label: "In Progress", value: "In Progress" }, { label: "Completed", value: "Completed" },
+  ]},
+  { name: "effectiveness", label: "Effectiveness", type: "select", options: [
+    { label: "Pending", value: "Pending" }, { label: "Monitoring", value: "Monitoring" }, { label: "Effective", value: "Effective" },
+  ]},
+];
+
 export default function QAQCPage() {
   const [search, setSearch] = useState("");
   const [editingNcr, setEditingNcr] = useState<typeof initialNcrs[0] | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [ncrs, setNcrs] = useState(initialNcrs);
   const [ncrFilters, setNcrFilters] = useState<FilterState>({});
+
+  // Inspections CRUD state
+  const [inspections, setInspections] = useState(initialInspections);
+  const [editingInspection, setEditingInspection] = useState<typeof initialInspections[0] | null>(null);
+  const [showInspectionForm, setShowInspectionForm] = useState(false);
+  const [inspectionFilters, setInspectionFilters] = useState<FilterState>({});
+
+  // CAPA CRUD state
+  const [capaItems, setCapaItems] = useState(initialCapas);
+  const [editingCapa, setEditingCapa] = useState<typeof initialCapas[0] | null>(null);
+  const [showCapaForm, setShowCapaForm] = useState(false);
+  const [capaFilters, setCapaFilters] = useState<FilterState>({});
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -224,6 +267,22 @@ export default function QAQCPage() {
 
         {/* ── Inspections ──────────────────────────────────────────────── */}
         <TabsContent value="inspections" className="space-y-4">
+          <FilterBar
+            searchPlaceholder="Search inspections..."
+            searchValue={inspectionFilters._search ?? ""}
+            onSearchChange={(v) => setInspectionFilters(prev => ({ ...prev, _search: v }))}
+            fields={[
+              { key: "type", label: "Type", type: "select", options: [
+                { label: "Incoming", value: "Incoming" }, { label: "In-Process", value: "In-Process" }, { label: "Final", value: "Final" },
+              ]},
+              { key: "result", label: "Result", type: "select", options: [
+                { label: "Pass", value: "Pass" }, { label: "Fail", value: "Fail" },
+              ]},
+            ]}
+            values={inspectionFilters}
+            onChange={(k, v) => setInspectionFilters(f => ({ ...f, [k]: v }))}
+            rightSlot={<Button size="sm" onClick={() => { setEditingInspection(null); setShowInspectionForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Inspection</Button>}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Inspection Log</CardTitle>
@@ -242,9 +301,22 @@ export default function QAQCPage() {
                   { key: "defects", label: "Defects" },
                   { key: "result", label: "Result", render: (v: string) => resultBadge(v) },
                   { key: "aql", label: "AQL" },
+                  { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                    const ins = row as unknown as typeof inspections[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingInspection(ins); setShowInspectionForm(true); }}
+                        onDelete={() => setInspections(prev => prev.filter(x => x.id !== ins.id))}
+                        itemLabel={ins.id}
+                      />
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
-                data={inspections as unknown as Record<string, unknown>[]}
-                
+                data={inspections
+                  .filter(i => !inspectionFilters._search || i.id.toLowerCase().includes(inspectionFilters._search.toLowerCase()) || i.product.toLowerCase().includes(inspectionFilters._search.toLowerCase()) || i.inspector.toLowerCase().includes(inspectionFilters._search.toLowerCase()))
+                  .filter(i => !inspectionFilters.type || i.type === inspectionFilters.type)
+                  .filter(i => !inspectionFilters.result || i.result === inspectionFilters.result) as unknown as Record<string, unknown>[]}
+
                 emptyMessage="No inspections found."
               />
             </CardContent>
@@ -314,6 +386,22 @@ export default function QAQCPage() {
 
         {/* ── CAPA ─────────────────────────────────────────────────────── */}
         <TabsContent value="capa" className="space-y-4">
+          <FilterBar
+            searchPlaceholder="Search CAPA items..."
+            searchValue={capaFilters._search ?? ""}
+            onSearchChange={(v) => setCapaFilters(prev => ({ ...prev, _search: v }))}
+            fields={[
+              { key: "type", label: "Type", type: "select", options: [
+                { label: "Corrective", value: "Corrective" }, { label: "Preventive", value: "Preventive" },
+              ]},
+              { key: "status", label: "Status", type: "select", options: [
+                { label: "Planning", value: "Planning" }, { label: "In Progress", value: "In Progress" }, { label: "Completed", value: "Completed" },
+              ]},
+            ]}
+            values={capaFilters}
+            onChange={(k, v) => setCapaFilters(f => ({ ...f, [k]: v }))}
+            rightSlot={<Button size="sm" onClick={() => { setEditingCapa(null); setShowCapaForm(true); }}><Plus className="mr-2 h-4 w-4" />Add CAPA</Button>}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Corrective & Preventive Actions</CardTitle>
@@ -332,9 +420,22 @@ export default function QAQCPage() {
                   { key: "effectiveness", label: "Effectiveness", render: (v: string) => (
                     <Badge variant={v === "Effective" ? "secondary" : v === "Monitoring" ? "outline" : "default"}>{v}</Badge>
                   )},
+                  { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                    const c = row as unknown as typeof capaItems[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingCapa(c); setShowCapaForm(true); }}
+                        onDelete={() => setCapaItems(prev => prev.filter(x => x.id !== c.id))}
+                        itemLabel={c.id}
+                      />
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
-                data={capas as unknown as Record<string, unknown>[]}
-                
+                data={capaItems
+                  .filter(c => !capaFilters._search || c.id.toLowerCase().includes(capaFilters._search.toLowerCase()) || c.desc.toLowerCase().includes(capaFilters._search.toLowerCase()) || c.sourceNcr.toLowerCase().includes(capaFilters._search.toLowerCase()))
+                  .filter(c => !capaFilters.type || c.type === capaFilters.type)
+                  .filter(c => !capaFilters.status || c.status === capaFilters.status) as unknown as Record<string, unknown>[]}
+
                 emptyMessage="No CAPA items found."
               />
             </CardContent>
@@ -513,6 +614,99 @@ export default function QAQCPage() {
               owner: String(data.owner),
               cost: String(data.cost) || "$0",
             }, ...ncrs]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showInspectionForm}
+        onOpenChange={(v) => { setShowInspectionForm(v); if (!v) setEditingInspection(null); }}
+        title={editingInspection ? `Edit ${editingInspection.id}` : "New Inspection"}
+        description={editingInspection ? undefined : "Log a new quality inspection record."}
+        fields={inspectionFormFields}
+        initialData={editingInspection ? {
+          type: editingInspection.type,
+          product: editingInspection.product,
+          lot: editingInspection.lot,
+          inspector: editingInspection.inspector,
+          sampleSize: editingInspection.sampleSize,
+          defects: editingInspection.defects,
+          result: editingInspection.result,
+          aql: editingInspection.aql,
+        } : undefined}
+        submitLabel={editingInspection ? "Update" : "Create Inspection"}
+        onSubmit={(data) => {
+          if (editingInspection) {
+            setInspections(prev => prev.map(i => i.id === editingInspection.id ? {
+              ...i,
+              type: String(data.type) || i.type,
+              product: String(data.product),
+              lot: String(data.lot),
+              inspector: String(data.inspector),
+              sampleSize: Number(data.sampleSize) || i.sampleSize,
+              defects: Number(data.defects) ?? i.defects,
+              result: String(data.result) || i.result,
+              aql: String(data.aql) || i.aql,
+            } : i));
+          } else {
+            const id = `INS-${Date.now().toString(36)}`;
+            const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+            setInspections([{
+              id,
+              type: String(data.type) || "Incoming",
+              product: String(data.product),
+              lot: String(data.lot),
+              inspector: String(data.inspector),
+              date: today,
+              sampleSize: Number(data.sampleSize) || 1,
+              defects: Number(data.defects) || 0,
+              result: String(data.result) || "Pass",
+              aql: String(data.aql) || "1.0",
+            }, ...inspections]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showCapaForm}
+        onOpenChange={(v) => { setShowCapaForm(v); if (!v) setEditingCapa(null); }}
+        title={editingCapa ? `Edit ${editingCapa.id}` : "New CAPA"}
+        description={editingCapa ? undefined : "Create a new corrective or preventive action."}
+        fields={capaFormFields}
+        initialData={editingCapa ? {
+          type: editingCapa.type,
+          sourceNcr: editingCapa.sourceNcr,
+          description: editingCapa.desc,
+          method: editingCapa.method,
+          due: editingCapa.due,
+          status: editingCapa.status,
+          effectiveness: editingCapa.effectiveness,
+        } : undefined}
+        submitLabel={editingCapa ? "Update" : "Create CAPA"}
+        onSubmit={(data) => {
+          if (editingCapa) {
+            setCapaItems(prev => prev.map(c => c.id === editingCapa.id ? {
+              ...c,
+              type: String(data.type) || c.type,
+              sourceNcr: String(data.sourceNcr) || c.sourceNcr,
+              desc: String(data.description),
+              method: String(data.method) || c.method,
+              due: String(data.due),
+              status: String(data.status) || c.status,
+              effectiveness: String(data.effectiveness) || c.effectiveness,
+            } : c));
+          } else {
+            const id = `CAPA-${Date.now().toString(36)}`;
+            setCapaItems([{
+              id,
+              type: String(data.type) || "Corrective",
+              sourceNcr: String(data.sourceNcr) || "N/A",
+              desc: String(data.description),
+              method: String(data.method) || "",
+              due: String(data.due),
+              status: String(data.status) || "Planning",
+              effectiveness: String(data.effectiveness) || "Pending",
+            }, ...capaItems]);
           }
         }}
       />

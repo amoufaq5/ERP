@@ -18,16 +18,16 @@ import { EntityFormModal, type EntityField } from "@/components/shared/entity-fo
 import { useDataStore } from "@/lib/data-store";
 
 const INITIAL_PURCHASE_ORDERS = [
-  { id: "PO-4001", supplier: "Aurobindo Pharma (API)", category: "Raw Material", items: "Amoxicillin Trihydrate (API)", qty: "500 kg", unitPrice: "$85/kg", total: "$42,500", orderDate: "2026-03-10", expectedDate: "2026-04-15", status: "Approved" },
-  { id: "PO-4002", supplier: "BASF Pharma Solutions", category: "Excipient", items: "Microcrystalline Cellulose PH-102", qty: "2,000 kg", unitPrice: "$12/kg", total: "$24,000", orderDate: "2026-03-12", expectedDate: "2026-04-10", status: "Received" },
-  { id: "PO-4003", supplier: "Lonza Group", category: "Raw Material", items: "Omeprazole Pellets", qty: "300 kg", unitPrice: "$220/kg", total: "$66,000", orderDate: "2026-03-15", expectedDate: "2026-04-20", status: "Pending QC" },
-  { id: "PO-4004", supplier: "Colorcon Inc", category: "Excipient", items: "Opadry II Film Coating (White)", qty: "800 kg", unitPrice: "$45/kg", total: "$36,000", orderDate: "2026-03-18", expectedDate: "2026-04-08", status: "In Transit" },
-  { id: "PO-4005", supplier: "West Pharma Packaging", category: "Packaging", items: "Alu-Alu Blister Foil (250mm)", qty: "50,000 m", unitPrice: "$0.15/m", total: "$7,500", orderDate: "2026-03-20", expectedDate: "2026-04-05", status: "Ordered" },
-  { id: "PO-4006", supplier: "Cipla Ltd (Finished)", category: "Finished Product", items: "Atorvastatin 20mg Tab (1000s)", qty: "200 units", unitPrice: "$180/unit", total: "$36,000", orderDate: "2026-03-22", expectedDate: "2026-04-12", status: "Approved" },
-  { id: "PO-4007", supplier: "Roquette Pharma", category: "Excipient", items: "Lactose Monohydrate (200M)", qty: "3,000 kg", unitPrice: "$8/kg", total: "$24,000", orderDate: "2026-03-25", expectedDate: "2026-04-18", status: "Pending Approval" },
-  { id: "PO-4008", supplier: "Dr. Reddy's (API)", category: "Raw Material", items: "Losartan Potassium (API)", qty: "200 kg", unitPrice: "$150/kg", total: "$30,000", orderDate: "2026-03-28", expectedDate: "2026-04-22", status: "Pending Approval" },
-  { id: "PO-4009", supplier: "Novartis (Finished)", category: "Finished Product", items: "Diovan 160mg Tab (500s)", qty: "150 units", unitPrice: "$420/unit", total: "$63,000", orderDate: "2026-03-30", expectedDate: "2026-04-25", status: "Ordered" },
-  { id: "PO-4010", supplier: "SGD Pharma", category: "Packaging", items: "Amber Glass Bottles 100ml", qty: "10,000 pcs", unitPrice: "$0.65/pc", total: "$6,500", orderDate: "2026-04-01", expectedDate: "2026-04-20", status: "Approved" },
+  { id: "PO-4001", supplier: "Aurobindo Pharma (API)", category: "Raw Material", items: "Amoxicillin Trihydrate (API)", qty: "500 kg", unitPrice: "EGP 85/kg", total: "EGP 42,500", orderDate: "2026-03-10", expectedDate: "2026-04-15", status: "Approved" },
+  { id: "PO-4002", supplier: "BASF Pharma Solutions", category: "Excipient", items: "Microcrystalline Cellulose PH-102", qty: "2,000 kg", unitPrice: "EGP 12/kg", total: "EGP 24,000", orderDate: "2026-03-12", expectedDate: "2026-04-10", status: "Received" },
+  { id: "PO-4003", supplier: "Lonza Group", category: "Raw Material", items: "Omeprazole Pellets", qty: "300 kg", unitPrice: "EGP 220/kg", total: "EGP 66,000", orderDate: "2026-03-15", expectedDate: "2026-04-20", status: "Pending QC" },
+  { id: "PO-4004", supplier: "Colorcon Inc", category: "Excipient", items: "Opadry II Film Coating (White)", qty: "800 kg", unitPrice: "EGP 45/kg", total: "EGP 36,000", orderDate: "2026-03-18", expectedDate: "2026-04-08", status: "In Transit" },
+  { id: "PO-4005", supplier: "West Pharma Packaging", category: "Packaging", items: "Alu-Alu Blister Foil (250mm)", qty: "50,000 m", unitPrice: "EGP 0.15/m", total: "EGP 7,500", orderDate: "2026-03-20", expectedDate: "2026-04-05", status: "Ordered" },
+  { id: "PO-4006", supplier: "Cipla Ltd (Finished)", category: "Finished Product", items: "Atorvastatin 20mg Tab (1000s)", qty: "200 units", unitPrice: "EGP 180/unit", total: "EGP 36,000", orderDate: "2026-03-22", expectedDate: "2026-04-12", status: "Approved" },
+  { id: "PO-4007", supplier: "Roquette Pharma", category: "Excipient", items: "Lactose Monohydrate (200M)", qty: "3,000 kg", unitPrice: "EGP 8/kg", total: "EGP 24,000", orderDate: "2026-03-25", expectedDate: "2026-04-18", status: "Pending Approval" },
+  { id: "PO-4008", supplier: "Dr. Reddy's (API)", category: "Raw Material", items: "Losartan Potassium (API)", qty: "200 kg", unitPrice: "EGP 150/kg", total: "EGP 30,000", orderDate: "2026-03-28", expectedDate: "2026-04-22", status: "Pending Approval" },
+  { id: "PO-4009", supplier: "Novartis (Finished)", category: "Finished Product", items: "Diovan 160mg Tab (500s)", qty: "150 units", unitPrice: "EGP 420/unit", total: "EGP 63,000", orderDate: "2026-03-30", expectedDate: "2026-04-25", status: "Ordered" },
+  { id: "PO-4010", supplier: "SGD Pharma", category: "Packaging", items: "Amber Glass Bottles 100ml", qty: "10,000 pcs", unitPrice: "EGP 0.65/pc", total: "EGP 6,500", orderDate: "2026-04-01", expectedDate: "2026-04-20", status: "Approved" },
 ];
 
 const INITIAL_SUPPLIERS = [
@@ -484,7 +484,7 @@ export default function ProcurementPage() {
               items: String(data.items ?? ""),
               qty: String(data.qty ?? ""),
               unitPrice: String(data.unitPrice ?? ""),
-              total: data.total ? `$${Number(data.total).toLocaleString()}` : "$0",
+              total: data.total ? `$${Number(data.total).toLocaleString()}` : "EGP 0",
               orderDate: new Date().toISOString().split("T")[0],
               expectedDate: String(data.expectedDate ?? ""),
               status: "Pending Approval",

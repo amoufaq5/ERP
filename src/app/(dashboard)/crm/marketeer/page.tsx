@@ -29,14 +29,14 @@ const TEAM_PERFORMANCE = [
 ];
 
 const ESCALATED = [
-  { id: "REQ-004", from: "Hany Mansour (DM)", rep: "Fatima Ali", type: "Doctor Sponsorship", description: "Dr. Walid Fathy - Int'l Oncology Congress", cost: "$3,500", recommendation: "Strongly Recommended", decision: "Pending", date: "2026-03-26" },
-  { id: "REQ-010", from: "Lina Habib (DM)", rep: "Hala Samir", type: "Doctor Sponsorship", description: "Dr. Khaled - Urology Symposium", cost: "$1,800", recommendation: "Recommended", decision: "Pending", date: "2026-03-20" },
-  { id: "REQ-015", from: "Reem Saleh (DM)", rep: "Mahmoud Farouk", type: "Conference Sponsorship", description: "Mansoura Medical Conference Booth", cost: "$2,200", recommendation: "Recommended", decision: "Approved", date: "2026-03-18" },
-  { id: "REQ-018", from: "Tamer Wahid (DM)", rep: "Hala Samir", type: "Event Budget", description: "Upper Egypt Symposium", cost: "$2,800", recommendation: "Optional", decision: "Rejected", date: "2026-03-15" },
-  { id: "REQ-021", from: "Hany Mansour (DM)", rep: "Ahmed Hassan", type: "Conference Sponsorship", description: "Cardiology Update 2026", cost: "$1,500", recommendation: "Recommended", decision: "Approved", date: "2026-03-12" },
-  { id: "REQ-024", from: "Lina Habib (DM)", rep: "Sara Mohamed", type: "Doctor Sponsorship", description: "Dr. Ashraf Zaki - International Cardiology", cost: "$4,200", recommendation: "Strongly Recommended", decision: "Pending", date: "2026-03-10" },
-  { id: "REQ-027", from: "Reem Saleh (DM)", rep: "Nour Ibrahim", type: "Promo Material", description: "Custom branded merchandise", cost: "$1,100", recommendation: "Recommended", decision: "Approved", date: "2026-03-08" },
-  { id: "REQ-030", from: "Tamer Wahid (DM)", rep: "Karim Saeed", type: "Travel Request", description: "Multi-city KOL tour", cost: "$1,900", recommendation: "Recommended", decision: "Pending", date: "2026-03-05" },
+  { id: "REQ-004", from: "Hany Mansour (DM)", rep: "Fatima Ali", type: "Doctor Sponsorship", description: "Dr. Walid Fathy - Int'l Oncology Congress", cost: "EGP 3,500", recommendation: "Strongly Recommended", decision: "Pending", date: "2026-03-26" },
+  { id: "REQ-010", from: "Lina Habib (DM)", rep: "Hala Samir", type: "Doctor Sponsorship", description: "Dr. Khaled - Urology Symposium", cost: "EGP 1,800", recommendation: "Recommended", decision: "Pending", date: "2026-03-20" },
+  { id: "REQ-015", from: "Reem Saleh (DM)", rep: "Mahmoud Farouk", type: "Conference Sponsorship", description: "Mansoura Medical Conference Booth", cost: "EGP 2,200", recommendation: "Recommended", decision: "Approved", date: "2026-03-18" },
+  { id: "REQ-018", from: "Tamer Wahid (DM)", rep: "Hala Samir", type: "Event Budget", description: "Upper Egypt Symposium", cost: "EGP 2,800", recommendation: "Optional", decision: "Rejected", date: "2026-03-15" },
+  { id: "REQ-021", from: "Hany Mansour (DM)", rep: "Ahmed Hassan", type: "Conference Sponsorship", description: "Cardiology Update 2026", cost: "EGP 1,500", recommendation: "Recommended", decision: "Approved", date: "2026-03-12" },
+  { id: "REQ-024", from: "Lina Habib (DM)", rep: "Sara Mohamed", type: "Doctor Sponsorship", description: "Dr. Ashraf Zaki - International Cardiology", cost: "EGP 4,200", recommendation: "Strongly Recommended", decision: "Pending", date: "2026-03-10" },
+  { id: "REQ-027", from: "Reem Saleh (DM)", rep: "Nour Ibrahim", type: "Promo Material", description: "Custom branded merchandise", cost: "EGP 1,100", recommendation: "Recommended", decision: "Approved", date: "2026-03-08" },
+  { id: "REQ-030", from: "Tamer Wahid (DM)", rep: "Karim Saeed", type: "Travel Request", description: "Multi-city KOL tour", cost: "EGP 1,900", recommendation: "Recommended", decision: "Pending", date: "2026-03-05" },
 ];
 
 const DOUBLE_VISITS = [
@@ -49,16 +49,16 @@ const DOUBLE_VISITS = [
 ];
 
 const MARKET_ANALYSIS = [
-  { product: "Cardizem 60mg", territory: "Greater Cairo", target: "$120K", actual: "$108K", growth: "+12%", share: "18%", competition: "Strong from generic" },
-  { product: "Augmentin 625mg", territory: "Greater Cairo", target: "$180K", actual: "$192K", growth: "+18%", share: "32%", competition: "Stable" },
-  { product: "Nexium 40mg", territory: "Delta Region", target: "$95K", actual: "$87K", growth: "+5%", share: "22%", competition: "Increasing pressure" },
-  { product: "Voltaren 75mg", territory: "Upper Egypt", target: "$70K", actual: "$58K", growth: "-3%", share: "14%", competition: "Heavy generics" },
-  { product: "Plavix 75mg", territory: "Alexandria & Coast", target: "$140K", actual: "$155K", growth: "+22%", share: "28%", competition: "Stable" },
-  { product: "Crestor 20mg", territory: "Greater Cairo", target: "$160K", actual: "$148K", growth: "+8%", share: "24%", competition: "Generic entry" },
-  { product: "Fucidin H", territory: "Alexandria & Coast", target: "$55K", actual: "$62K", growth: "+15%", share: "35%", competition: "Stable" },
-  { product: "Depakine Chrono", territory: "Greater Cairo", target: "$85K", actual: "$78K", growth: "+4%", share: "19%", competition: "Stable" },
-  { product: "Herceptin", territory: "Greater Cairo", target: "$220K", actual: "$240K", growth: "+25%", share: "42%", competition: "Few competitors" },
-  { product: "Zoloft 50mg", territory: "Delta Region", target: "$45K", actual: "$41K", growth: "+2%", share: "16%", competition: "Generic pressure" },
+  { product: "Cardizem 60mg", territory: "Greater Cairo", target: "EGP 120K", actual: "EGP 108K", growth: "+12%", share: "18%", competition: "Strong from generic" },
+  { product: "Augmentin 625mg", territory: "Greater Cairo", target: "EGP 180K", actual: "EGP 192K", growth: "+18%", share: "32%", competition: "Stable" },
+  { product: "Nexium 40mg", territory: "Delta Region", target: "EGP 95K", actual: "EGP 87K", growth: "+5%", share: "22%", competition: "Increasing pressure" },
+  { product: "Voltaren 75mg", territory: "Upper Egypt", target: "EGP 70K", actual: "EGP 58K", growth: "-3%", share: "14%", competition: "Heavy generics" },
+  { product: "Plavix 75mg", territory: "Alexandria & Coast", target: "EGP 140K", actual: "EGP 155K", growth: "+22%", share: "28%", competition: "Stable" },
+  { product: "Crestor 20mg", territory: "Greater Cairo", target: "EGP 160K", actual: "EGP 148K", growth: "+8%", share: "24%", competition: "Generic entry" },
+  { product: "Fucidin H", territory: "Alexandria & Coast", target: "EGP 55K", actual: "EGP 62K", growth: "+15%", share: "35%", competition: "Stable" },
+  { product: "Depakine Chrono", territory: "Greater Cairo", target: "EGP 85K", actual: "EGP 78K", growth: "+4%", share: "19%", competition: "Stable" },
+  { product: "Herceptin", territory: "Greater Cairo", target: "EGP 220K", actual: "EGP 240K", growth: "+25%", share: "42%", competition: "Few competitors" },
+  { product: "Zoloft 50mg", territory: "Delta Region", target: "EGP 45K", actual: "EGP 41K", growth: "+2%", share: "16%", competition: "Generic pressure" },
 ];
 
 const visitFields: EntityField[] = [

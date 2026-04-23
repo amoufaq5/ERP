@@ -43,7 +43,7 @@ export default function AIHubPage() {
         <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><Brain className="h-5 w-5 text-purple-600" /></div><div><p className="text-sm text-muted-foreground">AI Features Active</p><p className="text-2xl font-bold">{activeCount}</p></div></div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><Zap className="h-5 w-5 text-blue-600" /></div><div><p className="text-sm text-muted-foreground">API Calls Today</p><p className="text-2xl font-bold">147</p></div></div></CardContent></Card>
         <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><Sparkles className="h-5 w-5 text-green-600" /></div><div><p className="text-sm text-muted-foreground">Tokens Used</p><p className="text-2xl font-bold">52.3K</p></div></div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-orange-100 rounded-lg"><TrendingUp className="h-5 w-5 text-orange-600" /></div><div><p className="text-sm text-muted-foreground">Cost This Month</p><p className="text-2xl font-bold">$12.45</p></div></div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-orange-100 rounded-lg"><TrendingUp className="h-5 w-5 text-orange-600" /></div><div><p className="text-sm text-muted-foreground">Cost This Month</p><p className="text-2xl font-bold">EGP 12.45</p></div></div></CardContent></Card>
       </div>
 
       <Card>

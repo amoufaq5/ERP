@@ -24,7 +24,7 @@ const kpis = [
   { label: "Total Area", value: "485K sqft", icon: MapPin, color: "text-indigo-600", bg: "bg-indigo-100", sub: "Across all sites" },
   { label: "Occupancy Rate", value: "87.3%", icon: Users, color: "text-green-600", bg: "bg-green-100", sub: "+2.4% from last quarter" },
   { label: "Open Work Orders", value: "34", icon: Wrench, color: "text-amber-600", bg: "bg-amber-100", sub: "12 high priority" },
-  { label: "Energy Cost", value: "$124K", icon: Zap, color: "text-yellow-600", bg: "bg-yellow-100", sub: "Monthly average" },
+  { label: "Energy Cost", value: "EGP 124K", icon: Zap, color: "text-yellow-600", bg: "bg-yellow-100", sub: "Monthly average" },
   { label: "Maintenance Score", value: "72%", icon: CheckCircle2, color: "text-teal-600", bg: "bg-teal-100", sub: "Preventive ratio" },
   { label: "System Uptime", value: "99.2%", icon: Activity, color: "text-emerald-600", bg: "bg-emerald-100", sub: "Last 30 days" },
   { label: "Sustainability", value: "B+", icon: Leaf, color: "text-green-700", bg: "bg-green-100", sub: "LEED certified" },
@@ -68,25 +68,25 @@ const workOrders = [
 ];
 
 const facilityAssets = [
-  { id: "FA-001", name: "Trane XR15 Chiller Unit", category: "HVAC", building: "Corporate HQ", location: "Roof - Mechanical Room", installed: "Jun 2018", lastService: "Feb 2026", condition: "Good", value: "$185,000" },
-  { id: "FA-002", name: "Caterpillar 500kW Generator", category: "Power", building: "Data Center", location: "Ground - Generator Pad", installed: "Mar 2021", lastService: "Jan 2026", condition: "Excellent", value: "$320,000" },
-  { id: "FA-003", name: "Otis Gen2 Elevator (x3)", category: "Vertical Transport", building: "Corporate HQ", location: "Core - Shaft A/B/C", installed: "Jun 2018", lastService: "Mar 2026", condition: "Good", value: "$450,000" },
-  { id: "FA-004", name: "Honeywell BMS Controller", category: "Controls", building: "All Buildings", location: "Central Plant", installed: "Sep 2020", lastService: "Mar 2026", condition: "Good", value: "$95,000" },
-  { id: "FA-005", name: "Siemens Fire Alarm Panel", category: "Fire Safety", building: "Corporate HQ", location: "Lobby - Security Desk", installed: "Jun 2018", lastService: "Dec 2025", condition: "Fair", value: "$42,000" },
-  { id: "FA-006", name: "Schneider UPS 200kVA", category: "Power", building: "Data Center", location: "UPS Room B", installed: "Mar 2021", lastService: "Mar 2026", condition: "Good", value: "$78,000" },
-  { id: "FA-007", name: "Carrier AHU 40-Ton (x4)", category: "HVAC", building: "R&D Center", location: "Mechanical Floors 1 & 3", installed: "Aug 2012", lastService: "Nov 2025", condition: "Fair", value: "$220,000" },
-  { id: "FA-008", name: "Grundfos Pumping Station", category: "Plumbing", building: "Warehouse Complex", location: "Basement - Pump Room", installed: "Jan 2020", lastService: "Oct 2025", condition: "Good", value: "$56,000" },
-  { id: "FA-009", name: "Daikin VRV IV Heat Pump", category: "HVAC", building: "Employee Wellness Hub", location: "Roof Level", installed: "Apr 2022", lastService: "Feb 2026", condition: "Excellent", value: "$165,000" },
-  { id: "FA-010", name: "Cummins Transfer Switch", category: "Power", building: "Manufacturing Plant A", location: "Electrical Room", installed: "May 2015", lastService: "Jan 2026", condition: "Good", value: "$38,000" },
+  { id: "FA-001", name: "Trane XR15 Chiller Unit", category: "HVAC", building: "Corporate HQ", location: "Roof - Mechanical Room", installed: "Jun 2018", lastService: "Feb 2026", condition: "Good", value: "EGP 185,000" },
+  { id: "FA-002", name: "Caterpillar 500kW Generator", category: "Power", building: "Data Center", location: "Ground - Generator Pad", installed: "Mar 2021", lastService: "Jan 2026", condition: "Excellent", value: "EGP 320,000" },
+  { id: "FA-003", name: "Otis Gen2 Elevator (x3)", category: "Vertical Transport", building: "Corporate HQ", location: "Core - Shaft A/B/C", installed: "Jun 2018", lastService: "Mar 2026", condition: "Good", value: "EGP 450,000" },
+  { id: "FA-004", name: "Honeywell BMS Controller", category: "Controls", building: "All Buildings", location: "Central Plant", installed: "Sep 2020", lastService: "Mar 2026", condition: "Good", value: "EGP 95,000" },
+  { id: "FA-005", name: "Siemens Fire Alarm Panel", category: "Fire Safety", building: "Corporate HQ", location: "Lobby - Security Desk", installed: "Jun 2018", lastService: "Dec 2025", condition: "Fair", value: "EGP 42,000" },
+  { id: "FA-006", name: "Schneider UPS 200kVA", category: "Power", building: "Data Center", location: "UPS Room B", installed: "Mar 2021", lastService: "Mar 2026", condition: "Good", value: "EGP 78,000" },
+  { id: "FA-007", name: "Carrier AHU 40-Ton (x4)", category: "HVAC", building: "R&D Center", location: "Mechanical Floors 1 & 3", installed: "Aug 2012", lastService: "Nov 2025", condition: "Fair", value: "EGP 220,000" },
+  { id: "FA-008", name: "Grundfos Pumping Station", category: "Plumbing", building: "Warehouse Complex", location: "Basement - Pump Room", installed: "Jan 2020", lastService: "Oct 2025", condition: "Good", value: "EGP 56,000" },
+  { id: "FA-009", name: "Daikin VRV IV Heat Pump", category: "HVAC", building: "Employee Wellness Hub", location: "Roof Level", installed: "Apr 2022", lastService: "Feb 2026", condition: "Excellent", value: "EGP 165,000" },
+  { id: "FA-010", name: "Cummins Transfer Switch", category: "Power", building: "Manufacturing Plant A", location: "Electrical Room", installed: "May 2015", lastService: "Jan 2026", condition: "Good", value: "EGP 38,000" },
 ];
 
 const energyData = [
-  { building: "Corporate HQ", electricity: "$42,300", gas: "$8,100", water: "$3,200", total: "$53,600", change: -4.2, rating: "B+" },
-  { building: "Manufacturing Plant A", electricity: "$28,700", gas: "$12,400", water: "$4,800", total: "$45,900", change: +1.8, rating: "B" },
-  { building: "Warehouse Complex", electricity: "$9,200", gas: "$2,100", water: "$1,400", total: "$12,700", change: -6.1, rating: "A-" },
-  { building: "R&D Center", electricity: "$15,800", gas: "$3,600", water: "$2,100", total: "$21,500", change: +3.2, rating: "B-" },
-  { building: "Data Center", electricity: "$31,400", gas: "$800", water: "$1,900", total: "$34,100", change: -1.5, rating: "C+" },
-  { building: "Employee Wellness Hub", electricity: "$8,100", gas: "$2,800", water: "$2,300", total: "$13,200", change: -8.3, rating: "A" },
+  { building: "Corporate HQ", electricity: "EGP 42,300", gas: "EGP 8,100", water: "EGP 3,200", total: "EGP 53,600", change: -4.2, rating: "B+" },
+  { building: "Manufacturing Plant A", electricity: "EGP 28,700", gas: "EGP 12,400", water: "EGP 4,800", total: "EGP 45,900", change: +1.8, rating: "B" },
+  { building: "Warehouse Complex", electricity: "EGP 9,200", gas: "EGP 2,100", water: "EGP 1,400", total: "EGP 12,700", change: -6.1, rating: "A-" },
+  { building: "R&D Center", electricity: "EGP 15,800", gas: "EGP 3,600", water: "EGP 2,100", total: "EGP 21,500", change: +3.2, rating: "B-" },
+  { building: "Data Center", electricity: "EGP 31,400", gas: "EGP 800", water: "EGP 1,900", total: "EGP 34,100", change: -1.5, rating: "C+" },
+  { building: "Employee Wellness Hub", electricity: "EGP 8,100", gas: "EGP 2,800", water: "EGP 2,300", total: "EGP 13,200", change: -8.3, rating: "A" },
 ];
 
 const visitors = [
@@ -101,14 +101,14 @@ const visitors = [
 ];
 
 const vendors = [
-  { id: "VND-001", name: "CleanPro Services", service: "Janitorial", contract: "Annual", value: "$186,000/yr", rating: 4.5, contact: "Maria Santos", phone: "(555) 100-2001", status: "Active" },
-  { id: "VND-002", name: "Otis Elevator Co", service: "Elevator Maintenance", contract: "3-Year", value: "$72,000/yr", rating: 4.8, contact: "Ahmed Hassan", phone: "(555) 100-2002", status: "Active" },
-  { id: "VND-003", name: "GreenScape LLC", service: "Landscaping & Grounds", contract: "Annual", value: "$48,000/yr", rating: 4.2, contact: "Derek Lawson", phone: "(555) 100-2003", status: "Active" },
-  { id: "VND-004", name: "SecurePoint Systems", service: "Security & Access Control", contract: "2-Year", value: "$210,000/yr", rating: 4.6, contact: "Nina Petrov", phone: "(555) 100-2004", status: "Active" },
-  { id: "VND-005", name: "Comfort Air HVAC", service: "HVAC Maintenance", contract: "Annual", value: "$134,000/yr", rating: 3.9, contact: "Frank Miller", phone: "(555) 100-2005", status: "Under Review" },
-  { id: "VND-006", name: "PestGuard Inc", service: "Pest Control", contract: "Annual", value: "$18,000/yr", rating: 4.3, contact: "Leo Tran", phone: "(555) 100-2006", status: "Active" },
-  { id: "VND-007", name: "Schneider Electric", service: "Electrical & UPS", contract: "3-Year", value: "$96,000/yr", rating: 4.7, contact: "Priya Nair", phone: "(555) 100-2007", status: "Active" },
-  { id: "VND-008", name: "WasteStream Solutions", service: "Waste Management & Recycling", contract: "Annual", value: "$62,000/yr", rating: 4.1, contact: "Brian Owens", phone: "(555) 100-2008", status: "Active" },
+  { id: "VND-001", name: "CleanPro Services", service: "Janitorial", contract: "Annual", value: "EGP 186,000/yr", rating: 4.5, contact: "Maria Santos", phone: "(555) 100-2001", status: "Active" },
+  { id: "VND-002", name: "Otis Elevator Co", service: "Elevator Maintenance", contract: "3-Year", value: "EGP 72,000/yr", rating: 4.8, contact: "Ahmed Hassan", phone: "(555) 100-2002", status: "Active" },
+  { id: "VND-003", name: "GreenScape LLC", service: "Landscaping & Grounds", contract: "Annual", value: "EGP 48,000/yr", rating: 4.2, contact: "Derek Lawson", phone: "(555) 100-2003", status: "Active" },
+  { id: "VND-004", name: "SecurePoint Systems", service: "Security & Access Control", contract: "2-Year", value: "EGP 210,000/yr", rating: 4.6, contact: "Nina Petrov", phone: "(555) 100-2004", status: "Active" },
+  { id: "VND-005", name: "Comfort Air HVAC", service: "HVAC Maintenance", contract: "Annual", value: "EGP 134,000/yr", rating: 3.9, contact: "Frank Miller", phone: "(555) 100-2005", status: "Under Review" },
+  { id: "VND-006", name: "PestGuard Inc", service: "Pest Control", contract: "Annual", value: "EGP 18,000/yr", rating: 4.3, contact: "Leo Tran", phone: "(555) 100-2006", status: "Active" },
+  { id: "VND-007", name: "Schneider Electric", service: "Electrical & UPS", contract: "3-Year", value: "EGP 96,000/yr", rating: 4.7, contact: "Priya Nair", phone: "(555) 100-2007", status: "Active" },
+  { id: "VND-008", name: "WasteStream Solutions", service: "Waste Management & Recycling", contract: "Annual", value: "EGP 62,000/yr", rating: 4.1, contact: "Brian Owens", phone: "(555) 100-2008", status: "Active" },
 ];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

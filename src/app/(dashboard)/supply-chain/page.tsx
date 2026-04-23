@@ -31,29 +31,29 @@ const kpis = [
 ];
 
 const purchaseOrders = [
-  { id: "PO-4501", supplier: "Apex Materials Co.", items: 24, total: "$128,450", ordered: "Mar 18, 2026", eta: "Apr 08, 2026", status: "In Transit", priority: "High" },
-  { id: "PO-4502", supplier: "GlobalTech Components", items: 12, total: "$67,200", ordered: "Mar 20, 2026", eta: "Apr 12, 2026", status: "Confirmed", priority: "Medium" },
-  { id: "PO-4503", supplier: "SteelWorks International", items: 8, total: "$245,000", ordered: "Mar 15, 2026", eta: "Apr 05, 2026", status: "In Transit", priority: "High" },
-  { id: "PO-4504", supplier: "ChemPro Industries", items: 15, total: "$34,800", ordered: "Mar 22, 2026", eta: "Apr 14, 2026", status: "Pending Approval", priority: "Low" },
-  { id: "PO-4505", supplier: "Pacific Logistics Ltd.", items: 6, total: "$89,300", ordered: "Mar 25, 2026", eta: "Apr 18, 2026", status: "Confirmed", priority: "Medium" },
-  { id: "PO-4506", supplier: "NordicParts AB", items: 30, total: "$156,700", ordered: "Mar 12, 2026", eta: "Apr 02, 2026", status: "Delivered", priority: "High" },
-  { id: "PO-4507", supplier: "RawMat Suppliers Inc.", items: 18, total: "$72,100", ordered: "Mar 28, 2026", eta: "Apr 20, 2026", status: "Pending Approval", priority: "Medium" },
-  { id: "PO-4508", supplier: "Precision Fasteners Co.", items: 42, total: "$19,850", ordered: "Mar 30, 2026", eta: "Apr 10, 2026", status: "Confirmed", priority: "Low" },
-  { id: "PO-4509", supplier: "ElectroParts Global", items: 9, total: "$203,600", ordered: "Mar 14, 2026", eta: "Apr 04, 2026", status: "In Transit", priority: "High" },
-  { id: "PO-4510", supplier: "BioPlastics Corp.", items: 20, total: "$41,500", ordered: "Apr 01, 2026", eta: "Apr 22, 2026", status: "Draft", priority: "Low" },
+  { id: "PO-4501", supplier: "Apex Materials Co.", items: 24, total: "EGP 128,450", ordered: "Mar 18, 2026", eta: "Apr 08, 2026", status: "In Transit", priority: "High" },
+  { id: "PO-4502", supplier: "GlobalTech Components", items: 12, total: "EGP 67,200", ordered: "Mar 20, 2026", eta: "Apr 12, 2026", status: "Confirmed", priority: "Medium" },
+  { id: "PO-4503", supplier: "SteelWorks International", items: 8, total: "EGP 245,000", ordered: "Mar 15, 2026", eta: "Apr 05, 2026", status: "In Transit", priority: "High" },
+  { id: "PO-4504", supplier: "ChemPro Industries", items: 15, total: "EGP 34,800", ordered: "Mar 22, 2026", eta: "Apr 14, 2026", status: "Pending Approval", priority: "Low" },
+  { id: "PO-4505", supplier: "Pacific Logistics Ltd.", items: 6, total: "EGP 89,300", ordered: "Mar 25, 2026", eta: "Apr 18, 2026", status: "Confirmed", priority: "Medium" },
+  { id: "PO-4506", supplier: "NordicParts AB", items: 30, total: "EGP 156,700", ordered: "Mar 12, 2026", eta: "Apr 02, 2026", status: "Delivered", priority: "High" },
+  { id: "PO-4507", supplier: "RawMat Suppliers Inc.", items: 18, total: "EGP 72,100", ordered: "Mar 28, 2026", eta: "Apr 20, 2026", status: "Pending Approval", priority: "Medium" },
+  { id: "PO-4508", supplier: "Precision Fasteners Co.", items: 42, total: "EGP 19,850", ordered: "Mar 30, 2026", eta: "Apr 10, 2026", status: "Confirmed", priority: "Low" },
+  { id: "PO-4509", supplier: "ElectroParts Global", items: 9, total: "EGP 203,600", ordered: "Mar 14, 2026", eta: "Apr 04, 2026", status: "In Transit", priority: "High" },
+  { id: "PO-4510", supplier: "BioPlastics Corp.", items: 20, total: "EGP 41,500", ordered: "Apr 01, 2026", eta: "Apr 22, 2026", status: "Draft", priority: "Low" },
 ];
 
 const suppliers = [
-  { id: "SUP-001", name: "Apex Materials Co.", category: "Raw Materials", location: "Houston, TX", rating: 4.8, onTime: "96%", spend: "$2.4M", status: "Preferred", risk: "Low" },
-  { id: "SUP-002", name: "GlobalTech Components", category: "Electronics", location: "Shenzhen, China", rating: 4.5, onTime: "91%", spend: "$1.8M", status: "Approved", risk: "Medium" },
-  { id: "SUP-003", name: "SteelWorks International", category: "Metals", location: "Pittsburgh, PA", rating: 4.9, onTime: "98%", spend: "$3.1M", status: "Preferred", risk: "Low" },
-  { id: "SUP-004", name: "ChemPro Industries", category: "Chemicals", location: "Basel, Switzerland", rating: 4.3, onTime: "89%", spend: "$890K", status: "Approved", risk: "Medium" },
-  { id: "SUP-005", name: "Pacific Logistics Ltd.", category: "Logistics", location: "Singapore", rating: 4.6, onTime: "93%", spend: "$1.2M", status: "Approved", risk: "Low" },
-  { id: "SUP-006", name: "NordicParts AB", category: "Mechanical Parts", location: "Stockholm, Sweden", rating: 4.7, onTime: "95%", spend: "$1.5M", status: "Preferred", risk: "Low" },
-  { id: "SUP-007", name: "RawMat Suppliers Inc.", category: "Raw Materials", location: "Detroit, MI", rating: 4.1, onTime: "87%", spend: "$670K", status: "Conditional", risk: "High" },
-  { id: "SUP-008", name: "Precision Fasteners Co.", category: "Hardware", location: "Osaka, Japan", rating: 4.8, onTime: "97%", spend: "$420K", status: "Preferred", risk: "Low" },
-  { id: "SUP-009", name: "ElectroParts Global", category: "Electronics", location: "Taipei, Taiwan", rating: 4.4, onTime: "90%", spend: "$2.1M", status: "Approved", risk: "Medium" },
-  { id: "SUP-010", name: "BioPlastics Corp.", category: "Polymers", location: "Rotterdam, Netherlands", rating: 4.2, onTime: "92%", spend: "$560K", status: "Approved", risk: "Low" },
+  { id: "SUP-001", name: "Apex Materials Co.", category: "Raw Materials", location: "Houston, TX", rating: 4.8, onTime: "96%", spend: "EGP 2.4M", status: "Preferred", risk: "Low" },
+  { id: "SUP-002", name: "GlobalTech Components", category: "Electronics", location: "Shenzhen, China", rating: 4.5, onTime: "91%", spend: "EGP 1.8M", status: "Approved", risk: "Medium" },
+  { id: "SUP-003", name: "SteelWorks International", category: "Metals", location: "Pittsburgh, PA", rating: 4.9, onTime: "98%", spend: "EGP 3.1M", status: "Preferred", risk: "Low" },
+  { id: "SUP-004", name: "ChemPro Industries", category: "Chemicals", location: "Basel, Switzerland", rating: 4.3, onTime: "89%", spend: "EGP 890K", status: "Approved", risk: "Medium" },
+  { id: "SUP-005", name: "Pacific Logistics Ltd.", category: "Logistics", location: "Singapore", rating: 4.6, onTime: "93%", spend: "EGP 1.2M", status: "Approved", risk: "Low" },
+  { id: "SUP-006", name: "NordicParts AB", category: "Mechanical Parts", location: "Stockholm, Sweden", rating: 4.7, onTime: "95%", spend: "EGP 1.5M", status: "Preferred", risk: "Low" },
+  { id: "SUP-007", name: "RawMat Suppliers Inc.", category: "Raw Materials", location: "Detroit, MI", rating: 4.1, onTime: "87%", spend: "EGP 670K", status: "Conditional", risk: "High" },
+  { id: "SUP-008", name: "Precision Fasteners Co.", category: "Hardware", location: "Osaka, Japan", rating: 4.8, onTime: "97%", spend: "EGP 420K", status: "Preferred", risk: "Low" },
+  { id: "SUP-009", name: "ElectroParts Global", category: "Electronics", location: "Taipei, Taiwan", rating: 4.4, onTime: "90%", spend: "EGP 2.1M", status: "Approved", risk: "Medium" },
+  { id: "SUP-010", name: "BioPlastics Corp.", category: "Polymers", location: "Rotterdam, Netherlands", rating: 4.2, onTime: "92%", spend: "EGP 560K", status: "Approved", risk: "Low" },
 ];
 
 const shipments = [
@@ -88,23 +88,23 @@ const warehouses = [
 ];
 
 const contracts = [
-  { id: "CTR-301", supplier: "Apex Materials Co.", type: "Master Supply Agreement", value: "$4.8M", start: "Jan 01, 2026", end: "Dec 31, 2027", status: "Active", renewal: "Auto" },
-  { id: "CTR-302", supplier: "SteelWorks International", type: "Volume Purchase Agreement", value: "$6.2M", start: "Mar 01, 2026", end: "Feb 28, 2028", status: "Active", renewal: "Manual" },
-  { id: "CTR-303", supplier: "GlobalTech Components", type: "Framework Agreement", value: "$3.5M", start: "Jun 01, 2025", end: "May 31, 2026", status: "Expiring Soon", renewal: "Auto" },
-  { id: "CTR-304", supplier: "Pacific Logistics Ltd.", type: "Service Level Agreement", value: "$1.8M", start: "Jan 01, 2026", end: "Dec 31, 2026", status: "Active", renewal: "Auto" },
-  { id: "CTR-305", supplier: "NordicParts AB", type: "Blanket Purchase Order", value: "$2.9M", start: "Apr 01, 2026", end: "Mar 31, 2027", status: "Active", renewal: "Manual" },
-  { id: "CTR-306", supplier: "ElectroParts Global", type: "Master Supply Agreement", value: "$4.1M", start: "Feb 01, 2026", end: "Jan 31, 2028", status: "Active", renewal: "Auto" },
-  { id: "CTR-307", supplier: "ChemPro Industries", type: "Hazmat Handling Agreement", value: "$1.2M", start: "Sep 01, 2025", end: "Aug 31, 2026", status: "Under Review", renewal: "Manual" },
-  { id: "CTR-308", supplier: "RawMat Suppliers Inc.", type: "Framework Agreement", value: "$950K", start: "Nov 01, 2025", end: "Oct 31, 2026", status: "Active", renewal: "Manual" },
+  { id: "CTR-301", supplier: "Apex Materials Co.", type: "Master Supply Agreement", value: "EGP 4.8M", start: "Jan 01, 2026", end: "Dec 31, 2027", status: "Active", renewal: "Auto" },
+  { id: "CTR-302", supplier: "SteelWorks International", type: "Volume Purchase Agreement", value: "EGP 6.2M", start: "Mar 01, 2026", end: "Feb 28, 2028", status: "Active", renewal: "Manual" },
+  { id: "CTR-303", supplier: "GlobalTech Components", type: "Framework Agreement", value: "EGP 3.5M", start: "Jun 01, 2025", end: "May 31, 2026", status: "Expiring Soon", renewal: "Auto" },
+  { id: "CTR-304", supplier: "Pacific Logistics Ltd.", type: "Service Level Agreement", value: "EGP 1.8M", start: "Jan 01, 2026", end: "Dec 31, 2026", status: "Active", renewal: "Auto" },
+  { id: "CTR-305", supplier: "NordicParts AB", type: "Blanket Purchase Order", value: "EGP 2.9M", start: "Apr 01, 2026", end: "Mar 31, 2027", status: "Active", renewal: "Manual" },
+  { id: "CTR-306", supplier: "ElectroParts Global", type: "Master Supply Agreement", value: "EGP 4.1M", start: "Feb 01, 2026", end: "Jan 31, 2028", status: "Active", renewal: "Auto" },
+  { id: "CTR-307", supplier: "ChemPro Industries", type: "Hazmat Handling Agreement", value: "EGP 1.2M", start: "Sep 01, 2025", end: "Aug 31, 2026", status: "Under Review", renewal: "Manual" },
+  { id: "CTR-308", supplier: "RawMat Suppliers Inc.", type: "Framework Agreement", value: "EGP 950K", start: "Nov 01, 2025", end: "Oct 31, 2026", status: "Active", renewal: "Manual" },
 ];
 
 const spendCategories = [
-  { category: "Raw Materials", spend: "$4.8M", pct: 32, trend: "+2.1%", suppliers: 28 },
-  { category: "Electronics & Components", spend: "$3.9M", pct: 26, trend: "-1.4%", suppliers: 19 },
-  { category: "Logistics & Freight", spend: "$2.3M", pct: 15, trend: "+4.7%", suppliers: 12 },
-  { category: "Chemicals & Polymers", spend: "$1.5M", pct: 10, trend: "+0.8%", suppliers: 8 },
-  { category: "Mechanical Parts", spend: "$1.2M", pct: 8, trend: "-0.3%", suppliers: 15 },
-  { category: "Services & MRO", spend: "$1.3M", pct: 9, trend: "+1.9%", suppliers: 22 },
+  { category: "Raw Materials", spend: "EGP 4.8M", pct: 32, trend: "+2.1%", suppliers: 28 },
+  { category: "Electronics & Components", spend: "EGP 3.9M", pct: 26, trend: "-1.4%", suppliers: 19 },
+  { category: "Logistics & Freight", spend: "EGP 2.3M", pct: 15, trend: "+4.7%", suppliers: 12 },
+  { category: "Chemicals & Polymers", spend: "EGP 1.5M", pct: 10, trend: "+0.8%", suppliers: 8 },
+  { category: "Mechanical Parts", spend: "EGP 1.2M", pct: 8, trend: "-0.3%", suppliers: 15 },
+  { category: "Services & MRO", spend: "EGP 1.3M", pct: 9, trend: "+1.9%", suppliers: 22 },
 ];
 
 function poStatusBadge(status: string) {
@@ -778,7 +778,7 @@ export default function SupplyChainPage() {
                 location: String(data.location),
                 rating: Number(data.rating) || 0,
                 onTime: String(data.onTime) || "0%",
-                spend: String(data.spend) || "$0",
+                spend: String(data.spend) || "EGP 0",
                 status: String(data.status) || "Approved",
                 risk: String(data.risk) || "Low",
               }, ...prev]);
