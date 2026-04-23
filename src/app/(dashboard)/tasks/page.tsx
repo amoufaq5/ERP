@@ -455,7 +455,7 @@ export default function TasksPage() {
                 columns={taskColumns}
                 data={sortedFiltered as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No tasks match your filters."
+                exportable exportFilename="tasks.csv" emptyMessage="No tasks match your filters."
               />
             </CardContent>
           </Card>
@@ -502,7 +502,7 @@ export default function TasksPage() {
                   columns={taskColumns}
                   data={sortedFiltered as unknown as Record<string, unknown>[]}
                   
-                  emptyMessage="No tasks assigned by you yet."
+                  exportable exportFilename="tasks.csv" emptyMessage="No tasks assigned by you yet."
                 />
               </CardContent>
             </Card>

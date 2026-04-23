@@ -399,7 +399,7 @@ export default function CollectionsPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredInvoices as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No outstanding invoices."
+                exportable exportFilename="erp-collections.csv" emptyMessage="No outstanding invoices."
               />
             </CardContent>
           </Card>
@@ -449,7 +449,7 @@ export default function CollectionsPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredPayments as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No payment records."
+                exportable exportFilename="erp-collections.csv" emptyMessage="No payment records."
               />
               {filteredPayments.length > 0 && (
                 <div className="border-t-2 bg-slate-50 font-bold flex text-sm p-3">
@@ -545,7 +545,7 @@ export default function CollectionsPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredCheques as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No cheques match your filters."
+                exportable exportFilename="erp-collections.csv" emptyMessage="No cheques match your filters."
               />
             </CardContent>
           </Card>
@@ -572,7 +572,7 @@ export default function CollectionsPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={agingData as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No outstanding receivables."
+                exportable exportFilename="erp-collections.csv" emptyMessage="No outstanding receivables."
               />
               {agingData.length > 0 && (
                 <div className="border-t-2 bg-slate-50 font-bold grid grid-cols-8 text-sm p-3">

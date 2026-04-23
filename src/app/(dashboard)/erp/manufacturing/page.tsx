@@ -300,7 +300,7 @@ export default function ManufacturingPage() {
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredWO as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No work orders match your filters."
+                exportable exportFilename="erp-manufacturing.csv" emptyMessage="No work orders match your filters."
               />
             </CardContent>
           </Card>

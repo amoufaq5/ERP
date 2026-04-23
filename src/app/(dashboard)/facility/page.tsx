@@ -315,7 +315,7 @@ export default function FacilityPage() {
                   { key: "status", label: "Status", render: (v) => statusBadge(v) },
                 ] as Column<Record<string, unknown>>[]}
                 data={spaces as unknown as Record<string, unknown>[]}
-                emptyMessage="No spaces found."
+                exportable exportFilename="facility.csv" emptyMessage="No spaces found."
               />
             </CardContent>
           </Card>
@@ -376,7 +376,7 @@ export default function FacilityPage() {
                   .filter(wo => !woFilters.priority || wo.priority === woFilters.priority)
                   .filter(wo => !woFilters.status || wo.status === woFilters.status)
                 ) as unknown as Record<string, unknown>[]}
-                emptyMessage="No work orders found."
+                exportable exportFilename="facility.csv" emptyMessage="No work orders found."
               />
             </CardContent>
           </Card>
@@ -407,7 +407,7 @@ export default function FacilityPage() {
                   { key: "value", label: "Value", render: (v) => <span className="font-medium">{v}</span> },
                 ] as Column<Record<string, unknown>>[]}
                 data={assetList as unknown as Record<string, unknown>[]}
-                emptyMessage="No assets found."
+                exportable exportFilename="facility.csv" emptyMessage="No assets found."
               />
             </CardContent>
           </Card>
@@ -482,7 +482,7 @@ export default function FacilityPage() {
                   { key: "status", label: "Status", render: (v) => statusBadge(v) },
                 ] as Column<Record<string, unknown>>[]}
                 data={visitorList as unknown as Record<string, unknown>[]}
-                emptyMessage="No visitors found."
+                exportable exportFilename="facility.csv" emptyMessage="No visitors found."
               />
             </CardContent>
           </Card>
@@ -526,7 +526,7 @@ export default function FacilityPage() {
                   { key: "status", label: "Status", render: (v) => statusBadge(v) },
                 ] as Column<Record<string, unknown>>[]}
                 data={vendorList as unknown as Record<string, unknown>[]}
-                emptyMessage="No vendors found."
+                exportable exportFilename="facility.csv" emptyMessage="No vendors found."
               />
             </CardContent>
           </Card>

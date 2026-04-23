@@ -187,7 +187,7 @@ export default function BUMPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={PERFORMANCE as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No performance data available."
+                exportable exportFilename="crm-bum.csv" emptyMessage="No performance data available."
               />
             </CardContent>
           </Card>
@@ -235,7 +235,7 @@ export default function BUMPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredApprovals as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No strategic approvals."
+                exportable exportFilename="crm-bum.csv" emptyMessage="No strategic approvals."
               />
             </CardContent>
           </Card>
@@ -280,7 +280,7 @@ export default function BUMPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredVisits as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No field visits found."
+                exportable exportFilename="crm-bum.csv" emptyMessage="No field visits found."
               />
             </CardContent>
           </Card>

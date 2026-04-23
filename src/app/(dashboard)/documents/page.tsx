@@ -128,7 +128,7 @@ export default function DocumentsPage() {
           <DataTable
             columns={docColumns}
             data={filtered as unknown as Record<string, unknown>[]}
-            emptyMessage="No documents found."
+            exportable exportFilename="documents.csv" emptyMessage="No documents found."
           />
         </CardContent>
       </Card>

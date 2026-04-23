@@ -399,7 +399,7 @@ export default function DataMigrationPage() {
             ] as Column<Record<string, unknown>>[]}
             data={filteredJobs as unknown as Record<string, unknown>[]}
             
-            emptyMessage="No migration jobs found."
+            exportable exportFilename="data-migration.csv" emptyMessage="No migration jobs found."
           />
         </CardContent>
       </Card>

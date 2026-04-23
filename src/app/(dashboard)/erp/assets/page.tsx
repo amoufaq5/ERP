@@ -127,7 +127,7 @@ export default function AssetsPage() {
             ] satisfies Column<Record<string, unknown>>[]}
             data={filtered as unknown as Record<string, unknown>[]}
             
-            emptyMessage="No assets match your filters."
+            exportable exportFilename="erp-assets.csv" emptyMessage="No assets match your filters."
           />
         </CardContent></Card>
       )}
@@ -146,7 +146,7 @@ export default function AssetsPage() {
             ] satisfies Column<Record<string, unknown>>[]}
             data={maintenanceRecords as unknown as Record<string, unknown>[]}
             
-            emptyMessage="No maintenance records found."
+            exportable exportFilename="erp-assets.csv" emptyMessage="No maintenance records found."
           />
         </CardContent></Card>
       )}

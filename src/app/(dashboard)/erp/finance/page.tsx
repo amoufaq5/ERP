@@ -420,7 +420,7 @@ export default function FinancePage() {
             <FilterBar searchValue={invoiceFilters._search} onSearchChange={(v) => setInvoiceFilters((f) => ({ ...f, _search: v }))}
               fields={invoiceFilterFields} values={invoiceFilters} onChange={(k, v) => setInvoiceFilters((f) => ({ ...f, [k]: v }))} />
           </div>
-          <DataTable columns={invoiceColumns} data={filteredInvoices as unknown as Record<string, unknown>[]} emptyMessage="No invoices found." />
+          <DataTable columns={invoiceColumns} data={filteredInvoices as unknown as Record<string, unknown>[]} exportable exportFilename="erp-finance.csv" emptyMessage="No invoices found." />
         </div>
       )}
 
@@ -430,19 +430,19 @@ export default function FinancePage() {
             <FilterBar searchValue={paymentFilters._search} onSearchChange={(v) => setPaymentFilters((f) => ({ ...f, _search: v }))}
               fields={paymentFilterFields} values={paymentFilters} onChange={(k, v) => setPaymentFilters((f) => ({ ...f, [k]: v }))} />
           </div>
-          <DataTable columns={paymentColumns} data={filteredPayments as unknown as Record<string, unknown>[]} emptyMessage="No payments found." />
+          <DataTable columns={paymentColumns} data={filteredPayments as unknown as Record<string, unknown>[]} exportable exportFilename="erp-finance.csv" emptyMessage="No payments found." />
         </div>
       )}
 
       {activeTab === "bank" && (
         <div className="bg-card rounded-xl border border-border shadow-sm">
-          <DataTable columns={bankColumns} data={store.bankAccounts as unknown as Record<string, unknown>[]} emptyMessage="No bank accounts." />
+          <DataTable columns={bankColumns} data={store.bankAccounts as unknown as Record<string, unknown>[]} exportable exportFilename="erp-finance.csv" emptyMessage="No bank accounts." />
         </div>
       )}
 
       {activeTab === "vendors" && (
         <div className="bg-card rounded-xl border border-border shadow-sm">
-          <DataTable columns={vendorColumns} data={store.vendors as unknown as Record<string, unknown>[]} emptyMessage="No vendors found." />
+          <DataTable columns={vendorColumns} data={store.vendors as unknown as Record<string, unknown>[]} exportable exportFilename="erp-finance.csv" emptyMessage="No vendors found." />
         </div>
       )}
 
@@ -479,7 +479,7 @@ export default function FinancePage() {
                 }},
               ] as Column<Record<string, unknown>>[]}
               data={store.budgets as unknown as Record<string, unknown>[]}
-              emptyMessage="No budgets defined."
+              exportable exportFilename="erp-finance.csv" emptyMessage="No budgets defined."
             />
           </div>
         </div>
@@ -516,7 +516,7 @@ export default function FinancePage() {
                 }},
               ] as Column<Record<string, unknown>>[]}
               data={store.glAccounts.filter((a) => a.isActive) as unknown as Record<string, unknown>[]}
-              emptyMessage="No GL accounts."
+              exportable exportFilename="erp-finance.csv" emptyMessage="No GL accounts."
               
             />
           </div>

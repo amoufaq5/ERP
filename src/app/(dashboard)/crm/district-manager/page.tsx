@@ -195,7 +195,7 @@ export default function DistrictManagerPage() {
               },
             ] as Column<Record<string, unknown>>[]}
             data={repStats as unknown as Record<string, unknown>[]}
-            emptyMessage="No reps in your team."
+            exportable exportFilename="crm-district-manager.csv" emptyMessage="No reps in your team."
             
           />
         </TabsContent>

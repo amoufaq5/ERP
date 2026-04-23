@@ -315,7 +315,7 @@ export default function IntegrationPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredFlows as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No data flows found."
+                exportable exportFilename="integration.csv" emptyMessage="No data flows found."
               />
             </CardContent>
           </Card>
@@ -338,7 +338,7 @@ export default function IntegrationPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={logs as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No logs available."
+                exportable exportFilename="integration.csv" emptyMessage="No logs available."
               />
             </CardContent>
           </Card>

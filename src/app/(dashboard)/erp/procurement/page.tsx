@@ -232,7 +232,7 @@ export default function ProcurementPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredPOs as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No purchase orders found."
+                exportable exportFilename="erp-procurement.csv" emptyMessage="No purchase orders found."
               />
             </CardContent>
           </Card>
@@ -305,7 +305,7 @@ export default function ProcurementPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredSuppliers as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No suppliers found."
+                exportable exportFilename="erp-procurement.csv" emptyMessage="No suppliers found."
               />
             </CardContent>
           </Card>
@@ -353,7 +353,7 @@ export default function ProcurementPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={grn as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No goods received notes found."
+                exportable exportFilename="erp-procurement.csv" emptyMessage="No goods received notes found."
               />
 
               <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -411,7 +411,7 @@ export default function ProcurementPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={qcTests as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No QC tests found."
+                exportable exportFilename="erp-procurement.csv" emptyMessage="No QC tests found."
               />
 
               <div className="mt-6">

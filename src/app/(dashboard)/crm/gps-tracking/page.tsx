@@ -234,7 +234,7 @@ export default function GpsTrackingPage() {
                 onChange={(k, v) => setVisitFilters((f) => ({ ...f, [k]: v }))}
               />
             </div>
-            <DataTable columns={visitColumns} data={filteredVisits as unknown as Record<string, unknown>[]} emptyMessage="No visits found." />
+            <DataTable columns={visitColumns} data={filteredVisits as unknown as Record<string, unknown>[]} exportable exportFilename="crm-gps-tracking.csv" emptyMessage="No visits found." />
           </div>
         </TabsContent>
 
@@ -247,7 +247,7 @@ export default function GpsTrackingPage() {
                 {LIVE_LOCATIONS.length} active
               </Badge>
             </div>
-            <DataTable columns={locationColumns} data={LIVE_LOCATIONS as unknown as Record<string, unknown>[]} emptyMessage="No active locations." />
+            <DataTable columns={locationColumns} data={LIVE_LOCATIONS as unknown as Record<string, unknown>[]} exportable exportFilename="crm-gps-tracking.csv" emptyMessage="No active locations." />
           </div>
         </TabsContent>
 

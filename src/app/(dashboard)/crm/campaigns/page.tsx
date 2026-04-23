@@ -163,7 +163,7 @@ export default function CampaignsPage() {
             onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
           />
         </div>
-        <DataTable columns={columns} data={filtered as unknown as Record<string, unknown>[]} emptyMessage="No campaigns found." />
+        <DataTable columns={columns} data={filtered as unknown as Record<string, unknown>[]} exportable exportFilename="crm-campaigns.csv" emptyMessage="No campaigns found." />
       </div>
 
       <EntityFormModal

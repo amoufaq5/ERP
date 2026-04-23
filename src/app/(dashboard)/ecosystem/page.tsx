@@ -384,7 +384,7 @@ export default function EcosystemPage() {
                   )},
                 ] as Column<Record<string, unknown>>[]}
                 data={activeIntegrations as unknown as Record<string, unknown>[]}
-                emptyMessage="No active integrations."
+                exportable exportFilename="ecosystem.csv" emptyMessage="No active integrations."
               />
             </CardContent>
           </Card>
@@ -422,7 +422,7 @@ export default function EcosystemPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={customFields as unknown as Record<string, unknown>[]}
-                emptyMessage="No custom fields defined."
+                exportable exportFilename="ecosystem.csv" emptyMessage="No custom fields defined."
               />
             </CardContent>
           </Card>
@@ -464,7 +464,7 @@ export default function EcosystemPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={workflows as unknown as Record<string, unknown>[]}
-                emptyMessage="No workflows defined."
+                exportable exportFilename="ecosystem.csv" emptyMessage="No workflows defined."
               />
             </CardContent>
           </Card>
@@ -542,7 +542,7 @@ export default function EcosystemPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={apiEndpoints as unknown as Record<string, unknown>[]}
                 pagination={true}
-                emptyMessage="No API endpoints available."
+                exportable exportFilename="ecosystem.csv" emptyMessage="No API endpoints available."
               />
             </CardContent>
           </Card>
@@ -621,7 +621,7 @@ export default function EcosystemPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={roles as unknown as Record<string, unknown>[]}
-                emptyMessage="No roles defined."
+                exportable exportFilename="ecosystem.csv" emptyMessage="No roles defined."
               />
             </CardContent>
           </Card>

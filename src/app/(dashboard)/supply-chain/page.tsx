@@ -354,7 +354,7 @@ export default function SupplyChainPage() {
                   .filter(po => !poFilters.status || po.status === poFilters.status)
                   .filter(po => !poFilters.priority || po.priority === poFilters.priority) as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No purchase orders found."
+                exportable exportFilename="supply-chain.csv" emptyMessage="No purchase orders found."
               />
             </CardContent>
           </Card>
@@ -413,7 +413,7 @@ export default function SupplyChainPage() {
                   .filter(s => !supFilters.status || s.status === supFilters.status)
                   .filter(s => !supFilters.risk || s.risk === supFilters.risk) as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No suppliers found."
+                exportable exportFilename="supply-chain.csv" emptyMessage="No suppliers found."
               />
             </CardContent>
           </Card>
@@ -450,7 +450,7 @@ export default function SupplyChainPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={shipments as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No shipments found."
+                exportable exportFilename="supply-chain.csv" emptyMessage="No shipments found."
               />
             </CardContent>
           </Card>
@@ -487,7 +487,7 @@ export default function SupplyChainPage() {
                   { key: "status", label: "Status", render: (v: string) => stockBadge(v) },
                 ] as Column<Record<string, unknown>>[]}
                 data={inventoryItems as unknown as Record<string, unknown>[]}
-                emptyMessage="No inventory items found."
+                exportable exportFilename="supply-chain.csv" emptyMessage="No inventory items found."
               />
             </CardContent>
           </Card>
@@ -572,7 +572,7 @@ export default function SupplyChainPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={contractList as unknown as Record<string, unknown>[]}
 
-                emptyMessage="No contracts found."
+                exportable exportFilename="supply-chain.csv" emptyMessage="No contracts found."
               />
             </CardContent>
           </Card>

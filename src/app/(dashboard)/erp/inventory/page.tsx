@@ -359,7 +359,7 @@ export default function InventoryPage() {
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredRM as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No raw materials match your filters."
+                exportable exportFilename="erp-inventory.csv" emptyMessage="No raw materials match your filters."
               />
             </CardContent>
           </Card>
@@ -401,7 +401,7 @@ export default function InventoryPage() {
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredFP as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No finished products match your filters."
+                exportable exportFilename="erp-inventory.csv" emptyMessage="No finished products match your filters."
               />
             </CardContent>
           </Card>

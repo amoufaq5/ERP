@@ -526,7 +526,7 @@ export default function AccountingPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredCustomers as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No customers found."
+                exportable exportFilename="erp-accounting.csv" emptyMessage="No customers found."
               />
             </CardContent>
           </Card>
@@ -572,7 +572,7 @@ export default function AccountingPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredVendors as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No vendors found."
+                exportable exportFilename="erp-accounting.csv" emptyMessage="No vendors found."
               />
             </CardContent>
           </Card>
@@ -626,7 +626,7 @@ export default function AccountingPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredCheques as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No cheques found."
+                exportable exportFilename="erp-accounting.csv" emptyMessage="No cheques found."
               />
             </CardContent>
           </Card>
@@ -674,7 +674,7 @@ export default function AccountingPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredInvoices as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No invoices found."
+                exportable exportFilename="erp-accounting.csv" emptyMessage="No invoices found."
               />
             </CardContent>
           </Card>
@@ -722,7 +722,7 @@ export default function AccountingPage() {
                   )},
                 ] as Column<Record<string, unknown>>[]}
                 data={store.bankAccounts as unknown as Record<string, unknown>[]}
-                emptyMessage="No bank accounts."
+                exportable exportFilename="erp-accounting.csv" emptyMessage="No bank accounts."
                 
               />
             </CardContent>
@@ -781,7 +781,7 @@ export default function AccountingPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredGL as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No accounts found."
+                exportable exportFilename="erp-accounting.csv" emptyMessage="No accounts found."
               />
             </CardContent>
           </Card>
@@ -844,7 +844,7 @@ export default function AccountingPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredJE as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No journal entries found."
+                exportable exportFilename="erp-accounting.csv" emptyMessage="No journal entries found."
               />
             </CardContent>
           </Card>
@@ -894,7 +894,7 @@ export default function AccountingPage() {
                   ] as Column<Record<string, unknown>>[]}
                   data={store.costCenters as unknown as Record<string, unknown>[]}
                   
-                  emptyMessage="No cost centers."
+                  exportable exportFilename="erp-accounting.csv" emptyMessage="No cost centers."
                 />
               </CardContent></Card>
             </div>
@@ -930,7 +930,7 @@ export default function AccountingPage() {
                   ] as Column<Record<string, unknown>>[]}
                   data={store.budgets as unknown as Record<string, unknown>[]}
                   
-                  emptyMessage="No budgets."
+                  exportable exportFilename="erp-accounting.csv" emptyMessage="No budgets."
                 />
               </CardContent></Card>
             </div>

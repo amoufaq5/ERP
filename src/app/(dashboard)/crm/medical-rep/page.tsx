@@ -501,7 +501,7 @@ export default function MedicalRepPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredDoctors as unknown as Record<string, unknown>[]}
-                emptyMessage="No doctors match your filters."
+                exportable exportFilename="crm-medical-rep.csv" emptyMessage="No doctors match your filters."
               />
             </CardContent>
           </Card>
@@ -594,7 +594,7 @@ export default function MedicalRepPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredVisits.slice().sort((a, b) => (b.dateTime > a.dateTime ? 1 : -1)) as unknown as Record<string, unknown>[]}
-                emptyMessage="No visits logged yet."
+                exportable exportFilename="crm-medical-rep.csv" emptyMessage="No visits logged yet."
               />
             </CardContent>
           </Card>

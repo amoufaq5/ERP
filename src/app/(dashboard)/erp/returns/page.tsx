@@ -180,7 +180,7 @@ export default function ReturnsPage() {
                   .filter(r => !retFilters.status || r.status === retFilters.status)
                   .filter(r => !retFilters.reason || r.reason === retFilters.reason) as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No return requests found."
+                exportable exportFilename="erp-returns.csv" emptyMessage="No return requests found."
               />
             </CardContent>
           </Card>
@@ -219,7 +219,7 @@ export default function ReturnsPage() {
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={credits as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No credit notes found."
+                exportable exportFilename="erp-returns.csv" emptyMessage="No credit notes found."
               />
             </CardContent>
           </Card>
@@ -262,7 +262,7 @@ export default function ReturnsPage() {
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={destructions as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No destruction records found."
+                exportable exportFilename="erp-returns.csv" emptyMessage="No destruction records found."
               />
             </CardContent>
           </Card>

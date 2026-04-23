@@ -317,7 +317,7 @@ export default function QAQCPage() {
                   .filter(i => !inspectionFilters.type || i.type === inspectionFilters.type)
                   .filter(i => !inspectionFilters.result || i.result === inspectionFilters.result) as unknown as Record<string, unknown>[]}
 
-                emptyMessage="No inspections found."
+                exportable exportFilename="qaqc.csv" emptyMessage="No inspections found."
               />
             </CardContent>
           </Card>
@@ -378,7 +378,7 @@ export default function QAQCPage() {
                   .filter(n => !ncrFilters.severity || n.severity === ncrFilters.severity)
                   .filter(n => !ncrFilters.status || n.status === ncrFilters.status) as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No NCRs found."
+                exportable exportFilename="qaqc.csv" emptyMessage="No NCRs found."
               />
             </CardContent>
           </Card>
@@ -436,7 +436,7 @@ export default function QAQCPage() {
                   .filter(c => !capaFilters.type || c.type === capaFilters.type)
                   .filter(c => !capaFilters.status || c.status === capaFilters.status) as unknown as Record<string, unknown>[]}
 
-                emptyMessage="No CAPA items found."
+                exportable exportFilename="qaqc.csv" emptyMessage="No CAPA items found."
               />
             </CardContent>
           </Card>
@@ -539,7 +539,7 @@ export default function QAQCPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={suppliers as unknown as Record<string, unknown>[]}
                 
-                emptyMessage="No suppliers found."
+                exportable exportFilename="qaqc.csv" emptyMessage="No suppliers found."
               />
             </CardContent>
           </Card>
@@ -564,7 +564,7 @@ export default function QAQCPage() {
                   { key: "owner", label: "Owner" },
                 ] as Column<Record<string, unknown>>[]}
                 data={qualityDocs as unknown as Record<string, unknown>[]}
-                emptyMessage="No documents found."
+                exportable exportFilename="qaqc.csv" emptyMessage="No documents found."
               />
             </CardContent>
           </Card>

@@ -434,7 +434,7 @@ export default function MessagesPage() {
               columns={columns}
               data={filteredMessages}
               onRowClick={handleSelectMessage}
-              emptyMessage="No messages in this folder."
+              exportable exportFilename="messages.csv" emptyMessage="No messages in this folder."
               pagination
             />
           )}
