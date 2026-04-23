@@ -202,6 +202,51 @@ export default function TicketsPage() {
           setEditing(null);
         }}
       />
+
+      {/* ── Ticket Detail Dialog ── */}
+      <Dialog open={!!detailTicket} onOpenChange={(open) => { if (!open) setDetailTicket(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailTicket?.ticketNumber} &mdash; {detailTicket?.subject}</DialogTitle>
+          </DialogHeader>
+          {detailTicket && (() => {
+            const slaDate = new Date(detailTicket.slaDeadline.replace(" ", "T"));
+            const now = new Date();
+            const slaBreached = slaDate < now && detailTicket.status !== "CLOSED" && detailTicket.status !== "RESOLVED";
+            const slaRemaining = slaDate > now ? Math.round((slaDate.getTime() - now.getTime()) / (1000 * 60 * 60)) : 0;
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Ticket #</span><p className="font-medium font-mono">{detailTicket.ticketNumber}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Priority</span><p><PriorityBadge priority={detailTicket.priority} /></p></div>
+                  <div className="col-span-2"><span className="text-sm text-muted-foreground">Subject</span><p className="font-medium">{detailTicket.subject}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Account</span><p className="font-medium">{detailTicket.account}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={STATUS_MAP[detailTicket.status]} /></p></div>
+                  <div><span className="text-sm text-muted-foreground">Assigned To</span><p className="font-medium">{detailTicket.assignedTo}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Created</span><p className="font-medium">{detailTicket.createdAt}</p></div>
+                </div>
+                {/* SLA Info */}
+                <div className={`rounded-lg border p-4 ${slaBreached ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30" : "border-border bg-muted/30"}`}>
+                  <h4 className="text-sm font-semibold mb-2">SLA Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><span className="text-sm text-muted-foreground">SLA Deadline</span><p className="font-medium">{detailTicket.slaDeadline}</p></div>
+                    <div>
+                      <span className="text-sm text-muted-foreground">SLA Status</span>
+                      {slaBreached ? (
+                        <p className="font-medium text-red-600 dark:text-red-400">Breached</p>
+                      ) : detailTicket.status === "CLOSED" || detailTicket.status === "RESOLVED" ? (
+                        <p className="font-medium text-green-600 dark:text-green-400">Met</p>
+                      ) : (
+                        <p className="font-medium text-foreground">{slaRemaining}h remaining</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
