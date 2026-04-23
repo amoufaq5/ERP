@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import {
   Search, Plus, Eye, CheckCircle2, XCircle, AlertTriangle, FileText,
   ClipboardList, BarChart3, ShieldCheck, TrendingUp, TrendingDown,
@@ -228,40 +230,23 @@ export default function QAQCPage() {
               <CardDescription>Recent quality inspections across all stages</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Type</th>
-                      <th className="pb-3 font-medium">Product</th>
-                      <th className="pb-3 font-medium">Lot</th>
-                      <th className="pb-3 font-medium">Inspector</th>
-                      <th className="pb-3 font-medium">Date</th>
-                      <th className="pb-3 font-medium">Sample</th>
-                      <th className="pb-3 font-medium">Defects</th>
-                      <th className="pb-3 font-medium">Result</th>
-                      <th className="pb-3 font-medium">AQL</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inspections.map((i) => (
-                      <tr key={i.id} className="border-b last:border-0">
-                        <td className="py-3 font-mono text-xs">{i.id}</td>
-                        <td className="py-3"><Badge variant="outline">{i.type}</Badge></td>
-                        <td className="py-3">{i.product}</td>
-                        <td className="py-3 font-mono text-xs">{i.lot}</td>
-                        <td className="py-3">{i.inspector}</td>
-                        <td className="py-3 text-muted-foreground">{i.date}</td>
-                        <td className="py-3 text-center">{i.sampleSize}</td>
-                        <td className="py-3 text-center">{i.defects}</td>
-                        <td className="py-3">{resultBadge(i.result)}</td>
-                        <td className="py-3">{i.aql}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "type", label: "Type", render: (v: string) => <Badge variant="outline">{v}</Badge> },
+                  { key: "product", label: "Product" },
+                  { key: "lot", label: "Lot", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "inspector", label: "Inspector" },
+                  { key: "date", label: "Date", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
+                  { key: "sampleSize", label: "Sample" },
+                  { key: "defects", label: "Defects" },
+                  { key: "result", label: "Result", render: (v: string) => resultBadge(v) },
+                  { key: "aql", label: "AQL" },
+                ] as Column<Record<string, unknown>>[]}
+                data={inspections as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No inspections found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -291,55 +276,38 @@ export default function QAQCPage() {
               <CardDescription>Track and resolve product and process nonconformances</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Date</th>
-                      <th className="pb-3 font-medium">Product</th>
-                      <th className="pb-3 font-medium">Description</th>
-                      <th className="pb-3 font-medium">Source</th>
-                      <th className="pb-3 font-medium">Severity</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Owner</th>
-                      <th className="pb-3 font-medium">Cost</th>
-                      <th className="pb-3 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ncrs
-                      .filter(n => !ncrFilters._search || n.id.toLowerCase().includes(ncrFilters._search.toLowerCase()) || n.product.toLowerCase().includes(ncrFilters._search.toLowerCase()))
-                      .filter(n => !ncrFilters.severity || n.severity === ncrFilters.severity)
-                      .filter(n => !ncrFilters.status || n.status === ncrFilters.status)
-                      .map((n) => {
-                        const flow: Record<string, string> = { "Open": "Containment", "Containment": "CAPA Issued", "CAPA Issued": "Closed" };
-                        const next = flow[n.status];
-                        return (
-                          <tr key={n.id} className="border-b last:border-0">
-                            <td className="py-3 font-mono text-xs">{n.id}</td>
-                            <td className="py-3 text-muted-foreground">{n.date}</td>
-                            <td className="py-3">{n.product}</td>
-                            <td className="py-3 max-w-[200px] truncate">{n.desc}</td>
-                            <td className="py-3"><Badge variant="outline">{n.source}</Badge></td>
-                            <td className="py-3">{severityBadge(n.severity)}</td>
-                            <td className="py-3">{statusBadge(n.status)}</td>
-                            <td className="py-3">{n.owner}</td>
-                            <td className="py-3 font-medium">{n.cost}</td>
-                            <td className="py-3">
-                              <EditDeleteMenu
-                                onEdit={() => { setEditingNcr(n); setShowForm(true); }}
-                                onDelete={() => setNcrs(prev => prev.filter(x => x.id !== n.id))}
-                                itemLabel={n.id}
-                                extraItems={next ? [{ label: `→ ${next}`, onClick: () => setNcrs(prev => prev.map(x => x.id === n.id ? { ...x, status: next } : x)) }] : []}
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "date", label: "Date", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
+                  { key: "product", label: "Product" },
+                  { key: "desc", label: "Description", render: (v: string) => <span className="max-w-[200px] truncate block">{v}</span> },
+                  { key: "source", label: "Source", render: (v: string) => <Badge variant="outline">{v}</Badge> },
+                  { key: "severity", label: "Severity", render: (v: string) => severityBadge(v) },
+                  { key: "status", label: "Status", render: (v: string) => statusBadge(v) },
+                  { key: "owner", label: "Owner" },
+                  { key: "cost", label: "Cost", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                    const n = row as unknown as typeof ncrs[0];
+                    const flow: Record<string, string> = { "Open": "Containment", "Containment": "CAPA Issued", "CAPA Issued": "Closed" };
+                    const next = flow[n.status];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingNcr(n); setShowForm(true); }}
+                        onDelete={() => setNcrs(prev => prev.filter(x => x.id !== n.id))}
+                        itemLabel={n.id}
+                        extraItems={next ? [{ label: `→ ${next}`, onClick: () => setNcrs(prev => prev.map(x => x.id === n.id ? { ...x, status: next } : x)) }] : []}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={ncrs
+                  .filter(n => !ncrFilters._search || n.id.toLowerCase().includes(ncrFilters._search.toLowerCase()) || n.product.toLowerCase().includes(ncrFilters._search.toLowerCase()))
+                  .filter(n => !ncrFilters.severity || n.severity === ncrFilters.severity)
+                  .filter(n => !ncrFilters.status || n.status === ncrFilters.status) as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No NCRs found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -352,42 +320,23 @@ export default function QAQCPage() {
               <CardDescription>CAPA tracking for systemic quality improvement</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Type</th>
-                      <th className="pb-3 font-medium">Source NCR</th>
-                      <th className="pb-3 font-medium">Description</th>
-                      <th className="pb-3 font-medium">Method</th>
-                      <th className="pb-3 font-medium">Due Date</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Effectiveness</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {capas.map((c) => (
-                      <tr key={c.id} className="border-b last:border-0">
-                        <td className="py-3 font-mono text-xs">{c.id}</td>
-                        <td className="py-3">
-                          <Badge variant={c.type === "Corrective" ? "default" : "secondary"}>{c.type}</Badge>
-                        </td>
-                        <td className="py-3 font-mono text-xs">{c.sourceNcr}</td>
-                        <td className="py-3 max-w-[220px] truncate">{c.desc}</td>
-                        <td className="py-3 max-w-[200px] truncate">{c.method}</td>
-                        <td className="py-3 text-muted-foreground">{c.due}</td>
-                        <td className="py-3">{statusBadge(c.status)}</td>
-                        <td className="py-3">
-                          <Badge variant={c.effectiveness === "Effective" ? "secondary" : c.effectiveness === "Monitoring" ? "outline" : "default"}>
-                            {c.effectiveness}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "type", label: "Type", render: (v: string) => <Badge variant={v === "Corrective" ? "default" : "secondary"}>{v}</Badge> },
+                  { key: "sourceNcr", label: "Source NCR", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "desc", label: "Description", render: (v: string) => <span className="max-w-[220px] truncate block">{v}</span> },
+                  { key: "method", label: "Method", render: (v: string) => <span className="max-w-[200px] truncate block">{v}</span> },
+                  { key: "due", label: "Due Date", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
+                  { key: "status", label: "Status", render: (v: string) => statusBadge(v) },
+                  { key: "effectiveness", label: "Effectiveness", render: (v: string) => (
+                    <Badge variant={v === "Effective" ? "secondary" : v === "Monitoring" ? "outline" : "default"}>{v}</Badge>
+                  )},
+                ] as Column<Record<string, unknown>>[]}
+                data={capas as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No CAPA items found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -477,36 +426,20 @@ export default function QAQCPage() {
               <CardDescription>Vendor performance ratings and audit status</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">Supplier</th>
-                      <th className="pb-3 font-medium">Rating</th>
-                      <th className="pb-3 font-medium">Quality Score</th>
-                      <th className="pb-3 font-medium">Delivery %</th>
-                      <th className="pb-3 font-medium">PPM</th>
-                      <th className="pb-3 font-medium">Last Audit</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {suppliers.map((s) => (
-                      <tr key={s.name} className="border-b last:border-0">
-                        <td className="py-3 font-medium">{s.name}</td>
-                        <td className="py-3">
-                          <Badge variant={s.rating === "A" ? "secondary" : s.rating === "B" ? "default" : "destructive"}>{s.rating}</Badge>
-                        </td>
-                        <td className="py-3">{s.score}%</td>
-                        <td className="py-3">{s.delivery}%</td>
-                        <td className="py-3">{s.ppm}</td>
-                        <td className="py-3 text-muted-foreground">{s.lastAudit}</td>
-                        <td className="py-3">{statusBadge(s.status)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "name", label: "Supplier", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "rating", label: "Rating", render: (v: string) => <Badge variant={v === "A" ? "secondary" : v === "B" ? "default" : "destructive"}>{v}</Badge> },
+                  { key: "score", label: "Quality Score", render: (v: number) => <>{v}%</> },
+                  { key: "delivery", label: "Delivery %", render: (v: number) => <>{v}%</> },
+                  { key: "ppm", label: "PPM" },
+                  { key: "lastAudit", label: "Last Audit", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
+                  { key: "status", label: "Status", render: (v: string) => statusBadge(v) },
+                ] as Column<Record<string, unknown>>[]}
+                data={suppliers as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No suppliers found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -519,34 +452,19 @@ export default function QAQCPage() {
               <CardDescription>Controlled documents, procedures, and work instructions</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">Doc ID</th>
-                      <th className="pb-3 font-medium">Title</th>
-                      <th className="pb-3 font-medium">Type</th>
-                      <th className="pb-3 font-medium">Revision</th>
-                      <th className="pb-3 font-medium">Date</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Owner</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {qualityDocs.map((d) => (
-                      <tr key={d.id} className="border-b last:border-0">
-                        <td className="py-3 font-mono text-xs">{d.id}</td>
-                        <td className="py-3 font-medium">{d.title}</td>
-                        <td className="py-3"><Badge variant="outline">{d.type}</Badge></td>
-                        <td className="py-3 font-mono text-xs">{d.revision}</td>
-                        <td className="py-3 text-muted-foreground">{d.date}</td>
-                        <td className="py-3">{statusBadge(d.status)}</td>
-                        <td className="py-3">{d.owner}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Doc ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "title", label: "Title", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "type", label: "Type", render: (v: string) => <Badge variant="outline">{v}</Badge> },
+                  { key: "revision", label: "Revision", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "date", label: "Date", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
+                  { key: "status", label: "Status", render: (v: string) => statusBadge(v) },
+                  { key: "owner", label: "Owner" },
+                ] as Column<Record<string, unknown>>[]}
+                data={qualityDocs as unknown as Record<string, unknown>[]}
+                emptyMessage="No documents found."
+              />
             </CardContent>
           </Card>
         </TabsContent>

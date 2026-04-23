@@ -4,6 +4,8 @@ import { useState } from "react";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -229,84 +231,85 @@ export default function SafetyPage() {
             onChange={setIncFilters}
           />
           <Card><CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Date", "Type", "Location", "Severity", "Status", "Assigned To", "Description", "Actions"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-              <tbody>{incidentList
-                .filter(i => !incFilters._search || i.desc.toLowerCase().includes(incFilters._search.toLowerCase()) || i.id.toLowerCase().includes(incFilters._search.toLowerCase()))
-                .filter(i => !incFilters.severity || i.severity === incFilters.severity)
-                .filter(i => !incFilters.status || i.status === incFilters.status)
-                .filter(i => !incFilters.type || i.type === incFilters.type)
-                .map(inc => {
+            <DataTable
+              columns={[
+                { key: "id", label: "ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                { key: "date", label: "Date", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "type", label: "Type", render: (v: string) => <Badge variant="outline" className="text-xs">{v}</Badge> },
+                { key: "location", label: "Location", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "severity", label: "Severity", render: (v: string) => <span className="inline-flex items-center gap-1 text-xs"><span className={`h-2 w-2 rounded-full ${sevColor[v]}`} />{v}</span> },
+                { key: "status", label: "Status", render: (v: string) => <Badge variant={statusColor[v] || "secondary"} className="text-xs">{v}</Badge> },
+                { key: "assignee", label: "Assigned To", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "desc", label: "Description", render: (v: string) => <span className="text-xs text-muted-foreground max-w-[200px] truncate block">{v}</span> },
+                { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                  const inc = row as unknown as typeof incidentList[0];
                   const flow: Record<string, string> = { "Open": "Investigating", "Investigating": "Resolved", "Resolved": "Closed" };
                   const next = flow[inc.status];
                   return (
-                    <tr key={inc.id} className="border-b last:border-0 hover:bg-muted/50">
-                      <td className="p-3 font-mono text-xs">{inc.id}</td>
-                      <td className="p-3 text-xs">{inc.date}</td>
-                      <td className="p-3"><Badge variant="outline" className="text-xs">{inc.type}</Badge></td>
-                      <td className="p-3 text-xs">{inc.location}</td>
-                      <td className="p-3"><span className="inline-flex items-center gap-1 text-xs"><span className={`h-2 w-2 rounded-full ${sevColor[inc.severity]}`} />{inc.severity}</span></td>
-                      <td className="p-3"><Badge variant={statusColor[inc.status] || "secondary"} className="text-xs">{inc.status}</Badge></td>
-                      <td className="p-3 text-xs">{inc.assignee}</td>
-                      <td className="p-3 text-xs text-muted-foreground max-w-[200px] truncate">{inc.desc}</td>
-                      <td className="p-3">
-                        <EditDeleteMenu
-                          onEdit={() => { setEditingIncident(inc); setShowIncidentForm(true); }}
-                          onDelete={() => setIncidentList(prev => prev.filter(x => x.id !== inc.id))}
-                          itemLabel={inc.id}
-                          extraItems={next ? [{ label: `→ ${next}`, onClick: () => setIncidentList(prev => prev.map(x => x.id === inc.id ? { ...x, status: next } : x)) }] : []}
-                        />
-                      </td>
-                    </tr>
+                    <EditDeleteMenu
+                      onEdit={() => { setEditingIncident(inc); setShowIncidentForm(true); }}
+                      onDelete={() => setIncidentList(prev => prev.filter(x => x.id !== inc.id))}
+                      itemLabel={inc.id}
+                      extraItems={next ? [{ label: `→ ${next}`, onClick: () => setIncidentList(prev => prev.map(x => x.id === inc.id ? { ...x, status: next } : x)) }] : []}
+                    />
                   );
-                })}</tbody>
-            </table>
+                }},
+              ] as Column<Record<string, unknown>>[]}
+              data={incidentList
+                .filter(i => !incFilters._search || i.desc.toLowerCase().includes(incFilters._search.toLowerCase()) || i.id.toLowerCase().includes(incFilters._search.toLowerCase()))
+                .filter(i => !incFilters.severity || i.severity === incFilters.severity)
+                .filter(i => !incFilters.status || i.status === incFilters.status)
+                .filter(i => !incFilters.type || i.type === incFilters.type) as unknown as Record<string, unknown>[]}
+              pagination={false}
+              emptyMessage="No incidents found."
+            />
           </CardContent></Card>
         </TabsContent>
 
         {/* ── Risk Assessment ── */}
         <TabsContent value="risks" className="space-y-4">
           <Card><CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b text-xs text-muted-foreground">{["Risk ID", "Category", "Description", "L", "I", "Score", "Mitigation", "Status", "Owner"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-              <tbody>{risks.map(r => {
-                const rs = riskScore(r.likelihood, r.impact);
-                return (
-                  <tr key={r.id} className="border-b last:border-0 hover:bg-muted/50">
-                    <td className="p-3 font-mono text-xs">{r.id}</td>
-                    <td className="p-3"><Badge variant="outline" className="text-xs">{r.category}</Badge></td>
-                    <td className="p-3 text-xs max-w-[200px]">{r.desc}</td>
-                    <td className="p-3 text-xs text-center">{r.likelihood}</td>
-                    <td className="p-3 text-xs text-center">{r.impact}</td>
-                    <td className="p-3"><span className={`inline-flex items-center justify-center h-7 w-7 rounded text-xs font-bold ${rs.color}`}>{rs.score}</span></td>
-                    <td className="p-3 text-xs max-w-[200px] text-muted-foreground">{r.mitigation}</td>
-                    <td className="p-3"><Badge variant={statusColor[r.status] || "secondary"} className="text-xs">{r.status}</Badge></td>
-                    <td className="p-3 text-xs">{r.owner}</td>
-                  </tr>
-                );
-              })}</tbody>
-            </table>
+            <DataTable
+              columns={[
+                { key: "id", label: "Risk ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                { key: "category", label: "Category", render: (v: string) => <Badge variant="outline" className="text-xs">{v}</Badge> },
+                { key: "desc", label: "Description", render: (v: string) => <span className="text-xs max-w-[200px] block">{v}</span> },
+                { key: "likelihood", label: "L", render: (v: number) => <span className="text-xs">{v}</span> },
+                { key: "impact", label: "I", render: (v: number) => <span className="text-xs">{v}</span> },
+                { key: "score", label: "Score", render: (_: unknown, row: Record<string, unknown>) => {
+                  const r = row as unknown as typeof risks[0];
+                  const rs = riskScore(r.likelihood, r.impact);
+                  return <span className={`inline-flex items-center justify-center h-7 w-7 rounded text-xs font-bold ${rs.color}`}>{rs.score}</span>;
+                }},
+                { key: "mitigation", label: "Mitigation", render: (v: string) => <span className="text-xs max-w-[200px] text-muted-foreground block">{v}</span> },
+                { key: "status", label: "Status", render: (v: string) => <Badge variant={statusColor[v] || "secondary"} className="text-xs">{v}</Badge> },
+                { key: "owner", label: "Owner", render: (v: string) => <span className="text-xs">{v}</span> },
+              ] as Column<Record<string, unknown>>[]}
+              data={risks as unknown as Record<string, unknown>[]}
+              pagination={false}
+              emptyMessage="No risks found."
+            />
           </CardContent></Card>
         </TabsContent>
 
         {/* ── Inspections ── */}
         <TabsContent value="inspections" className="space-y-4">
           <Card><CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Type", "Area", "Inspector", "Date", "Findings", "Status", "Follow-up Actions"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-              <tbody>{inspections.map(ins => (
-                <tr key={ins.id} className="border-b last:border-0 hover:bg-muted/50">
-                  <td className="p-3 font-mono text-xs">{ins.id}</td>
-                  <td className="p-3"><Badge variant="outline" className="text-xs">{ins.type}</Badge></td>
-                  <td className="p-3 text-xs">{ins.area}</td>
-                  <td className="p-3 text-xs">{ins.inspector}</td>
-                  <td className="p-3 text-xs">{ins.date}</td>
-                  <td className="p-3 text-xs text-center">{ins.findings}</td>
-                  <td className="p-3"><Badge variant={statusColor[ins.status] || "secondary"} className="text-xs">{ins.status}</Badge></td>
-                  <td className="p-3 text-xs text-muted-foreground max-w-[200px]">{ins.followUp}</td>
-                </tr>
-              ))}</tbody>
-            </table>
+            <DataTable
+              columns={[
+                { key: "id", label: "ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                { key: "type", label: "Type", render: (v: string) => <Badge variant="outline" className="text-xs">{v}</Badge> },
+                { key: "area", label: "Area", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "inspector", label: "Inspector", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "date", label: "Date", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "findings", label: "Findings", render: (v: number) => <span className="text-xs">{v}</span> },
+                { key: "status", label: "Status", render: (v: string) => <Badge variant={statusColor[v] || "secondary"} className="text-xs">{v}</Badge> },
+                { key: "followUp", label: "Follow-up Actions", render: (v: string) => <span className="text-xs text-muted-foreground max-w-[200px] block">{v}</span> },
+              ] as Column<Record<string, unknown>>[]}
+              data={inspections as unknown as Record<string, unknown>[]}
+              pagination={false}
+              emptyMessage="No inspections found."
+            />
           </CardContent></Card>
         </TabsContent>
 
@@ -340,22 +343,22 @@ export default function SafetyPage() {
         {/* ── Work Permits ── */}
         <TabsContent value="permits" className="space-y-4">
           <Card><CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b text-xs text-muted-foreground">{["Permit ID", "Type", "Location", "Requestor", "Approver", "Valid From", "Valid To", "Status", "Conditions"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-              <tbody>{permits.map(p => (
-                <tr key={p.id} className="border-b last:border-0 hover:bg-muted/50">
-                  <td className="p-3 font-mono text-xs">{p.id}</td>
-                  <td className="p-3"><Badge variant="outline" className="text-xs">{p.type}</Badge></td>
-                  <td className="p-3 text-xs">{p.location}</td>
-                  <td className="p-3 text-xs">{p.requestor}</td>
-                  <td className="p-3 text-xs">{p.approver}</td>
-                  <td className="p-3 text-xs">{p.validFrom}</td>
-                  <td className="p-3 text-xs">{p.validTo}</td>
-                  <td className="p-3"><Badge variant={statusColor[p.status] || "secondary"} className="text-xs">{p.status}</Badge></td>
-                  <td className="p-3 text-xs text-muted-foreground max-w-[200px]">{p.conditions}</td>
-                </tr>
-              ))}</tbody>
-            </table>
+            <DataTable
+              columns={[
+                { key: "id", label: "Permit ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                { key: "type", label: "Type", render: (v: string) => <Badge variant="outline" className="text-xs">{v}</Badge> },
+                { key: "location", label: "Location", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "requestor", label: "Requestor", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "approver", label: "Approver", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "validFrom", label: "Valid From", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "validTo", label: "Valid To", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "status", label: "Status", render: (v: string) => <Badge variant={statusColor[v] || "secondary"} className="text-xs">{v}</Badge> },
+                { key: "conditions", label: "Conditions", render: (v: string) => <span className="text-xs text-muted-foreground max-w-[200px] block">{v}</span> },
+              ] as Column<Record<string, unknown>>[]}
+              data={permits as unknown as Record<string, unknown>[]}
+              pagination={false}
+              emptyMessage="No permits found."
+            />
           </CardContent></Card>
         </TabsContent>
 
@@ -379,17 +382,17 @@ export default function SafetyPage() {
             <Card>
               <CardHeader><CardTitle className="text-base">Emergency Equipment</CardTitle></CardHeader>
               <CardContent className="p-0">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b text-xs text-muted-foreground"><th className="text-left p-3 font-medium">Equipment</th><th className="text-center p-3 font-medium">Count</th><th className="text-left p-3 font-medium">Last Inspection</th><th className="text-left p-3 font-medium">Next Inspection</th></tr></thead>
-                  <tbody>{emergencyEquipment.map(e => (
-                    <tr key={e.name} className="border-b last:border-0">
-                      <td className="p-3 text-sm font-medium">{e.name}</td>
-                      <td className="p-3 text-center font-bold">{e.count}</td>
-                      <td className="p-3 text-xs text-muted-foreground">{e.lastInspection}</td>
-                      <td className="p-3 text-xs text-muted-foreground">{e.nextInspection}</td>
-                    </tr>
-                  ))}</tbody>
-                </table>
+                <DataTable
+                  columns={[
+                    { key: "name", label: "Equipment", render: (v: string) => <span className="text-sm font-medium">{v}</span> },
+                    { key: "count", label: "Count", render: (v: number) => <span className="font-bold">{v}</span> },
+                    { key: "lastInspection", label: "Last Inspection", render: (v: string) => <span className="text-xs text-muted-foreground">{v}</span> },
+                    { key: "nextInspection", label: "Next Inspection", render: (v: string) => <span className="text-xs text-muted-foreground">{v}</span> },
+                  ] as Column<Record<string, unknown>>[]}
+                  data={emergencyEquipment as unknown as Record<string, unknown>[]}
+                  pagination={false}
+                  emptyMessage="No equipment found."
+                />
               </CardContent>
             </Card>
           </div>

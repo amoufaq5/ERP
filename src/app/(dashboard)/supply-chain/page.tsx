@@ -4,6 +4,8 @@ import { useState } from "react";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -308,55 +310,39 @@ export default function SupplyChainPage() {
               <CardDescription>Manage and track all procurement activities</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">PO #</th>
-                      <th className="pb-3 font-medium">Supplier</th>
-                      <th className="pb-3 font-medium">Items</th>
-                      <th className="pb-3 font-medium">Total</th>
-                      <th className="pb-3 font-medium">Ordered</th>
-                      <th className="pb-3 font-medium">ETA</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Priority</th>
-                      <th className="pb-3 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pos
-                      .filter(po => !searchTerm || po.id.toLowerCase().includes(searchTerm.toLowerCase()) || po.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
-                      .filter(po => !poFilters.status || po.status === poFilters.status)
-                      .filter(po => !poFilters.priority || po.priority === poFilters.priority)
-                      .map((po) => {
-                        const statusFlow: Record<string, string> = { "Draft": "Pending Approval", "Pending Approval": "Confirmed", "Confirmed": "In Transit", "In Transit": "Delivered" };
-                        const nextStatus = statusFlow[po.status];
-                        return (
-                          <tr key={po.id} className="border-b last:border-0">
-                            <td className="py-3 font-medium">{po.id}</td>
-                            <td className="py-3">{po.supplier}</td>
-                            <td className="py-3">{po.items}</td>
-                            <td className="py-3">{po.total}</td>
-                            <td className="py-3">{po.ordered}</td>
-                            <td className="py-3">{po.eta}</td>
-                            <td className="py-3">{poStatusBadge(po.status)}</td>
-                            <td className="py-3">
-                              <Badge variant={po.priority === "High" ? "destructive" : po.priority === "Medium" ? "secondary" : "outline"}>{po.priority}</Badge>
-                            </td>
-                            <td className="py-3">
-                              <EditDeleteMenu
-                                onEdit={() => setModal({ type: "po", editing: po })}
-                                onDelete={() => setPos(prev => prev.filter(p => p.id !== po.id))}
-                                itemLabel={po.id}
-                                extraItems={nextStatus ? [{ label: `→ ${nextStatus}`, onClick: () => setPos(prev => prev.map(p => p.id === po.id ? { ...p, status: nextStatus } : p)) }] : []}
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "PO #", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "supplier", label: "Supplier" },
+                  { key: "items", label: "Items" },
+                  { key: "total", label: "Total" },
+                  { key: "ordered", label: "Ordered" },
+                  { key: "eta", label: "ETA" },
+                  { key: "status", label: "Status", render: (v: string) => poStatusBadge(v) },
+                  { key: "priority", label: "Priority", render: (v: string) => (
+                    <Badge variant={v === "High" ? "destructive" : v === "Medium" ? "secondary" : "outline"}>{v}</Badge>
+                  )},
+                  { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                    const po = row as unknown as typeof pos[0];
+                    const statusFlow: Record<string, string> = { "Draft": "Pending Approval", "Pending Approval": "Confirmed", "Confirmed": "In Transit", "In Transit": "Delivered" };
+                    const nextStatus = statusFlow[po.status];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ type: "po", editing: po })}
+                        onDelete={() => setPos(prev => prev.filter(p => p.id !== po.id))}
+                        itemLabel={po.id}
+                        extraItems={nextStatus ? [{ label: `→ ${nextStatus}`, onClick: () => setPos(prev => prev.map(p => p.id === po.id ? { ...p, status: nextStatus } : p)) }] : []}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={pos
+                  .filter(po => !searchTerm || po.id.toLowerCase().includes(searchTerm.toLowerCase()) || po.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
+                  .filter(po => !poFilters.status || po.status === poFilters.status)
+                  .filter(po => !poFilters.priority || po.priority === poFilters.priority) as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No purchase orders found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -385,52 +371,37 @@ export default function SupplyChainPage() {
               <CardDescription>Approved vendor list with performance ratings</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Supplier</th>
-                      <th className="pb-3 font-medium">Category</th>
-                      <th className="pb-3 font-medium">Location</th>
-                      <th className="pb-3 font-medium">Rating</th>
-                      <th className="pb-3 font-medium">On-Time</th>
-                      <th className="pb-3 font-medium">Annual Spend</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Risk</th>
-                      <th className="pb-3 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {supplierList
-                      .filter(s => !supFilters._search || s.name.toLowerCase().includes(supFilters._search.toLowerCase()) || s.id.toLowerCase().includes(supFilters._search.toLowerCase()))
-                      .filter(s => !supFilters.status || s.status === supFilters.status)
-                      .filter(s => !supFilters.risk || s.risk === supFilters.risk)
-                      .map((s) => (
-                      <tr key={s.id} className="border-b last:border-0">
-                        <td className="py-3 font-medium">{s.id}</td>
-                        <td className="py-3">{s.name}</td>
-                        <td className="py-3">{s.category}</td>
-                        <td className="py-3">{s.location}</td>
-                        <td className="py-3">
-                          <span className={s.rating >= 4.5 ? "text-green-600 font-medium" : "text-amber-600 font-medium"}>{s.rating}/5</span>
-                        </td>
-                        <td className="py-3">{s.onTime}</td>
-                        <td className="py-3">{s.spend}</td>
-                        <td className="py-3">{supplierStatusBadge(s.status)}</td>
-                        <td className="py-3">{riskBadge(s.risk)}</td>
-                        <td className="py-3">
-                          <EditDeleteMenu
-                            onEdit={() => setModal({ type: "supplier", editing: s })}
-                            onDelete={() => setSupplierList(prev => prev.filter(x => x.id !== s.id))}
-                            itemLabel={s.name}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "name", label: "Supplier" },
+                  { key: "category", label: "Category" },
+                  { key: "location", label: "Location" },
+                  { key: "rating", label: "Rating", render: (v: number) => (
+                    <span className={v >= 4.5 ? "text-green-600 font-medium" : "text-amber-600 font-medium"}>{v}/5</span>
+                  )},
+                  { key: "onTime", label: "On-Time" },
+                  { key: "spend", label: "Annual Spend" },
+                  { key: "status", label: "Status", render: (v: string) => supplierStatusBadge(v) },
+                  { key: "risk", label: "Risk", render: (v: string) => riskBadge(v) },
+                  { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                    const s = row as unknown as typeof supplierList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ type: "supplier", editing: s })}
+                        onDelete={() => setSupplierList(prev => prev.filter(x => x.id !== s.id))}
+                        itemLabel={s.name}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={supplierList
+                  .filter(s => !supFilters._search || s.name.toLowerCase().includes(supFilters._search.toLowerCase()) || s.id.toLowerCase().includes(supFilters._search.toLowerCase()))
+                  .filter(s => !supFilters.status || s.status === supFilters.status)
+                  .filter(s => !supFilters.risk || s.risk === supFilters.risk) as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No suppliers found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -450,40 +421,24 @@ export default function SupplyChainPage() {
               <CardDescription>Real-time visibility of inbound and outbound shipments</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">Shipment #</th>
-                      <th className="pb-3 font-medium">Origin</th>
-                      <th className="pb-3 font-medium">Destination</th>
-                      <th className="pb-3 font-medium">Carrier</th>
-                      <th className="pb-3 font-medium">Mode</th>
-                      <th className="pb-3 font-medium">Departed</th>
-                      <th className="pb-3 font-medium">ETA</th>
-                      <th className="pb-3 font-medium">Weight</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shipments.map((s) => (
-                      <tr key={s.id} className="border-b last:border-0">
-                        <td className="py-3 font-medium">{s.id}</td>
-                        <td className="py-3">{s.origin}</td>
-                        <td className="py-3">{s.destination}</td>
-                        <td className="py-3">{s.carrier}</td>
-                        <td className="py-3">{s.mode}</td>
-                        <td className="py-3">{s.departed}</td>
-                        <td className="py-3">{s.eta}</td>
-                        <td className="py-3">{s.weight}</td>
-                        <td className="py-3">
-                          <Badge variant={s.status === "Delivered" ? "default" : s.status === "In Transit" ? "secondary" : "outline"}>{s.status}</Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Shipment #", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "origin", label: "Origin" },
+                  { key: "destination", label: "Destination" },
+                  { key: "carrier", label: "Carrier" },
+                  { key: "mode", label: "Mode" },
+                  { key: "departed", label: "Departed" },
+                  { key: "eta", label: "ETA" },
+                  { key: "weight", label: "Weight" },
+                  { key: "status", label: "Status", render: (v: string) => (
+                    <Badge variant={v === "Delivered" ? "default" : v === "In Transit" ? "secondary" : "outline"}>{v}</Badge>
+                  )},
+                ] as Column<Record<string, unknown>>[]}
+                data={shipments as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No shipments found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -506,38 +461,21 @@ export default function SupplyChainPage() {
               <CardDescription>Current stock positions and reorder planning</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">SKU</th>
-                      <th className="pb-3 font-medium">Item Name</th>
-                      <th className="pb-3 font-medium">Category</th>
-                      <th className="pb-3 font-medium">On Hand</th>
-                      <th className="pb-3 font-medium">Reorder Point</th>
-                      <th className="pb-3 font-medium">Max</th>
-                      <th className="pb-3 font-medium">Unit</th>
-                      <th className="pb-3 font-medium">Location</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inventoryItems.map((item) => (
-                      <tr key={item.sku} className="border-b last:border-0">
-                        <td className="py-3 font-medium">{item.sku}</td>
-                        <td className="py-3">{item.name}</td>
-                        <td className="py-3">{item.category}</td>
-                        <td className="py-3 font-medium">{item.onHand.toLocaleString()}</td>
-                        <td className="py-3">{item.reorder.toLocaleString()}</td>
-                        <td className="py-3">{item.max.toLocaleString()}</td>
-                        <td className="py-3">{item.unit}</td>
-                        <td className="py-3">{item.location}</td>
-                        <td className="py-3">{stockBadge(item.status)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "sku", label: "SKU", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "name", label: "Item Name" },
+                  { key: "category", label: "Category" },
+                  { key: "onHand", label: "On Hand", render: (v: number) => <span className="font-medium">{v.toLocaleString()}</span> },
+                  { key: "reorder", label: "Reorder Point", render: (v: number) => <>{v.toLocaleString()}</> },
+                  { key: "max", label: "Max", render: (v: number) => <>{v.toLocaleString()}</> },
+                  { key: "unit", label: "Unit" },
+                  { key: "location", label: "Location" },
+                  { key: "status", label: "Status", render: (v: string) => stockBadge(v) },
+                ] as Column<Record<string, unknown>>[]}
+                data={inventoryItems as unknown as Record<string, unknown>[]}
+                emptyMessage="No inventory items found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -608,36 +546,21 @@ export default function SupplyChainPage() {
               <CardDescription>Active agreements and contract lifecycle management</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">Contract #</th>
-                      <th className="pb-3 font-medium">Supplier</th>
-                      <th className="pb-3 font-medium">Type</th>
-                      <th className="pb-3 font-medium">Value</th>
-                      <th className="pb-3 font-medium">Start</th>
-                      <th className="pb-3 font-medium">End</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Renewal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {contracts.map((c) => (
-                      <tr key={c.id} className="border-b last:border-0">
-                        <td className="py-3 font-medium">{c.id}</td>
-                        <td className="py-3">{c.supplier}</td>
-                        <td className="py-3">{c.type}</td>
-                        <td className="py-3">{c.value}</td>
-                        <td className="py-3">{c.start}</td>
-                        <td className="py-3">{c.end}</td>
-                        <td className="py-3">{contractStatusBadge(c.status)}</td>
-                        <td className="py-3"><Badge variant="outline">{c.renewal}</Badge></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Contract #", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "supplier", label: "Supplier" },
+                  { key: "type", label: "Type" },
+                  { key: "value", label: "Value" },
+                  { key: "start", label: "Start" },
+                  { key: "end", label: "End" },
+                  { key: "status", label: "Status", render: (v: string) => contractStatusBadge(v) },
+                  { key: "renewal", label: "Renewal", render: (v: string) => <Badge variant="outline">{v}</Badge> },
+                ] as Column<Record<string, unknown>>[]}
+                data={contracts as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No contracts found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
