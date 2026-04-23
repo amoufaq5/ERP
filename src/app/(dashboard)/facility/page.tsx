@@ -4,13 +4,14 @@ import { useState } from "react";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Building2, MapPin, Wrench, Zap, Users, ShieldCheck, Search, Plus,
+  Building2, MapPin, Wrench, Zap, Users, ShieldCheck, Plus,
   Eye, Calendar, Clock, CheckCircle2, AlertTriangle, ArrowUp, ArrowDown,
   Thermometer, Leaf, DoorOpen, Package, TrendingUp, BarChart3, Activity,
   Phone, Mail, Star, CircleDot, Gauge, SquareStack, Fan, Droplets,
@@ -259,38 +260,21 @@ export default function FacilityPage() {
               <CardDescription>Overview of all managed spaces across facilities</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Space Name</th>
-                      <th className="pb-3 font-medium">Building</th>
-                      <th className="pb-3 font-medium">Floor</th>
-                      <th className="pb-3 font-medium">Type</th>
-                      <th className="pb-3 font-medium">Area</th>
-                      <th className="pb-3 font-medium">Capacity</th>
-                      <th className="pb-3 font-medium">Current</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {spaces.map((s) => (
-                      <tr key={s.id} className="border-b last:border-0">
-                        <td className="py-3 font-mono text-xs">{s.id}</td>
-                        <td className="py-3 font-medium">{s.name}</td>
-                        <td className="py-3">{s.building}</td>
-                        <td className="py-3">{s.floor}</td>
-                        <td className="py-3">{s.type}</td>
-                        <td className="py-3">{s.area}</td>
-                        <td className="py-3">{s.capacity}</td>
-                        <td className="py-3">{s.current}</td>
-                        <td className="py-3">{statusBadge(s.status)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "name", label: "Space Name", render: (v) => <span className="font-medium">{v}</span> },
+                  { key: "building", label: "Building" },
+                  { key: "floor", label: "Floor" },
+                  { key: "type", label: "Type" },
+                  { key: "area", label: "Area" },
+                  { key: "capacity", label: "Capacity" },
+                  { key: "current", label: "Current" },
+                  { key: "status", label: "Status", render: (v) => statusBadge(v) },
+                ] as Column<Record<string, unknown>>[]}
+                data={spaces as unknown as Record<string, unknown>[]}
+                emptyMessage="No spaces found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -321,53 +305,37 @@ export default function FacilityPage() {
               <CardDescription>Track and manage facility maintenance requests</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Title</th>
-                      <th className="pb-3 font-medium">Building</th>
-                      <th className="pb-3 font-medium">Priority</th>
-                      <th className="pb-3 font-medium">Category</th>
-                      <th className="pb-3 font-medium">Assignee</th>
-                      <th className="pb-3 font-medium">Due Date</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {wos
-                      .filter(wo => !woFilters._search || wo.title.toLowerCase().includes(woFilters._search.toLowerCase()) || wo.id.toLowerCase().includes(woFilters._search.toLowerCase()))
-                      .filter(wo => !woFilters.priority || wo.priority === woFilters.priority)
-                      .filter(wo => !woFilters.status || wo.status === woFilters.status)
-                      .map((wo) => {
-                        const flow: Record<string, string> = { "Scheduled": "In Progress", "In Progress": "Completed", "Overdue": "In Progress" };
-                        const next = flow[wo.status];
-                        return (
-                          <tr key={wo.id} className="border-b last:border-0">
-                            <td className="py-3 font-mono text-xs">{wo.id}</td>
-                            <td className="py-3 font-medium max-w-[260px] truncate">{wo.title}</td>
-                            <td className="py-3">{wo.building}</td>
-                            <td className="py-3">{priorityBadge(wo.priority)}</td>
-                            <td className="py-3">{wo.category}</td>
-                            <td className="py-3">{wo.assignee}</td>
-                            <td className="py-3">{wo.due}</td>
-                            <td className="py-3">{statusBadge(wo.status)}</td>
-                            <td className="py-3">
-                              <EditDeleteMenu
-                                onEdit={() => { setEditingWo(wo); setShowForm(true); }}
-                                onDelete={() => setWos(prev => prev.filter(w => w.id !== wo.id))}
-                                itemLabel={wo.id}
-                                extraItems={next ? [{ label: `→ ${next}`, onClick: () => setWos(prev => prev.map(w => w.id === wo.id ? { ...w, status: next } : w)) }] : []}
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "title", label: "Title", render: (v) => <span className="font-medium max-w-[260px] truncate block">{v}</span> },
+                  { key: "building", label: "Building" },
+                  { key: "priority", label: "Priority", render: (v) => priorityBadge(v) },
+                  { key: "category", label: "Category" },
+                  { key: "assignee", label: "Assignee" },
+                  { key: "due", label: "Due Date" },
+                  { key: "status", label: "Status", render: (v) => statusBadge(v) },
+                  { key: "actions", label: "Actions", render: (_v, row) => {
+                    const wo = row as unknown as typeof wos[0];
+                    const flow: Record<string, string> = { "Scheduled": "In Progress", "In Progress": "Completed", "Overdue": "In Progress" };
+                    const next = flow[wo.status];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingWo(wo); setShowForm(true); }}
+                        onDelete={() => setWos(prev => prev.filter(w => w.id !== wo.id))}
+                        itemLabel={wo.id}
+                        extraItems={next ? [{ label: `→ ${next}`, onClick: () => setWos(prev => prev.map(w => w.id === wo.id ? { ...w, status: next } : w)) }] : []}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={(wos
+                  .filter(wo => !woFilters._search || wo.title.toLowerCase().includes(woFilters._search.toLowerCase()) || wo.id.toLowerCase().includes(woFilters._search.toLowerCase()))
+                  .filter(wo => !woFilters.priority || wo.priority === woFilters.priority)
+                  .filter(wo => !woFilters.status || wo.status === woFilters.status)
+                ) as unknown as Record<string, unknown>[]}
+                emptyMessage="No work orders found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -385,36 +353,20 @@ export default function FacilityPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Asset Name</th>
-                      <th className="pb-3 font-medium">Category</th>
-                      <th className="pb-3 font-medium">Building</th>
-                      <th className="pb-3 font-medium">Installed</th>
-                      <th className="pb-3 font-medium">Last Service</th>
-                      <th className="pb-3 font-medium">Condition</th>
-                      <th className="pb-3 font-medium">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {facilityAssets.map((a) => (
-                      <tr key={a.id} className="border-b last:border-0">
-                        <td className="py-3 font-mono text-xs">{a.id}</td>
-                        <td className="py-3 font-medium max-w-[220px] truncate">{a.name}</td>
-                        <td className="py-3">{a.category}</td>
-                        <td className="py-3">{a.building}</td>
-                        <td className="py-3">{a.installed}</td>
-                        <td className="py-3">{a.lastService}</td>
-                        <td className="py-3">{conditionBadge(a.condition)}</td>
-                        <td className="py-3 font-medium">{a.value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "name", label: "Asset Name", render: (v) => <span className="font-medium max-w-[220px] truncate block">{v}</span> },
+                  { key: "category", label: "Category" },
+                  { key: "building", label: "Building" },
+                  { key: "installed", label: "Installed" },
+                  { key: "lastService", label: "Last Service" },
+                  { key: "condition", label: "Condition", render: (v) => conditionBadge(v) },
+                  { key: "value", label: "Value", render: (v) => <span className="font-medium">{v}</span> },
+                ] as Column<Record<string, unknown>>[]}
+                data={facilityAssets as unknown as Record<string, unknown>[]}
+                emptyMessage="No assets found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -476,36 +428,20 @@ export default function FacilityPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Visitor</th>
-                      <th className="pb-3 font-medium">Company</th>
-                      <th className="pb-3 font-medium">Host</th>
-                      <th className="pb-3 font-medium">Purpose</th>
-                      <th className="pb-3 font-medium">Check In</th>
-                      <th className="pb-3 font-medium">Check Out</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visitors.map((v) => (
-                      <tr key={v.id} className="border-b last:border-0">
-                        <td className="py-3 font-mono text-xs">{v.id}</td>
-                        <td className="py-3 font-medium">{v.name}</td>
-                        <td className="py-3">{v.company}</td>
-                        <td className="py-3">{v.host}</td>
-                        <td className="py-3">{v.purpose}</td>
-                        <td className="py-3">{v.checkIn}</td>
-                        <td className="py-3">{v.checkOut}</td>
-                        <td className="py-3">{statusBadge(v.status)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "name", label: "Visitor", render: (v) => <span className="font-medium">{v}</span> },
+                  { key: "company", label: "Company" },
+                  { key: "host", label: "Host" },
+                  { key: "purpose", label: "Purpose" },
+                  { key: "checkIn", label: "Check In" },
+                  { key: "checkOut", label: "Check Out" },
+                  { key: "status", label: "Status", render: (v) => statusBadge(v) },
+                ] as Column<Record<string, unknown>>[]}
+                data={visitors as unknown as Record<string, unknown>[]}
+                emptyMessage="No visitors found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -523,44 +459,33 @@ export default function FacilityPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Vendor Name</th>
-                      <th className="pb-3 font-medium">Service</th>
-                      <th className="pb-3 font-medium">Contract</th>
-                      <th className="pb-3 font-medium">Value</th>
-                      <th className="pb-3 font-medium">Rating</th>
-                      <th className="pb-3 font-medium">Contact</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vendors.map((v) => (
-                      <tr key={v.id} className="border-b last:border-0">
-                        <td className="py-3 font-mono text-xs">{v.id}</td>
-                        <td className="py-3 font-medium">{v.name}</td>
-                        <td className="py-3">{v.service}</td>
-                        <td className="py-3">{v.contract}</td>
-                        <td className="py-3">{v.value}</td>
-                        <td className="py-3">
-                          <span className="flex items-center gap-1">
-                            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                            {v.rating}
-                          </span>
-                        </td>
-                        <td className="py-3">
-                          <div>{v.contact}</div>
-                          <div className="text-xs text-muted-foreground">{v.phone}</div>
-                        </td>
-                        <td className="py-3">{statusBadge(v.status)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "name", label: "Vendor Name", render: (v) => <span className="font-medium">{v}</span> },
+                  { key: "service", label: "Service" },
+                  { key: "contract", label: "Contract" },
+                  { key: "value", label: "Value" },
+                  { key: "rating", label: "Rating", render: (v) => (
+                    <span className="flex items-center gap-1">
+                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                      {v}
+                    </span>
+                  )},
+                  { key: "contact", label: "Contact", render: (_v, row) => {
+                    const vendor = row as unknown as typeof vendors[0];
+                    return (
+                      <div>
+                        <div>{vendor.contact}</div>
+                        <div className="text-xs text-muted-foreground">{vendor.phone}</div>
+                      </div>
+                    );
+                  }},
+                  { key: "status", label: "Status", render: (v) => statusBadge(v) },
+                ] as Column<Record<string, unknown>>[]}
+                data={vendors as unknown as Record<string, unknown>[]}
+                emptyMessage="No vendors found."
+              />
             </CardContent>
           </Card>
         </TabsContent>

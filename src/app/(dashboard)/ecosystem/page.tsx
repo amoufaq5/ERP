@@ -31,6 +31,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
+import DataTable from "@/components/shared/data-table"
+import type { Column } from "@/components/shared/data-table"
 
 const marketplaceApps = [
   { id: 1, name: "Slack", category: "Communication", description: "Team messaging and notifications for real-time collaboration.", installs: "12.4k", rating: 4.8, installed: true, icon: "💬" },
@@ -356,49 +358,33 @@ export default function EcosystemPage() {
               <CardDescription>Monitor and manage all connected services and their sync status.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">Service</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Health</th>
-                      <th className="pb-3 font-medium">Direction</th>
-                      <th className="pb-3 font-medium">Records</th>
-                      <th className="pb-3 font-medium">API Calls</th>
-                      <th className="pb-3 font-medium">Last Sync</th>
-                      <th className="pb-3 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeIntegrations.map((integration) => (
-                      <tr key={integration.id} className="border-b last:border-0">
-                        <td className="py-3 font-medium">{integration.name}</td>
-                        <td className="py-3">
-                          <Badge variant={integration.status === "Connected" ? "default" : integration.status === "Paused" ? "secondary" : "destructive"}>
-                            {integration.status}
-                          </Badge>
-                        </td>
-                        <td className="py-3">
-                          <Badge variant={integration.health === "Healthy" ? "outline" : integration.health === "Warning" ? "secondary" : integration.health === "Error" ? "destructive" : "outline"}>
-                            {integration.health}
-                          </Badge>
-                        </td>
-                        <td className="py-3 text-muted-foreground">{integration.direction}</td>
-                        <td className="py-3 text-muted-foreground">{integration.records}</td>
-                        <td className="py-3 text-muted-foreground">{integration.apiCalls}</td>
-                        <td className="py-3 text-muted-foreground">{integration.lastSync}</td>
-                        <td className="py-3">
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="sm"><RefreshCw className="h-3 w-3" /></Button>
-                            <Button variant="ghost" size="sm"><Settings className="h-3 w-3" /></Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "name", label: "Service", render: (v) => <span className="font-medium">{v}</span> },
+                  { key: "status", label: "Status", render: (v) => (
+                    <Badge variant={v === "Connected" ? "default" : v === "Paused" ? "secondary" : "destructive"}>
+                      {v}
+                    </Badge>
+                  )},
+                  { key: "health", label: "Health", render: (v) => (
+                    <Badge variant={v === "Healthy" ? "outline" : v === "Warning" ? "secondary" : v === "Error" ? "destructive" : "outline"}>
+                      {v}
+                    </Badge>
+                  )},
+                  { key: "direction", label: "Direction" },
+                  { key: "records", label: "Records" },
+                  { key: "apiCalls", label: "API Calls" },
+                  { key: "lastSync", label: "Last Sync" },
+                  { key: "actions", label: "Actions", render: () => (
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="sm"><RefreshCw className="h-3 w-3" /></Button>
+                      <Button variant="ghost" size="sm"><Settings className="h-3 w-3" /></Button>
+                    </div>
+                  )},
+                ] as Column<Record<string, unknown>>[]}
+                data={activeIntegrations as unknown as Record<string, unknown>[]}
+                emptyMessage="No active integrations."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -414,44 +400,29 @@ export default function EcosystemPage() {
               <Button size="sm" onClick={() => setModal({ kind: "field", editing: null })}><Plus className="mr-2 h-4 w-4" />Add Field</Button>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">Module</th>
-                      <th className="pb-3 font-medium">Field Name</th>
-                      <th className="pb-3 font-medium">Type</th>
-                      <th className="pb-3 font-medium">Required</th>
-                      <th className="pb-3 font-medium">Options / Range</th>
-                      <th className="pb-3 font-medium"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {customFields.map((field) => (
-                      <tr key={field.id} className="border-b last:border-0">
-                        <td className="py-3"><Badge variant="outline">{field.module}</Badge></td>
-                        <td className="py-3 font-medium">{field.name}</td>
-                        <td className="py-3 text-muted-foreground">{field.type}</td>
-                        <td className="py-3">
-                          {field.required ? (
-                            <Check className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <X className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </td>
-                        <td className="py-3 text-muted-foreground text-xs max-w-[200px] truncate">{field.options || "—"}</td>
-                        <td className="py-3">
-                          <EditDeleteMenu
-                            onEdit={() => setModal({ kind: "field", editing: field })}
-                            onDelete={() => setCustomFields((prev) => prev.filter((f) => f.id !== field.id))}
-                            itemLabel={field.name}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "module", label: "Module", render: (v) => <Badge variant="outline">{v}</Badge> },
+                  { key: "name", label: "Field Name", render: (v) => <span className="font-medium">{v}</span> },
+                  { key: "type", label: "Type" },
+                  { key: "required", label: "Required", render: (v) => (
+                    v ? <Check className="h-4 w-4 text-green-600" /> : <X className="h-4 w-4 text-muted-foreground" />
+                  )},
+                  { key: "options", label: "Options / Range", render: (v) => <span className="text-xs max-w-[200px] truncate block">{v || "—"}</span> },
+                  { key: "actions", label: "", render: (_v, row) => {
+                    const field = row as unknown as typeof customFields[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ kind: "field", editing: field })}
+                        onDelete={() => setCustomFields((prev) => prev.filter((f) => f.id !== field.id))}
+                        itemLabel={field.name}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={customFields as unknown as Record<string, unknown>[]}
+                emptyMessage="No custom fields defined."
+              />
             </CardContent>
           </Card>
 
@@ -464,48 +435,36 @@ export default function EcosystemPage() {
               <Button size="sm" onClick={() => setModal({ kind: "workflow", editing: null })}><Plus className="mr-2 h-4 w-4" />New Workflow</Button>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">Workflow</th>
-                      <th className="pb-3 font-medium">Trigger</th>
-                      <th className="pb-3 font-medium">Actions</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Total Runs</th>
-                      <th className="pb-3 font-medium">Last Run</th>
-                      <th className="pb-3 font-medium"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {workflows.map((wf) => (
-                      <tr key={wf.id} className="border-b last:border-0">
-                        <td className="py-3 font-medium">{wf.name}</td>
-                        <td className="py-3 text-muted-foreground">{wf.trigger}</td>
-                        <td className="py-3 text-muted-foreground">{wf.actions} steps</td>
-                        <td className="py-3">
-                          <Badge variant={wf.status === "Active" ? "default" : "secondary"}>
-                            {wf.status}
-                          </Badge>
-                        </td>
-                        <td className="py-3 text-muted-foreground">{wf.runs.toLocaleString()}</td>
-                        <td className="py-3 text-muted-foreground">{wf.lastRun}</td>
-                        <td className="py-3">
-                          <EditDeleteMenu
-                            onEdit={() => setModal({ kind: "workflow", editing: wf })}
-                            onDelete={() => setWorkflows((prev) => prev.filter((w) => w.id !== wf.id))}
-                            itemLabel={wf.name}
-                            extraItems={[{
-                              label: wf.status === "Active" ? "Pause" : "Activate",
-                              onClick: () => setWorkflows((prev) => prev.map((w) => w.id === wf.id ? { ...w, status: w.status === "Active" ? "Paused" : "Active" } : w)),
-                            }]}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "name", label: "Workflow", render: (v) => <span className="font-medium">{v}</span> },
+                  { key: "trigger", label: "Trigger" },
+                  { key: "actions", label: "Actions", render: (v) => <>{v} steps</> },
+                  { key: "status", label: "Status", render: (v) => (
+                    <Badge variant={v === "Active" ? "default" : "secondary"}>
+                      {v}
+                    </Badge>
+                  )},
+                  { key: "runs", label: "Total Runs", render: (v) => <>{Number(v).toLocaleString()}</> },
+                  { key: "lastRun", label: "Last Run" },
+                  { key: "wfActions", label: "", render: (_v, row) => {
+                    const wf = row as unknown as typeof workflows[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ kind: "workflow", editing: wf })}
+                        onDelete={() => setWorkflows((prev) => prev.filter((w) => w.id !== wf.id))}
+                        itemLabel={wf.name}
+                        extraItems={[{
+                          label: wf.status === "Active" ? "Pause" : "Activate",
+                          onClick: () => setWorkflows((prev) => prev.map((w) => w.id === wf.id ? { ...w, status: w.status === "Active" ? "Paused" : "Active" } : w)),
+                        }]}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={workflows as unknown as Record<string, unknown>[]}
+                emptyMessage="No workflows defined."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -560,44 +519,30 @@ export default function EcosystemPage() {
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">Method</th>
-                      <th className="pb-3 font-medium">Endpoint</th>
-                      <th className="pb-3 font-medium">Description</th>
-                      <th className="pb-3 font-medium">Rate Limit</th>
-                      <th className="pb-3 font-medium">Auth</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {apiEndpoints.map((endpoint, idx) => (
-                      <tr key={idx} className="border-b last:border-0">
-                        <td className="py-3">
-                          <span className={`inline-block rounded px-2 py-0.5 text-xs font-bold ${methodColor(endpoint.method)}`}>
-                            {endpoint.method}
-                          </span>
-                        </td>
-                        <td className="py-3 font-mono text-xs">{endpoint.path}</td>
-                        <td className="py-3 text-muted-foreground">{endpoint.description}</td>
-                        <td className="py-3 text-muted-foreground">{endpoint.rateLimit}</td>
-                        <td className="py-3"><Badge variant="outline">{endpoint.auth}</Badge></td>
-                        <td className="py-3">
-                          <Badge variant={endpoint.status === "Stable" ? "default" : "secondary"}>
-                            {endpoint.status}
-                          </Badge>
-                        </td>
-                        <td className="py-3">
-                          <Button variant="ghost" size="sm"><Copy className="h-3 w-3" /></Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "method", label: "Method", render: (v) => (
+                    <span className={`inline-block rounded px-2 py-0.5 text-xs font-bold ${methodColor(v)}`}>
+                      {v}
+                    </span>
+                  )},
+                  { key: "path", label: "Endpoint", render: (v) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "description", label: "Description" },
+                  { key: "rateLimit", label: "Rate Limit" },
+                  { key: "auth", label: "Auth", render: (v) => <Badge variant="outline">{v}</Badge> },
+                  { key: "status", label: "Status", render: (v) => (
+                    <Badge variant={v === "Stable" ? "default" : "secondary"}>
+                      {v}
+                    </Badge>
+                  )},
+                  { key: "action", label: "Action", render: () => (
+                    <Button variant="ghost" size="sm"><Copy className="h-3 w-3" /></Button>
+                  )},
+                ] as Column<Record<string, unknown>>[]}
+                data={apiEndpoints as unknown as Record<string, unknown>[]}
+                pagination={true}
+                emptyMessage="No API endpoints available."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -647,43 +592,36 @@ export default function EcosystemPage() {
               <Button size="sm" onClick={() => setModal({ kind: "role", editing: null })}><Plus className="mr-2 h-4 w-4" />Create Role</Button>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">Role</th>
-                      <th className="pb-3 font-medium">Description</th>
-                      <th className="pb-3 font-medium">Permissions</th>
-                      <th className="pb-3 font-medium">Users</th>
-                      <th className="pb-3 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {roles.map((role) => (
-                      <tr key={role.id} className="border-b last:border-0">
-                        <td className="py-3 font-medium flex items-center gap-2">
-                          {!role.editable && <Lock className="h-3 w-3 text-muted-foreground" />}
-                          {role.name}
-                        </td>
-                        <td className="py-3 text-muted-foreground max-w-[260px]">{role.description}</td>
-                        <td className="py-3"><Badge variant="secondary">{role.permissions}</Badge></td>
-                        <td className="py-3 text-muted-foreground">{role.users}</td>
-                        <td className="py-3">
-                          {role.editable ? (
-                            <EditDeleteMenu
-                              onEdit={() => setModal({ kind: "role", editing: role })}
-                              onDelete={() => setRoles((prev) => prev.filter((r) => r.id !== role.id))}
-                              itemLabel={role.name}
-                            />
-                          ) : (
-                            <Lock className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "name", label: "Role", render: (_v, row) => {
+                    const role = row as unknown as typeof roles[0];
+                    return (
+                      <span className="font-medium flex items-center gap-2">
+                        {!role.editable && <Lock className="h-3 w-3 text-muted-foreground" />}
+                        {role.name}
+                      </span>
+                    );
+                  }},
+                  { key: "description", label: "Description", className: "max-w-[260px]" },
+                  { key: "permissions", label: "Permissions", render: (v) => <Badge variant="secondary">{v}</Badge> },
+                  { key: "users", label: "Users" },
+                  { key: "roleActions", label: "Actions", render: (_v, row) => {
+                    const role = row as unknown as typeof roles[0];
+                    return role.editable ? (
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ kind: "role", editing: role })}
+                        onDelete={() => setRoles((prev) => prev.filter((r) => r.id !== role.id))}
+                        itemLabel={role.name}
+                      />
+                    ) : (
+                      <Lock className="h-4 w-4 text-muted-foreground" />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={roles as unknown as Record<string, unknown>[]}
+                emptyMessage="No roles defined."
+              />
             </CardContent>
           </Card>
         </TabsContent>
