@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Ticket, Clock, Star, AlertTriangle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
@@ -89,6 +90,7 @@ export default function TicketsPage() {
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", priority: "" });
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<SupportTicket | null>(null);
+  const [detailTicket, setDetailTicket] = useState<SupportTicket | null>(null);
 
   const filtered = tickets.filter((t) => {
     const q = (filters._search || "").toLowerCase();
@@ -127,6 +129,8 @@ export default function TicketsPage() {
           <EditDeleteMenu
             onEdit={() => { setEditing(t); setShowModal(true); }}
             onDelete={() => setTickets((prev) => prev.filter((x) => x.id !== t.id))}
+            onView={() => setDetailTicket(t)}
+            canView
             itemLabel={t.ticketNumber}
             extraItems={next ? [{ label: `Move to ${next.replace(/_/g, " ")}`, onClick: () => setTickets((prev) => prev.map((x) => x.id === t.id ? { ...x, status: next } : x)) }] : []}
           />
@@ -160,7 +164,7 @@ export default function TicketsPage() {
             onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
           />
         </div>
-        <DataTable columns={columns} data={filtered as unknown as Record<string, unknown>[]} emptyMessage="No tickets found." />
+        <DataTable columns={columns} data={filtered as unknown as Record<string, unknown>[]} emptyMessage="No tickets found." exportable exportFilename="tickets.csv" />
       </div>
 
       <EntityFormModal

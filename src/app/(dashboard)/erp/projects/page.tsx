@@ -48,7 +48,7 @@ type Task = {
   status: string;
 };
 
-const fmt = (n: number) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmt = (n: number) => "EGP " + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
 const initialProjects: Project[] = [
   { id: "1", name: "ERP System Rollout", client: "Acme Corp", manager: "Sarah Johnson", startDate: "2026-01-15", endDate: "2026-07-31", budget: 180000, spent: 92000, progress: 52, status: "In Progress", description: "Full ERP system implementation including finance, HR, and inventory modules." },
@@ -80,7 +80,7 @@ const PROJECT_FIELDS: EntityField[] = [
   { name: "manager", label: "Project Manager", type: "text", placeholder: "Manager name" },
   { name: "startDate", label: "Start Date", type: "text", placeholder: "YYYY-MM-DD" },
   { name: "endDate", label: "End Date", type: "text", placeholder: "YYYY-MM-DD" },
-  { name: "budget", label: "Budget ($)", type: "number", placeholder: "0" },
+  { name: "budget", label: "Budget (EGP)", type: "number", placeholder: "0" },
   { name: "description", label: "Description", type: "text", placeholder: "Brief project description", fullWidth: true },
   { name: "status", label: "Status", type: "select", defaultValue: "In Progress", options: [
     { label: "In Progress", value: "In Progress" }, { label: "On Hold", value: "On Hold" },
@@ -276,7 +276,7 @@ export default function ProjectsPage() {
               onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
             />
           </div>
-          <DataTable columns={taskColumns} data={filteredTasks as unknown as Record<string, unknown>[]} emptyMessage="No tasks found." />
+          <DataTable columns={taskColumns} data={filteredTasks as unknown as Record<string, unknown>[]} emptyMessage="No tasks found." exportable exportFilename="projects.csv" />
         </div>
       </div>
 

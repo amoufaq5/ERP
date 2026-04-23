@@ -200,7 +200,7 @@ export default function CandidatesPage() {
             onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
           />
         </div>
-        <DataTable columns={columns} data={filtered} emptyMessage="No candidates found." />
+        <DataTable columns={columns} data={filtered} emptyMessage="No candidates found." exportable exportFilename="candidates.csv" />
       </div>
 
       <EntityFormModal

@@ -29,6 +29,52 @@ const ROWS = 100;
 const COL_LETTERS = Array.from({ length: COLS }, (_, i) => String.fromCharCode(65 + i));
 const DEFAULT_COL_WIDTH = 100;
 
+// ─── Safe Arithmetic Parser (no Function()/eval) ──────────────────────────
+
+function safeEvalArithmetic(expr: string): number {
+  const tokens: string[] = [];
+  let i = 0;
+  const s = expr.replace(/\s/g, "");
+  while (i < s.length) {
+    if ("+-*/()".includes(s[i])) {
+      tokens.push(s[i]);
+      i++;
+    } else if (/[\d.eE]/.test(s[i])) {
+      let num = "";
+      while (i < s.length && /[\d.eE+\-]/.test(s[i]) && (num === "" || s[i] !== "+" && s[i] !== "-" || /[eE]/.test(s[i - 1]))) {
+        num += s[i]; i++;
+      }
+      tokens.push(num);
+    } else { i++; }
+  }
+  let pos = 0;
+  function parseExpr(): number {
+    let result = parseTerm();
+    while (pos < tokens.length && (tokens[pos] === "+" || tokens[pos] === "-")) {
+      const op = tokens[pos++];
+      const right = parseTerm();
+      result = op === "+" ? result + right : result - right;
+    }
+    return result;
+  }
+  function parseTerm(): number {
+    let result = parseFactor();
+    while (pos < tokens.length && (tokens[pos] === "*" || tokens[pos] === "/")) {
+      const op = tokens[pos++];
+      const right = parseFactor();
+      result = op === "*" ? result * right : result / right;
+    }
+    return result;
+  }
+  function parseFactor(): number {
+    if (tokens[pos] === "(") { pos++; const r = parseExpr(); pos++; return r; }
+    if (tokens[pos] === "-") { pos++; return -parseFactor(); }
+    if (tokens[pos] === "+") { pos++; return parseFactor(); }
+    return parseFloat(tokens[pos++]);
+  }
+  return parseExpr();
+}
+
 // ─── Formula Engine ────────────────────────────────────────────────────────
 
 function colToIndex(col: string): number { return col.charCodeAt(0) - 65; }
@@ -167,9 +213,9 @@ function evaluateFormula(formula: string, data: SheetData, visited: Set<string> 
       return String(getCellNumericValue(ref, data, new Set(visited)));
     });
 
-    // Evaluate arithmetic - safe eval with only numbers and operators
+    // Evaluate arithmetic safely without Function() constructor
     if (/^[\d\s+\-*/().eE]+$/.test(expr)) {
-      const result = Function(`"use strict"; return (${expr})`)();
+      const result = safeEvalArithmetic(expr);
       if (typeof result === "number" && !isNaN(result)) {
         return Math.round(result * 1e10) / 1e10;
       }

@@ -122,7 +122,7 @@ const SEED_DEPARTMENTS: Department[] = [
 
 export default function HRPage() {
   const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+    `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   // State
   const [employees, setEmployees] = useState<Employee[]>(SEED_EMPLOYEES);
@@ -460,6 +460,8 @@ export default function HRPage() {
                 data={filteredEmployees as unknown as Record<string, unknown>[]}
                 pagination={false}
                 emptyMessage="No employees match your filters."
+                exportable
+                exportFilename="employees.csv"
               />
             </CardContent>
           </Card>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Users, UserPlus, Link, UserX, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
@@ -59,6 +60,7 @@ export default function ContactsPage() {
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "" });
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
+  const [detailContact, setDetailContact] = useState<Contact | null>(null);
 
   const filtered = contacts.filter((c) => {
     const q = (filters._search || "").toLowerCase();
@@ -103,6 +105,8 @@ export default function ContactsPage() {
           <EditDeleteMenu
             onEdit={() => { setEditing(c); setShowModal(true); }}
             onDelete={() => setContacts((prev) => prev.filter((x) => x.id !== c.id))}
+            onView={() => setDetailContact(c)}
+            canView
             itemLabel={`${c.firstName} ${c.lastName}`}
             extraItems={c.status === "pending" ? [{ label: "Set Active", onClick: () => setContacts((prev) => prev.map((x) => x.id === c.id ? { ...x, status: "active" } : x)) }] : []}
           />
@@ -136,7 +140,7 @@ export default function ContactsPage() {
             onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
           />
         </div>
-        <DataTable columns={columns} data={filtered as unknown as Record<string, unknown>[]} emptyMessage="No contacts found." />
+        <DataTable columns={columns} data={filtered as unknown as Record<string, unknown>[]} emptyMessage="No contacts found." exportable exportFilename="contacts.csv" />
       </div>
 
       <EntityFormModal

@@ -157,7 +157,7 @@ export default function JobsPage() {
             onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
           />
         </div>
-        <DataTable columns={columns} data={filtered} emptyMessage="No positions found." />
+        <DataTable columns={columns} data={filtered} emptyMessage="No positions found." exportable exportFilename="jobs.csv" />
       </div>
 
       <EntityFormModal

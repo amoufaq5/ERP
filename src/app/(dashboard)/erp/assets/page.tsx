@@ -52,7 +52,7 @@ export default function AssetsPage() {
   const [showModal, setShowModal] = useState(false)
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "" })
 
-  const fmt = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n)
+  const fmt = (n: number) => `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   const totalValue = assets.reduce((s, a) => s + a.currentValue, 0)
 
   const filtered = assets.filter((a) => {

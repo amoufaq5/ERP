@@ -117,7 +117,7 @@ const resourceAllocations = [
 ]
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
+  return `EGP ${value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
 
 function getStatusBadge(status: string): "default" | "secondary" | "destructive" | "outline" {

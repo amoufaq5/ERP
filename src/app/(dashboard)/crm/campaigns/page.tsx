@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Megaphone, DollarSign, TrendingUp, Users, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
@@ -87,6 +88,7 @@ export default function CampaignsPage() {
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", type: "" });
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Campaign | null>(null);
+  const [detailCampaign, setDetailCampaign] = useState<Campaign | null>(null);
 
   const filtered = campaigns.filter((c) => {
     const q = (filters._search || "").toLowerCase();
@@ -123,6 +125,8 @@ export default function CampaignsPage() {
           <EditDeleteMenu
             onEdit={() => { setEditing(c); setShowModal(true); }}
             onDelete={() => setCampaigns((prev) => prev.filter((x) => x.id !== c.id))}
+            onView={() => setDetailCampaign(c)}
+            canView
             itemLabel={c.name}
             extraItems={[
               ...(next ? [{ label: `Set ${next}`, onClick: () => setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, status: next } : x)) }] : []),

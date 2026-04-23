@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Users, TrendingUp, Star, BarChart2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
@@ -118,6 +119,7 @@ export default function LeadsPage() {
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", source: "" });
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
+  const [detailLead, setDetailLead] = useState<Lead | null>(null);
 
   const filtered = leads.filter((l) => {
     const q = (filters._search || "").toLowerCase();
@@ -232,6 +234,8 @@ export default function LeadsPage() {
                   <EditDeleteMenu
                     onEdit={() => { setEditing(lead); setShowModal(true); }}
                     onDelete={() => setLeads((prev) => prev.filter((l) => l.id !== lead.id))}
+                    onView={() => setDetailLead(lead)}
+                    canView
                     itemLabel={`${lead.firstName} ${lead.lastName}`}
                     extraItems={(() => {
                       const next = statusFlow[lead.status];
@@ -246,6 +250,8 @@ export default function LeadsPage() {
           data={filtered as unknown as Record<string, unknown>[]}
           emptyMessage="No leads found."
           pagination={false}
+          exportable
+          exportFilename="leads.csv"
         />
       </div>
 
@@ -286,6 +292,39 @@ export default function LeadsPage() {
           setEditing(null);
         }}
       />
+
+      {/* ── Lead Detail Dialog ── */}
+      <Dialog open={!!detailLead} onOpenChange={(open) => { if (!open) setDetailLead(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailLead?.firstName} {detailLead?.lastName}</DialogTitle>
+          </DialogHeader>
+          {detailLead && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div><span className="text-sm text-muted-foreground">Name</span><p className="font-medium">{detailLead.firstName} {detailLead.lastName}</p></div>
+                <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{detailLead.email}</p></div>
+                <div><span className="text-sm text-muted-foreground">Company</span><p className="font-medium">{detailLead.company || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Source</span><p className="font-medium">{detailLead.source.replace(/_/g, " ")}</p></div>
+                <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={detailLead.status} /></p></div>
+                <div><span className="text-sm text-muted-foreground">Estimated Value</span><p className="font-medium">${detailLead.value.toLocaleString()}</p></div>
+                <div><span className="text-sm text-muted-foreground">Assigned To</span><p className="font-medium">{detailLead.assignedTo}</p></div>
+                <div><span className="text-sm text-muted-foreground">Created</span><p className="font-medium">{detailLead.createdAt}</p></div>
+              </div>
+              {/* Lead Score */}
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-muted-foreground">Lead Score</span>
+                  <span className="font-medium">{detailLead.score}/100</span>
+                </div>
+                <div className="h-3 bg-muted rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${detailLead.score >= 80 ? "bg-green-500" : detailLead.score >= 60 ? "bg-yellow-500" : "bg-red-400"}`} style={{ width: `${detailLead.score}%` }} />
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

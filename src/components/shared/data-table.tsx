@@ -10,7 +10,9 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Download,
 } from "lucide-react";
+import { downloadCSV } from "@/lib/download";
 import {
   Table,
   TableBody,
@@ -48,6 +50,8 @@ export interface DataTableProps<T = any> {
   emptyMessage?: string;
   className?: string;
   isLoading?: boolean;
+  exportable?: boolean;
+  exportFilename?: string;
 }
 
 export function DataTable<T extends Record<string, any> = Record<string, any>>({
@@ -60,6 +64,8 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
   emptyMessage = "No records found.",
   className,
   isLoading = false,
+  exportable = false,
+  exportFilename = "export.csv",
 }: DataTableProps<T>) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortState, setSortState] = useState<SortState>({ key: null, direction: null });
@@ -119,6 +125,11 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
     setCurrentPage(1);
   }, []);
 
+  const handleExport = useCallback(() => {
+    const csvColumns = columns.map((col) => ({ key: col.key as keyof T, label: col.label || col.key }));
+    downloadCSV(exportFilename, sortedData as unknown as Record<string, unknown>[], csvColumns as { key: keyof Record<string, unknown>; label: string }[]);
+  }, [columns, sortedData, exportFilename]);
+
   function SortIcon({ columnKey }: { columnKey: string }) {
     if (sortState.key !== columnKey) return <ChevronsUpDown className="h-3.5 w-3.5 opacity-40" />;
     if (sortState.direction === "asc") return <ChevronUp className="h-3.5 w-3.5 text-primary" />;
@@ -127,16 +138,26 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
-      {searchable && (
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <input
-            type="search"
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="h-9 w-full pl-9 pr-4 text-sm rounded-md border border-input bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 transition-shadow"
-          />
+      {(searchable || exportable) && (
+        <div className="flex items-center gap-2">
+          {searchable && (
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <input
+                type="search"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="h-9 w-full pl-9 pr-4 text-sm rounded-md border border-input bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 transition-shadow"
+              />
+            </div>
+          )}
+          {exportable && sortedData.length > 0 && (
+            <button onClick={handleExport} className="inline-flex items-center gap-1.5 h-9 px-3 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+              <Download className="h-4 w-4" />
+              Export CSV
+            </button>
+          )}
         </div>
       )}
 

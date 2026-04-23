@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Building2, Users, TrendingUp, DollarSign, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
@@ -85,6 +86,7 @@ export default function AccountsPage() {
   const [filters, setFilters] = useState<FilterState>({ _search: "", type: "", industry: "" });
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
+  const [detailAccount, setDetailAccount] = useState<Account | null>(null);
 
   const filtered = accounts.filter((a) => {
     const q = (filters._search || "").toLowerCase();
@@ -118,6 +120,8 @@ export default function AccountsPage() {
           <EditDeleteMenu
             onEdit={() => { setEditing(a); setShowModal(true); }}
             onDelete={() => setAccounts((prev) => prev.filter((x) => x.id !== a.id))}
+            onView={() => setDetailAccount(a)}
+            canView
             itemLabel={a.name}
             extraItems={a.type === "PROSPECT" ? [{ label: "Convert to Customer", onClick: () => setAccounts((prev) => prev.map((x) => x.id === a.id ? { ...x, type: "CUSTOMER" as AccountType, status: "active" } : x)) }] : []}
           />
@@ -151,7 +155,7 @@ export default function AccountsPage() {
             onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
           />
         </div>
-        <DataTable columns={columns} data={filtered as unknown as Record<string, unknown>[]} emptyMessage="No accounts found." />
+        <DataTable columns={columns} data={filtered as unknown as Record<string, unknown>[]} emptyMessage="No accounts found." exportable exportFilename="accounts.csv" />
       </div>
 
       <EntityFormModal
@@ -191,6 +195,30 @@ export default function AccountsPage() {
           setEditing(null);
         }}
       />
+
+      {/* ── Account Detail Dialog ── */}
+      <Dialog open={!!detailAccount} onOpenChange={(open) => { if (!open) setDetailAccount(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailAccount?.name}</DialogTitle>
+          </DialogHeader>
+          {detailAccount && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div><span className="text-sm text-muted-foreground">Account Name</span><p className="font-medium">{detailAccount.name}</p></div>
+                <div><span className="text-sm text-muted-foreground">Industry</span><p className="font-medium">{detailAccount.industry}</p></div>
+                <div><span className="text-sm text-muted-foreground">Type</span><p><TypeBadge type={detailAccount.type} /></p></div>
+                <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={detailAccount.status} /></p></div>
+                <div><span className="text-sm text-muted-foreground">Phone</span><p className="font-medium">{detailAccount.phone || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">City</span><p className="font-medium">{detailAccount.city || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Annual Revenue</span><p className="font-medium">${(detailAccount.revenue / 1000000).toFixed(1)}M</p></div>
+                <div><span className="text-sm text-muted-foreground">Account Owner</span><p className="font-medium">{detailAccount.owner}</p></div>
+                <div><span className="text-sm text-muted-foreground">Created</span><p className="font-medium">{detailAccount.createdAt}</p></div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

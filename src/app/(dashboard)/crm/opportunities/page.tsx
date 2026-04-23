@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DollarSign, TrendingUp, Award, BarChart2, Plus, LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
@@ -74,6 +75,7 @@ export default function OpportunitiesPage() {
   const [filters, setFilters] = useState<FilterState>({ _search: "", stage: "" });
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Opportunity | null>(null);
+  const [detailOpp, setDetailOpp] = useState<Opportunity | null>(null);
 
   const filtered = opportunities.filter((o) => {
     const q = (filters._search || "").toLowerCase();
@@ -121,6 +123,8 @@ export default function OpportunitiesPage() {
           <EditDeleteMenu
             onEdit={() => { setEditing(o); setShowModal(true); }}
             onDelete={() => setOpportunities((prev) => prev.filter((x) => x.id !== o.id))}
+            onView={() => setDetailOpp(o)}
+            canView
             itemLabel={o.title}
             extraItems={[
               ...(next ? [{ label: `Advance to ${next.replace(/_/g, " ")}`, onClick: () => setOpportunities((prev) => prev.map((x) => x.id === o.id ? { ...x, stage: next } : x)) }] : []),
@@ -184,6 +188,8 @@ export default function OpportunitiesPage() {
                           <EditDeleteMenu
                             onEdit={() => { setEditing(opp); setShowModal(true); }}
                             onDelete={() => setOpportunities((prev) => prev.filter((x) => x.id !== opp.id))}
+                            onView={() => setDetailOpp(opp)}
+                            canView
                             itemLabel={opp.title}
                             extraItems={(() => {
                               const next = stageFlow[opp.stage];
@@ -215,7 +221,7 @@ export default function OpportunitiesPage() {
       )}
 
       {view === "table" && (
-        <DataTable columns={columns} data={filtered as unknown as Record<string, unknown>[]} emptyMessage="No opportunities found." />
+        <DataTable columns={columns} data={filtered as unknown as Record<string, unknown>[]} emptyMessage="No opportunities found." exportable exportFilename="opportunities.csv" />
       )}
 
       <EntityFormModal
@@ -254,6 +260,61 @@ export default function OpportunitiesPage() {
           setEditing(null);
         }}
       />
+
+      {/* ── Opportunity Detail Dialog ── */}
+      <Dialog open={!!detailOpp} onOpenChange={(open) => { if (!open) setDetailOpp(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailOpp?.title}</DialogTitle>
+          </DialogHeader>
+          {detailOpp && (() => {
+            const stageIndex = STAGES.indexOf(detailOpp.stage);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Account</span><p className="font-medium">{detailOpp.account}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Owner</span><p className="font-medium">{detailOpp.owner}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Value</span><p className="font-medium">${detailOpp.value.toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Probability</span><p className="font-medium">{detailOpp.probability}%</p></div>
+                  <div><span className="text-sm text-muted-foreground">Stage</span><p><StageBadge stage={detailOpp.stage} /></p></div>
+                  <div><span className="text-sm text-muted-foreground">Expected Close</span><p className="font-medium">{detailOpp.expectedClose}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Weighted Value</span><p className="font-medium">${Math.round(detailOpp.value * detailOpp.probability / 100).toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Created</span><p className="font-medium">{detailOpp.createdAt}</p></div>
+                </div>
+                {/* Probability Bar */}
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">Win Probability</span>
+                    <span className="font-medium">{detailOpp.probability}%</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-blue-500" style={{ width: `${detailOpp.probability}%` }} />
+                  </div>
+                </div>
+                {/* Stage Progress Visualization */}
+                <div>
+                  <h4 className="text-sm font-semibold mb-3">Stage Progress</h4>
+                  <div className="flex items-center gap-1">
+                    {STAGES.map((stage, i) => {
+                      const isReached = i <= stageIndex;
+                      const isCurrent = i === stageIndex;
+                      return (
+                        <div key={stage} className="flex items-center gap-1 flex-1">
+                          <div className="flex flex-col items-center flex-1">
+                            <div className={`h-3 w-3 rounded-full border-2 ${isCurrent ? "bg-primary border-primary" : isReached ? "bg-primary/60 border-primary/60" : "bg-muted border-muted-foreground/30"}`} />
+                            <span className={`text-[10px] mt-1 text-center leading-tight ${isCurrent ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{stage.replace(/_/g, " ")}</span>
+                          </div>
+                          {i < STAGES.length - 1 && <div className={`h-0.5 flex-1 -mt-4 ${i < stageIndex ? "bg-primary/60" : "bg-muted"}`} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
