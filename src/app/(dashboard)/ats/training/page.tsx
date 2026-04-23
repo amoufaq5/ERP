@@ -2,28 +2,14 @@
 
 import { useState } from "react"
 import {
-  BookOpen,
-  Users,
-  CheckCircle,
-  Star,
-  Plus,
-  Clock,
-  Monitor,
-  Users2,
-  Layers,
+  BookOpen, Users, CheckCircle, Star, Plus, Clock, Monitor, Users2, Layers,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
 
 interface Course {
   id: number
@@ -47,66 +33,12 @@ interface Enrollment {
 }
 
 const initialCourses: Course[] = [
-  {
-    id: 1,
-    title: "Security Awareness Training",
-    description: "Learn best practices for cybersecurity and data protection in the workplace.",
-    category: "IT & Security",
-    duration: "2 hours",
-    format: "ONLINE",
-    enrolled: 45,
-    status: "ACTIVE",
-  },
-  {
-    id: 2,
-    title: "Leadership Foundations",
-    description: "Core leadership skills for new and aspiring managers.",
-    category: "Management",
-    duration: "8 hours",
-    format: "CLASSROOM",
-    enrolled: 12,
-    status: "ACTIVE",
-  },
-  {
-    id: 3,
-    title: "Technical Writing",
-    description: "Effective documentation, reports, and professional communication.",
-    category: "Communication",
-    duration: "4 hours",
-    format: "ONLINE",
-    enrolled: 28,
-    status: "ACTIVE",
-  },
-  {
-    id: 4,
-    title: "Project Management Essentials",
-    description: "Introduction to PM methodologies including Agile, Scrum, and Waterfall.",
-    category: "Operations",
-    duration: "12 hours",
-    format: "HYBRID",
-    enrolled: 19,
-    status: "ACTIVE",
-  },
-  {
-    id: 5,
-    title: "Sales Training Program",
-    description: "Consultative selling techniques, negotiation, and CRM best practices.",
-    category: "Sales",
-    duration: "6 hours",
-    format: "CLASSROOM",
-    enrolled: 31,
-    status: "ACTIVE",
-  },
-  {
-    id: 6,
-    title: "Compliance & Ethics",
-    description: "Regulatory compliance, workplace ethics, and policy adherence.",
-    category: "Compliance",
-    duration: "3 hours",
-    format: "ONLINE",
-    enrolled: 58,
-    status: "ACTIVE",
-  },
+  { id: 1, title: "Security Awareness Training", description: "Learn best practices for cybersecurity and data protection in the workplace.", category: "IT & Security", duration: "2 hours", format: "ONLINE", enrolled: 45, status: "ACTIVE" },
+  { id: 2, title: "Leadership Foundations", description: "Core leadership skills for new and aspiring managers.", category: "Management", duration: "8 hours", format: "CLASSROOM", enrolled: 12, status: "ACTIVE" },
+  { id: 3, title: "Technical Writing", description: "Effective documentation, reports, and professional communication.", category: "Communication", duration: "4 hours", format: "ONLINE", enrolled: 28, status: "ACTIVE" },
+  { id: 4, title: "Project Management Essentials", description: "Introduction to PM methodologies including Agile, Scrum, and Waterfall.", category: "Operations", duration: "12 hours", format: "HYBRID", enrolled: 19, status: "ACTIVE" },
+  { id: 5, title: "Sales Training Program", description: "Consultative selling techniques, negotiation, and CRM best practices.", category: "Sales", duration: "6 hours", format: "CLASSROOM", enrolled: 31, status: "ACTIVE" },
+  { id: 6, title: "Compliance & Ethics", description: "Regulatory compliance, workplace ethics, and policy adherence.", category: "Compliance", duration: "3 hours", format: "ONLINE", enrolled: 58, status: "ACTIVE" },
 ]
 
 const initialEnrollments: Enrollment[] = [
@@ -141,17 +73,28 @@ const FormatIcon = ({ format }: { format: string }) => {
   return <Layers className="h-3.5 w-3.5" />
 }
 
+const COURSE_FIELDS: EntityField[] = [
+  { name: "title", label: "Course Title", type: "text", placeholder: "e.g. Advanced Excel", required: true, fullWidth: true },
+  { name: "description", label: "Description", type: "textarea", placeholder: "Brief course description", fullWidth: true },
+  { name: "category", label: "Category", type: "text", placeholder: "e.g. IT & Security" },
+  { name: "duration", label: "Duration", type: "text", placeholder: "e.g. 4 hours" },
+  { name: "format", label: "Format", type: "select", defaultValue: "ONLINE", options: [
+    { label: "Online", value: "ONLINE" }, { label: "Classroom", value: "CLASSROOM" }, { label: "Hybrid", value: "HYBRID" },
+  ]},
+]
+
+const FILTER_FIELDS = [
+  { key: "format", label: "Format", type: "select" as const, options: [
+    { label: "Online", value: "ONLINE" }, { label: "Classroom", value: "CLASSROOM" }, { label: "Hybrid", value: "HYBRID" },
+  ]},
+]
+
 export default function TrainingPage() {
   const [activeTab, setActiveTab] = useState<"catalog" | "enrollments">("catalog")
   const [courses, setCourses] = useState<Course[]>(initialCourses)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [newCourse, setNewCourse] = useState({
-    title: "",
-    description: "",
-    category: "",
-    duration: "",
-    format: "ONLINE" as Course["format"],
-  })
+  const [filters, setFilters] = useState<FilterState>({ _search: "", format: "" })
+  const [showModal, setShowModal] = useState(false)
+  const [editing, setEditing] = useState<Course | null>(null)
 
   const totalCourses = courses.length
   const activeEnrollments = initialEnrollments.filter((e) => e.status === "IN_PROGRESS").length
@@ -159,46 +102,32 @@ export default function TrainingPage() {
   const scores = initialEnrollments.filter((e) => e.score !== null).map((e) => e.score as number)
   const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
 
-  const handleAddCourse = () => {
-    if (!newCourse.title) return
-    const course: Course = {
-      id: courses.length + 1,
-      title: newCourse.title,
-      description: newCourse.description,
-      category: newCourse.category || "General",
-      duration: newCourse.duration || "1 hour",
-      format: newCourse.format,
-      enrolled: 0,
-      status: "ACTIVE",
-    }
-    setCourses([...courses, course])
-    setNewCourse({ title: "", description: "", category: "", duration: "", format: "ONLINE" })
-    setIsDialogOpen(false)
-  }
+  const filteredCourses = courses.filter((c) => {
+    const q = (filters._search || "").toLowerCase()
+    const matchesSearch = !q || c.title.toLowerCase().includes(q) || c.category.toLowerCase().includes(q)
+    const matchesFormat = !filters.format || c.format === filters.format
+    return matchesSearch && matchesFormat
+  })
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Training & Learning</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage courses and track employee learning progress</p>
         </div>
-        <Button onClick={() => setIsDialogOpen(true)}>
+        <Button onClick={() => { setEditing(null); setShowModal(true) }}>
           <Plus className="h-4 w-4 mr-2" />
           Add Course
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-muted-foreground">Total Courses</span>
-              <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                <BookOpen className="h-[18px] w-[18px]" />
-              </div>
+              <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center"><BookOpen className="h-[18px] w-[18px]" /></div>
             </div>
             <p className="text-2xl font-bold mt-3">{totalCourses}</p>
           </CardContent>
@@ -207,9 +136,7 @@ export default function TrainingPage() {
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-muted-foreground">Active Enrollments</span>
-              <div className="h-9 w-9 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center">
-                <Users className="h-[18px] w-[18px]" />
-              </div>
+              <div className="h-9 w-9 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center"><Users className="h-[18px] w-[18px]" /></div>
             </div>
             <p className="text-2xl font-bold mt-3">{activeEnrollments}</p>
           </CardContent>
@@ -218,9 +145,7 @@ export default function TrainingPage() {
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-muted-foreground">Completed</span>
-              <div className="h-9 w-9 rounded-lg bg-green-500/10 text-green-500 flex items-center justify-center">
-                <CheckCircle className="h-[18px] w-[18px]" />
-              </div>
+              <div className="h-9 w-9 rounded-lg bg-green-500/10 text-green-500 flex items-center justify-center"><CheckCircle className="h-[18px] w-[18px]" /></div>
             </div>
             <p className="text-2xl font-bold mt-3">{completed}</p>
           </CardContent>
@@ -229,85 +154,67 @@ export default function TrainingPage() {
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-muted-foreground">Avg Score</span>
-              <div className="h-9 w-9 rounded-lg bg-yellow-500/10 text-yellow-500 flex items-center justify-center">
-                <Star className="h-[18px] w-[18px]" />
-              </div>
+              <div className="h-9 w-9 rounded-lg bg-yellow-500/10 text-yellow-500 flex items-center justify-center"><Star className="h-[18px] w-[18px]" /></div>
             </div>
             <p className="text-2xl font-bold mt-3">{avgScore}%</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 border-b border-border">
-        <button
-          onClick={() => setActiveTab("catalog")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "catalog"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Course Catalog
-        </button>
-        <button
-          onClick={() => setActiveTab("enrollments")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "enrollments"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Enrollments
-        </button>
+        <button onClick={() => setActiveTab("catalog")} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "catalog" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>Course Catalog</button>
+        <button onClick={() => setActiveTab("enrollments")} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "enrollments" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>Enrollments</button>
       </div>
 
-      {/* Course Catalog */}
       {activeTab === "catalog" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {courses.map((course) => (
-            <Card key={course.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-base leading-tight">{course.title}</CardTitle>
-                  <Badge className={`shrink-0 text-xs ${formatColors[course.format]}`}>
-                    <FormatIcon format={course.format} />
-                    <span className="ml-1">{course.format}</span>
-                  </Badge>
-                </div>
-                <Badge variant="outline" className="w-fit text-xs">{course.category}</Badge>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm text-muted-foreground line-clamp-2">{course.description}</p>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5" />
-                    {course.duration}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5" />
-                    {course.enrolled} enrolled
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <Badge
-                    className={
-                      course.status === "ACTIVE"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                        : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                    }
-                  >
+        <>
+          <FilterBar
+            searchValue={filters._search}
+            onSearchChange={(v) => setFilters((f) => ({ ...f, _search: v }))}
+            fields={FILTER_FIELDS}
+            values={filters}
+            onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
+          />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredCourses.map((course) => (
+              <Card key={course.id} className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="text-base leading-tight">{course.title}</CardTitle>
+                    <EditDeleteMenu
+                      onEdit={() => { setEditing(course); setShowModal(true) }}
+                      onDelete={() => setCourses((prev) => prev.filter((c) => c.id !== course.id))}
+                      itemLabel={course.title}
+                      extraItems={course.status === "ACTIVE" ? [{ label: "Archive", onClick: () => setCourses((prev) => prev.map((c) => c.id === course.id ? { ...c, status: "ARCHIVED" } : c)) }] : [{ label: "Activate", onClick: () => setCourses((prev) => prev.map((c) => c.id === course.id ? { ...c, status: "ACTIVE" } : c)) }]}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className={`shrink-0 text-xs ${formatColors[course.format]}`}>
+                      <FormatIcon format={course.format} />
+                      <span className="ml-1">{course.format}</span>
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">{course.category}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground line-clamp-2">{course.description}</p>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{course.duration}</span>
+                    <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{course.enrolled} enrolled</span>
+                  </div>
+                  <Badge className={course.status === "ACTIVE" ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"}>
                     {course.status}
                   </Badge>
-                  <Button variant="outline" size="sm" className="h-7 text-xs">View Details</Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </CardContent>
+              </Card>
+            ))}
+            {filteredCourses.length === 0 && (
+              <div className="col-span-full text-center text-muted-foreground py-10">No courses found.</div>
+            )}
+          </div>
+        </>
       )}
 
-      {/* Enrollments Table */}
       {activeTab === "enrollments" && (
         <Card>
           <CardContent className="p-0">
@@ -329,17 +236,13 @@ export default function TrainingPage() {
                       <td className="px-4 py-3 font-medium">{enrollment.employee}</td>
                       <td className="px-4 py-3 text-muted-foreground">{enrollment.course}</td>
                       <td className="px-4 py-3">
-                        <Badge className={`text-xs ${statusColors[enrollment.status]}`}>
-                          {enrollment.status.replace("_", " ")}
-                        </Badge>
+                        <Badge className={`text-xs ${statusColors[enrollment.status]}`}>{enrollment.status.replace("_", " ")}</Badge>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{enrollment.enrolledDate}</td>
                       <td className="px-4 py-3 text-muted-foreground">{enrollment.completedDate ?? "—"}</td>
                       <td className="px-4 py-3">
                         {enrollment.score !== null ? (
-                          <span className={`font-semibold ${enrollment.score >= 90 ? "text-green-600" : enrollment.score >= 75 ? "text-yellow-600" : "text-red-600"}`}>
-                            {enrollment.score}%
-                          </span>
+                          <span className={`font-semibold ${enrollment.score >= 90 ? "text-green-600" : enrollment.score >= 75 ? "text-yellow-600" : "text-red-600"}`}>{enrollment.score}%</span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
@@ -353,66 +256,38 @@ export default function TrainingPage() {
         </Card>
       )}
 
-      {/* Add Course Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add New Course</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Course Title</Label>
-              <Input
-                placeholder="e.g. Advanced Excel"
-                value={newCourse.title}
-                onChange={(e) => setNewCourse({ ...newCourse, title: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Input
-                placeholder="Brief course description"
-                value={newCourse.description}
-                onChange={(e) => setNewCourse({ ...newCourse, description: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Input
-                  placeholder="e.g. IT & Security"
-                  value={newCourse.category}
-                  onChange={(e) => setNewCourse({ ...newCourse, category: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Duration</Label>
-                <Input
-                  placeholder="e.g. 4 hours"
-                  value={newCourse.duration}
-                  onChange={(e) => setNewCourse({ ...newCourse, duration: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Format</Label>
-              <select
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={newCourse.format}
-                onChange={(e) => setNewCourse({ ...newCourse, format: e.target.value as Course["format"] })}
-              >
-                <option value="ONLINE">Online</option>
-                <option value="CLASSROOM">Classroom</option>
-                <option value="HYBRID">Hybrid</option>
-              </select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddCourse}>Add Course</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EntityFormModal
+        open={showModal}
+        onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null) } }}
+        title={editing ? "Edit Course" : "Add New Course"}
+        fields={COURSE_FIELDS}
+        initialData={editing ? { title: editing.title, description: editing.description, category: editing.category, duration: editing.duration, format: editing.format } : undefined}
+        onSubmit={(data) => {
+          if (editing) {
+            setCourses((prev) => prev.map((c) => c.id === editing.id ? {
+              ...c,
+              title: data.title as string,
+              description: (data.description as string) || c.description,
+              category: (data.category as string) || c.category,
+              duration: (data.duration as string) || c.duration,
+              format: (data.format as Course["format"]) || c.format,
+            } : c))
+          } else {
+            setCourses((prev) => [...prev, {
+              id: prev.length + 1,
+              title: data.title as string,
+              description: (data.description as string) || "",
+              category: (data.category as string) || "General",
+              duration: (data.duration as string) || "1 hour",
+              format: (data.format as Course["format"]) || "ONLINE",
+              enrolled: 0,
+              status: "ACTIVE",
+            }])
+          }
+          setShowModal(false)
+          setEditing(null)
+        }}
+      />
     </div>
   )
 }

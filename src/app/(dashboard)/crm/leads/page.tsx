@@ -1,24 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Users, TrendingUp, Star, BarChart2, Plus, Search, X } from "lucide-react";
+import { Users, TrendingUp, Star, BarChart2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 
 type LeadStatus = "NEW" | "CONTACTED" | "QUALIFIED" | "PROPOSAL" | "NEGOTIATION" | "CLOSED_WON" | "CLOSED_LOST" | "NURTURING";
 type LeadSource = "WEBSITE" | "REFERRAL" | "COLD_CALL" | "EMAIL" | "SOCIAL_MEDIA" | "TRADE_SHOW" | "PARTNER";
@@ -59,6 +46,61 @@ const INITIAL_LEADS: Lead[] = [
   { id: "L-008", firstName: "Michael", lastName: "O'Brien", email: "m.obrien@quantumdata.ai", company: "Quantum Data AI", source: "WEBSITE", score: 91, status: "CLOSED_WON", assignedTo: "Sarah Johnson", value: 185000, createdAt: "2026-03-25" },
 ];
 
+const LEAD_FIELDS: EntityField[] = [
+  { name: "firstName", label: "First Name", type: "text", placeholder: "First name", required: true },
+  { name: "lastName", label: "Last Name", type: "text", placeholder: "Last name" },
+  { name: "email", label: "Email", type: "email", placeholder: "email@company.com", required: true, fullWidth: true },
+  { name: "company", label: "Company", type: "text", placeholder: "Company name", fullWidth: true },
+  {
+    name: "source",
+    label: "Source",
+    type: "select",
+    defaultValue: "WEBSITE",
+    options: [
+      { label: "Website", value: "WEBSITE" },
+      { label: "Referral", value: "REFERRAL" },
+      { label: "Cold Call", value: "COLD_CALL" },
+      { label: "Email", value: "EMAIL" },
+      { label: "Social Media", value: "SOCIAL_MEDIA" },
+      { label: "Trade Show", value: "TRADE_SHOW" },
+      { label: "Partner", value: "PARTNER" },
+    ],
+  },
+  { name: "value", label: "Estimated Value ($)", type: "number", placeholder: "0" },
+];
+
+const FILTER_FIELDS = [
+  {
+    key: "status",
+    label: "Status",
+    type: "select" as const,
+    options: [
+      { label: "New", value: "NEW" },
+      { label: "Contacted", value: "CONTACTED" },
+      { label: "Qualified", value: "QUALIFIED" },
+      { label: "Proposal", value: "PROPOSAL" },
+      { label: "Negotiation", value: "NEGOTIATION" },
+      { label: "Closed Won", value: "CLOSED_WON" },
+      { label: "Closed Lost", value: "CLOSED_LOST" },
+      { label: "Nurturing", value: "NURTURING" },
+    ],
+  },
+  {
+    key: "source",
+    label: "Source",
+    type: "select" as const,
+    options: [
+      { label: "Website", value: "WEBSITE" },
+      { label: "Referral", value: "REFERRAL" },
+      { label: "Cold Call", value: "COLD_CALL" },
+      { label: "Email", value: "EMAIL" },
+      { label: "Social Media", value: "SOCIAL_MEDIA" },
+      { label: "Trade Show", value: "TRADE_SHOW" },
+      { label: "Partner", value: "PARTNER" },
+    ],
+  },
+];
+
 function StatusBadge({ status }: { status: LeadStatus }) {
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[status]}`}>
@@ -83,16 +125,21 @@ function StatsCard({ title, value, icon: Icon, color }: { title: string; value: 
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
-  const [search, setSearch] = useState("");
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", company: "", source: "WEBSITE" as LeadSource, value: "" });
+  const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", source: "" });
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState<Lead | null>(null);
 
-  const filtered = leads.filter(
-    (l) =>
-      `${l.firstName} ${l.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
-      l.company.toLowerCase().includes(search.toLowerCase()) ||
-      l.email.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = leads.filter((l) => {
+    const q = (filters._search || "").toLowerCase();
+    const matchesSearch =
+      !q ||
+      `${l.firstName} ${l.lastName}`.toLowerCase().includes(q) ||
+      l.company.toLowerCase().includes(q) ||
+      l.email.toLowerCase().includes(q);
+    const matchesStatus = !filters.status || l.status === filters.status;
+    const matchesSource = !filters.source || l.source === filters.source;
+    return matchesSearch && matchesStatus && matchesSource;
+  });
 
   const totalLeads = leads.length;
   const newThisMonth = leads.filter((l) => l.createdAt >= "2026-03-01").length;
@@ -100,40 +147,26 @@ export default function LeadsPage() {
   const won = leads.filter((l) => l.status === "CLOSED_WON").length;
   const conversionRate = totalLeads > 0 ? ((won / totalLeads) * 100).toFixed(1) : "0";
 
-  function handleAdd() {
-    if (!form.firstName || !form.email) return;
-    const newLead: Lead = {
-      id: `L-${String(leads.length + 1).padStart(3, "0")}`,
-      firstName: form.firstName,
-      lastName: form.lastName,
-      email: form.email,
-      company: form.company,
-      source: form.source,
-      score: Math.floor(Math.random() * 40 + 30),
-      status: "NEW",
-      assignedTo: "Unassigned",
-      value: parseFloat(form.value) || 0,
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-    setLeads((prev) => [newLead, ...prev]);
-    setForm({ firstName: "", lastName: "", email: "", company: "", source: "WEBSITE", value: "" });
-    setOpen(false);
-  }
+  const statusFlow: Record<string, LeadStatus> = {
+    NEW: "CONTACTED",
+    CONTACTED: "QUALIFIED",
+    QUALIFIED: "PROPOSAL",
+    PROPOSAL: "NEGOTIATION",
+    NEGOTIATION: "CLOSED_WON",
+  };
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
           <p className="text-sm text-gray-500 mt-1">Track and manage your sales leads pipeline</p>
         </div>
-        <Button onClick={() => setOpen(true)} className="gap-2">
+        <Button onClick={() => { setEditing(null); setShowModal(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Add New Lead
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard title="Total Leads" value={String(totalLeads)} icon={Users} color="bg-blue-500" />
         <StatsCard title="New This Month" value={String(newThisMonth)} icon={TrendingUp} color="bg-purple-500" />
@@ -141,13 +174,15 @@ export default function LeadsPage() {
         <StatsCard title="Conversion Rate" value={`${conversionRate}%`} icon={BarChart2} color="bg-orange-500" />
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div className="p-4 border-b border-gray-200 flex items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input className="pl-9" placeholder="Search leads..." value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
+        <div className="p-4 border-b border-gray-200">
+          <FilterBar
+            searchValue={filters._search}
+            onSearchChange={(v) => setFilters((f) => ({ ...f, _search: v }))}
+            fields={FILTER_FIELDS}
+            values={filters}
+            onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
+          />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -161,7 +196,7 @@ export default function LeadsPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Assigned To</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600">Value</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Created</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -191,7 +226,18 @@ export default function LeadsPage() {
                   <td className="px-4 py-3 text-right font-medium text-gray-900">
                     ${lead.value.toLocaleString()}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{lead.createdAt}</td>
+                  <td className="px-4 py-3">
+                    <EditDeleteMenu
+                      onEdit={() => { setEditing(lead); setShowModal(true); }}
+                      onDelete={() => setLeads((prev) => prev.filter((l) => l.id !== lead.id))}
+                      itemLabel={`${lead.firstName} ${lead.lastName}`}
+                      extraItems={(() => {
+                        const next = statusFlow[lead.status];
+                        if (!next) return [];
+                        return [{ label: `Move to ${next.replace("_", " ")}`, onClick: () => setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, status: next } : l)) }];
+                      })()}
+                    />
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
@@ -204,59 +250,43 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      {/* Add New Lead Dialog */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add New Lead</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>First Name *</Label>
-                <Input placeholder="First name" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Last Name</Label>
-                <Input placeholder="Last name" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Email *</Label>
-              <Input type="email" placeholder="email@company.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Company</Label>
-              <Input placeholder="Company name" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Source</Label>
-              <Select value={form.source} onValueChange={(v) => setForm({ ...form, source: v as LeadSource })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="WEBSITE">Website</SelectItem>
-                  <SelectItem value="REFERRAL">Referral</SelectItem>
-                  <SelectItem value="COLD_CALL">Cold Call</SelectItem>
-                  <SelectItem value="EMAIL">Email</SelectItem>
-                  <SelectItem value="SOCIAL_MEDIA">Social Media</SelectItem>
-                  <SelectItem value="TRADE_SHOW">Trade Show</SelectItem>
-                  <SelectItem value="PARTNER">Partner</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Estimated Value ($)</Label>
-              <Input type="number" placeholder="0" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleAdd}>Add Lead</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EntityFormModal
+        open={showModal}
+        onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null); } }}
+        title={editing ? "Edit Lead" : "Add New Lead"}
+        fields={LEAD_FIELDS}
+        initialData={editing ? { firstName: editing.firstName, lastName: editing.lastName, email: editing.email, company: editing.company, source: editing.source, value: editing.value } : undefined}
+        onSubmit={(data) => {
+          if (editing) {
+            setLeads((prev) => prev.map((l) => l.id === editing.id ? {
+              ...l,
+              firstName: data.firstName as string,
+              lastName: (data.lastName as string) || l.lastName,
+              email: data.email as string,
+              company: (data.company as string) || l.company,
+              source: (data.source as LeadSource) || l.source,
+              value: (data.value as number) || l.value,
+            } : l));
+          } else {
+            const newLead: Lead = {
+              id: `L-${String(leads.length + 1).padStart(3, "0")}`,
+              firstName: data.firstName as string,
+              lastName: (data.lastName as string) || "",
+              email: data.email as string,
+              company: (data.company as string) || "",
+              source: (data.source as LeadSource) || "WEBSITE",
+              score: Math.floor(Math.random() * 40 + 30),
+              status: "NEW",
+              assignedTo: "Unassigned",
+              value: (data.value as number) || 0,
+              createdAt: new Date().toISOString().split("T")[0],
+            };
+            setLeads((prev) => [newLead, ...prev]);
+          }
+          setShowModal(false);
+          setEditing(null);
+        }}
+      />
     </div>
   );
 }
