@@ -249,7 +249,7 @@ export default function LeadsPage() {
           ] as Column<Record<string, unknown>>[]}
           data={filtered as unknown as Record<string, unknown>[]}
           emptyMessage="No leads found."
-          pagination={false}
+          
           exportable
           exportFilename="leads.csv"
         />

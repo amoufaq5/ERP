@@ -525,7 +525,7 @@ export default function AccountingPage() {
                   } },
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredCustomers as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No customers found."
               />
             </CardContent>
@@ -571,7 +571,7 @@ export default function AccountingPage() {
                   } },
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredVendors as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No vendors found."
               />
             </CardContent>
@@ -625,7 +625,7 @@ export default function AccountingPage() {
                   } },
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredCheques as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No cheques found."
               />
             </CardContent>
@@ -673,7 +673,7 @@ export default function AccountingPage() {
                   } },
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredInvoices as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No invoices found."
               />
             </CardContent>
@@ -723,7 +723,7 @@ export default function AccountingPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={store.bankAccounts as unknown as Record<string, unknown>[]}
                 emptyMessage="No bank accounts."
-                pagination={false}
+                
               />
             </CardContent>
           </Card>
@@ -780,7 +780,7 @@ export default function AccountingPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredGL as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No accounts found."
               />
             </CardContent>
@@ -843,7 +843,7 @@ export default function AccountingPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredJE as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No journal entries found."
               />
             </CardContent>
@@ -893,7 +893,7 @@ export default function AccountingPage() {
                     }},
                   ] as Column<Record<string, unknown>>[]}
                   data={store.costCenters as unknown as Record<string, unknown>[]}
-                  pagination={false}
+                  
                   emptyMessage="No cost centers."
                 />
               </CardContent></Card>
@@ -929,7 +929,7 @@ export default function AccountingPage() {
                     }},
                   ] as Column<Record<string, unknown>>[]}
                   data={store.budgets as unknown as Record<string, unknown>[]}
-                  pagination={false}
+                  
                   emptyMessage="No budgets."
                 />
               </CardContent></Card>

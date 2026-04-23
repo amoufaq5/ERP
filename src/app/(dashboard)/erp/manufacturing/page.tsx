@@ -299,7 +299,7 @@ export default function ManufacturingPage() {
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredWO as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No work orders match your filters."
               />
             </CardContent>

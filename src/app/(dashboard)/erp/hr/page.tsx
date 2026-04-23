@@ -458,7 +458,7 @@ export default function HRPage() {
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredEmployees as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No employees match your filters."
                 exportable
                 exportFilename="employees.csv"
@@ -552,7 +552,7 @@ export default function HRPage() {
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredLeaves as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No leave requests match your filters."
               />
             </CardContent>
@@ -593,7 +593,7 @@ export default function HRPage() {
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredPayroll as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No payroll records match your filters."
               />
               {filteredPayroll.length > 0 && (

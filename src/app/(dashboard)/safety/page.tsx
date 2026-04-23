@@ -260,7 +260,7 @@ export default function SafetyPage() {
                 .filter(i => !incFilters.severity || i.severity === incFilters.severity)
                 .filter(i => !incFilters.status || i.status === incFilters.status)
                 .filter(i => !incFilters.type || i.type === incFilters.type) as unknown as Record<string, unknown>[]}
-              pagination={false}
+              
               emptyMessage="No incidents found."
             />
           </CardContent></Card>
@@ -286,7 +286,7 @@ export default function SafetyPage() {
                 { key: "owner", label: "Owner", render: (v: string) => <span className="text-xs">{v}</span> },
               ] as Column<Record<string, unknown>>[]}
               data={risks as unknown as Record<string, unknown>[]}
-              pagination={false}
+              
               emptyMessage="No risks found."
             />
           </CardContent></Card>
@@ -307,7 +307,7 @@ export default function SafetyPage() {
                 { key: "followUp", label: "Follow-up Actions", render: (v: string) => <span className="text-xs text-muted-foreground max-w-[200px] block">{v}</span> },
               ] as Column<Record<string, unknown>>[]}
               data={inspections as unknown as Record<string, unknown>[]}
-              pagination={false}
+              
               emptyMessage="No inspections found."
             />
           </CardContent></Card>
@@ -356,7 +356,7 @@ export default function SafetyPage() {
                 { key: "conditions", label: "Conditions", render: (v: string) => <span className="text-xs text-muted-foreground max-w-[200px] block">{v}</span> },
               ] as Column<Record<string, unknown>>[]}
               data={permits as unknown as Record<string, unknown>[]}
-              pagination={false}
+              
               emptyMessage="No permits found."
             />
           </CardContent></Card>
@@ -390,7 +390,7 @@ export default function SafetyPage() {
                     { key: "nextInspection", label: "Next Inspection", render: (v: string) => <span className="text-xs text-muted-foreground">{v}</span> },
                   ] as Column<Record<string, unknown>>[]}
                   data={emergencyEquipment as unknown as Record<string, unknown>[]}
-                  pagination={false}
+                  
                   emptyMessage="No equipment found."
                 />
               </CardContent>

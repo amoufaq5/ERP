@@ -454,7 +454,7 @@ export default function TasksPage() {
               <DataTable
                 columns={taskColumns}
                 data={sortedFiltered as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No tasks match your filters."
               />
             </CardContent>
@@ -501,7 +501,7 @@ export default function TasksPage() {
                 <DataTable
                   columns={taskColumns}
                   data={sortedFiltered as unknown as Record<string, unknown>[]}
-                  pagination={false}
+                  
                   emptyMessage="No tasks assigned by you yet."
                 />
               </CardContent>

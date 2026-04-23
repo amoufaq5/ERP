@@ -179,7 +179,7 @@ export default function ReturnsPage() {
                   .filter(r => !retFilters._search || r.id.toLowerCase().includes(retFilters._search.toLowerCase()) || r.customer.toLowerCase().includes(retFilters._search.toLowerCase()) || r.product.toLowerCase().includes(retFilters._search.toLowerCase()))
                   .filter(r => !retFilters.status || r.status === retFilters.status)
                   .filter(r => !retFilters.reason || r.reason === retFilters.reason) as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No return requests found."
               />
             </CardContent>
@@ -218,7 +218,7 @@ export default function ReturnsPage() {
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={credits as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No credit notes found."
               />
             </CardContent>
@@ -261,7 +261,7 @@ export default function ReturnsPage() {
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={destructions as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No destruction records found."
               />
             </CardContent>

@@ -358,7 +358,7 @@ export default function InventoryPage() {
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredRM as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No raw materials match your filters."
               />
             </CardContent>
@@ -400,7 +400,7 @@ export default function InventoryPage() {
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredFP as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No finished products match your filters."
               />
             </CardContent>

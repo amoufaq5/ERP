@@ -231,7 +231,7 @@ export default function ProcurementPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredPOs as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No purchase orders found."
               />
             </CardContent>
@@ -304,7 +304,7 @@ export default function ProcurementPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredSuppliers as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No suppliers found."
               />
             </CardContent>
@@ -352,7 +352,7 @@ export default function ProcurementPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={grn as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No goods received notes found."
               />
 
@@ -410,7 +410,7 @@ export default function ProcurementPage() {
                   ) },
                 ] as Column<Record<string, unknown>>[]}
                 data={qcTests as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No QC tests found."
               />
 

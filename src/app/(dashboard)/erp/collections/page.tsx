@@ -398,7 +398,7 @@ export default function CollectionsPage() {
                   } },
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredInvoices as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No outstanding invoices."
               />
             </CardContent>
@@ -448,7 +448,7 @@ export default function CollectionsPage() {
                   } },
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredPayments as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No payment records."
               />
               {filteredPayments.length > 0 && (
@@ -544,7 +544,7 @@ export default function CollectionsPage() {
                   } },
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredCheques as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No cheques match your filters."
               />
             </CardContent>
@@ -571,7 +571,7 @@ export default function CollectionsPage() {
                   { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-bold">{fmt(v)}</span> },
                 ] as Column<Record<string, unknown>>[]}
                 data={agingData as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No outstanding receivables."
               />
               {agingData.length > 0 && (

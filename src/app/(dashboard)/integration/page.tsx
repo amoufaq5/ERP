@@ -314,7 +314,7 @@ export default function IntegrationPage() {
                   },
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredFlows as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No data flows found."
               />
             </CardContent>
@@ -337,7 +337,7 @@ export default function IntegrationPage() {
                   { key: "message", label: "Message", render: (v: unknown) => <span className="text-muted-foreground">{String(v)}</span> },
                 ] as Column<Record<string, unknown>>[]}
                 data={logs as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No logs available."
               />
             </CardContent>

@@ -449,7 +449,7 @@ export default function MarketRequestsPage() {
                 .sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1)) as unknown as Record<string, unknown>[]
             }
             emptyMessage="No requests match your filters."
-            pagination={false}
+            
           />
         </TabsContent>
 

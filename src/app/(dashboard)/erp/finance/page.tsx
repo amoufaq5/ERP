@@ -517,7 +517,7 @@ export default function FinancePage() {
               ] as Column<Record<string, unknown>>[]}
               data={store.glAccounts.filter((a) => a.isActive) as unknown as Record<string, unknown>[]}
               emptyMessage="No GL accounts."
-              pagination={false}
+              
             />
           </div>
           <div className="grid grid-cols-2 gap-4">

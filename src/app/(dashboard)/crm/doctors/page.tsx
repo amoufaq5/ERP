@@ -301,7 +301,7 @@ export default function DoctorsPage() {
         ] as Column<Record<string, unknown>>[]}
         data={filtered as unknown as Record<string, unknown>[]}
         emptyMessage="No doctors match your filters."
-        pagination={false}
+        
       />
 
       <EntityFormModal

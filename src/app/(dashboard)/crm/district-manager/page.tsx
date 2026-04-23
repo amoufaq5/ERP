@@ -196,7 +196,7 @@ export default function DistrictManagerPage() {
             ] as Column<Record<string, unknown>>[]}
             data={repStats as unknown as Record<string, unknown>[]}
             emptyMessage="No reps in your team."
-            pagination={false}
+            
           />
         </TabsContent>
 

@@ -314,7 +314,7 @@ export default function PlanningPage() {
                   )},
                 ] as Column<Record<string, unknown>>[]}
                 data={departmentBudgets as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No budget data available."
               />
             </CardContent>
@@ -343,7 +343,7 @@ export default function PlanningPage() {
                   { key: "contractors", label: "Contractors", className: "text-right" },
                 ] as Column<Record<string, unknown>>[]}
                 data={workforceData as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No workforce data available."
               />
             </CardContent>
@@ -369,7 +369,7 @@ export default function PlanningPage() {
                   { key: "priority", label: "Priority", render: (v: string) => <Badge variant={getPriorityBadge(v)}>{v}</Badge> },
                 ] as Column<Record<string, unknown>>[]}
                 data={productionOrders as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No production orders found."
               />
             </CardContent>
@@ -398,7 +398,7 @@ export default function PlanningPage() {
                   )},
                 ] as Column<Record<string, unknown>>[]}
                 data={territoryPlans as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No territory plans found."
               />
             </CardContent>
@@ -432,7 +432,7 @@ export default function PlanningPage() {
                   { key: "risk", label: "Risk", render: (v: string) => <Badge variant={getPriorityBadge(v)}>{v}</Badge> },
                 ] as Column<Record<string, unknown>>[]}
                 data={itProjects as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No IT projects found."
               />
             </CardContent>
@@ -458,7 +458,7 @@ export default function PlanningPage() {
                   { key: "status", label: "Status", render: (v: string) => <Badge variant={getStatusBadge(v)}>{v}</Badge> },
                 ] as Column<Record<string, unknown>>[]}
                 data={enterpriseRisks as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No enterprise risks found."
               />
             </CardContent>
@@ -495,7 +495,7 @@ export default function PlanningPage() {
                   { key: "topProject", label: "Top Project", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
                 ] as Column<Record<string, unknown>>[]}
                 data={resourceAllocations as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No resource allocations found."
               />
             </CardContent>

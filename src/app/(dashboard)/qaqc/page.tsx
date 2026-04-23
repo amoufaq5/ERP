@@ -244,7 +244,7 @@ export default function QAQCPage() {
                   { key: "aql", label: "AQL" },
                 ] as Column<Record<string, unknown>>[]}
                 data={inspections as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No inspections found."
               />
             </CardContent>
@@ -305,7 +305,7 @@ export default function QAQCPage() {
                   .filter(n => !ncrFilters._search || n.id.toLowerCase().includes(ncrFilters._search.toLowerCase()) || n.product.toLowerCase().includes(ncrFilters._search.toLowerCase()))
                   .filter(n => !ncrFilters.severity || n.severity === ncrFilters.severity)
                   .filter(n => !ncrFilters.status || n.status === ncrFilters.status) as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No NCRs found."
               />
             </CardContent>
@@ -334,7 +334,7 @@ export default function QAQCPage() {
                   )},
                 ] as Column<Record<string, unknown>>[]}
                 data={capas as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No CAPA items found."
               />
             </CardContent>
@@ -437,7 +437,7 @@ export default function QAQCPage() {
                   { key: "status", label: "Status", render: (v: string) => statusBadge(v) },
                 ] as Column<Record<string, unknown>>[]}
                 data={suppliers as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No suppliers found."
               />
             </CardContent>

@@ -186,7 +186,7 @@ export default function BUMPage() {
                   { key: "rating", label: "Rating", render: (_v, row) => <StatusBadge status={(row as unknown as (typeof PERFORMANCE)[0]).rating === "A" ? "Excellent" : "Good"} /> },
                 ] as Column<Record<string, unknown>>[]}
                 data={PERFORMANCE as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No performance data available."
               />
             </CardContent>
@@ -234,7 +234,7 @@ export default function BUMPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredApprovals as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No strategic approvals."
               />
             </CardContent>
@@ -279,7 +279,7 @@ export default function BUMPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredVisits as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No field visits found."
               />
             </CardContent>

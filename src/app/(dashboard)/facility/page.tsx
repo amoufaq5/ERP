@@ -165,11 +165,53 @@ const workOrderFields: EntityField[] = [
   { name: "due", label: "Due Date", type: "date", required: true },
 ];
 
+const assetFields: EntityField[] = [
+  { name: "name", label: "Name", type: "text", required: true },
+  { name: "type", label: "Type", type: "select", required: true, options: [
+    { label: "Equipment", value: "Equipment" }, { label: "Vehicle", value: "Vehicle" },
+    { label: "HVAC", value: "HVAC" }, { label: "Electrical", value: "Electrical" },
+    { label: "Plumbing", value: "Plumbing" },
+  ]},
+  { name: "location", label: "Location", type: "text", required: true },
+  { name: "serialNumber", label: "Serial Number", type: "text" },
+  { name: "status", label: "Status", type: "text" },
+];
+
+const visitorFields: EntityField[] = [
+  { name: "name", label: "Name", type: "text", required: true },
+  { name: "company", label: "Company", type: "text" },
+  { name: "purpose", label: "Purpose", type: "text" },
+  { name: "host", label: "Host", type: "text" },
+  { name: "badge", label: "Badge", type: "text" },
+  { name: "checkIn", label: "Check In", type: "date" },
+];
+
+const vendorFields: EntityField[] = [
+  { name: "name", label: "Name", type: "text", required: true },
+  { name: "specialty", label: "Specialty", type: "text" },
+  { name: "contact", label: "Contact", type: "text" },
+  { name: "phone", label: "Phone", type: "text" },
+  { name: "email", label: "Email", type: "email" },
+  { name: "contractStatus", label: "Contract Status", type: "select", defaultValue: "Active", options: [
+    { label: "Active", value: "Active" }, { label: "Expired", value: "Expired" },
+    { label: "Pending", value: "Pending" },
+  ]},
+];
+
 export default function FacilityPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingWo, setEditingWo] = useState<typeof workOrders[0] | null>(null);
   const [wos, setWos] = useState(workOrders);
   const [woFilters, setWoFilters] = useState<FilterState>({});
+
+  const [showAssetModal, setShowAssetModal] = useState(false);
+  const [assetList, setAssetList] = useState(facilityAssets);
+
+  const [showVisitorModal, setShowVisitorModal] = useState(false);
+  const [visitorList, setVisitorList] = useState(visitors);
+
+  const [showVendorModal, setShowVendorModal] = useState(false);
+  const [vendorList, setVendorList] = useState(vendors);
 
   return (
     <div className="flex flex-col gap-6 p-6">

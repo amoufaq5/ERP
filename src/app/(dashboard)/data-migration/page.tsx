@@ -398,7 +398,7 @@ export default function DataMigrationPage() {
               },
             ] as Column<Record<string, unknown>>[]}
             data={filteredJobs as unknown as Record<string, unknown>[]}
-            pagination={false}
+            
             emptyMessage="No migration jobs found."
           />
         </CardContent>

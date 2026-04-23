@@ -225,7 +225,7 @@ export default function LoyaltyPage() {
                 }},
               ] as Column<Record<string, unknown>>[]}
               data={filteredMembers as unknown as Record<string, unknown>[]}
-              pagination={false}
+              
               emptyMessage="No members found."
             />
           </div>
@@ -254,7 +254,7 @@ export default function LoyaltyPage() {
                 { key: "date", label: "Date", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
               ] as Column<Record<string, unknown>>[]}
               data={filteredTxns as unknown as Record<string, unknown>[]}
-              pagination={false}
+              
               emptyMessage="No transactions found."
             />
           </div>

@@ -126,7 +126,7 @@ export default function AssetsPage() {
               }},
             ] satisfies Column<Record<string, unknown>>[]}
             data={filtered as unknown as Record<string, unknown>[]}
-            pagination={false}
+            
             emptyMessage="No assets match your filters."
           />
         </CardContent></Card>
@@ -145,7 +145,7 @@ export default function AssetsPage() {
               { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
             ] satisfies Column<Record<string, unknown>>[]}
             data={maintenanceRecords as unknown as Record<string, unknown>[]}
-            pagination={false}
+            
             emptyMessage="No maintenance records found."
           />
         </CardContent></Card>

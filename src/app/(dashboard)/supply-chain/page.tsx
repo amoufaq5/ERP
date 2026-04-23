@@ -340,7 +340,7 @@ export default function SupplyChainPage() {
                   .filter(po => !searchTerm || po.id.toLowerCase().includes(searchTerm.toLowerCase()) || po.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
                   .filter(po => !poFilters.status || po.status === poFilters.status)
                   .filter(po => !poFilters.priority || po.priority === poFilters.priority) as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No purchase orders found."
               />
             </CardContent>
@@ -399,7 +399,7 @@ export default function SupplyChainPage() {
                   .filter(s => !supFilters._search || s.name.toLowerCase().includes(supFilters._search.toLowerCase()) || s.id.toLowerCase().includes(supFilters._search.toLowerCase()))
                   .filter(s => !supFilters.status || s.status === supFilters.status)
                   .filter(s => !supFilters.risk || s.risk === supFilters.risk) as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No suppliers found."
               />
             </CardContent>
@@ -436,7 +436,7 @@ export default function SupplyChainPage() {
                   )},
                 ] as Column<Record<string, unknown>>[]}
                 data={shipments as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No shipments found."
               />
             </CardContent>
@@ -558,7 +558,7 @@ export default function SupplyChainPage() {
                   { key: "renewal", label: "Renewal", render: (v: string) => <Badge variant="outline">{v}</Badge> },
                 ] as Column<Record<string, unknown>>[]}
                 data={contracts as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No contracts found."
               />
             </CardContent>

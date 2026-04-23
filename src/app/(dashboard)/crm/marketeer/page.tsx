@@ -165,7 +165,7 @@ export default function MarketeerPage() {
                   { key: "rating", label: "Rating", render: (_v, row) => <StatusBadge status={(row as unknown as (typeof TEAM_PERFORMANCE)[0]).rating === "A" ? "Excellent" : "Good"} /> },
                 ] as Column<Record<string, unknown>>[]}
                 data={TEAM_PERFORMANCE as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No performance data available."
               />
             </CardContent>
@@ -214,7 +214,7 @@ export default function MarketeerPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredEscalated as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No escalated requests."
               />
             </CardContent>
@@ -261,7 +261,7 @@ export default function MarketeerPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredVisits as unknown as Record<string, unknown>[]}
-                pagination={false}
+                
                 emptyMessage="No visits found."
               />
             </CardContent>
