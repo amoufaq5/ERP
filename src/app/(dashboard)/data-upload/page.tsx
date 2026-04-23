@@ -122,9 +122,9 @@ const apiSources = [
   { name: "Salesforce", icon: Cloud, status: "Connected", lastSync: "2 hours ago", records: "12,450", color: "text-blue-600" },
   { name: "HubSpot", icon: Database, status: "Connected", lastSync: "1 day ago", records: "8,200", color: "text-orange-600" },
   { name: "QuickBooks", icon: HardDrive, status: "Connected", lastSync: "3 hours ago", records: "45,230", color: "text-green-600" },
-  { name: "Xero", icon: Link2, status: "Disconnected", lastSync: "Never", records: "—", color: "text-gray-400" },
+  { name: "Xero", icon: Link2, status: "Disconnected", lastSync: "Never", records: "—", color: "text-muted-foreground" },
   { name: "Google Contacts", icon: Cloud, status: "Connected", lastSync: "5 hours ago", records: "3,450", color: "text-red-600" },
-  { name: "Mailchimp", icon: Zap, status: "Disconnected", lastSync: "7 days ago", records: "15,800", color: "text-gray-400" },
+  { name: "Mailchimp", icon: Zap, status: "Disconnected", lastSync: "7 days ago", records: "15,800", color: "text-muted-foreground" },
 ];
 
 // ─── Page Component ────────────────────────────────────────────────────────
@@ -292,12 +292,12 @@ export default function DataUploadPage() {
               <Card>
                 <CardContent className="p-6">
                   <div
-                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${dragOver ? "border-primary bg-primary/5" : "border-gray-300 hover:border-gray-400"}`}
+                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${dragOver ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground"}`}
                     onDragOver={e => { e.preventDefault(); setDragOver(true); }}
                     onDragLeave={() => setDragOver(false)}
                     onDrop={handleDrop}
                   >
-                    <Upload className={`h-10 w-10 mx-auto mb-3 ${dragOver ? "text-primary" : "text-gray-400"}`} />
+                    <Upload className={`h-10 w-10 mx-auto mb-3 ${dragOver ? "text-primary" : "text-muted-foreground"}`} />
                     <p className="text-sm font-medium">{dragOver ? "Drop file here" : "Drag & drop a file here"}</p>
                     <p className="text-xs text-muted-foreground mt-1">Supports CSV, JSON, XML, TXT</p>
                     <Button variant="outline" size="sm" className="mt-3 gap-1" onClick={() => fileInputRef.current?.click()}>
@@ -316,7 +316,7 @@ export default function DataUploadPage() {
                   <CardContent className="p-0 overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="border-b bg-gray-50">
+                        <tr className="border-b bg-muted/50">
                           <th className="p-2 text-left font-medium text-muted-foreground">#</th>
                           {parsedData.headers.map((h, i) => (
                             <th key={i} className="p-2 text-left font-medium">

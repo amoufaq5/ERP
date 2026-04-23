@@ -141,10 +141,10 @@ export default function JobsPage() {
       </PageHeader>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatsCard title="Total Positions" value={jobs.length} icon={<Briefcase className="h-5 w-5" />} />
-        <StatsCard title="Open Positions" value={openCount} icon={<Stethoscope className="h-5 w-5" />} trend={{ value: 8.5, label: "vs last month" }} />
-        <StatsCard title="Total Applications" value={totalApps} icon={<Users className="h-5 w-5" />} trend={{ value: 15.2, label: "vs last month" }} />
-        <StatsCard title="Avg. Time to Fill" value="32 days" icon={<Clock className="h-5 w-5" />} trend={{ value: -5.1, label: "vs last quarter" }} />
+        <StatsCard title="Total Positions" value={jobs.length} icon={Briefcase} />
+        <StatsCard title="Open Positions" value={openCount} icon={Stethoscope} change={8.5} changeLabel="vs last month" />
+        <StatsCard title="Total Applications" value={totalApps} icon={Users} change={15.2} changeLabel="vs last month" />
+        <StatsCard title="Avg. Time to Fill" value="32 days" icon={Clock} change={-5.1} changeLabel="vs last quarter" />
       </div>
 
       <div className="rounded-lg border border-border bg-card shadow-sm">

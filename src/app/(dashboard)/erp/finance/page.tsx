@@ -282,10 +282,10 @@ export default function FinancePage() {
       </PageHeader>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Total Bank Balance" value={egp(totalBankBalance)} subtitle={`${store.bankAccounts.length} active accounts`} icon={<Landmark className="h-5 w-5" />} />
-        <StatsCard title="Accounts Receivable" value={egp(totalAR)} subtitle="Outstanding from customers" icon={<TrendingUp className="h-5 w-5" />} />
-        <StatsCard title="Accounts Payable" value={egp(totalAP)} subtitle="Owed to vendors" icon={<TrendingDown className="h-5 w-5" />} />
-        <StatsCard title="Net Position" value={egp(netPosition)} subtitle="Bank + AR − AP" icon={<DollarSign className="h-5 w-5" />} />
+        <StatsCard title="Total Bank Balance" value={egp(totalBankBalance)} subtitle={`${store.bankAccounts.length} active accounts`} icon={Landmark} />
+        <StatsCard title="Accounts Receivable" value={egp(totalAR)} subtitle="Outstanding from customers" icon={TrendingUp} />
+        <StatsCard title="Accounts Payable" value={egp(totalAP)} subtitle="Owed to vendors" icon={TrendingDown} />
+        <StatsCard title="Net Position" value={egp(netPosition)} subtitle="Bank + AR − AP" icon={DollarSign} />
       </div>
 
       <div className="border-b border-border">

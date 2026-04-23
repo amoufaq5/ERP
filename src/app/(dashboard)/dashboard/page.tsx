@@ -51,15 +51,15 @@ interface KpiCardProps {
 }
 
 function KpiCard({ label, value, delta, trend = "flat", icon: Icon, color }: KpiCardProps) {
-  const trendColor = trend === "up" ? "text-green-600" : trend === "down" ? "text-red-600" : "text-gray-500";
+  const trendColor = trend === "up" ? "text-green-600" : trend === "down" ? "text-red-600" : "text-muted-foreground";
   const TrendIcon = trend === "up" ? ArrowUpRight : trend === "down" ? ArrowDownRight : Activity;
   return (
     <Card>
       <CardContent className="p-5">
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-gray-500">{label}</span>
-            <span className="text-2xl font-bold text-gray-900">{value}</span>
+            <span className="text-sm font-medium text-muted-foreground">{label}</span>
+            <span className="text-2xl font-bold text-foreground">{value}</span>
             {delta && (
               <span className={`flex items-center gap-1 text-sm font-medium ${trendColor}`}>
                 <TrendIcon className="h-4 w-4" />
@@ -94,7 +94,7 @@ function QuickActions({ items }: { items: QuickLinkItem[] }) {
             const Icon = action.icon;
             return (
               <Link key={i} href={action.href}>
-                <div className="w-full flex flex-col items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-4 text-sm font-medium text-gray-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 cursor-pointer">
+                <div className="w-full flex flex-col items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 py-4 text-sm font-medium text-foreground shadow-sm transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 cursor-pointer">
                   <Icon className="h-5 w-5" />
                   <span className="text-xs text-center">{action.label}</span>
                 </div>
@@ -115,7 +115,7 @@ function RoleHeader({ title, subtitle, badge }: { title: string; subtitle: strin
         <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
         <Badge variant="success" className="ml-2">{badge}</Badge>
       </div>
-      <p className="text-sm text-gray-500">{subtitle}</p>
+      <p className="text-sm text-muted-foreground">{subtitle}</p>
     </div>
   );
 }
@@ -153,7 +153,7 @@ function AdminDashboard() {
                 <span>{m.name}</span>
                 <span className="flex items-center gap-2">
                   <span className={`h-2 w-2 rounded-full ${m.color}`} />
-                  <span className="text-xs text-gray-500">{m.status}</span>
+                  <span className="text-xs text-muted-foreground">{m.status}</span>
                 </span>
               </div>
             ))}
@@ -229,8 +229,8 @@ function BUMDashboard() {
             ].map((m) => (
               <div key={m.name} className="space-y-1">
                 <div className="flex justify-between"><span>{m.name}</span><span className="font-semibold">{m.achievement}%</span></div>
-                <div className="h-2 bg-gray-100 rounded-full"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(m.achievement, 120)}%` }} /></div>
-                <div className="text-xs text-gray-500">Coverage: {m.coverage}%</div>
+                <div className="h-2 bg-muted rounded-full"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(m.achievement, 120)}%` }} /></div>
+                <div className="text-xs text-muted-foreground">Coverage: {m.coverage}%</div>
               </div>
             ))}
           </CardContent>
@@ -246,7 +246,7 @@ function BUMDashboard() {
             ].map((p) => (
               <div key={p.name} className="space-y-1">
                 <div className="flex justify-between"><span>{p.name}</span><span className="font-semibold">{p.sales}</span></div>
-                <div className="h-2 bg-gray-100 rounded-full"><div className="h-full bg-green-500 rounded-full" style={{ width: `${p.pct}%` }} /></div>
+                <div className="h-2 bg-muted rounded-full"><div className="h-full bg-green-500 rounded-full" style={{ width: `${p.pct}%` }} /></div>
               </div>
             ))}
           </CardContent>
@@ -291,7 +291,7 @@ function MarketeerDashboard() {
             ].map((d) => (
               <div key={d.name} className="space-y-1">
                 <div className="flex justify-between"><span>{d.name}</span><span className="font-semibold">{d.achievement}%</span></div>
-                <div className="h-2 bg-gray-100 rounded-full"><div className={`h-full rounded-full ${d.achievement >= 100 ? "bg-green-500" : "bg-amber-500"}`} style={{ width: `${Math.min(d.achievement, 120)}%` }} /></div>
+                <div className="h-2 bg-muted rounded-full"><div className={`h-full rounded-full ${d.achievement >= 100 ? "bg-green-500" : "bg-amber-500"}`} style={{ width: `${Math.min(d.achievement, 120)}%` }} /></div>
               </div>
             ))}
           </CardContent>
@@ -348,7 +348,7 @@ function DistrictManagerDashboard() {
               <div key={r.name} className="flex items-center justify-between">
                 <div>
                   <div>{r.name}</div>
-                  <div className="text-xs text-gray-500">Coverage: {r.coverage}%</div>
+                  <div className="text-xs text-muted-foreground">Coverage: {r.coverage}%</div>
                 </div>
                 <Badge variant={r.visits >= r.target ? "success" : "secondary"}>
                   {r.visits}/{r.target} visits
@@ -409,7 +409,7 @@ function MedicalRepDashboard() {
               <div key={v.doctor} className="flex items-center justify-between">
                 <div>
                   <div className="font-medium">{v.doctor}</div>
-                  <div className="text-xs text-gray-500">{v.specialty} · {v.time}</div>
+                  <div className="text-xs text-muted-foreground">{v.specialty} · {v.time}</div>
                 </div>
                 <Badge variant={v.status === "Completed" ? "success" : v.status === "In Progress" ? "default" : "secondary"}>
                   {v.status}
@@ -470,7 +470,7 @@ function AccountantDashboard() {
             ].map((b) => (
               <div key={b.bucket} className="space-y-1">
                 <div className="flex justify-between"><span>{b.bucket}</span><span className="font-semibold">{config.finance.currency} {b.amount}</span></div>
-                <div className="h-2 bg-gray-100 rounded-full"><div className={`h-full ${b.color} rounded-full`} style={{ width: `${b.pct}%` }} /></div>
+                <div className="h-2 bg-muted rounded-full"><div className={`h-full ${b.color} rounded-full`} style={{ width: `${b.pct}%` }} /></div>
               </div>
             ))}
           </CardContent>
@@ -556,7 +556,7 @@ function WarehouseDashboard() {
               <div key={i} className="flex items-center justify-between">
                 <div>
                   <div className="font-medium">{b.product}</div>
-                  <div className="text-xs text-gray-500">{b.batch} · {b.exp ?? b.qty}</div>
+                  <div className="text-xs text-muted-foreground">{b.batch} · {b.exp ?? b.qty}</div>
                 </div>
                 <Badge variant={b.issue === "Critical" ? "destructive" : "secondary"}>{b.issue}</Badge>
               </div>
@@ -621,7 +621,7 @@ function HRDashboard() {
               <div key={t.title} className="flex items-center justify-between">
                 <div>
                   <div className="font-medium">{t.title}</div>
-                  <div className="text-xs text-gray-500">{t.date}</div>
+                  <div className="text-xs text-muted-foreground">{t.date}</div>
                 </div>
                 <Badge variant="secondary">{t.attendees} attendees</Badge>
               </div>
@@ -660,7 +660,7 @@ export default function DashboardPage() {
           <Card>
             <CardHeader><CardTitle>Welcome</CardTitle></CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-500">Role: {ROLE_LABEL[user.role as keyof typeof ROLE_LABEL] ?? user.role}</p>
+              <p className="text-sm text-muted-foreground">Role: {ROLE_LABEL[user.role as keyof typeof ROLE_LABEL] ?? user.role}</p>
               <Button asChild className="mt-4"><Link href="/settings/profile">Go to profile</Link></Button>
             </CardContent>
           </Card>

@@ -450,7 +450,7 @@ export default function SettingsPage() {
                         <label
                           key={item.href}
                           className={`flex items-center gap-2 p-2 rounded border text-sm ${
-                            allowed ? "bg-blue-50 border-blue-200" : "bg-white"
+                            allowed ? "bg-blue-50 border-blue-200" : "bg-card"
                           } ${isAdmin && selectedUser?.role !== "ADMIN" ? "cursor-pointer hover:border-blue-400" : "cursor-not-allowed opacity-80"}`}
                         >
                           <input
@@ -1335,7 +1335,7 @@ export default function SettingsPage() {
               <tbody>
                 {ALL_ROUTES.map((route) => (
                   <tr key={route.href} className="border-b hover:bg-slate-50">
-                    <td className="p-2 font-medium sticky left-0 bg-white">
+                    <td className="p-2 font-medium sticky left-0 bg-card">
                       <div className="text-[10px] text-muted-foreground uppercase">{route.group}</div>
                       {route.label}
                     </td>

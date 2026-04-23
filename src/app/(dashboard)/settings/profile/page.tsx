@@ -232,7 +232,7 @@ export default function ProfilePage() {
               <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-3xl font-bold text-white shadow-lg">
                 {getInitials(displayName)}
               </div>
-              <button className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-gray-600 shadow-sm transition-colors hover:bg-gray-200 dark:border-gray-800 dark:bg-gray-700 dark:text-gray-300">
+              <button className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-muted text-muted-foreground shadow-sm transition-colors hover:bg-muted/80">
                 <Camera className="h-4 w-4" />
               </button>
             </div>
@@ -532,8 +532,8 @@ export default function ProfilePage() {
                     className="flex items-center justify-between rounded-lg border p-4"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
-                        <Icon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                        <Icon className="h-5 w-5 text-muted-foreground" />
                       </div>
                       <div>
                         <p className="text-sm font-medium">
@@ -602,7 +602,7 @@ export default function ProfilePage() {
                             [item.key]: e.target.checked,
                           })
                         }
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="h-4 w-4 rounded border-border text-blue-600 focus:ring-blue-500"
                       />
                     </label>
                   ))}
@@ -641,7 +641,7 @@ export default function ProfilePage() {
                               [item.key]: e.target.checked,
                             })
                           }
-                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          className="h-4 w-4 rounded border-border text-blue-600 focus:ring-blue-500"
                         />
                       </label>
                     )

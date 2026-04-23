@@ -508,32 +508,35 @@ export default function CRMReportsPage() {
           title="Doctors Assigned"
           value={summary.totalDoctors.toLocaleString()}
           subtitle="Across all reps"
-          icon={<Stethoscope className="h-5 w-5" />}
+          icon={Stethoscope}
           iconColor="bg-blue-100 text-blue-700"
         />
         <StatsCard
           title="Doctors Covered"
           value={summary.totalCovered.toLocaleString()}
           subtitle={`${((summary.totalCovered / summary.totalDoctors) * 100).toFixed(1)}% coverage`}
-          icon={<UserCheck className="h-5 w-5" />}
+          icon={UserCheck}
           iconColor="bg-emerald-100 text-emerald-700"
-          trend={{ value: 4.2, label: "vs last month" }}
+          change={4.2}
+          changeLabel="vs last month"
         />
         <StatsCard
           title="Visits MTD"
           value={summary.totalVisits.toLocaleString()}
           subtitle="GPS-validated"
-          icon={<MapPin className="h-5 w-5" />}
+          icon={MapPin}
           iconColor="bg-purple-100 text-purple-700"
-          trend={{ value: 6.8, label: "vs last month" }}
+          change={6.8}
+          changeLabel="vs last month"
         />
         <StatsCard
           title="Avg Achievement"
           value={`${summary.avgAchievement}%`}
           subtitle="Field force overall"
-          icon={<TrendingUp className="h-5 w-5" />}
+          icon={TrendingUp}
           iconColor="bg-amber-100 text-amber-700"
-          trend={{ value: 2.4, label: "vs last month" }}
+          change={2.4}
+          changeLabel="vs last month"
         />
       </div>
 
@@ -669,7 +672,7 @@ export default function CRMReportsPage() {
                 </div>
               </div>
             </div>
-            <div className="text-xs text-muted-foreground bg-white rounded px-2 py-1.5 border inline-block">
+            <div className="text-xs text-muted-foreground bg-card rounded px-2 py-1.5 border inline-block">
               Window: <strong className="text-foreground">{rangeDays} days</strong>
               {" · metrics scaled proportionally"}
             </div>
@@ -706,7 +709,7 @@ export default function CRMReportsPage() {
                   </Button>
                 </div>
               </div>
-              <div className="max-h-56 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 p-2 bg-white rounded border">
+              <div className="max-h-56 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 p-2 bg-card rounded border">
                 {(filter === "ALL"
                   ? fieldForce
                   : fieldForce.filter((p) => p.role === filter)

@@ -400,9 +400,9 @@ export default function SpreadsheetPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] bg-white" onKeyDown={handleKeyDown} tabIndex={0}>
+    <div className="flex flex-col h-[calc(100vh-4rem)] bg-background" onKeyDown={handleKeyDown} tabIndex={0}>
       {/* Toolbar */}
-      <div className="flex items-center gap-1 px-3 py-1.5 border-b bg-gray-50 flex-wrap">
+      <div className="flex items-center gap-1 px-3 py-1.5 border-b bg-muted/50 flex-wrap">
         <div className="flex items-center gap-0.5 mr-2">
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={undo} title="Undo"><Undo2 className="h-3.5 w-3.5" /></Button>
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={redo} title="Redo"><Redo2 className="h-3.5 w-3.5" /></Button>
@@ -428,7 +428,7 @@ export default function SpreadsheetPage() {
         <div className="w-px h-5 bg-border mx-1" />
         <div className="flex items-center gap-0.5 mr-2">
           {["#ffffff", "#fee2e2", "#fef9c3", "#dcfce7", "#dbeafe", "#f3e8ff", "#f1f5f9"].map(c => (
-            <button key={c} className="h-5 w-5 rounded border border-gray-300" style={{ backgroundColor: c }} onClick={() => setBg(c)} title={`Background: ${c}`} />
+            <button key={c} className="h-5 w-5 rounded border border-border" style={{ backgroundColor: c }} onClick={() => setBg(c)} title={`Background: ${c}`} />
           ))}
         </div>
         <div className="flex-1" />
@@ -441,8 +441,8 @@ export default function SpreadsheetPage() {
       </div>
 
       {/* Formula Bar */}
-      <div className="flex items-center gap-2 px-3 py-1 border-b bg-white">
-        <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded min-w-[40px] text-center font-semibold">{activeCell || ""}</span>
+      <div className="flex items-center gap-2 px-3 py-1 border-b bg-card">
+        <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded min-w-[40px] text-center font-semibold">{activeCell || ""}</span>
         <FunctionSquare className="h-3.5 w-3.5 text-muted-foreground" />
         <Input
           value={formulaBarValue}
@@ -458,16 +458,16 @@ export default function SpreadsheetPage() {
         <table className="border-collapse" style={{ minWidth: colWidths.reduce((s: number, w: number) => s + w, 40) }}>
           <thead className="sticky top-0 z-10">
             <tr>
-              <th className="bg-gray-100 border border-gray-300 px-1 py-0.5 text-xs font-medium text-gray-500 sticky left-0 z-20 w-[40px] min-w-[40px]">#</th>
+              <th className="bg-muted border border-border px-1 py-0.5 text-xs font-medium text-muted-foreground sticky left-0 z-20 w-[40px] min-w-[40px]">#</th>
               {COL_LETTERS.map((letter, ci) => (
-                <th key={letter} className="bg-gray-100 border border-gray-300 px-1 py-0.5 text-xs font-medium text-gray-500 select-none" style={{ width: colWidths[ci], minWidth: colWidths[ci] }}>{letter}</th>
+                <th key={letter} className="bg-muted border border-border px-1 py-0.5 text-xs font-medium text-muted-foreground select-none" style={{ width: colWidths[ci], minWidth: colWidths[ci] }}>{letter}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {Array.from({ length: ROWS }, (_, ri) => (
               <tr key={ri}>
-                <td className="bg-gray-50 border border-gray-300 px-1 py-0 text-xs text-gray-500 text-center sticky left-0 z-10 font-medium select-none">{ri + 1}</td>
+                <td className="bg-muted/50 border border-border px-1 py-0 text-xs text-muted-foreground text-center sticky left-0 z-10 font-medium select-none">{ri + 1}</td>
                 {COL_LETTERS.map((letter, ci) => {
                   const ref = `${letter}${ri + 1}`;
                   const cell = data[ref];
@@ -478,7 +478,7 @@ export default function SpreadsheetPage() {
                   return (
                     <td
                       key={ref}
-                      className={`border border-gray-200 px-1 py-0 text-xs relative cursor-cell ${isActive ? "outline outline-2 outline-blue-500 z-10" : ""}`}
+                      className={`border border-border px-1 py-0 text-xs relative cursor-cell ${isActive ? "outline outline-2 outline-blue-500 z-10" : ""}`}
                       style={{
                         backgroundColor: cell?.bgColor || undefined,
                         fontWeight: cell?.bold ? 700 : undefined,
@@ -498,7 +498,7 @@ export default function SpreadsheetPage() {
                           value={editValue}
                           onChange={e => setEditValue(e.target.value)}
                           onBlur={commitEdit}
-                          className="w-full h-full border-0 outline-none bg-white text-xs px-0 py-0 font-mono"
+                          className="w-full h-full border-0 outline-none bg-card text-xs px-0 py-0 font-mono"
                           style={{ minHeight: "20px" }}
                         />
                       ) : (
@@ -514,14 +514,14 @@ export default function SpreadsheetPage() {
       </div>
 
       {/* Footer: Sheet Tabs + Stats */}
-      <div className="flex items-center justify-between border-t bg-gray-50 px-2 py-1">
+      <div className="flex items-center justify-between border-t bg-muted/50 px-2 py-1">
         <div className="flex items-center gap-0.5">
           {sheets.map((s, i) => (
-            <button key={i} className={`px-3 py-1 text-xs rounded-t border-t border-x ${i === activeSheet ? "bg-white font-medium border-gray-300" : "bg-gray-100 text-gray-500 border-transparent hover:bg-gray-200"}`} onClick={() => setActiveSheet(i)}>{s.name}</button>
+            <button key={i} className={`px-3 py-1 text-xs rounded-t border-t border-x ${i === activeSheet ? "bg-card font-medium border-border" : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80"}`} onClick={() => setActiveSheet(i)}>{s.name}</button>
           ))}
-          <button className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600" onClick={addSheet}><Plus className="h-3 w-3" /></button>
+          <button className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground" onClick={addSheet}><Plus className="h-3 w-3" /></button>
         </div>
-        <div className="flex items-center gap-4 text-[10px] text-gray-500">
+        <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
           {allNumericValues.length > 0 && (<>
             <span>SUM: {allNumericValues.reduce((s: number, v: number) => s + v, 0).toLocaleString()}</span>
             <span>AVG: {(allNumericValues.reduce((s: number, v: number) => s + v, 0) / allNumericValues.length).toFixed(0)}</span>

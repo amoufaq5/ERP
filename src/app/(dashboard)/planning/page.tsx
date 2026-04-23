@@ -167,7 +167,7 @@ export default function PlanningPage() {
         <Button onClick={() => { setEditingGoal(null); setShowForm(true); }}><Plus className="mr-2 h-4 w-4" /> New Plan</Button>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -219,7 +219,7 @@ export default function PlanningPage() {
       </div>
 
       <Tabs defaultValue="strategic" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="flex flex-wrap gap-1 w-full">
           <TabsTrigger value="strategic"><Target className="mr-1.5 h-3.5 w-3.5" />Strategic</TabsTrigger>
           <TabsTrigger value="financial"><DollarSign className="mr-1.5 h-3.5 w-3.5" />Financial</TabsTrigger>
           <TabsTrigger value="workforce"><Users className="mr-1.5 h-3.5 w-3.5" />Workforce</TabsTrigger>

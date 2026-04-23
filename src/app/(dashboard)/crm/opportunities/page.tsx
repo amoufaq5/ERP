@@ -101,7 +101,7 @@ export default function OpportunitiesPage() {
       key: "probability", label: "Probability",
       render: (v) => (
         <div className="flex items-center gap-2">
-          <div className="w-16 bg-gray-200 rounded-full h-1.5">
+          <div className="w-16 bg-muted rounded-full h-1.5">
             <div className="h-1.5 rounded-full bg-blue-500" style={{ width: `${v as number}%` }} />
           </div>
           <span className="text-xs">{v as number}%</span>
@@ -149,10 +149,10 @@ export default function OpportunitiesPage() {
       </PageHeader>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Total Pipeline Value" value={`$${(totalPipeline / 1000).toFixed(0)}K`} subtitle="Excluding closed lost" icon={<DollarSign className="w-5 h-5" />} trend={{ value: 12, label: "vs last month" }} />
-        <StatsCard title="Won This Month" value={`$${(wonThisMonth / 1000).toFixed(0)}K`} subtitle="March 2026" icon={<Award className="w-5 h-5" />} trend={{ value: 8, label: "vs last month" }} />
-        <StatsCard title="Win Rate" value={`${winRate}%`} subtitle="Closed won / total closed" icon={<TrendingUp className="w-5 h-5" />} trend={{ value: 3, label: "vs last month" }} />
-        <StatsCard title="Avg Deal Size" value={`$${(avgDealSize / 1000).toFixed(0)}K`} subtitle="Across all opportunities" icon={<BarChart2 className="w-5 h-5" />} />
+        <StatsCard title="Total Pipeline Value" value={`$${(totalPipeline / 1000).toFixed(0)}K`} subtitle="Excluding closed lost" icon={DollarSign} change={12} changeLabel="vs last month" />
+        <StatsCard title="Won This Month" value={`$${(wonThisMonth / 1000).toFixed(0)}K`} subtitle="March 2026" icon={Award} change={8} changeLabel="vs last month" />
+        <StatsCard title="Win Rate" value={`${winRate}%`} subtitle="Closed won / total closed" icon={TrendingUp} change={3} changeLabel="vs last month" />
+        <StatsCard title="Avg Deal Size" value={`$${(avgDealSize / 1000).toFixed(0)}K`} subtitle="Across all opportunities" icon={BarChart2} />
       </div>
 
       <FilterBar
@@ -175,12 +175,12 @@ export default function OpportunitiesPage() {
                     <span className="text-xs font-bold uppercase tracking-wide">{stage.replace("_", " ")}</span>
                     <span className="text-xs font-semibold">{cards.length} · ${(stageTotal / 1000).toFixed(0)}K</span>
                   </div>
-                  <div className="rounded-b-lg border border-t-0 border-gray-200 bg-gray-50 min-h-40 space-y-2 p-2">
-                    {cards.length === 0 && <p className="text-xs text-gray-400 text-center py-4">No opportunities</p>}
+                  <div className="rounded-b-lg border border-t-0 border-border bg-muted/50 min-h-40 space-y-2 p-2">
+                    {cards.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No opportunities</p>}
                     {cards.map((opp) => (
-                      <div key={opp.id} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow">
+                      <div key={opp.id} className="bg-card rounded-lg border border-border p-3 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-start justify-between">
-                          <p className="text-sm font-semibold text-gray-900 leading-tight">{opp.title}</p>
+                          <p className="text-sm font-semibold text-foreground leading-tight">{opp.title}</p>
                           <EditDeleteMenu
                             onEdit={() => { setEditing(opp); setShowModal(true); }}
                             onDelete={() => setOpportunities((prev) => prev.filter((x) => x.id !== opp.id))}
@@ -194,16 +194,16 @@ export default function OpportunitiesPage() {
                             })()}
                           />
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">{opp.account}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{opp.account}</p>
                         <div className="mt-2 flex items-center justify-between">
-                          <span className="text-sm font-bold text-gray-900">${opp.value.toLocaleString()}</span>
-                          <span className="text-xs text-gray-500">{opp.probability}%</span>
+                          <span className="text-sm font-bold text-foreground">${opp.value.toLocaleString()}</span>
+                          <span className="text-xs text-muted-foreground">{opp.probability}%</span>
                         </div>
-                        <div className="mt-2 w-full bg-gray-200 rounded-full h-1">
+                        <div className="mt-2 w-full bg-muted rounded-full h-1">
                           <div className="h-1 rounded-full bg-blue-500" style={{ width: `${opp.probability}%` }} />
                         </div>
-                        <p className="text-xs text-gray-400 mt-2">Close: {opp.expectedClose}</p>
-                        <p className="text-xs text-gray-500 mt-1">{opp.owner}</p>
+                        <p className="text-xs text-muted-foreground mt-2">Close: {opp.expectedClose}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{opp.owner}</p>
                       </div>
                     ))}
                   </div>

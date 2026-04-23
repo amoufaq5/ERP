@@ -8,6 +8,8 @@ import { EntityFormModal, type EntityField } from "@/components/shared/entity-fo
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
+import PageHeader from "@/components/shared/page-header";
+import StatsCard from "@/components/shared/stats-card";
 
 type LeadStatus = "NEW" | "CONTACTED" | "QUALIFIED" | "PROPOSAL" | "NEGOTIATION" | "CLOSED_WON" | "CLOSED_LOST" | "NURTURING";
 type LeadSource = "WEBSITE" | "REFERRAL" | "COLD_CALL" | "EMAIL" | "SOCIAL_MEDIA" | "TRADE_SHOW" | "PARTNER";
@@ -111,20 +113,6 @@ function StatusBadge({ status }: { status: LeadStatus }) {
   );
 }
 
-function StatsCard({ title, value, icon: Icon, color }: { title: string; value: string; icon: React.ElementType; color: string }) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 flex items-center gap-4 shadow-sm">
-      <div className={`p-3 rounded-lg ${color}`}>
-        <Icon className="w-6 h-6 text-white" />
-      </div>
-      <div>
-        <p className="text-sm text-gray-500">{title}</p>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
-      </div>
-    </div>
-  );
-}
-
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", source: "" });
@@ -159,25 +147,21 @@ export default function LeadsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
-          <p className="text-sm text-gray-500 mt-1">Track and manage your sales leads pipeline</p>
-        </div>
+      <PageHeader title="Leads" description="Track and manage your sales leads pipeline">
         <Button onClick={() => { setEditing(null); setShowModal(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Add New Lead
         </Button>
-      </div>
+      </PageHeader>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Total Leads" value={String(totalLeads)} icon={Users} color="bg-blue-500" />
-        <StatsCard title="New This Month" value={String(newThisMonth)} icon={TrendingUp} color="bg-purple-500" />
-        <StatsCard title="Qualified" value={String(qualified)} icon={Star} color="bg-green-500" />
-        <StatsCard title="Conversion Rate" value={`${conversionRate}%`} icon={BarChart2} color="bg-orange-500" />
+        <StatsCard title="Total Leads" value={String(totalLeads)} icon={Users} />
+        <StatsCard title="New This Month" value={String(newThisMonth)} icon={TrendingUp} />
+        <StatsCard title="Qualified" value={String(qualified)} icon={Star} />
+        <StatsCard title="Conversion Rate" value={`${conversionRate}%`} icon={BarChart2} />
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div className="p-4 border-b border-gray-200">
+      <div className="bg-card rounded-xl border border-border shadow-sm">
+        <div className="p-4 border-b border-border">
           <FilterBar
             searchValue={filters._search}
             onSearchChange={(v) => setFilters((f) => ({ ...f, _search: v }))}
@@ -193,7 +177,7 @@ export default function LeadsPage() {
               label: "Name",
               render: (_v: unknown, row: unknown) => {
                 const lead = row as Lead;
-                return <span className="font-medium text-gray-900">{lead.firstName} {lead.lastName}</span>;
+                return <span className="font-medium text-foreground">{lead.firstName} {lead.lastName}</span>;
               },
             },
             { key: "company", label: "Company" },
@@ -210,13 +194,13 @@ export default function LeadsPage() {
                 const lead = row as Lead;
                 return (
                   <div className="flex items-center gap-2">
-                    <div className="w-16 bg-gray-200 rounded-full h-1.5">
+                    <div className="w-16 bg-muted rounded-full h-1.5">
                       <div
                         className={`h-1.5 rounded-full ${lead.score >= 80 ? "bg-green-500" : lead.score >= 60 ? "bg-yellow-500" : "bg-red-400"}`}
                         style={{ width: `${lead.score}%` }}
                       />
                     </div>
-                    <span className="text-gray-700 font-medium">{lead.score}</span>
+                    <span className="text-foreground font-medium">{lead.score}</span>
                   </div>
                 );
               },
@@ -236,7 +220,7 @@ export default function LeadsPage() {
               className: "text-right",
               render: (_v: unknown, row: unknown) => {
                 const lead = row as Lead;
-                return <span className="font-medium text-gray-900">${lead.value.toLocaleString()}</span>;
+                return <span className="font-medium text-foreground">${lead.value.toLocaleString()}</span>;
               },
             },
             {

@@ -150,11 +150,11 @@ export default function InterviewsPage() {
         </div>
       </PageHeader>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatsCard title="Scheduled Today" value={scheduledToday} icon={<Calendar className="h-5 w-5" />} />
-        <StatsCard title="This Week" value={scheduledWeek} icon={<Clock className="h-5 w-5" />} />
-        <StatsCard title="Completed" value={completed} icon={<CheckCircle className="h-5 w-5" />} trend={{ value: 12.5, label: "vs last week" }} />
-        <StatsCard title="Avg Rating" value={avgRating} icon={<Star className="h-5 w-5" />} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard title="Scheduled Today" value={scheduledToday} icon={Calendar} />
+        <StatsCard title="This Week" value={scheduledWeek} icon={Clock} />
+        <StatsCard title="Completed" value={completed} icon={CheckCircle} change={12.5} changeLabel="vs last week" />
+        <StatsCard title="Avg Rating" value={avgRating} icon={Star} />
       </div>
 
       {view === "calendar" ? (
@@ -162,7 +162,7 @@ export default function InterviewsPage() {
           <div className="p-4 border-b border-border">
             <h2 className="font-semibold text-foreground">Week of Apr 13 – Apr 17, 2026</h2>
           </div>
-          <div className="grid grid-cols-5 divide-x divide-border">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-border">
             {DAYS.map((day, idx) => {
               const date = WEEK_DATES[idx];
               const dayInterviews = interviews.filter((i) => i.date === date);

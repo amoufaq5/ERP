@@ -178,11 +178,11 @@ export default function OnboardingPage() {
         </Button>
       </PageHeader>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatsCard title="New Hires This Month" value={totalHires} icon={<UserPlus className="h-5 w-5" />} trend={{ value: 20.0, label: "vs last month" }} />
-        <StatsCard title="Onboarding In Progress" value={inProgress} icon={<TrendingUp className="h-5 w-5" />} />
-        <StatsCard title="Completion Rate" value={`${completionRate}%`} icon={<BarChart2 className="h-5 w-5" />} />
-        <StatsCard title="GMP Training Progress" value={`${gmpCompliance}/${gmpTotal}`} icon={<ShieldCheck className="h-5 w-5" />} subtitle="Regulatory compliance" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard title="New Hires This Month" value={totalHires} icon={UserPlus} change={20.0} changeLabel="vs last month" />
+        <StatsCard title="Onboarding In Progress" value={inProgress} icon={TrendingUp} />
+        <StatsCard title="Completion Rate" value={`${completionRate}%`} icon={BarChart2} />
+        <StatsCard title="GMP Training Progress" value={`${gmpCompliance}/${gmpTotal}`} icon={ShieldCheck} subtitle="Regulatory compliance" />
       </div>
 
       <div>

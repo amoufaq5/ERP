@@ -12,6 +12,7 @@ import { EntityFormModal, type EntityField } from "@/components/shared/entity-fo
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
 import DataTable from "@/components/shared/data-table"
 import type { Column } from "@/components/shared/data-table"
+import PageHeader from "@/components/shared/page-header"
 
 interface Course {
   id: number
@@ -113,16 +114,12 @@ export default function TrainingPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Training & Learning</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage courses and track employee learning progress</p>
-        </div>
+      <PageHeader title="Training & Learning" description="Manage courses and track employee learning progress">
         <Button onClick={() => { setEditing(null); setShowModal(true) }}>
           <Plus className="h-4 w-4 mr-2" />
           Add Course
         </Button>
-      </div>
+      </PageHeader>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>

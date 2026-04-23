@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import PageHeader from "@/components/shared/page-header"
 
 const aiFeatures = [
   { id: "1", name: "Lead Scoring", description: "Auto-score leads based on engagement, demographics, and behavior patterns", icon: Target, active: true },
@@ -36,16 +37,13 @@ export default function AIHubPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">AI Hub</h1>
-        <p className="text-gray-500">Configure AI integrations and manage intelligent features</p>
-      </div>
+      <PageHeader title="AI Hub" description="Configure AI integrations and manage intelligent features" />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><Brain className="h-5 w-5 text-purple-600" /></div><div><p className="text-sm text-gray-500">AI Features Active</p><p className="text-2xl font-bold">{activeCount}</p></div></div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><Zap className="h-5 w-5 text-blue-600" /></div><div><p className="text-sm text-gray-500">API Calls Today</p><p className="text-2xl font-bold">147</p></div></div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><Sparkles className="h-5 w-5 text-green-600" /></div><div><p className="text-sm text-gray-500">Tokens Used</p><p className="text-2xl font-bold">52.3K</p></div></div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-orange-100 rounded-lg"><TrendingUp className="h-5 w-5 text-orange-600" /></div><div><p className="text-sm text-gray-500">Cost This Month</p><p className="text-2xl font-bold">$12.45</p></div></div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><Brain className="h-5 w-5 text-purple-600" /></div><div><p className="text-sm text-muted-foreground">AI Features Active</p><p className="text-2xl font-bold">{activeCount}</p></div></div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><Zap className="h-5 w-5 text-blue-600" /></div><div><p className="text-sm text-muted-foreground">API Calls Today</p><p className="text-2xl font-bold">147</p></div></div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><Sparkles className="h-5 w-5 text-green-600" /></div><div><p className="text-sm text-muted-foreground">Tokens Used</p><p className="text-2xl font-bold">52.3K</p></div></div></CardContent></Card>
+        <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-orange-100 rounded-lg"><TrendingUp className="h-5 w-5 text-orange-600" /></div><div><p className="text-sm text-muted-foreground">Cost This Month</p><p className="text-2xl font-bold">$12.45</p></div></div></CardContent></Card>
       </div>
 
       <Card>
@@ -84,15 +82,15 @@ export default function AIHubPage() {
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-lg ${f.active ? "bg-purple-100" : "bg-gray-100"}`}>
-                        <Icon className={`h-5 w-5 ${f.active ? "text-purple-600" : "text-gray-400"}`} />
+                      <div className={`p-2 rounded-lg ${f.active ? "bg-purple-100" : "bg-muted"}`}>
+                        <Icon className={`h-5 w-5 ${f.active ? "text-purple-600" : "text-muted-foreground"}`} />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold">{f.name}</h3>
                           <span className={`h-2 w-2 rounded-full ${f.active ? "bg-green-500" : "bg-gray-300"}`} />
                         </div>
-                        <p className="text-sm text-gray-500 mt-1">{f.description}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{f.description}</p>
                       </div>
                     </div>
                     <button onClick={() => toggleFeature(f.id)} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${f.active ? "bg-purple-600" : "bg-gray-300"}`}>
@@ -110,7 +108,7 @@ export default function AIHubPage() {
         <CardHeader><CardTitle>Recent AI Activity</CardTitle></CardHeader>
         <CardContent>
           <table className="w-full text-sm">
-            <thead><tr className="border-b bg-gray-50">
+            <thead><tr className="border-b bg-muted/50">
               <th className="text-left p-3 font-medium">Feature</th>
               <th className="text-left p-3 font-medium">Input</th>
               <th className="text-left p-3 font-medium">Result</th>
@@ -120,13 +118,13 @@ export default function AIHubPage() {
             </tr></thead>
             <tbody>
               {recentActivity.map(a => (
-                <tr key={a.id} className="border-b hover:bg-gray-50">
+                <tr key={a.id} className="border-b hover:bg-muted/50">
                   <td className="p-3"><span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">{a.feature}</span></td>
                   <td className="p-3 max-w-[200px] truncate">{a.input}</td>
-                  <td className="p-3 max-w-[200px] truncate text-gray-600">{a.result}</td>
+                  <td className="p-3 max-w-[200px] truncate text-foreground">{a.result}</td>
                   <td className="p-3 text-right">{a.tokens}</td>
                   <td className="p-3 text-right">${a.cost.toFixed(3)}</td>
-                  <td className="p-3 text-gray-500">{a.time}</td>
+                  <td className="p-3 text-muted-foreground">{a.time}</td>
                 </tr>
               ))}
             </tbody>
