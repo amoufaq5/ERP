@@ -180,6 +180,29 @@ export default function ContactsPage() {
           setEditing(null);
         }}
       />
+
+      {/* ── Contact Detail Dialog ── */}
+      <Dialog open={!!detailContact} onOpenChange={(open) => { if (!open) setDetailContact(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailContact?.firstName} {detailContact?.lastName}</DialogTitle>
+          </DialogHeader>
+          {detailContact && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div><span className="text-sm text-muted-foreground">Name</span><p className="font-medium">{detailContact.firstName} {detailContact.lastName}</p></div>
+                <div><span className="text-sm text-muted-foreground">Job Title</span><p className="font-medium">{detailContact.title || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{detailContact.email}</p></div>
+                <div><span className="text-sm text-muted-foreground">Phone</span><p className="font-medium">{detailContact.phone || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Account</span><p className="font-medium">{detailContact.account || "No account"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Owner</span><p className="font-medium">{detailContact.owner}</p></div>
+                <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={detailContact.status} /></p></div>
+                <div><span className="text-sm text-muted-foreground">Created</span><p className="font-medium">{detailContact.createdAt}</p></div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

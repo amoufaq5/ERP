@@ -203,6 +203,47 @@ export default function CampaignsPage() {
           setEditing(null);
         }}
       />
+
+      {/* ── Campaign Detail Dialog ── */}
+      <Dialog open={!!detailCampaign} onOpenChange={(open) => { if (!open) setDetailCampaign(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailCampaign?.name}</DialogTitle>
+          </DialogHeader>
+          {detailCampaign && (() => {
+            const budgetPct = detailCampaign.budget > 0 ? Math.min(100, Math.round((detailCampaign.spent / detailCampaign.budget) * 100)) : 0;
+            const budgetColor = budgetPct >= 90 ? "bg-red-500" : budgetPct >= 70 ? "bg-orange-500" : "bg-blue-500";
+            const convRate = detailCampaign.leads > 0 ? ((detailCampaign.conversions / detailCampaign.leads) * 100).toFixed(1) : "0";
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Campaign Name</span><p className="font-medium">{detailCampaign.name}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{detailCampaign.type.replace(/_/g, " ")}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={STATUS_MAP[detailCampaign.status]} /></p></div>
+                  <div><span className="text-sm text-muted-foreground">Owner</span><p className="font-medium">{detailCampaign.owner}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Budget</span><p className="font-medium">${detailCampaign.budget.toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Spent</span><p className="font-medium">${detailCampaign.spent.toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Leads Generated</span><p className="font-medium">{detailCampaign.leads}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Conversions</span><p className="font-medium">{detailCampaign.conversions}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Conversion Rate</span><p className="font-medium">{convRate}%</p></div>
+                  <div><span className="text-sm text-muted-foreground">Start Date</span><p className="font-medium">{detailCampaign.startDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">End Date</span><p className="font-medium">{detailCampaign.endDate}</p></div>
+                </div>
+                {/* Budget Progress Bar */}
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">Budget Utilization</span>
+                    <span className="font-medium">{budgetPct}% &mdash; ${detailCampaign.spent.toLocaleString()} / ${detailCampaign.budget.toLocaleString()}</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${budgetColor}`} style={{ width: `${budgetPct}%` }} />
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
