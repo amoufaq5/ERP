@@ -251,7 +251,8 @@ export default function TrainingPage() {
           ] as Column<Record<string, unknown>>[]}
           data={initialEnrollments as unknown as Record<string, unknown>[]}
           emptyMessage="No enrollments found."
-          
+          exportable
+          exportFilename="training-enrollments.csv"
         />
       )}
 

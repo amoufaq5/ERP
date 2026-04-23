@@ -72,7 +72,7 @@ const LEAD_FIELDS: EntityField[] = [
       { label: "Partner", value: "PARTNER" },
     ],
   },
-  { name: "value", label: "Estimated Value ($)", type: "number", placeholder: "0" },
+  { name: "value", label: "Estimated Value (EGP)", type: "number", placeholder: "0" },
 ];
 
 const FILTER_FIELDS = [

@@ -289,7 +289,8 @@ export default function InterviewsPage() {
             ] as Column<Record<string, unknown>>[]}
             data={filtered as unknown as Record<string, unknown>[]}
             emptyMessage="No interviews found."
-            
+            exportable
+            exportFilename="interviews.csv"
           />
         </div>
       )}

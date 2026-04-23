@@ -202,7 +202,7 @@ export default function AccountingPage() {
     { name: "city", label: "City", type: "text" },
     { name: "creditLimit", label: "Credit Limit (EGP)", type: "number", required: true },
     { name: "outstanding", label: "Outstanding (EGP)", type: "number", defaultValue: 0 },
-    { name: "currency", label: "Currency", type: "select", defaultValue: "EGP", options: [{ label: "EGP", value: "EGP" }, { label: "USD", value: "USD" }] },
+    { name: "currency", label: "Currency", type: "select", defaultValue: "EGP", options: [{ label: "EGP", value: "EGP" }] },
     { name: "paymentTerms", label: "Payment Terms", type: "select", options: ["Net 30", "Net 45", "Net 60", "Net 90", "Net 120"].map((t) => ({ label: t, value: t })) },
     { name: "status", label: "Status", type: "select", defaultValue: "ACTIVE", options: [{ label: "Active", value: "ACTIVE" }, { label: "On Hold", value: "HOLD" }, { label: "Blocked", value: "BLOCKED" }] },
   ];
@@ -272,7 +272,7 @@ export default function AccountingPage() {
     { name: "type", label: "Direction", type: "select", required: true, options: [{ label: "Incoming", value: "INCOMING" }, { label: "Outgoing", value: "OUTGOING" }] },
     { name: "partyName", label: "Party Name", type: "text", required: true },
     { name: "amount", label: "Amount (EGP)", type: "number", required: true },
-    { name: "currency", label: "Currency", type: "select", defaultValue: "EGP", options: [{ label: "EGP", value: "EGP" }, { label: "USD", value: "USD" }] },
+    { name: "currency", label: "Currency", type: "select", defaultValue: "EGP", options: [{ label: "EGP", value: "EGP" }] },
     { name: "issueDate", label: "Issue Date", type: "date", required: true },
     { name: "dueDate", label: "Due Date", type: "date", required: true },
     { name: "status", label: "Status", type: "select", defaultValue: "PENDING", options: [{ label: "Pending", value: "PENDING" }, { label: "Deposited", value: "DEPOSITED" }, { label: "Cleared", value: "CLEARED" }, { label: "Bounced", value: "BOUNCED" }, { label: "Cancelled", value: "CANCELLED" }] },

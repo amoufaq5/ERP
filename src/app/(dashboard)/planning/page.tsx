@@ -314,7 +314,8 @@ export default function PlanningPage() {
                   )},
                 ] as Column<Record<string, unknown>>[]}
                 data={departmentBudgets as unknown as Record<string, unknown>[]}
-                
+                exportable
+                exportFilename="budget-planning.csv"
                 emptyMessage="No budget data available."
               />
             </CardContent>
@@ -343,7 +344,8 @@ export default function PlanningPage() {
                   { key: "contractors", label: "Contractors", className: "text-right" },
                 ] as Column<Record<string, unknown>>[]}
                 data={workforceData as unknown as Record<string, unknown>[]}
-                
+                exportable
+                exportFilename="workforce-planning.csv"
                 emptyMessage="No workforce data available."
               />
             </CardContent>
@@ -369,7 +371,8 @@ export default function PlanningPage() {
                   { key: "priority", label: "Priority", render: (v: string) => <Badge variant={getPriorityBadge(v)}>{v}</Badge> },
                 ] as Column<Record<string, unknown>>[]}
                 data={productionOrders as unknown as Record<string, unknown>[]}
-                
+                exportable
+                exportFilename="production-planning.csv"
                 emptyMessage="No production orders found."
               />
             </CardContent>
@@ -398,7 +401,8 @@ export default function PlanningPage() {
                   )},
                 ] as Column<Record<string, unknown>>[]}
                 data={territoryPlans as unknown as Record<string, unknown>[]}
-                
+                exportable
+                exportFilename="territory-plans.csv"
                 emptyMessage="No territory plans found."
               />
             </CardContent>
@@ -432,7 +436,8 @@ export default function PlanningPage() {
                   { key: "risk", label: "Risk", render: (v: string) => <Badge variant={getPriorityBadge(v)}>{v}</Badge> },
                 ] as Column<Record<string, unknown>>[]}
                 data={itProjects as unknown as Record<string, unknown>[]}
-                
+                exportable
+                exportFilename="it-projects.csv"
                 emptyMessage="No IT projects found."
               />
             </CardContent>

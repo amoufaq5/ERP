@@ -21,7 +21,7 @@ interface LoyaltyProgram {
   id: string;
   name: string;
   description: string;
-  pointsPerDollar: number;
+  pointsPerEGP: number;
   redemptionRate: number;
   members: number;
   active: boolean;
@@ -47,8 +47,8 @@ interface LoyaltyTransaction {
 }
 
 const INITIAL_PROGRAMS: LoyaltyProgram[] = [
-  { id: "LP-001", name: "Enterprise Rewards", description: "Exclusive rewards program for enterprise-tier customers. Earn accelerated points on all annual contract renewals and add-on purchases.", pointsPerDollar: 5, redemptionRate: 100, members: 89, active: true },
-  { id: "LP-002", name: "SMB Loyalty Club", description: "Tailored for small and medium businesses. Earn points on every invoice and redeem them for service credits, training sessions, or merchandise.", pointsPerDollar: 3, redemptionRate: 150, members: 67, active: true },
+  { id: "LP-001", name: "Enterprise Rewards", description: "Exclusive rewards program for enterprise-tier customers. Earn accelerated points on all annual contract renewals and add-on purchases.", pointsPerEGP: 5, redemptionRate: 100, members: 89, active: true },
+  { id: "LP-002", name: "SMB Loyalty Club", description: "Tailored for small and medium businesses. Earn points on every invoice and redeem them for service credits, training sessions, or merchandise.", pointsPerEGP: 3, redemptionRate: 150, members: 67, active: true },
 ];
 
 const INITIAL_MEMBERS: LoyaltyMember[] = [
@@ -62,7 +62,7 @@ const INITIAL_MEMBERS: LoyaltyMember[] = [
 
 const TRANSACTIONS: LoyaltyTransaction[] = [
   { id: "TXN-001", member: "James Carter", type: "EARN", points: 5_000, description: "Annual contract renewal — Enterprise Rewards", date: "2026-03-28" },
-  { id: "TXN-002", member: "Priya Sharma", type: "REDEEM", points: -3_000, description: "Service credit redemption — $30 off invoice", date: "2026-03-27" },
+  { id: "TXN-002", member: "Priya Sharma", type: "REDEEM", points: -3_000, description: "Service credit redemption — EGP 30 off invoice", date: "2026-03-27" },
   { id: "TXN-003", member: "Nathan Brooks", type: "EARN", points: 1_500, description: "Add-on module purchase — Analytics Pro", date: "2026-03-26" },
   { id: "TXN-004", member: "Olivia Chen", type: "EARN", points: 750, description: "Monthly subscription payment", date: "2026-03-25" },
   { id: "TXN-005", member: "Samuel Torres", type: "ADJUST", points: 500, description: "Goodwill adjustment — support escalation compensation", date: "2026-03-24" },
@@ -142,7 +142,7 @@ export default function LoyaltyPage() {
   return (
     <div className="p-6 space-y-6">
       <PageHeader title="Loyalty Programs" description="Manage customer loyalty programs, track member points, and monitor reward redemptions">
-        <Button variant="outline" className="gap-2"><RefreshCw className="w-4 h-4" />Sync Points</Button>
+        <Button variant="outline" className="gap-2" onClick={() => { setMembers(prev => prev.map(m => ({ ...m, points: m.points + Math.floor(Math.random() * 500) }))); }}><RefreshCw className="w-4 h-4" />Sync Points</Button>
         <Button className="gap-2" onClick={() => { setEditingMember(null); setShowModal(true); }}><Plus className="w-4 h-4" />Add Member</Button>
       </PageHeader>
 
@@ -179,8 +179,8 @@ export default function LoyaltyPage() {
                 <CardContent className="space-y-4">
                   <p className="text-sm text-muted-foreground leading-relaxed">{program.description}</p>
                   <div className="grid grid-cols-3 gap-3 pt-2 border-t border-border">
-                    <div className="text-center"><p className="text-lg font-bold text-foreground">{program.pointsPerDollar}x</p><p className="text-xs text-muted-foreground mt-0.5">Points / $1</p></div>
-                    <div className="text-center border-x border-border"><p className="text-lg font-bold text-foreground">{program.redemptionRate}</p><p className="text-xs text-muted-foreground mt-0.5">Pts per $1 value</p></div>
+                    <div className="text-center"><p className="text-lg font-bold text-foreground">{program.pointsPerEGP}x</p><p className="text-xs text-muted-foreground mt-0.5">Points / EGP 1</p></div>
+                    <div className="text-center border-x border-border"><p className="text-lg font-bold text-foreground">{program.redemptionRate}</p><p className="text-xs text-muted-foreground mt-0.5">Pts per EGP 1 value</p></div>
                     <div className="text-center"><p className="text-lg font-bold text-foreground">{program.members}</p><p className="text-xs text-muted-foreground mt-0.5">Members</p></div>
                   </div>
                   <Badge variant="outline" className={program.active ? "border-green-300 text-green-700 bg-green-50" : "border-gray-300 text-gray-500 bg-gray-50"}>
@@ -227,6 +227,8 @@ export default function LoyaltyPage() {
               data={filteredMembers as unknown as Record<string, unknown>[]}
               
               emptyMessage="No members found."
+              exportable
+              exportFilename="loyalty-members.csv"
             />
           </div>
         </TabsContent>
@@ -256,6 +258,8 @@ export default function LoyaltyPage() {
               data={filteredTxns as unknown as Record<string, unknown>[]}
               
               emptyMessage="No transactions found."
+              exportable
+              exportFilename="loyalty-transactions.csv"
             />
           </div>
         </TabsContent>

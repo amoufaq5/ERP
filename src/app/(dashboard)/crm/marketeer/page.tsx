@@ -165,7 +165,8 @@ export default function MarketeerPage() {
                   { key: "rating", label: "Rating", render: (_v, row) => <StatusBadge status={(row as unknown as (typeof TEAM_PERFORMANCE)[0]).rating === "A" ? "Excellent" : "Good"} /> },
                 ] as Column<Record<string, unknown>>[]}
                 data={TEAM_PERFORMANCE as unknown as Record<string, unknown>[]}
-                
+                exportable
+                exportFilename="team-performance.csv"
                 emptyMessage="No performance data available."
               />
             </CardContent>
@@ -214,7 +215,8 @@ export default function MarketeerPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredEscalated as unknown as Record<string, unknown>[]}
-                
+                exportable
+                exportFilename="escalated-requests.csv"
                 emptyMessage="No escalated requests."
               />
             </CardContent>
@@ -261,7 +263,8 @@ export default function MarketeerPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredVisits as unknown as Record<string, unknown>[]}
-                
+                exportable
+                exportFilename="field-visits.csv"
                 emptyMessage="No visits found."
               />
             </CardContent>
@@ -283,6 +286,8 @@ export default function MarketeerPage() {
                   { key: "competition", label: "Competition", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
                 ] as Column<Record<string, unknown>>[]}
                 data={MARKET_ANALYSIS as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="market-analysis.csv"
                 emptyMessage="No market analysis data."
               />
             </CardContent>

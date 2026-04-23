@@ -250,7 +250,7 @@ export default function OnboardingPage() {
               onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
             />
           </div>
-          <DataTable columns={taskColumns} data={filteredTasks as unknown as Record<string, unknown>[]} emptyMessage="No tasks found." />
+          <DataTable columns={taskColumns} data={filteredTasks as unknown as Record<string, unknown>[]} emptyMessage="No tasks found." exportable exportFilename="onboarding-tasks.csv" />
         </div>
       </div>
 
