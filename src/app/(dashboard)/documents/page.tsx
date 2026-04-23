@@ -1,12 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { FileText, File, Upload, Plus, Download, FolderOpen } from "lucide-react"
+import { FileText, File, Upload, Plus, FolderOpen } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
+import DataTable from "@/components/shared/data-table"
+import type { Column } from "@/components/shared/data-table"
 
 const typeIcon: Record<string, { icon: string; color: string }> = {
   PDF: { icon: "PDF", color: "bg-red-100 text-red-700" },
@@ -70,6 +72,24 @@ export default function DocumentsPage() {
     return true
   })
 
+  const docColumns: Column<Record<string, unknown>>[] = [
+    { key: "name", label: "Name", render: (v) => <span className="font-medium">{String(v)}</span> },
+    { key: "type", label: "Type", render: (v) => <span className={`px-2 py-1 rounded text-xs font-bold ${typeIcon[String(v)]?.color || "bg-gray-100 text-gray-700"}`}>{String(v)}</span> },
+    { key: "category", label: "Category" },
+    { key: "module", label: "Module", render: (v) => <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">{String(v)}</span> },
+    { key: "size", label: "Size", className: "text-right", render: (v) => <span className="text-right block">{String(v)}</span> },
+    { key: "uploadedBy", label: "Uploaded By", render: (v) => <span className="text-gray-500">{String(v)}</span> },
+    { key: "version", label: "Ver", className: "text-center", render: (v) => <span className="text-center block">v{String(v)}</span> },
+    { key: "date", label: "Date" },
+    { key: "actions", label: "", render: (_v, row) => (
+      <EditDeleteMenu
+        onEdit={() => { setEditing(row as unknown as Doc); setShowModal(true) }}
+        onDelete={() => setDocs(prev => prev.filter(x => x.id !== row.id))}
+        itemLabel={String(row.name)}
+      />
+    )},
+  ]
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -105,32 +125,11 @@ export default function DocumentsPage() {
           />
         </CardHeader>
         <CardContent>
-          <table className="w-full text-sm">
-            <thead><tr className="border-b bg-gray-50">
-              <th className="text-left p-3 font-medium">Name</th><th className="text-left p-3 font-medium">Type</th><th className="text-left p-3 font-medium">Category</th><th className="text-left p-3 font-medium">Module</th><th className="text-right p-3 font-medium">Size</th><th className="text-left p-3 font-medium">Uploaded By</th><th className="text-center p-3 font-medium">Ver</th><th className="text-left p-3 font-medium">Date</th><th className="text-center p-3 font-medium"></th>
-            </tr></thead>
-            <tbody>
-              {filtered.map(d => (
-                <tr key={d.id} className="border-b hover:bg-gray-50">
-                  <td className="p-3 font-medium">{d.name}</td>
-                  <td className="p-3"><span className={`px-2 py-1 rounded text-xs font-bold ${typeIcon[d.type]?.color || "bg-gray-100 text-gray-700"}`}>{d.type}</span></td>
-                  <td className="p-3">{d.category}</td>
-                  <td className="p-3"><span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">{d.module}</span></td>
-                  <td className="p-3 text-right">{d.size}</td>
-                  <td className="p-3 text-gray-500">{d.uploadedBy}</td>
-                  <td className="p-3 text-center">v{d.version}</td>
-                  <td className="p-3">{d.date}</td>
-                  <td className="p-3 text-center">
-                    <EditDeleteMenu
-                      onEdit={() => { setEditing(d); setShowModal(true) }}
-                      onDelete={() => setDocs(prev => prev.filter(x => x.id !== d.id))}
-                      itemLabel={d.name}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            columns={docColumns}
+            data={filtered as unknown as Record<string, unknown>[]}
+            emptyMessage="No documents found."
+          />
         </CardContent>
       </Card>
 

@@ -4,16 +4,17 @@ import { useState } from "react";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Scale, Shield, FileText, Search, Plus, Eye, Calendar, Users, Clock,
-  CheckCircle2, XCircle, AlertTriangle, BarChart3, Download, Globe,
-  Lock, BookOpen, Gavel, Building2, Leaf, CreditCard, UserCheck,
-  FileCheck, AlertCircle, TrendingUp,
+  Scale, Shield, FileText, Plus, Eye, Users,
+  AlertTriangle, Download,
+  Lock, Building2, Leaf, CreditCard,
+  AlertCircle,
 } from "lucide-react";
 
 const kpis = [
@@ -130,6 +131,30 @@ const regulationFields: EntityField[] = [
   { name: "dept", label: "Department", type: "text" },
 ];
 
+const auditColumns: Column<Record<string, unknown>>[] = [
+  { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
+  { key: "type", label: "Type", render: (v) => <Badge variant="outline" className="text-xs">{String(v)}</Badge> },
+  { key: "scope", label: "Scope", render: (v) => <span className="text-xs font-medium">{String(v)}</span> },
+  { key: "auditor", label: "Auditor", render: (v) => <span className="text-xs">{String(v)}</span> },
+  { key: "start", label: "Start", render: (v) => <span className="text-xs">{String(v)}</span> },
+  { key: "end", label: "End", render: (v) => <span className="text-xs">{String(v)}</span> },
+  { key: "status", label: "Status", render: (v) => <Badge variant={statusBadge[String(v)] || "secondary"} className="text-xs">{String(v)}</Badge> },
+  { key: "findings", label: "Findings", render: (v) => <span className="text-xs text-center">{String(v)}</span> },
+  { key: "risk", label: "Risk", render: (v) => <Badge variant={v === "High" ? "destructive" : v === "Medium" ? "default" : "secondary"} className="text-xs">{String(v)}</Badge> },
+];
+
+const riskColumns: Column<Record<string, unknown>>[] = [
+  { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
+  { key: "category", label: "Category", render: (v) => <Badge variant="outline" className="text-xs">{String(v)}</Badge> },
+  { key: "desc", label: "Description", className: "max-w-[180px]", render: (v) => <span className="text-xs">{String(v)}</span> },
+  { key: "inherent", label: "Inherent Risk", render: (v) => <span className={`inline-flex items-center justify-center h-7 w-7 rounded text-xs font-bold ${riskColor(Number(v))}`}>{String(v)}</span> },
+  { key: "controls", label: "Controls", className: "max-w-[180px]", render: (v) => <span className="text-xs text-muted-foreground">{String(v)}</span> },
+  { key: "residual", label: "Residual Risk", render: (v) => <span className={`inline-flex items-center justify-center h-7 w-7 rounded text-xs font-bold ${riskColor(Number(v))}`}>{String(v)}</span> },
+  { key: "owner", label: "Owner", render: (v) => <span className="text-xs">{String(v)}</span> },
+  { key: "lastAssess", label: "Last Assessed", render: (v) => <span className="text-xs">{String(v)}</span> },
+  { key: "nextReview", label: "Next Review", render: (v) => <span className="text-xs">{String(v)}</span> },
+];
+
 export default function CompliancePage() {
   const [showForm, setShowForm] = useState(false);
   const [editingReg, setEditingReg] = useState<typeof regulations[0] | null>(null);
@@ -137,6 +162,51 @@ export default function CompliancePage() {
   const [viols, setViols] = useState(violations);
   const [regFilters, setRegFilters] = useState<FilterState>({});
   const [violFilters, setViolFilters] = useState<FilterState>({});
+
+  const regulationColumns: Column<Record<string, unknown>>[] = [
+    { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
+    { key: "name", label: "Regulation", render: (v) => <span className="text-xs font-medium">{String(v)}</span> },
+    { key: "authority", label: "Authority", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "category", label: "Category", render: (v) => <Badge variant="outline" className="text-xs">{String(v)}</Badge> },
+    { key: "jurisdiction", label: "Jurisdiction", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "effective", label: "Effective", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "status", label: "Status", render: (v) => <Badge variant={statusBadge[String(v)] || "secondary"} className="text-xs">{String(v)}</Badge> },
+    { key: "impact", label: "Impact", render: (v) => <Badge variant={v === "High" ? "destructive" : "secondary"} className="text-xs">{String(v)}</Badge> },
+    { key: "dept", label: "Dept", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "actions", label: "Actions", render: (_v, row) => (
+      <EditDeleteMenu
+        onEdit={() => { setEditingReg(row as unknown as typeof regulations[0]); setShowForm(true); }}
+        onDelete={() => setRegs(prev => prev.filter(x => x.id !== row.id))}
+        itemLabel={String(row.name)}
+      />
+    )},
+  ];
+
+  const violationColumns: Column<Record<string, unknown>>[] = [
+    { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
+    { key: "type", label: "Type", render: (v) => <Badge variant="outline" className="text-xs">{String(v)}</Badge> },
+    { key: "regulation", label: "Regulation", render: (v) => <span className="text-xs font-medium">{String(v)}</span> },
+    { key: "desc", label: "Description", className: "max-w-[180px]", render: (v) => <span className="text-xs truncate block">{String(v)}</span> },
+    { key: "severity", label: "Severity", render: (v) => <Badge variant={sevBadge[String(v)] || "secondary"} className="text-xs">{String(v)}</Badge> },
+    { key: "detected", label: "Detected", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "status", label: "Status", render: (v) => <Badge variant={statusBadge[String(v)] || "secondary"} className="text-xs">{String(v)}</Badge> },
+    { key: "deadline", label: "Deadline", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "assignee", label: "Assigned", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "fine", label: "Fine", render: (v) => <span className="text-xs font-medium">{String(v)}</span> },
+    { key: "actions", label: "Actions", render: (_v, row) => {
+      const flow: Record<string, string> = { "Open": "Investigating", "Investigating": "Remediated", "Remediated": "Closed" };
+      const next = flow[String(row.status)];
+      return (
+        <EditDeleteMenu
+          onEdit={() => {}}
+          onDelete={() => setViols(prev => prev.filter(x => x.id !== row.id))}
+          canEdit={false}
+          itemLabel={String(row.id)}
+          extraItems={next ? [{ label: `→ ${next}`, onClick: () => setViols(prev => prev.map(x => x.id === row.id ? { ...x, status: next } : x)) }] : []}
+        />
+      );
+    }},
+  ];
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -195,36 +265,26 @@ export default function CompliancePage() {
             onChange={setRegFilters}
             rightSlot={<Button size="sm" onClick={() => { setEditingReg(null); setShowForm(true); }}><Plus className="mr-2 h-4 w-4" />Add</Button>}
           />
-          <Card><CardContent className="p-0"><table className="w-full text-sm">
-            <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Regulation", "Authority", "Category", "Jurisdiction", "Effective", "Status", "Impact", "Dept", "Actions"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-            <tbody>{regs
-              .filter(r => !regFilters._search || r.name.toLowerCase().includes(regFilters._search.toLowerCase()))
-              .filter(r => !regFilters.category || r.category === regFilters.category)
-              .filter(r => !regFilters.impact || r.impact === regFilters.impact)
-              .map(r => (
-              <tr key={r.id} className="border-b last:border-0 hover:bg-muted/50">
-                <td className="p-3 font-mono text-xs">{r.id}</td><td className="p-3 text-xs font-medium">{r.name}</td><td className="p-3 text-xs">{r.authority}</td><td className="p-3"><Badge variant="outline" className="text-xs">{r.category}</Badge></td><td className="p-3 text-xs">{r.jurisdiction}</td><td className="p-3 text-xs">{r.effective}</td><td className="p-3"><Badge variant={statusBadge[r.status] || "secondary"} className="text-xs">{r.status}</Badge></td><td className="p-3"><Badge variant={r.impact === "High" ? "destructive" : "secondary"} className="text-xs">{r.impact}</Badge></td><td className="p-3 text-xs">{r.dept}</td>
-                <td className="p-3">
-                  <EditDeleteMenu
-                    onEdit={() => { setEditingReg(r); setShowForm(true); }}
-                    onDelete={() => setRegs(prev => prev.filter(x => x.id !== r.id))}
-                    itemLabel={r.name}
-                  />
-                </td>
-              </tr>
-            ))}</tbody>
-          </table></CardContent></Card>
+          <Card><CardContent className="p-0">
+            <DataTable
+              columns={regulationColumns}
+              data={regs
+                .filter(r => !regFilters._search || r.name.toLowerCase().includes(regFilters._search.toLowerCase()))
+                .filter(r => !regFilters.category || r.category === regFilters.category)
+                .filter(r => !regFilters.impact || r.impact === regFilters.impact) as unknown as Record<string, unknown>[]}
+              emptyMessage="No regulations found."
+            />
+          </CardContent></Card>
         </TabsContent>
 
         <TabsContent value="audits" className="space-y-4">
-          <Card><CardContent className="p-0"><table className="w-full text-sm">
-            <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Type", "Scope", "Auditor", "Start", "End", "Status", "Findings", "Risk"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-            <tbody>{audits.map(a => (
-              <tr key={a.id} className="border-b last:border-0 hover:bg-muted/50">
-                <td className="p-3 font-mono text-xs">{a.id}</td><td className="p-3"><Badge variant="outline" className="text-xs">{a.type}</Badge></td><td className="p-3 text-xs font-medium">{a.scope}</td><td className="p-3 text-xs">{a.auditor}</td><td className="p-3 text-xs">{a.start}</td><td className="p-3 text-xs">{a.end}</td><td className="p-3"><Badge variant={statusBadge[a.status] || "secondary"} className="text-xs">{a.status}</Badge></td><td className="p-3 text-xs text-center">{a.findings}</td><td className="p-3"><Badge variant={a.risk === "High" ? "destructive" : a.risk === "Medium" ? "default" : "secondary"} className="text-xs">{a.risk}</Badge></td>
-              </tr>
-            ))}</tbody>
-          </table></CardContent></Card>
+          <Card><CardContent className="p-0">
+            <DataTable
+              columns={auditColumns}
+              data={audits as unknown as Record<string, unknown>[]}
+              emptyMessage="No audits found."
+            />
+          </CardContent></Card>
         </TabsContent>
 
         <TabsContent value="policies" className="space-y-4">
@@ -257,42 +317,26 @@ export default function CompliancePage() {
             values={violFilters}
             onChange={setViolFilters}
           />
-          <Card><CardContent className="p-0"><table className="w-full text-sm">
-            <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Type", "Regulation", "Description", "Severity", "Detected", "Status", "Deadline", "Assigned", "Fine", "Actions"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-            <tbody>{viols
-              .filter(v => !violFilters._search || v.desc.toLowerCase().includes(violFilters._search.toLowerCase()) || v.regulation.toLowerCase().includes(violFilters._search.toLowerCase()))
-              .filter(v => !violFilters.severity || v.severity === violFilters.severity)
-              .filter(v => !violFilters.status || v.status === violFilters.status)
-              .map(v => {
-                const flow: Record<string, string> = { "Open": "Investigating", "Investigating": "Remediated", "Remediated": "Closed" };
-                const next = flow[v.status];
-                return (
-                  <tr key={v.id} className="border-b last:border-0 hover:bg-muted/50">
-                    <td className="p-3 font-mono text-xs">{v.id}</td><td className="p-3"><Badge variant="outline" className="text-xs">{v.type}</Badge></td><td className="p-3 text-xs font-medium">{v.regulation}</td><td className="p-3 text-xs max-w-[180px] truncate">{v.desc}</td><td className="p-3"><Badge variant={sevBadge[v.severity] || "secondary"} className="text-xs">{v.severity}</Badge></td><td className="p-3 text-xs">{v.detected}</td><td className="p-3"><Badge variant={statusBadge[v.status] || "secondary"} className="text-xs">{v.status}</Badge></td><td className="p-3 text-xs">{v.deadline}</td><td className="p-3 text-xs">{v.assignee}</td><td className="p-3 text-xs font-medium">{v.fine}</td>
-                    <td className="p-3">
-                      <EditDeleteMenu
-                        onEdit={() => {}}
-                        onDelete={() => setViols(prev => prev.filter(x => x.id !== v.id))}
-                        canEdit={false}
-                        itemLabel={v.id}
-                        extraItems={next ? [{ label: `→ ${next}`, onClick: () => setViols(prev => prev.map(x => x.id === v.id ? { ...x, status: next } : x)) }] : []}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}</tbody>
-          </table></CardContent></Card>
+          <Card><CardContent className="p-0">
+            <DataTable
+              columns={violationColumns}
+              data={viols
+                .filter(v => !violFilters._search || v.desc.toLowerCase().includes(violFilters._search.toLowerCase()) || v.regulation.toLowerCase().includes(violFilters._search.toLowerCase()))
+                .filter(v => !violFilters.severity || v.severity === violFilters.severity)
+                .filter(v => !violFilters.status || v.status === violFilters.status) as unknown as Record<string, unknown>[]}
+              emptyMessage="No violations found."
+            />
+          </CardContent></Card>
         </TabsContent>
 
         <TabsContent value="risks" className="space-y-4">
-          <Card><CardContent className="p-0"><table className="w-full text-sm">
-            <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Category", "Description", "Inherent Risk", "Controls", "Residual Risk", "Owner", "Last Assessed", "Next Review"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-            <tbody>{complianceRisks.map(r => (
-              <tr key={r.id} className="border-b last:border-0 hover:bg-muted/50">
-                <td className="p-3 font-mono text-xs">{r.id}</td><td className="p-3"><Badge variant="outline" className="text-xs">{r.category}</Badge></td><td className="p-3 text-xs max-w-[180px]">{r.desc}</td><td className="p-3"><span className={`inline-flex items-center justify-center h-7 w-7 rounded text-xs font-bold ${riskColor(r.inherent)}`}>{r.inherent}</span></td><td className="p-3 text-xs max-w-[180px] text-muted-foreground">{r.controls}</td><td className="p-3"><span className={`inline-flex items-center justify-center h-7 w-7 rounded text-xs font-bold ${riskColor(r.residual)}`}>{r.residual}</span></td><td className="p-3 text-xs">{r.owner}</td><td className="p-3 text-xs">{r.lastAssess}</td><td className="p-3 text-xs">{r.nextReview}</td>
-              </tr>
-            ))}</tbody>
-          </table></CardContent></Card>
+          <Card><CardContent className="p-0">
+            <DataTable
+              columns={riskColumns}
+              data={complianceRisks as unknown as Record<string, unknown>[]}
+              emptyMessage="No compliance risks found."
+            />
+          </CardContent></Card>
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
