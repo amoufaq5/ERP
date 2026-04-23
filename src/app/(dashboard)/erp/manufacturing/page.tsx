@@ -100,6 +100,10 @@ export default function ManufacturingPage() {
   const [woFormOpen, setWoFormOpen] = useState(false);
   const [editingWo, setEditingWo] = useState<WorkOrder | null>(null);
 
+  /* ─── Detail view state ─── */
+  const [detailWO, setDetailWO] = useState<WorkOrder | null>(null);
+  const [detailBOM, setDetailBOM] = useState<BOM | null>(null);
+
   /* ─── BOM Materials editor state ─── */
   const [materialsModalOpen, setMaterialsModalOpen] = useState(false);
   const [materialsTarget, setMaterialsTarget] = useState<BOM | null>(null);
@@ -229,7 +233,7 @@ export default function ManufacturingPage() {
                         <h3 className="font-semibold">{b.name}</h3>
                         <p className="text-sm text-gray-500 mt-1">{b.productName} ({b.productCode})</p>
                       </div>
-                      <EditDeleteMenu onEdit={() => handleEditBom(b)} onDelete={() => handleDeleteBom(b)} itemLabel={b.name} compact />
+                      <EditDeleteMenu onEdit={() => handleEditBom(b)} onDelete={() => handleDeleteBom(b)} onView={() => setDetailBOM(b)} canView itemLabel={b.name} compact />
                     </div>
                     <div className="mt-2">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[b.status]}`}>{b.status}</span>
@@ -286,7 +290,7 @@ export default function ManufacturingPage() {
                   { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
                     const w = row as unknown as WorkOrder;
                     return (
-                      <EditDeleteMenu onEdit={() => handleEditWO(w)} onDelete={() => handleDeleteWO(w)} itemLabel={`WO: ${w.bomName}`} compact
+                      <EditDeleteMenu onEdit={() => handleEditWO(w)} onDelete={() => handleDeleteWO(w)} onView={() => setDetailWO(w)} canView itemLabel={`WO: ${w.bomName}`} compact
                         extraItems={[
                           ...(w.status === "PLANNED" ? [{ label: "Start Production", onClick: () => setWorkOrders((prev) => prev.map((x) => x.id === w.id ? { ...x, status: "IN_PROGRESS" as const } : x)), icon: <Play className="h-3.5 w-3.5 text-orange-600" /> }] : []),
                           ...(w.status === "IN_PROGRESS" ? [{ label: "Mark Complete", onClick: () => setWorkOrders((prev) => prev.map((x) => x.id === w.id ? { ...x, status: "COMPLETED" as const, endDate: new Date().toISOString().split("T")[0] } : x)), icon: <CheckCircle className="h-3.5 w-3.5 text-green-600" /> }] : []),
@@ -369,6 +373,177 @@ export default function ManufacturingPage() {
             <Button type="button" variant="outline" onClick={() => setMaterialsModalOpen(false)}>Cancel</Button>
             <Button type="button" onClick={handleSaveMaterials}>Save Materials</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Work Order Detail Dialog ── */}
+      <Dialog open={!!detailWO} onOpenChange={(open) => { if (!open) setDetailWO(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Work Order {detailWO?.id}</DialogTitle>
+          </DialogHeader>
+          {detailWO && (() => {
+            const bom = boms.find((b) => b.id === detailWO.bomId);
+            const woStatusSteps: WorkOrder["status"][] = ["PLANNED", "IN_PROGRESS", "COMPLETED"];
+            const currentIdx = woStatusSteps.indexOf(detailWO.status);
+            const startD = new Date(detailWO.startDate);
+            const endD = detailWO.endDate ? new Date(detailWO.endDate) : null;
+            const now = new Date();
+            const totalDuration = endD ? endD.getTime() - startD.getTime() : 0;
+            const elapsed = now.getTime() - startD.getTime();
+            const timelinePct = totalDuration > 0 ? Math.min(Math.max(Math.round((elapsed / totalDuration) * 100), 0), 100) : 0;
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">BOM</span><p className="font-medium">{detailWO.bomName}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Quantity</span><p className="font-medium">{detailWO.quantity.toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Priority</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColor[detailWO.priority]}`}>{detailWO.priority}</span></p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[detailWO.status]}`}>{detailWO.status}</span></p></div>
+                  <div><span className="text-sm text-muted-foreground">Start Date</span><p className="font-medium">{detailWO.startDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">End Date</span><p className="font-medium">{detailWO.endDate || "Not set"}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Assigned To</span><p className="font-medium">{detailWO.assignedTo}</p></div>
+                  {detailWO.notes && <div className="col-span-2"><span className="text-sm text-muted-foreground">Notes</span><p className="font-medium">{detailWO.notes}</p></div>}
+                </div>
+                {/* Status Progression */}
+                <div>
+                  <h4 className="text-sm font-semibold mb-3">Status Progression</h4>
+                  <div className="flex items-center gap-2">
+                    {woStatusSteps.map((step, i) => {
+                      const isActive = detailWO.status === "CANCELLED" ? false : i <= currentIdx;
+                      const isCurrent = step === detailWO.status;
+                      return (
+                        <div key={step} className="flex items-center gap-2 flex-1">
+                          <div className="flex flex-col items-center flex-1">
+                            <div className={`h-3 w-3 rounded-full border-2 ${isCurrent ? "bg-primary border-primary" : isActive ? "bg-primary/60 border-primary/60" : "bg-muted border-muted-foreground/30"}`} />
+                            <span className={`text-[10px] mt-1 text-center ${isCurrent ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{step.replace("_", " ")}</span>
+                          </div>
+                          {i < woStatusSteps.length - 1 && <div className={`h-0.5 flex-1 -mt-4 ${isActive && i < currentIdx ? "bg-primary/60" : "bg-muted"}`} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                {/* Production Timeline */}
+                {detailWO.endDate && (
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-muted-foreground">Production Timeline</span>
+                      <span className="font-medium">{timelinePct}% elapsed</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-primary rounded-full" style={{ width: `${timelinePct}%` }} />
+                    </div>
+                  </div>
+                )}
+                {/* BOM Materials */}
+                {bom && bom.materials.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">BOM Materials ({bom.materials.length})</h4>
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left px-3 py-2 font-medium">Code</th>
+                            <th className="text-left px-3 py-2 font-medium">Material</th>
+                            <th className="text-right px-3 py-2 font-medium">Quantity</th>
+                            <th className="text-left px-3 py-2 font-medium">Unit</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {bom.materials.map((m, i) => (
+                            <tr key={i}>
+                              <td className="px-3 py-2 font-mono text-xs">{m.materialCode}</td>
+                              <td className="px-3 py-2">{m.materialName}</td>
+                              <td className="px-3 py-2 text-right font-medium">{m.quantity}</td>
+                              <td className="px-3 py-2 text-muted-foreground">{m.unit}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── BOM Detail Dialog ── */}
+      <Dialog open={!!detailBOM} onOpenChange={(open) => { if (!open) setDetailBOM(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailBOM?.name}</DialogTitle>
+          </DialogHeader>
+          {detailBOM && (() => {
+            const woForBom = workOrders.filter((w) => w.bomId === detailBOM.id);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">BOM ID</span><p className="font-medium font-mono">{detailBOM.id}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Version</span><p className="font-medium">v{detailBOM.version}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Product</span><p className="font-medium">{detailBOM.productName}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Product Code</span><p className="font-medium font-mono">{detailBOM.productCode}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Batch Size</span><p className="font-medium">{detailBOM.batchSize.toLocaleString()} {detailBOM.batchUnit}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[detailBOM.status]}`}>{detailBOM.status}</span></p></div>
+                </div>
+                {/* Materials Breakdown */}
+                {detailBOM.materials.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Materials Breakdown ({detailBOM.materials.length})</h4>
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left px-3 py-2 font-medium">Code</th>
+                            <th className="text-left px-3 py-2 font-medium">Material</th>
+                            <th className="text-right px-3 py-2 font-medium">Quantity</th>
+                            <th className="text-left px-3 py-2 font-medium">Unit</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {detailBOM.materials.map((m, i) => (
+                            <tr key={i}>
+                              <td className="px-3 py-2 font-mono text-xs">{m.materialCode}</td>
+                              <td className="px-3 py-2">{m.materialName}</td>
+                              <td className="px-3 py-2 text-right font-medium">{m.quantity}</td>
+                              <td className="px-3 py-2 text-muted-foreground">{m.unit}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-2 text-sm text-muted-foreground text-right">
+                      Total materials: {detailBOM.materials.reduce((s, m) => s + m.quantity, 0)} {detailBOM.materials[0]?.unit ?? ""}
+                    </div>
+                  </div>
+                )}
+                {detailBOM.materials.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-2">No materials defined for this BOM yet.</p>
+                )}
+                {/* Related Work Orders */}
+                {woForBom.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Related Work Orders ({woForBom.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {woForBom.map((w) => (
+                        <div key={w.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className="font-mono text-xs font-medium">{w.id}</span>
+                            <span className="text-muted-foreground ml-2">{w.quantity.toLocaleString()} units</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${priorityColor[w.priority]}`}>{w.priority}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[w.status]}`}>{w.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

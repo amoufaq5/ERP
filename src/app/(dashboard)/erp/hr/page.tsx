@@ -13,6 +13,7 @@ import {
   Building2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -142,6 +143,9 @@ export default function HRPage() {
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [payrollFormOpen, setPayrollFormOpen] = useState(false);
   const [editingPayroll, setEditingPayroll] = useState<PayrollRecord | null>(null);
+
+  const [detailEmp, setDetailEmp] = useState<Employee | null>(null);
+  const [detailDept, setDetailDept] = useState<Department | null>(null);
 
   let nextId = Date.now();
   const genId = (prefix: string) => `${prefix}-${(nextId++).toString(36).slice(-6)}`;
@@ -441,7 +445,7 @@ export default function HRPage() {
                   { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
                   { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
                     const r = row as unknown as Employee;
-                    return (<EditDeleteMenu onEdit={() => handleEditEmp(r)} onDelete={() => handleDeleteEmp(r)} itemLabel={`${r.firstName} ${r.lastName}`} compact />);
+                    return (<EditDeleteMenu onEdit={() => handleEditEmp(r)} onDelete={() => handleDeleteEmp(r)} onView={() => setDetailEmp(r)} canView itemLabel={`${r.firstName} ${r.lastName}`} compact />);
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredEmployees as unknown as Record<string, unknown>[]}
@@ -471,6 +475,8 @@ export default function HRPage() {
                       <EditDeleteMenu
                         onEdit={() => handleEditDept(dept)}
                         onDelete={() => handleDeleteDept(dept)}
+                        onView={() => setDetailDept(dept)}
+                        canView
                         itemLabel={dept.name}
                         compact
                       />
@@ -639,6 +645,141 @@ export default function HRPage() {
         submitLabel={editingPayroll ? "Save" : "Create"}
         size="lg"
       />
+
+      {/* ── Employee Detail Dialog ── */}
+      <Dialog open={!!detailEmp} onOpenChange={(open) => { if (!open) setDetailEmp(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailEmp?.firstName} {detailEmp?.lastName}</DialogTitle>
+          </DialogHeader>
+          {detailEmp && (() => {
+            const empLeaves = leaves.filter((l) => l.employeeId === detailEmp.id);
+            const empPayroll = payroll.filter((p) => p.employeeId === detailEmp.id);
+            const dept = departments.find((d) => d.name === detailEmp.department);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Employee #</span><p className="font-medium font-mono">{detailEmp.employeeNumber}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[detailEmp.status]}`}>{detailEmp.status}</span></p></div>
+                  <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{detailEmp.email}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Phone</span><p className="font-medium">{detailEmp.phone}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Department</span><p className="font-medium">{detailEmp.department}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Position</span><p className="font-medium">{detailEmp.position}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Hire Date</span><p className="font-medium">{detailEmp.hireDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Annual Salary</span><p className="font-medium text-lg">{fmt(detailEmp.salary)}</p></div>
+                  {dept && <div><span className="text-sm text-muted-foreground">Department Manager</span><p className="font-medium">{dept.managerName}</p></div>}
+                </div>
+                {/* Leave History */}
+                {empLeaves.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Leave History ({empLeaves.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {empLeaves.map((l) => (
+                        <div key={l.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[l.type]}`}>{l.type}</span>
+                            <span className="text-muted-foreground ml-2">{l.startDate} - {l.endDate}</span>
+                            <span className="text-muted-foreground ml-1">({l.days} days)</span>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[l.status]}`}>{l.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Payroll Records */}
+                {empPayroll.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Payroll Records ({empPayroll.length})</h4>
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left px-3 py-2 font-medium">Period</th>
+                            <th className="text-right px-3 py-2 font-medium">Basic</th>
+                            <th className="text-right px-3 py-2 font-medium">Overtime</th>
+                            <th className="text-right px-3 py-2 font-medium">Net Pay</th>
+                            <th className="text-left px-3 py-2 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {empPayroll.map((p) => (
+                            <tr key={p.id}>
+                              <td className="px-3 py-2">{p.period}</td>
+                              <td className="px-3 py-2 text-right">{fmt(p.basicSalary)}</td>
+                              <td className="px-3 py-2 text-right">{fmt(p.overtime)}</td>
+                              <td className="px-3 py-2 text-right font-semibold">{fmt(p.netPay)}</td>
+                              <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[p.status]}`}>{p.status}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Department Detail Dialog ── */}
+      <Dialog open={!!detailDept} onOpenChange={(open) => { if (!open) setDetailDept(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailDept?.name} Department</DialogTitle>
+          </DialogHeader>
+          {detailDept && (() => {
+            const deptEmployees = employees.filter((e) => e.department === detailDept.name);
+            const totalSalary = deptEmployees.reduce((s, e) => s + e.salary, 0);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Department ID</span><p className="font-medium font-mono">{detailDept.id}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Manager</span><p className="font-medium">{detailDept.managerName}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Headcount</span><p className="font-medium text-lg">{deptEmployees.length}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Annual Budget</span><p className="font-medium text-lg">{fmt(detailDept.budget)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Total Salary Cost</span><p className="font-medium">{fmt(totalSalary)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Budget Utilization (Salary)</span><p className="font-medium">{Math.round((totalSalary / detailDept.budget) * 100)}%</p></div>
+                </div>
+                {/* Budget Bar */}
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">Budget</span>
+                    <span className="font-medium">{fmt(totalSalary)} / {fmt(detailDept.budget)}</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${totalSalary > detailDept.budget ? "bg-red-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(Math.round((totalSalary / detailDept.budget) * 100), 100)}%` }} />
+                  </div>
+                </div>
+                {/* Member List */}
+                {deptEmployees.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Members ({deptEmployees.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {deptEmployees.map((e) => (
+                        <div key={e.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className="font-medium">{e.firstName} {e.lastName}</span>
+                            <span className="text-muted-foreground ml-2 text-xs">{e.position}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">{fmt(e.salary)}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[e.status]}`}>{e.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {deptEmployees.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-2">No employees in this department.</p>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

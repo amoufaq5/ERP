@@ -23,6 +23,10 @@ import {
   type Cheque,
   type Invoice,
   type BankAccount,
+  type GLAccount,
+  type JournalEntry,
+  type CostCenter,
+  type Budget,
 } from "@/lib/data-store";
 import {
   Users,
@@ -33,6 +37,11 @@ import {
   Download,
   Landmark,
   ScrollText,
+  BookOpen,
+  Calculator,
+  BarChart3,
+  Target,
+  PieChart,
 } from "lucide-react";
 import { downloadCSV, downloadHTML, buildPrintableReport } from "@/lib/download";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -57,6 +66,26 @@ export default function AccountingPage() {
   const [bankFormOpen, setBankFormOpen] = useState(false);
   const [editingBank, setEditingBank] = useState<BankAccount | null>(null);
   const [statementParty, setStatementParty] = useState<{ type: "customer" | "vendor"; id: string } | null>(null);
+
+  // GL state
+  const [glSearch, setGlSearch] = useState("");
+  const [glFilters, setGlFilters] = useState<FilterState>({});
+  const [glFormOpen, setGlFormOpen] = useState(false);
+  const [editingGL, setEditingGL] = useState<GLAccount | null>(null);
+
+  // Journal Entry state
+  const [jeSearch, setJeSearch] = useState("");
+  const [jeFilters, setJeFilters] = useState<FilterState>({});
+  const [jeFormOpen, setJeFormOpen] = useState(false);
+  const [editingJE, setEditingJE] = useState<JournalEntry | null>(null);
+  const [jeDetailId, setJeDetailId] = useState<string | null>(null);
+
+  // Cost Accounting state
+  const [costTab, setCostTab] = useState<"centers" | "budgets" | "allocation" | "variance">("centers");
+  const [ccFormOpen, setCcFormOpen] = useState(false);
+  const [editingCC, setEditingCC] = useState<CostCenter | null>(null);
+  const [budgetFormOpen, setBudgetFormOpen] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
 
   // ─── Computed ──────────────────────────────────────────────────────────
   const totalAR = store.customers.reduce((s, c) => s + c.outstanding, 0);
@@ -110,6 +139,57 @@ export default function AccountingPage() {
       return true;
     });
   }, [store.invoices, invSearch, store.customers]);
+
+  // GL computed
+  const activeGLAccounts = store.glAccounts.filter((a) => a.isActive);
+  const glByType = (type: GLAccount["type"]) => activeGLAccounts.filter((a) => a.type === type).reduce((s, a) => s + a.balance, 0);
+  const totalAssets = glByType("ASSET");
+  const totalLiabilities = glByType("LIABILITY");
+  const totalEquity = glByType("EQUITY");
+  const totalRevenue = glByType("REVENUE");
+  const totalExpenses = glByType("EXPENSE");
+  const postedJEs = store.journalEntries.filter((j) => j.status === "POSTED").length;
+
+  const filteredGL = useMemo(() => {
+    return store.glAccounts.filter((a) => {
+      if (glSearch) {
+        const q = glSearch.toLowerCase();
+        if (!a.name.toLowerCase().includes(q) && !a.code.toLowerCase().includes(q)) return false;
+      }
+      if (glFilters.type && a.type !== glFilters.type) return false;
+      return true;
+    });
+  }, [store.glAccounts, glSearch, glFilters]);
+
+  const filteredJE = useMemo(() => {
+    return store.journalEntries.filter((j) => {
+      if (jeSearch) {
+        const q = jeSearch.toLowerCase();
+        if (!j.number.toLowerCase().includes(q) && !j.description.toLowerCase().includes(q) && !(j.reference?.toLowerCase().includes(q) ?? false)) return false;
+      }
+      if (jeFilters.type && j.type !== jeFilters.type) return false;
+      if (jeFilters.status && j.status !== jeFilters.status) return false;
+      return true;
+    });
+  }, [store.journalEntries, jeSearch, jeFilters]);
+
+  const jeDetail = jeDetailId ? store.journalEntries.find((j) => j.id === jeDetailId) : null;
+  const glName = (id: string) => store.glAccounts.find((a) => a.id === id)?.name ?? id;
+  const ccName = (id: string) => store.costCenters.find((c) => c.id === id)?.name ?? id;
+
+  // Cost center allocations from journal entries
+  const ccAllocations = useMemo(() => {
+    const map: Record<string, number> = {};
+    store.journalEntries.filter((j) => j.status === "POSTED").forEach((j) => {
+      j.lines.forEach((l) => {
+        if (l.costCenterId) {
+          map[l.costCenterId] = (map[l.costCenterId] ?? 0) + l.debit;
+        }
+      });
+    });
+    return map;
+  }, [store.journalEntries]);
+  const totalAllocated = Object.values(ccAllocations).reduce((s, v) => s + v, 0);
 
   // ─── Customer CRUD ─────────────────────────────────────────────────────
   const customerFields: EntityField[] = [
@@ -275,6 +355,99 @@ export default function AccountingPage() {
     downloadCSV("customers.csv", rows);
   }
 
+  // ─── GL CRUD ──────────────────────────────────────────────────────────
+  const glFields: EntityField[] = [
+    { name: "code", label: "Account Code", type: "text", required: true, placeholder: "1000" },
+    { name: "name", label: "Account Name", type: "text", required: true },
+    { name: "type", label: "Type", type: "select", required: true, options: ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"].map((t) => ({ label: t, value: t })) },
+    { name: "subType", label: "Sub-Type", type: "text", required: true, placeholder: "e.g., Current Asset" },
+    { name: "balance", label: "Opening Balance", type: "number", defaultValue: 0 },
+    { name: "isActive", label: "Active", type: "checkbox", defaultValue: true },
+  ];
+
+  function handleGLSubmit(data: EntityFormData) {
+    const payload = { code: String(data.code), name: String(data.name), type: String(data.type) as GLAccount["type"], subType: String(data.subType), balance: Number(data.balance ?? 0), isActive: data.isActive !== false };
+    if (editingGL) { store.update("glAccounts", editingGL.id, payload); }
+    else { store.add("glAccounts", { id: store.genId("gl"), ...payload }); }
+    setGlFormOpen(false); setEditingGL(null);
+  }
+
+  // ─── JE CRUD ──────────────────────────────────────────────────────────
+  const jeFields: EntityField[] = [
+    { name: "date", label: "Date", type: "date", required: true },
+    { name: "description", label: "Description", type: "text", required: true },
+    { name: "reference", label: "Reference", type: "text", placeholder: "INV/PO/PAY number" },
+    { name: "type", label: "Entry Type", type: "select", required: true, defaultValue: "GENERAL", options: [
+      { label: "General", value: "GENERAL" }, { label: "Adjusting", value: "ADJUSTING" },
+      { label: "Closing", value: "CLOSING" }, { label: "Opening", value: "OPENING" },
+      { label: "Partner", value: "PARTNER" },
+    ]},
+  ];
+
+  function handleJESubmit(data: EntityFormData) {
+    if (editingJE) {
+      store.update("journalEntries", editingJE.id, { date: String(data.date), description: String(data.description), reference: data.reference ? String(data.reference) : undefined, type: String(data.type) as JournalEntry["type"] });
+    } else {
+      store.add("journalEntries", {
+        id: store.genId("je"), number: store.generateJournalNumber(), date: String(data.date),
+        description: String(data.description), reference: data.reference ? String(data.reference) : undefined,
+        type: String(data.type) as JournalEntry["type"], lines: [], status: "DRAFT",
+        createdBy: "u-admin", createdAt: new Date().toISOString(),
+      });
+    }
+    setJeFormOpen(false); setEditingJE(null);
+  }
+
+  // ─── Cost Center CRUD ─────────────────────────────────────────────────
+  const ccFields: EntityField[] = [
+    { name: "code", label: "Code", type: "text", required: true, placeholder: "CC-XXX" },
+    { name: "name", label: "Name", type: "text", required: true },
+    { name: "type", label: "Type", type: "select", required: true, options: [
+      { label: "Production", value: "PRODUCTION" }, { label: "Administrative", value: "ADMINISTRATIVE" },
+      { label: "Selling", value: "SELLING" }, { label: "R&D", value: "R_AND_D" },
+      { label: "Distribution", value: "DISTRIBUTION" },
+    ]},
+    { name: "budget", label: "Budget (EGP)", type: "number", required: true },
+    { name: "actualSpend", label: "Actual Spend (EGP)", type: "number", defaultValue: 0 },
+    { name: "isActive", label: "Active", type: "checkbox", defaultValue: true },
+  ];
+
+  function handleCCSubmit(data: EntityFormData) {
+    const payload = { code: String(data.code), name: String(data.name), type: String(data.type) as CostCenter["type"], budget: Number(data.budget), actualSpend: Number(data.actualSpend ?? 0), isActive: data.isActive !== false };
+    if (editingCC) { store.update("costCenters", editingCC.id, payload); }
+    else { store.add("costCenters", { id: store.genId("cc"), ...payload }); }
+    setCcFormOpen(false); setEditingCC(null);
+  }
+
+  // ─── Budget CRUD ──────────────────────────────────────────────────────
+  const budgetFields: EntityField[] = [
+    { name: "name", label: "Budget Name", type: "text", required: true },
+    { name: "fiscalYear", label: "Fiscal Year", type: "text", required: true, placeholder: "2026" },
+    { name: "period", label: "Period", type: "select", required: true, options: ["Q1", "Q2", "Q3", "Q4", "Annual", "Monthly"].map((p) => ({ label: p, value: p })) },
+    { name: "accountId", label: "GL Account (optional)", type: "select", options: [{ label: "— None —", value: "" }, ...store.glAccounts.map((a) => ({ label: `${a.code} — ${a.name}`, value: a.id }))] },
+    { name: "costCenterId", label: "Cost Center (optional)", type: "select", options: [{ label: "— None —", value: "" }, ...store.costCenters.map((c) => ({ label: `${c.code} — ${c.name}`, value: c.id }))] },
+    { name: "budgeted", label: "Budgeted (EGP)", type: "number", required: true },
+    { name: "actual", label: "Actual (EGP)", type: "number", defaultValue: 0 },
+    { name: "status", label: "Status", type: "select", defaultValue: "DRAFT", options: [{ label: "Draft", value: "DRAFT" }, { label: "Approved", value: "APPROVED" }, { label: "Closed", value: "CLOSED" }] },
+  ];
+
+  function handleBudgetSubmit(data: EntityFormData) {
+    const payload = { name: String(data.name), fiscalYear: String(data.fiscalYear), period: String(data.period), accountId: data.accountId ? String(data.accountId) : undefined, costCenterId: data.costCenterId ? String(data.costCenterId) : undefined, budgeted: Number(data.budgeted), actual: Number(data.actual ?? 0), status: String(data.status) as Budget["status"] };
+    if (editingBudget) { store.update("budgets", editingBudget.id, payload); }
+    else { store.add("budgets", { id: store.genId("bud"), ...payload }); }
+    setBudgetFormOpen(false); setEditingBudget(null);
+  }
+
+  const typeBadge = (type: string) => {
+    const colors: Record<string, string> = { ASSET: "bg-blue-100 text-blue-800", LIABILITY: "bg-red-100 text-red-800", EQUITY: "bg-purple-100 text-purple-800", REVENUE: "bg-green-100 text-green-800", EXPENSE: "bg-amber-100 text-amber-800" };
+    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors[type] ?? "bg-muted text-foreground"}`}>{type}</span>;
+  };
+
+  const jeBadge = (type: string) => {
+    const colors: Record<string, string> = { GENERAL: "bg-blue-100 text-blue-800", ADJUSTING: "bg-amber-100 text-amber-800", CLOSING: "bg-red-100 text-red-800", OPENING: "bg-green-100 text-green-800", PARTNER: "bg-purple-100 text-purple-800" };
+    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors[type] ?? "bg-muted text-foreground"}`}>{type}</span>;
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -291,17 +464,20 @@ export default function AccountingPage() {
         <StatsCard icon={Landmark} title="Bank Balance" value={`EGP ${(totalBankBalance / 1e6).toFixed(1)}M`} subtitle={`${store.bankAccounts.length} accounts`} iconColor="bg-indigo-100 text-indigo-600" />
         <StatsCard icon={Users} title="Total AR" value={`EGP ${(totalAR / 1e6).toFixed(1)}M`} subtitle={`${store.customers.length} customers`} iconColor="bg-blue-100 text-blue-600" />
         <StatsCard icon={Building2} title="Total AP" value={`EGP ${(totalAP / 1e6).toFixed(1)}M`} subtitle={`${store.vendors.length} vendors`} iconColor="bg-red-100 text-red-600" />
-        <StatsCard icon={CreditCard} title="Pending Cheques" value={pendingCheques} subtitle={`of ${store.cheques.length} total`} iconColor="bg-amber-100 text-amber-600" />
-        <StatsCard icon={FileText} title="Invoice Total" value={`EGP ${(invoiceTotal / 1e6).toFixed(1)}M`} subtitle={`${store.invoices.length} invoices`} iconColor="bg-emerald-100 text-emerald-600" />
+        <StatsCard icon={BookOpen} title="GL Accounts" value={activeGLAccounts.length} subtitle={`${store.glAccounts.length} total`} iconColor="bg-violet-100 text-violet-600" />
+        <StatsCard icon={ScrollText} title="Journal Entries" value={postedJEs} subtitle={`${store.journalEntries.length} total`} iconColor="bg-emerald-100 text-emerald-600" />
       </div>
 
       <Tabs defaultValue="customers">
-        <TabsList>
+        <TabsList className="flex flex-wrap gap-1">
           <TabsTrigger value="customers">Customers ({store.customers.length})</TabsTrigger>
           <TabsTrigger value="vendors">Vendors ({store.vendors.length})</TabsTrigger>
           <TabsTrigger value="cheques">Cheques ({store.cheques.length})</TabsTrigger>
           <TabsTrigger value="invoices">Invoices ({store.invoices.length})</TabsTrigger>
-          <TabsTrigger value="bank">Bank Accounts ({store.bankAccounts.length})</TabsTrigger>
+          <TabsTrigger value="bank">Bank ({store.bankAccounts.length})</TabsTrigger>
+          <TabsTrigger value="gl">General Ledger</TabsTrigger>
+          <TabsTrigger value="je">Journal Entries</TabsTrigger>
+          <TabsTrigger value="cost">Cost Accounting</TabsTrigger>
         </TabsList>
 
         {/* Customers */}
@@ -552,7 +728,317 @@ export default function AccountingPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ═══ General Ledger ═══ */}
+        <TabsContent value="gl" className="space-y-3">
+          <FilterBar
+            searchPlaceholder="Search accounts..."
+            searchValue={glSearch}
+            onSearchChange={setGlSearch}
+            fields={[{ key: "type", label: "Type", type: "select", options: ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"].map((t) => ({ label: t, value: t })) }]}
+            values={glFilters}
+            onChange={(k, v) => setGlFilters((f) => ({ ...f, [k]: v }))}
+            rightSlot={
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => {
+                  const rows = activeGLAccounts.map((a) => ({
+                    Code: a.code, Name: a.name, Type: a.type, SubType: a.subType,
+                    Debit: ["ASSET", "EXPENSE"].includes(a.type) ? a.balance : 0,
+                    Credit: ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type) ? a.balance : 0,
+                  }));
+                  downloadCSV("trial-balance.csv", rows);
+                }}><Download className="h-3 w-3 mr-1" /> Trial Balance</Button>
+                <Button size="sm" onClick={() => { setEditingGL(null); setGlFormOpen(true); }}><Plus className="h-3 w-3 mr-1" /> Add Account</Button>
+              </div>
+            }
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Assets</div><div className="text-lg font-bold text-blue-700">EGP {(totalAssets / 1e6).toFixed(2)}M</div></CardContent></Card>
+            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Liabilities</div><div className="text-lg font-bold text-red-600">EGP {(Math.abs(totalLiabilities) / 1e6).toFixed(2)}M</div></CardContent></Card>
+            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Equity</div><div className="text-lg font-bold text-purple-700">EGP {(totalEquity / 1e6).toFixed(2)}M</div></CardContent></Card>
+            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Revenue</div><div className="text-lg font-bold text-green-700">EGP {(totalRevenue / 1e6).toFixed(2)}M</div></CardContent></Card>
+            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Expenses</div><div className="text-lg font-bold text-amber-700">EGP {(totalExpenses / 1e6).toFixed(2)}M</div></CardContent></Card>
+          </div>
+          <Card>
+            <CardContent className="p-0 overflow-x-auto">
+              <DataTable
+                columns={[
+                  { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs font-semibold">{v as string}</span> },
+                  { key: "name", label: "Account Name", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "type", label: "Type", render: (v) => typeBadge(v as string) },
+                  { key: "subType", label: "Sub-Type", render: (v) => <span className="text-xs text-muted-foreground">{v as string}</span> },
+                  { key: "balance", label: "Balance", className: "text-right", render: (v, row) => {
+                    const type = row.type as string;
+                    const bal = v as number;
+                    const isDebitNormal = type === "ASSET" || type === "EXPENSE";
+                    return <span className={`font-semibold ${bal < 0 ? "text-red-600" : ""}`}>{isDebitNormal ? "" : ""}{Math.abs(bal).toLocaleString()}</span>;
+                  }},
+                  { key: "isActive", label: "Status", render: (v) => <Badge variant={(v as boolean) ? "success" : "secondary"}>{(v as boolean) ? "Active" : "Inactive"}</Badge> },
+                  { key: "id", label: "", render: (_v, row) => {
+                    const a = row as unknown as GLAccount;
+                    return <EditDeleteMenu onEdit={() => { setEditingGL(a); setGlFormOpen(true); }} onDelete={() => store.remove("glAccounts", a.id)} itemLabel={a.name} compact />;
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredGL as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No accounts found."
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Calculator className="h-4 w-4" /> Trial Balance Summary</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-3 rounded-lg bg-muted/50">
+                  <div className="text-xs text-muted-foreground">Total Debits</div>
+                  <div className="text-xl font-bold">EGP {(activeGLAccounts.filter((a) => ["ASSET", "EXPENSE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance), 0)).toLocaleString()}</div>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-muted/50">
+                  <div className="text-xs text-muted-foreground">Total Credits</div>
+                  <div className="text-xl font-bold">EGP {(activeGLAccounts.filter((a) => ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance), 0)).toLocaleString()}</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ═══ Journal Entries ═══ */}
+        <TabsContent value="je" className="space-y-3">
+          <FilterBar
+            searchPlaceholder="Search journal entries..."
+            searchValue={jeSearch}
+            onSearchChange={setJeSearch}
+            fields={[
+              { key: "type", label: "Type", type: "select", options: ["GENERAL", "ADJUSTING", "CLOSING", "OPENING", "PARTNER"].map((t) => ({ label: t, value: t })) },
+              { key: "status", label: "Status", type: "select", options: ["DRAFT", "POSTED", "VOID"].map((t) => ({ label: t, value: t })) },
+            ]}
+            values={jeFilters}
+            onChange={(k, v) => setJeFilters((f) => ({ ...f, [k]: v }))}
+            rightSlot={<Button size="sm" onClick={() => { setEditingJE(null); setJeFormOpen(true); }}><Plus className="h-3 w-3 mr-1" /> New Entry</Button>}
+          />
+          <Card>
+            <CardContent className="p-0 overflow-x-auto">
+              <DataTable
+                columns={[
+                  { key: "number", label: "Entry #", render: (v) => <span className="font-mono text-xs font-semibold">{v as string}</span> },
+                  { key: "date", label: "Date", render: (v) => <span className="text-xs">{new Date(v as string).toLocaleDateString()}</span> },
+                  { key: "description", label: "Description", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "reference", label: "Ref", render: (v) => v ? <span className="font-mono text-xs">{v as string}</span> : <span className="text-muted-foreground">—</span> },
+                  { key: "type", label: "Type", render: (v) => jeBadge(v as string) },
+                  { key: "lines", label: "Debit", className: "text-right", render: (v) => {
+                    const lines = v as JournalEntry["lines"];
+                    return <span className="font-semibold">{lines.reduce((s, l) => s + l.debit, 0).toLocaleString()}</span>;
+                  }},
+                  { key: "id", label: "Credit", className: "text-right", render: (_v, row) => {
+                    const je = row as unknown as JournalEntry;
+                    return <span className="font-semibold">{je.lines.reduce((s, l) => s + l.credit, 0).toLocaleString()}</span>;
+                  }},
+                  { key: "status", label: "Status", render: (v) => <Badge variant={(v as string) === "POSTED" ? "success" : (v as string) === "VOID" ? "destructive" : "warning"}>{v as string}</Badge> },
+                  { key: "createdAt", label: "", render: (_v, row) => {
+                    const je = row as unknown as JournalEntry;
+                    const extras: { label: string; onClick: () => void }[] = [{ label: "View Lines", onClick: () => setJeDetailId(je.id) }];
+                    if (je.status === "DRAFT") extras.push({ label: "Post", onClick: () => store.update("journalEntries", je.id, { status: "POSTED" as JournalEntry["status"] }) });
+                    if (je.status === "POSTED") extras.push({ label: "Void", onClick: () => store.update("journalEntries", je.id, { status: "VOID" as JournalEntry["status"] }) });
+                    return <EditDeleteMenu onEdit={() => { setEditingJE(je); setJeFormOpen(true); }} onDelete={() => store.remove("journalEntries", je.id)} itemLabel={je.number} compact extraItems={extras} />;
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredJE as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No journal entries found."
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ═══ Cost Accounting ═══ */}
+        <TabsContent value="cost" className="space-y-4">
+          <div className="flex gap-1 border-b border-border pb-2 flex-wrap">
+            {([["centers", "Cost Centers", Target], ["budgets", "Budget vs Actual", BarChart3], ["allocation", "Cost Allocation", PieChart], ["variance", "Variance Analysis", Calculator]] as const).map(([key, label, Icon]) => (
+              <button key={key} onClick={() => setCostTab(key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${costTab === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+                <Icon className="h-3.5 w-3.5" />{label}
+              </button>
+            ))}
+          </div>
+
+          {costTab === "centers" && (
+            <div className="space-y-3">
+              <div className="flex justify-end"><Button size="sm" onClick={() => { setEditingCC(null); setCcFormOpen(true); }}><Plus className="h-3 w-3 mr-1" /> Add Cost Center</Button></div>
+              <Card><CardContent className="p-0 overflow-x-auto">
+                <DataTable
+                  columns={[
+                    { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                    { key: "name", label: "Name", render: (v) => <span className="font-medium">{v as string}</span> },
+                    { key: "type", label: "Type", render: (v) => <Badge variant="outline">{(v as string).replace("_", " & ")}</Badge> },
+                    { key: "budget", label: "Budget", className: "text-right", render: (v) => <span>{(v as number).toLocaleString()}</span> },
+                    { key: "actualSpend", label: "Actual", className: "text-right", render: (v) => <span>{(v as number).toLocaleString()}</span> },
+                    { key: "id", label: "Variance", className: "text-right", render: (_v, row) => {
+                      const cc = row as unknown as CostCenter;
+                      const variance = cc.budget - cc.actualSpend;
+                      return <span className={`font-semibold ${variance >= 0 ? "text-green-600" : "text-red-600"}`}>{variance >= 0 ? "+" : ""}{variance.toLocaleString()}</span>;
+                    }},
+                    { key: "isActive", label: "Util %", render: (_v, row) => {
+                      const cc = row as unknown as CostCenter;
+                      const pct = cc.budget > 0 ? Math.round((cc.actualSpend / cc.budget) * 100) : 0;
+                      return (
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-2 bg-muted rounded-full"><div className={`h-full rounded-full ${pct > 100 ? "bg-red-500" : pct > 80 ? "bg-amber-500" : "bg-green-500"}`} style={{ width: `${Math.min(pct, 100)}%` }} /></div>
+                          <span className="text-xs">{pct}%</span>
+                        </div>
+                      );
+                    }},
+                    { key: "parentId", label: "", render: (_v, row) => {
+                      const cc = row as unknown as CostCenter;
+                      return <EditDeleteMenu onEdit={() => { setEditingCC(cc); setCcFormOpen(true); }} onDelete={() => store.remove("costCenters", cc.id)} itemLabel={cc.name} compact />;
+                    }},
+                  ] as Column<Record<string, unknown>>[]}
+                  data={store.costCenters as unknown as Record<string, unknown>[]}
+                  pagination={false}
+                  emptyMessage="No cost centers."
+                />
+              </CardContent></Card>
+            </div>
+          )}
+
+          {costTab === "budgets" && (
+            <div className="space-y-3">
+              <div className="flex justify-end"><Button size="sm" onClick={() => { setEditingBudget(null); setBudgetFormOpen(true); }}><Plus className="h-3 w-3 mr-1" /> Add Budget</Button></div>
+              <Card><CardContent className="p-0 overflow-x-auto">
+                <DataTable
+                  columns={[
+                    { key: "name", label: "Budget", render: (v) => <span className="font-medium">{v as string}</span> },
+                    { key: "fiscalYear", label: "FY" },
+                    { key: "period", label: "Period", render: (v) => <Badge variant="outline">{v as string}</Badge> },
+                    { key: "costCenterId", label: "Linked To", render: (_v, row) => {
+                      const b = row as unknown as Budget;
+                      if (b.costCenterId) return <span className="text-xs">{ccName(b.costCenterId)}</span>;
+                      if (b.accountId) return <span className="text-xs">{glName(b.accountId)}</span>;
+                      return <span className="text-muted-foreground">—</span>;
+                    }},
+                    { key: "budgeted", label: "Budgeted", className: "text-right", render: (v) => (v as number).toLocaleString() },
+                    { key: "actual", label: "Actual", className: "text-right", render: (v) => (v as number).toLocaleString() },
+                    { key: "id", label: "Variance", className: "text-right", render: (_v, row) => {
+                      const b = row as unknown as Budget;
+                      const v = b.budgeted - b.actual;
+                      return <span className={`font-semibold ${v >= 0 ? "text-green-600" : "text-red-600"}`}>{v >= 0 ? "+" : ""}{v.toLocaleString()}</span>;
+                    }},
+                    { key: "status", label: "Status", render: (v) => <Badge variant={(v as string) === "APPROVED" ? "success" : (v as string) === "CLOSED" ? "secondary" : "warning"}>{v as string}</Badge> },
+                    { key: "accountId", label: "", render: (_v, row) => {
+                      const b = row as unknown as Budget;
+                      return <EditDeleteMenu onEdit={() => { setEditingBudget(b); setBudgetFormOpen(true); }} onDelete={() => store.remove("budgets", b.id)} itemLabel={b.name} compact />;
+                    }},
+                  ] as Column<Record<string, unknown>>[]}
+                  data={store.budgets as unknown as Record<string, unknown>[]}
+                  pagination={false}
+                  emptyMessage="No budgets."
+                />
+              </CardContent></Card>
+            </div>
+          )}
+
+          {costTab === "allocation" && (
+            <div className="space-y-3">
+              <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Cost Allocation by Center</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="text-sm text-muted-foreground mb-3">Based on posted journal entry debit lines tagged with cost centers. Total allocated: <span className="font-semibold text-foreground">EGP {totalAllocated.toLocaleString()}</span></div>
+                  <div className="space-y-3">
+                    {store.costCenters.map((cc) => {
+                      const alloc = ccAllocations[cc.id] ?? 0;
+                      const pct = totalAllocated > 0 ? (alloc / totalAllocated) * 100 : 0;
+                      return (
+                        <div key={cc.id} className="space-y-1">
+                          <div className="flex justify-between text-sm"><span className="font-medium">{cc.name}</span><span>EGP {alloc.toLocaleString()} ({pct.toFixed(1)}%)</span></div>
+                          <div className="h-3 bg-muted rounded-full"><div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} /></div>
+                        </div>
+                      );
+                    })}
+                    {store.costCenters.length === 0 && <p className="text-sm text-muted-foreground">No cost centers defined.</p>}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {costTab === "variance" && (
+            <div className="space-y-3">
+              <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Budget Variance Analysis</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {store.costCenters.map((cc) => {
+                      const variance = cc.budget - cc.actualSpend;
+                      const pctBudget = cc.budget > 0 ? (cc.actualSpend / cc.budget) * 100 : 0;
+                      const pctActual = cc.budget > 0 ? Math.min(pctBudget, 100) : 0;
+                      return (
+                        <div key={cc.id} className="border rounded-lg p-4 space-y-2">
+                          <div className="flex justify-between items-center">
+                            <div><span className="font-medium">{cc.name}</span><span className="text-xs text-muted-foreground ml-2">({cc.code})</span></div>
+                            <Badge variant={variance >= 0 ? "success" : "destructive"}>{variance >= 0 ? "Favorable" : "Unfavorable"}</Badge>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div><span className="text-muted-foreground">Budget:</span> <span className="font-semibold">EGP {cc.budget.toLocaleString()}</span></div>
+                            <div><span className="text-muted-foreground">Actual:</span> <span className="font-semibold">EGP {cc.actualSpend.toLocaleString()}</span></div>
+                            <div><span className="text-muted-foreground">Variance:</span> <span className={`font-semibold ${variance >= 0 ? "text-green-600" : "text-red-600"}`}>{variance >= 0 ? "+" : ""}EGP {variance.toLocaleString()}</span></div>
+                          </div>
+                          <div className="relative h-4 bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${pctBudget > 100 ? "bg-red-500" : pctBudget > 80 ? "bg-amber-500" : "bg-green-500"}`} style={{ width: `${pctActual}%` }} />
+                            <div className="absolute right-2 top-0 h-full flex items-center"><span className="text-[10px] font-medium">{pctBudget.toFixed(0)}%</span></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
+
+      {/* JE Detail dialog */}
+      <Dialog open={!!jeDetail} onOpenChange={(open) => { if (!open) setJeDetailId(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5" /> {jeDetail?.number} — Journal Entry Lines</DialogTitle></DialogHeader>
+          {jeDetail && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="text-muted-foreground">Date:</span> {new Date(jeDetail.date).toLocaleDateString()}</div>
+                <div><span className="text-muted-foreground">Type:</span> {jeBadge(jeDetail.type)}</div>
+                <div className="col-span-2"><span className="text-muted-foreground">Description:</span> {jeDetail.description}</div>
+                {jeDetail.reference && <div className="col-span-2"><span className="text-muted-foreground">Reference:</span> {jeDetail.reference}</div>}
+              </div>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50"><tr><th className="px-3 py-2 text-left">Account</th><th className="px-3 py-2 text-left">Description</th><th className="px-3 py-2 text-right">Debit</th><th className="px-3 py-2 text-right">Credit</th><th className="px-3 py-2 text-left">Cost Center</th></tr></thead>
+                  <tbody className="divide-y">
+                    {jeDetail.lines.map((l, i) => (
+                      <tr key={i} className="hover:bg-muted/30">
+                        <td className="px-3 py-2 font-mono text-xs">{glName(l.accountId)}</td>
+                        <td className="px-3 py-2 text-xs">{l.description ?? "—"}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-red-600">{l.debit > 0 ? l.debit.toLocaleString() : "—"}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-green-600">{l.credit > 0 ? l.credit.toLocaleString() : "—"}</td>
+                        <td className="px-3 py-2 text-xs">{l.costCenterId ? ccName(l.costCenterId) : "—"}</td>
+                      </tr>
+                    ))}
+                    {jeDetail.lines.length === 0 && <tr><td colSpan={5} className="px-3 py-4 text-center text-muted-foreground">No lines. Edit this entry to add lines.</td></tr>}
+                  </tbody>
+                  <tfoot className="bg-muted/30 font-semibold">
+                    <tr>
+                      <td colSpan={2} className="px-3 py-2">Total</td>
+                      <td className="px-3 py-2 text-right">{jeDetail.lines.reduce((s, l) => s + l.debit, 0).toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">{jeDetail.lines.reduce((s, l) => s + l.credit, 0).toLocaleString()}</td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <div className="flex justify-between items-center text-xs text-muted-foreground">
+                <span>Status: <Badge variant={jeDetail.status === "POSTED" ? "success" : jeDetail.status === "VOID" ? "destructive" : "warning"}>{jeDetail.status}</Badge></span>
+                <span>Created: {new Date(jeDetail.createdAt).toLocaleDateString()}</span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Statement dialog */}
       <Dialog open={!!statementParty} onOpenChange={(open) => { if (!open) setStatementParty(null); }}>
@@ -674,6 +1160,22 @@ export default function AccountingPage() {
         onSubmit={handleInvoiceSubmit}
         submitLabel={editingInvoice ? "Save" : "Create"}
       />
+      {/* GL Account modal */}
+      <EntityFormModal open={glFormOpen} onOpenChange={setGlFormOpen} title={editingGL ? `Edit ${editingGL.name}` : "Add GL Account"} fields={glFields}
+        initialData={editingGL ? { code: editingGL.code, name: editingGL.name, type: editingGL.type, subType: editingGL.subType, balance: editingGL.balance, isActive: editingGL.isActive } : undefined}
+        onSubmit={handleGLSubmit} submitLabel={editingGL ? "Save" : "Create"} />
+      {/* Journal Entry modal */}
+      <EntityFormModal open={jeFormOpen} onOpenChange={setJeFormOpen} title={editingJE ? `Edit ${editingJE.number}` : "New Journal Entry"} fields={jeFields}
+        initialData={editingJE ? { date: editingJE.date.slice(0, 10), description: editingJE.description, reference: editingJE.reference ?? "", type: editingJE.type } : undefined}
+        onSubmit={handleJESubmit} submitLabel={editingJE ? "Save" : "Create"} />
+      {/* Cost Center modal */}
+      <EntityFormModal open={ccFormOpen} onOpenChange={setCcFormOpen} title={editingCC ? `Edit ${editingCC.name}` : "Add Cost Center"} fields={ccFields}
+        initialData={editingCC ? { code: editingCC.code, name: editingCC.name, type: editingCC.type, budget: editingCC.budget, actualSpend: editingCC.actualSpend, isActive: editingCC.isActive } : undefined}
+        onSubmit={handleCCSubmit} submitLabel={editingCC ? "Save" : "Create"} />
+      {/* Budget modal */}
+      <EntityFormModal open={budgetFormOpen} onOpenChange={setBudgetFormOpen} title={editingBudget ? `Edit ${editingBudget.name}` : "Add Budget"} fields={budgetFields}
+        initialData={editingBudget ? { name: editingBudget.name, fiscalYear: editingBudget.fiscalYear, period: editingBudget.period, accountId: editingBudget.accountId ?? "", costCenterId: editingBudget.costCenterId ?? "", budgeted: editingBudget.budgeted, actual: editingBudget.actual, status: editingBudget.status } : undefined}
+        onSubmit={handleBudgetSubmit} submitLabel={editingBudget ? "Save" : "Create"} />
     </div>
   );
 }

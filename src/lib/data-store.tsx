@@ -225,6 +225,62 @@ export interface Payment {
   notes?: string;
 }
 
+export interface GLAccount {
+  id: string;
+  code: string;
+  name: string;
+  type: "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE";
+  subType: string;
+  balance: number;
+  parentId?: string;
+  isActive: boolean;
+}
+
+export interface JournalEntryLine {
+  accountId: string;
+  description?: string;
+  debit: number;
+  credit: number;
+  costCenterId?: string;
+}
+
+export interface JournalEntry {
+  id: string;
+  number: string;
+  date: string;
+  description: string;
+  reference?: string;
+  type: "GENERAL" | "ADJUSTING" | "CLOSING" | "OPENING" | "PARTNER";
+  lines: JournalEntryLine[];
+  status: "DRAFT" | "POSTED" | "VOID";
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface CostCenter {
+  id: string;
+  code: string;
+  name: string;
+  type: "PRODUCTION" | "ADMINISTRATIVE" | "SELLING" | "R_AND_D" | "DISTRIBUTION";
+  managerId?: string;
+  budget: number;
+  actualSpend: number;
+  parentId?: string;
+  isActive: boolean;
+}
+
+export interface Budget {
+  id: string;
+  name: string;
+  fiscalYear: string;
+  period: string;
+  accountId?: string;
+  costCenterId?: string;
+  budgeted: number;
+  actual: number;
+  status: "DRAFT" | "APPROVED" | "CLOSED";
+}
+
 // ─── Store shape ─────────────────────────────────────────────────────────────
 
 export interface DataStoreState {
@@ -242,7 +298,12 @@ export interface DataStoreState {
   bankAccounts: BankAccount[];
   messages: Message[];
   payments: Payment[];
+  glAccounts: GLAccount[];
+  journalEntries: JournalEntry[];
+  costCenters: CostCenter[];
+  budgets: Budget[];
   nextInvoiceSeq: number;
+  nextJournalSeq: number;
 }
 
 // ─── Seed data ───────────────────────────────────────────────────────────────
@@ -386,6 +447,126 @@ const SEED_PAYMENTS: Payment[] = [
   { id: "pay-004", reference: "PAY-2026-0004", type: "RECEIVED", customerId: "c-002", invoiceId: "inv-002", amount: 300000, currency: "EGP", method: "BANK_TRANSFER", bankAccountId: "ba-002", date: daysAgo(3), notes: "Partial payment — Seif Pharmacies" },
 ];
 
+const SEED_GL_ACCOUNTS: GLAccount[] = [
+  { id: "gl-1000", code: "1000", name: "Cash & Bank", type: "ASSET", subType: "Current Asset", balance: 19705000, isActive: true },
+  { id: "gl-1100", code: "1100", name: "Accounts Receivable", type: "ASSET", subType: "Current Asset", balance: 9110000, isActive: true },
+  { id: "gl-1200", code: "1200", name: "Inventory — Raw Materials", type: "ASSET", subType: "Current Asset", balance: 4850000, isActive: true },
+  { id: "gl-1300", code: "1300", name: "Inventory — Finished Goods", type: "ASSET", subType: "Current Asset", balance: 6200000, isActive: true },
+  { id: "gl-1400", code: "1400", name: "Prepaid Expenses", type: "ASSET", subType: "Current Asset", balance: 320000, isActive: true },
+  { id: "gl-1500", code: "1500", name: "Fixed Assets — Equipment", type: "ASSET", subType: "Fixed Asset", balance: 12800000, isActive: true },
+  { id: "gl-1600", code: "1600", name: "Accumulated Depreciation", type: "ASSET", subType: "Contra Asset", balance: -3200000, isActive: true },
+  { id: "gl-2000", code: "2000", name: "Accounts Payable", type: "LIABILITY", subType: "Current Liability", balance: 2747000, isActive: true },
+  { id: "gl-2100", code: "2100", name: "Accrued Expenses", type: "LIABILITY", subType: "Current Liability", balance: 680000, isActive: true },
+  { id: "gl-2200", code: "2200", name: "Tax Payable — VAT", type: "LIABILITY", subType: "Current Liability", balance: 410000, isActive: true },
+  { id: "gl-2300", code: "2300", name: "Short-term Loans", type: "LIABILITY", subType: "Current Liability", balance: 5000000, isActive: true },
+  { id: "gl-2500", code: "2500", name: "Long-term Debt", type: "LIABILITY", subType: "Long-term Liability", balance: 8000000, isActive: true },
+  { id: "gl-3000", code: "3000", name: "Share Capital", type: "EQUITY", subType: "Paid-in Capital", balance: 20000000, isActive: true },
+  { id: "gl-3100", code: "3100", name: "Retained Earnings", type: "EQUITY", subType: "Retained Earnings", balance: 5480000, isActive: true },
+  { id: "gl-4000", code: "4000", name: "Product Sales Revenue", type: "REVENUE", subType: "Operating Revenue", balance: 18500000, isActive: true },
+  { id: "gl-4100", code: "4100", name: "Service Revenue", type: "REVENUE", subType: "Operating Revenue", balance: 1200000, isActive: true },
+  { id: "gl-4200", code: "4200", name: "Other Income", type: "REVENUE", subType: "Non-operating", balance: 350000, isActive: true },
+  { id: "gl-5000", code: "5000", name: "Cost of Goods Sold", type: "EXPENSE", subType: "COGS", balance: 11200000, isActive: true },
+  { id: "gl-5100", code: "5100", name: "Direct Labor", type: "EXPENSE", subType: "COGS", balance: 3400000, isActive: true },
+  { id: "gl-5200", code: "5200", name: "Manufacturing Overhead", type: "EXPENSE", subType: "COGS", balance: 1850000, isActive: true },
+  { id: "gl-6000", code: "6000", name: "Salaries & Wages", type: "EXPENSE", subType: "Operating Expense", balance: 4200000, isActive: true },
+  { id: "gl-6100", code: "6100", name: "Rent & Utilities", type: "EXPENSE", subType: "Operating Expense", balance: 960000, isActive: true },
+  { id: "gl-6200", code: "6200", name: "Marketing & Promotion", type: "EXPENSE", subType: "Operating Expense", balance: 1450000, isActive: true },
+  { id: "gl-6300", code: "6300", name: "Depreciation Expense", type: "EXPENSE", subType: "Operating Expense", balance: 800000, isActive: true },
+  { id: "gl-6400", code: "6400", name: "R&D Expenses", type: "EXPENSE", subType: "Operating Expense", balance: 620000, isActive: true },
+  { id: "gl-6500", code: "6500", name: "Travel & Field Expenses", type: "EXPENSE", subType: "Operating Expense", balance: 380000, isActive: true },
+  { id: "gl-7000", code: "7000", name: "Interest Expense", type: "EXPENSE", subType: "Non-operating", balance: 520000, isActive: true },
+];
+
+const SEED_JOURNAL_ENTRIES: JournalEntry[] = [
+  {
+    id: "je-001", number: "JE-2026-0001", date: daysAgo(25), description: "Record monthly product sales revenue",
+    reference: "INV-2026-0001", type: "GENERAL", status: "POSTED", createdBy: "u-admin", createdAt: daysAgo(25),
+    lines: [
+      { accountId: "gl-1100", description: "AR — El-Ezaby Pharmacies", debit: 969000, credit: 0 },
+      { accountId: "gl-4000", description: "Product sales revenue", debit: 0, credit: 850000 },
+      { accountId: "gl-2200", description: "VAT on sales", debit: 0, credit: 119000 },
+    ],
+  },
+  {
+    id: "je-002", number: "JE-2026-0002", date: daysAgo(20), description: "Raw material purchase — Sun Pharma API",
+    reference: "PO-4001", type: "GENERAL", status: "POSTED", createdBy: "u-admin", createdAt: daysAgo(20),
+    lines: [
+      { accountId: "gl-1200", description: "RM inventory — Amoxicillin API", debit: 1420000, credit: 0, costCenterId: "cc-prod" },
+      { accountId: "gl-2000", description: "AP — Sun Pharma", debit: 0, credit: 1420000 },
+    ],
+  },
+  {
+    id: "je-003", number: "JE-2026-0003", date: daysAgo(15), description: "Payment received from Seif Pharmacies",
+    reference: "PAY-2026-0004", type: "GENERAL", status: "POSTED", createdBy: "u-admin", createdAt: daysAgo(15),
+    lines: [
+      { accountId: "gl-1000", description: "Bank — NBE Collections", debit: 300000, credit: 0 },
+      { accountId: "gl-1100", description: "AR — Seif Pharmacies", debit: 0, credit: 300000 },
+    ],
+  },
+  {
+    id: "je-004", number: "JE-2026-0004", date: daysAgo(10), description: "Monthly payroll accrual — April 2026",
+    type: "ADJUSTING", status: "POSTED", createdBy: "u-admin", createdAt: daysAgo(10),
+    lines: [
+      { accountId: "gl-6000", description: "Salaries expense", debit: 350000, credit: 0, costCenterId: "cc-admin" },
+      { accountId: "gl-5100", description: "Direct labor — production", debit: 280000, credit: 0, costCenterId: "cc-prod" },
+      { accountId: "gl-2100", description: "Accrued salaries", debit: 0, credit: 630000 },
+    ],
+  },
+  {
+    id: "je-005", number: "JE-2026-0005", date: daysAgo(8), description: "Depreciation — manufacturing equipment",
+    type: "ADJUSTING", status: "POSTED", createdBy: "u-admin", createdAt: daysAgo(8),
+    lines: [
+      { accountId: "gl-6300", description: "Depreciation expense", debit: 66667, credit: 0, costCenterId: "cc-prod" },
+      { accountId: "gl-1600", description: "Accumulated depreciation", debit: 0, credit: 66667 },
+    ],
+  },
+  {
+    id: "je-006", number: "JE-2026-0006", date: daysAgo(5), description: "BASF vendor payment — excipients",
+    reference: "PAY-2026-0003", type: "GENERAL", status: "POSTED", createdBy: "u-admin", createdAt: daysAgo(5),
+    lines: [
+      { accountId: "gl-2000", description: "AP — BASF Pharma", debit: 620000, credit: 0 },
+      { accountId: "gl-1000", description: "Bank — CIB Main", debit: 0, credit: 620000 },
+    ],
+  },
+  {
+    id: "je-007", number: "JE-2026-0007", date: daysAgo(3), description: "Marketing campaign — Q2 field promotion",
+    type: "GENERAL", status: "POSTED", createdBy: "u-admin", createdAt: daysAgo(3),
+    lines: [
+      { accountId: "gl-6200", description: "Marketing spend — field events", debit: 125000, credit: 0, costCenterId: "cc-sell" },
+      { accountId: "gl-1000", description: "Bank — CIB Main", debit: 0, credit: 125000 },
+    ],
+  },
+  {
+    id: "je-008", number: "JE-2026-0008", date: daysAgo(1), description: "Partner journal — intercompany allocation",
+    type: "PARTNER", status: "DRAFT", createdBy: "u-admin", createdAt: daysAgo(1),
+    lines: [
+      { accountId: "gl-6100", description: "Shared facility rent", debit: 80000, credit: 0, costCenterId: "cc-admin" },
+      { accountId: "gl-6100", description: "Lab rent allocation", debit: 40000, credit: 0, costCenterId: "cc-rnd" },
+      { accountId: "gl-1000", description: "Bank — BM Payroll", debit: 0, credit: 120000 },
+    ],
+  },
+];
+
+const SEED_COST_CENTERS: CostCenter[] = [
+  { id: "cc-prod", code: "CC-100", name: "Production", type: "PRODUCTION", budget: 8500000, actualSpend: 7250000, isActive: true },
+  { id: "cc-admin", code: "CC-200", name: "Administration", type: "ADMINISTRATIVE", budget: 2800000, actualSpend: 2340000, isActive: true },
+  { id: "cc-sell", code: "CC-300", name: "Sales & Marketing", type: "SELLING", budget: 3200000, actualSpend: 2830000, isActive: true },
+  { id: "cc-rnd", code: "CC-400", name: "Research & Development", type: "R_AND_D", budget: 1500000, actualSpend: 620000, isActive: true },
+  { id: "cc-dist", code: "CC-500", name: "Distribution & Logistics", type: "DISTRIBUTION", budget: 1200000, actualSpend: 980000, isActive: true },
+  { id: "cc-qa", code: "CC-600", name: "Quality Assurance", type: "PRODUCTION", budget: 800000, actualSpend: 540000, isActive: true, parentId: "cc-prod" },
+];
+
+const SEED_BUDGETS: Budget[] = [
+  { id: "bud-001", name: "Production Budget Q1", fiscalYear: "2026", period: "Q1", costCenterId: "cc-prod", budgeted: 2125000, actual: 1980000, status: "CLOSED" },
+  { id: "bud-002", name: "Production Budget Q2", fiscalYear: "2026", period: "Q2", costCenterId: "cc-prod", budgeted: 2125000, actual: 1420000, status: "APPROVED" },
+  { id: "bud-003", name: "Admin Budget Q2", fiscalYear: "2026", period: "Q2", costCenterId: "cc-admin", budgeted: 700000, actual: 520000, status: "APPROVED" },
+  { id: "bud-004", name: "Sales & Marketing Q2", fiscalYear: "2026", period: "Q2", costCenterId: "cc-sell", budgeted: 800000, actual: 640000, status: "APPROVED" },
+  { id: "bud-005", name: "R&D Budget FY2026", fiscalYear: "2026", period: "Annual", costCenterId: "cc-rnd", budgeted: 1500000, actual: 620000, status: "APPROVED" },
+  { id: "bud-006", name: "COGS Budget Q2", fiscalYear: "2026", period: "Q2", accountId: "gl-5000", budgeted: 2800000, actual: 2150000, status: "APPROVED" },
+  { id: "bud-007", name: "Revenue Target Q2", fiscalYear: "2026", period: "Q2", accountId: "gl-4000", budgeted: 5000000, actual: 3800000, status: "APPROVED" },
+  { id: "bud-008", name: "Distribution Q2", fiscalYear: "2026", period: "Q2", costCenterId: "cc-dist", budgeted: 300000, actual: 245000, status: "APPROVED" },
+];
+
 export const SEED_DATA: DataStoreState = {
   businessUnits: SEED_BUS,
   products: SEED_PRODUCTS,
@@ -401,7 +582,12 @@ export const SEED_DATA: DataStoreState = {
   bankAccounts: SEED_BANK_ACCOUNTS,
   messages: SEED_MESSAGES,
   payments: SEED_PAYMENTS,
+  glAccounts: SEED_GL_ACCOUNTS,
+  journalEntries: SEED_JOURNAL_ENTRIES,
+  costCenters: SEED_COST_CENTERS,
+  budgets: SEED_BUDGETS,
   nextInvoiceSeq: 3,
+  nextJournalSeq: 9,
 };
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -420,6 +606,7 @@ interface DataStoreValue extends DataStoreState {
   // Helpers
   genId: (prefix: string) => string;
   generateInvoiceNumber: () => string;
+  generateJournalNumber: () => string;
 }
 
 const DataStoreContext = createContext<DataStoreValue | null>(null);
@@ -477,6 +664,14 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const next: DataStoreState = { ...state, nextInvoiceSeq: seq + 1 };
     mutate(next);
     return `INV-${year}-${String(seq).padStart(4, "0")}`;
+  }
+
+  function generateJournalNumber(): string {
+    const year = new Date().getFullYear();
+    const seq = state.nextJournalSeq;
+    const next: DataStoreState = { ...state, nextJournalSeq: seq + 1 };
+    mutate(next);
+    return `JE-${year}-${String(seq).padStart(4, "0")}`;
   }
 
   function add<K extends EntityKey>(key: K, item: DataStoreState[K][number]) {
@@ -538,6 +733,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
         reset,
         genId,
         generateInvoiceNumber,
+        generateJournalNumber,
       }}
     >
       {children}
@@ -558,6 +754,7 @@ export function useDataStore(): DataStoreValue {
       reset: () => {},
       genId: (p) => `${p}-stub`,
       generateInvoiceNumber: () => "INV-0000-0000",
+      generateJournalNumber: () => "JE-0000-0000",
     };
   }
   return ctx;

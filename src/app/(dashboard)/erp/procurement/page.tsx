@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Package, Truck, ClipboardCheck, Plus, ShieldCheck, AlertTriangle, FileText } from "lucide-react";
+import { Package, Truck, ClipboardCheck, Plus, ShieldCheck, AlertTriangle, FileText, Eye, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
@@ -72,11 +74,19 @@ const supplierFields: EntityField[] = [
   { name: "gmpStatus", label: "GMP Certification", type: "select", required: true, options: [{ value: "EU-GMP Certified", label: "EU-GMP Certified" }, { value: "FDA Approved", label: "FDA Approved" }, { value: "WHO-GMP", label: "WHO-GMP" }, { value: "ISO 15378", label: "ISO 15378" }, { value: "Pending", label: "Pending Audit" }] },
 ];
 
+type PurchaseOrder = typeof PURCHASE_ORDERS[number];
+type Supplier = typeof SUPPLIERS[number];
+type GRNRecord = typeof GRN[number];
+
 export default function ProcurementPage() {
   const store = useDataStore();
   const [showPOModal, setShowPOModal] = useState(false);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [activeTab, setActiveTab] = useState("orders");
+
+  const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null);
+  const [detailSupplier, setDetailSupplier] = useState<Supplier | null>(null);
+  const [detailGRN, setDetailGRN] = useState<GRNRecord | null>(null);
 
   const productCatalogOptions = store.products.map((p) => ({
     value: p.id,
@@ -151,6 +161,14 @@ export default function ProcurementPage() {
                   { key: "total", label: "Total", render: (v: string) => <span className="font-semibold">{v}</span> },
                   { key: "expectedDate", label: "Expected" },
                   { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
+                  { key: "id", label: "", className: "text-right w-10", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const po = row as unknown as PurchaseOrder;
+                    return (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDetailPO(po)} title="View Details">
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
                 data={PURCHASE_ORDERS as unknown as Record<string, unknown>[]}
                 pagination={false}
@@ -196,6 +214,14 @@ export default function ProcurementPage() {
                   ) },
                   { key: "orders", label: "Orders" },
                   { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
+                  { key: "id", label: "", className: "text-right w-10", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const s = row as unknown as Supplier;
+                    return (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDetailSupplier(s)} title="View Details">
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
                 data={SUPPLIERS as unknown as Record<string, unknown>[]}
                 pagination={false}
@@ -236,6 +262,14 @@ export default function ProcurementPage() {
                     }`}>{v}</span>
                   ) },
                   { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
+                  { key: "id", label: "", className: "text-right w-10", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const g = row as unknown as GRNRecord;
+                    return (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDetailGRN(g)} title="View Details">
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
                 data={GRN as unknown as Record<string, unknown>[]}
                 pagination={false}
@@ -349,6 +383,201 @@ export default function ProcurementPage() {
         fields={supplierFields}
         onSubmit={() => setShowSupplierModal(false)}
       />
+
+      {/* ── Purchase Order Detail Dialog ── */}
+      <Dialog open={!!detailPO} onOpenChange={(open) => { if (!open) setDetailPO(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Purchase Order {detailPO?.id}</DialogTitle>
+          </DialogHeader>
+          {detailPO && (() => {
+            const relatedGRNs = GRN.filter((g) => g.po === detailPO.id);
+            const statusSteps = ["Pending Approval", "Approved", "Ordered", "In Transit", "Received", "Pending QC"];
+            const currentIdx = statusSteps.indexOf(detailPO.status);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Supplier</span><p className="font-medium">{detailPO.supplier}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{detailPO.category}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Material / Product</span><p className="font-medium">{detailPO.items}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Quantity</span><p className="font-medium">{detailPO.qty}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Unit Price</span><p className="font-medium">{detailPO.unitPrice}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Total</span><p className="font-medium text-lg">{detailPO.total}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Order Date</span><p className="font-medium">{detailPO.orderDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Expected Delivery</span><p className="font-medium">{detailPO.expectedDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={detailPO.status} /></p></div>
+                </div>
+                {/* Status Timeline */}
+                <div>
+                  <h4 className="text-sm font-semibold mb-3">Status Flow</h4>
+                  <div className="flex items-center gap-1">
+                    {statusSteps.map((step, i) => {
+                      const isActive = i <= currentIdx;
+                      const isCurrent = i === currentIdx;
+                      return (
+                        <div key={step} className="flex items-center gap-1 flex-1">
+                          <div className={`flex flex-col items-center flex-1`}>
+                            <div className={`h-3 w-3 rounded-full border-2 ${isCurrent ? "bg-primary border-primary" : isActive ? "bg-primary/60 border-primary/60" : "bg-muted border-muted-foreground/30"}`} />
+                            <span className={`text-[10px] mt-1 text-center leading-tight ${isCurrent ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{step}</span>
+                          </div>
+                          {i < statusSteps.length - 1 && (
+                            <div className={`h-0.5 flex-1 -mt-4 ${isActive ? "bg-primary/60" : "bg-muted"}`} />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                {/* Related GRNs */}
+                {relatedGRNs.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Related GRN Records ({relatedGRNs.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {relatedGRNs.map((g) => (
+                        <div key={g.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className="font-mono text-xs font-medium">{g.id}</span>
+                            <span className="text-muted-foreground ml-2">{g.material}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground text-xs">{g.receivedDate}</span>
+                            <StatusBadge status={g.status} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Supplier Detail Dialog ── */}
+      <Dialog open={!!detailSupplier} onOpenChange={(open) => { if (!open) setDetailSupplier(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailSupplier?.name}</DialogTitle>
+          </DialogHeader>
+          {detailSupplier && (() => {
+            const supplierPOs = PURCHASE_ORDERS.filter((po) => po.supplier.includes(detailSupplier.name));
+            const fullStars = Math.floor(detailSupplier.rating);
+            const hasHalf = detailSupplier.rating - fullStars >= 0.5;
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Supplier ID</span><p className="font-medium font-mono">{detailSupplier.id}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{detailSupplier.type}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Country</span><p className="font-medium">{detailSupplier.country}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={detailSupplier.status} /></p></div>
+                  <div><span className="text-sm text-muted-foreground">Contact Person</span><p className="font-medium">{detailSupplier.contact}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{detailSupplier.email}</p></div>
+                  <div><span className="text-sm text-muted-foreground">GMP Status</span><p className="font-medium"><Badge variant="secondary"><ShieldCheck className="h-3 w-3 inline mr-1" />{detailSupplier.gmpStatus}</Badge></p></div>
+                  <div><span className="text-sm text-muted-foreground">Total Orders</span><p className="font-medium">{detailSupplier.orders}</p></div>
+                </div>
+                {/* Rating with stars */}
+                <div>
+                  <span className="text-sm text-muted-foreground">Rating</span>
+                  <div className="flex items-center gap-1 mt-1">
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <Star key={i} className={`h-5 w-5 ${i < fullStars ? "fill-amber-400 text-amber-400" : i === fullStars && hasHalf ? "fill-amber-400/50 text-amber-400" : "text-muted-foreground/30"}`} />
+                    ))}
+                    <span className="ml-2 font-semibold">{detailSupplier.rating}</span>
+                  </div>
+                </div>
+                {/* Order History */}
+                {supplierPOs.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Recent Purchase Orders ({supplierPOs.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {supplierPOs.map((po) => (
+                        <div key={po.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className="font-mono text-xs font-medium">{po.id}</span>
+                            <span className="text-muted-foreground ml-2">{po.items}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{po.total}</span>
+                            <StatusBadge status={po.status} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── GRN Detail Dialog ── */}
+      <Dialog open={!!detailGRN} onOpenChange={(open) => { if (!open) setDetailGRN(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Goods Received Note {detailGRN?.id}</DialogTitle>
+          </DialogHeader>
+          {detailGRN && (() => {
+            const relatedQC = QC_TESTS.filter((q) => q.grn === detailGRN.id);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">GRN #</span><p className="font-medium font-mono">{detailGRN.id}</p></div>
+                  <div><span className="text-sm text-muted-foreground">PO Reference</span><p className="font-medium font-mono">{detailGRN.po}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Supplier</span><p className="font-medium">{detailGRN.supplier}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Material</span><p className="font-medium">{detailGRN.material}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Quantity</span><p className="font-medium">{detailGRN.qty}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Batch No.</span><p className="font-medium font-mono">{detailGRN.batchNo}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Received Date</span><p className="font-medium">{detailGRN.receivedDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Expiry Date</span><p className="font-medium">{detailGRN.expiryDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Storage Condition</span><p className="font-medium">{detailGRN.storageCondition}</p></div>
+                  <div><span className="text-sm text-muted-foreground">CoA</span><p className="font-medium">{detailGRN.coa ? "Received" : "N/A"}</p></div>
+                  <div><span className="text-sm text-muted-foreground">QC Status</span><p><Badge variant={detailGRN.qcStatus === "Passed" ? "default" : detailGRN.qcStatus === "Failed" ? "destructive" : "secondary"}>{detailGRN.qcStatus}</Badge></p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={detailGRN.status} /></p></div>
+                </div>
+                {/* Related QC Tests */}
+                {relatedQC.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">QC Test Results ({relatedQC.length})</h4>
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left px-3 py-2 font-medium">Test</th>
+                            <th className="text-left px-3 py-2 font-medium">Specification</th>
+                            <th className="text-left px-3 py-2 font-medium">Result</th>
+                            <th className="text-left px-3 py-2 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {relatedQC.map((q) => (
+                            <tr key={q.id}>
+                              <td className="px-3 py-2">{q.test}</td>
+                              <td className="px-3 py-2 text-muted-foreground">{q.specification}</td>
+                              <td className="px-3 py-2 font-medium">{q.result}</td>
+                              <td className="px-3 py-2">
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                  q.status === "Pass" ? "bg-green-100 text-green-700" :
+                                  q.status === "In Progress" ? "bg-amber-100 text-amber-700" :
+                                  "bg-red-100 text-red-700"
+                                }`}>{q.status}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {relatedQC.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-2">No QC tests recorded for this GRN.</p>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

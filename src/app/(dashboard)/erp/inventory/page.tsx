@@ -16,8 +16,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppConfig } from "@/lib/config-context";
 import { downloadCSV } from "@/lib/download";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
   FlaskConical, Pill, Warehouse, AlertTriangle,
-  Thermometer, Download, Plus, Package,
+  Thermometer, Download, Plus, Package, Eye,
 } from "lucide-react";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
@@ -102,6 +105,10 @@ export default function InventoryPage() {
   const [editingFp, setEditingFp] = useState<FinishedProduct | null>(null);
   const [whFormOpen, setWhFormOpen] = useState(false);
   const [editingWh, setEditingWh] = useState<WarehouseRec | null>(null);
+
+  const [detailRM, setDetailRM] = useState<RawMaterial | null>(null);
+  const [detailFP, setDetailFP] = useState<FinishedProduct | null>(null);
+  const [detailWH, setDetailWH] = useState<WarehouseRec | null>(null);
 
   let _nxt = Date.now();
   const genId = (p: string) => `${p}-${(_nxt++).toString(36).slice(-6)}`;
@@ -347,7 +354,7 @@ export default function InventoryPage() {
                   { key: "qcStatus", label: "QC", render: (v) => <Badge variant={(v as string) === "Approved" ? "success" : (v as string) === "Rejected" ? "destructive" : "warning"}>{v as string}</Badge> },
                   { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
                     const r = row as unknown as RawMaterial;
-                    return (<EditDeleteMenu onEdit={() => handleEditRM(r)} onDelete={() => handleDeleteRM(r)} itemLabel={r.name} compact />);
+                    return (<EditDeleteMenu onEdit={() => handleEditRM(r)} onDelete={() => handleDeleteRM(r)} onView={() => setDetailRM(r)} canView itemLabel={r.name} compact />);
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredRM as unknown as Record<string, unknown>[]}
@@ -389,7 +396,7 @@ export default function InventoryPage() {
                   { key: "qcReleased", label: "Released", render: (v) => <Badge variant={(v as boolean) ? "success" : "warning"}>{(v as boolean) ? "Released" : "Pending QC"}</Badge> },
                   { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
                     const p = row as unknown as FinishedProduct;
-                    return (<EditDeleteMenu onEdit={() => handleEditFP(p)} onDelete={() => handleDeleteFP(p)} itemLabel={p.name} compact />);
+                    return (<EditDeleteMenu onEdit={() => handleEditFP(p)} onDelete={() => handleDeleteFP(p)} onView={() => setDetailFP(p)} canView itemLabel={p.name} compact />);
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredFP as unknown as Record<string, unknown>[]}
@@ -415,7 +422,7 @@ export default function InventoryPage() {
                       <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${colorByType[w.type] || "bg-gray-100 text-gray-700"}`}><Package className="h-4 w-4" /></div>
                       <div><CardTitle className="text-sm font-semibold">{w.name}</CardTitle><p className="text-[11px] text-muted-foreground mt-0.5">{w.location}</p></div>
                     </div>
-                    <EditDeleteMenu onEdit={() => handleEditWH(w)} onDelete={() => handleDeleteWH(w)} itemLabel={w.name} compact />
+                    <EditDeleteMenu onEdit={() => handleEditWH(w)} onDelete={() => handleDeleteWH(w)} onView={() => setDetailWH(w)} canView itemLabel={w.name} compact />
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
@@ -447,6 +454,149 @@ export default function InventoryPage() {
         title={editingWh ? `Edit ${editingWh.name}` : "Add Warehouse"} fields={whFields}
         initialData={editingWh ? { name: editingWh.name, type: editingWh.type, location: editingWh.location, manager: editingWh.manager, tempRange: editingWh.tempRange, capacity: editingWh.capacity, used: editingWh.used } : undefined}
         onSubmit={handleWHSubmit} submitLabel={editingWh ? "Save" : "Create"} size="lg" />
+
+      {/* ── Raw Material Detail Dialog ── */}
+      <Dialog open={!!detailRM} onOpenChange={(open) => { if (!open) setDetailRM(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailRM?.name}</DialogTitle>
+          </DialogHeader>
+          {detailRM && (() => {
+            const totalValue = detailRM.quantityKg * detailRM.unitCost;
+            const stockPct = Math.min(Math.round((detailRM.quantityKg / Math.max(detailRM.reorderLevel * 3, 1)) * 100), 100);
+            const isLow = detailRM.quantityKg <= detailRM.reorderLevel;
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Code</span><p className="font-medium font-mono">{detailRM.code}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium"><Badge variant="secondary">{detailRM.type}</Badge></p></div>
+                  <div><span className="text-sm text-muted-foreground">Supplier</span><p className="font-medium">{detailRM.supplier}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Batch #</span><p className="font-medium font-mono">{detailRM.batchNo}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Manufacture Date</span><p className="font-medium">{detailRM.manufactureDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Expiry Date</span><p className="font-medium">{detailRM.expiryDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Quantity (kg)</span><p className={`font-medium ${isLow ? "text-red-600" : ""}`}>{detailRM.quantityKg.toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Reorder Level (kg)</span><p className="font-medium">{detailRM.reorderLevel.toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Unit Cost</span><p className="font-medium">{fmt(detailRM.unitCost)}/kg</p></div>
+                  <div><span className="text-sm text-muted-foreground">Total Value</span><p className="font-medium text-lg">{fmt(totalValue)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Storage Condition</span><p className="font-medium">{detailRM.storageCondition}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Pharmacopoeial Standard</span><p className="font-medium">{detailRM.pharmacopoeial}</p></div>
+                  <div><span className="text-sm text-muted-foreground">QC Status</span><p><Badge variant={detailRM.qcStatus === "Approved" ? "success" : detailRM.qcStatus === "Rejected" ? "destructive" : "warning"}>{detailRM.qcStatus}</Badge></p></div>
+                  <div><span className="text-sm text-muted-foreground">Warehouse</span><p className="font-medium">{detailRM.warehouse}</p></div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">Stock Level</span>
+                    <span className={`font-medium ${isLow ? "text-red-600" : ""}`}>{detailRM.quantityKg.toLocaleString()} / {(detailRM.reorderLevel * 3).toLocaleString()} kg {isLow ? "(below reorder)" : ""}</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${isLow ? "bg-red-500" : stockPct > 70 ? "bg-emerald-500" : "bg-amber-500"}`} style={{ width: `${stockPct}%` }} />
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Finished Product Detail Dialog ── */}
+      <Dialog open={!!detailFP} onOpenChange={(open) => { if (!open) setDetailFP(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailFP?.name} {detailFP?.strength}</DialogTitle>
+          </DialogHeader>
+          {detailFP && (() => {
+            const totalValue = detailFP.quantity * detailFP.unitPrice;
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Code</span><p className="font-medium font-mono">{detailFP.code}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Form</span><p className="font-medium"><Badge variant="secondary">{detailFP.form}</Badge></p></div>
+                  <div><span className="text-sm text-muted-foreground">Strength</span><p className="font-medium">{detailFP.strength}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Registration #</span><p className="font-medium font-mono">{detailFP.registration}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Batch #</span><p className="font-medium font-mono">{detailFP.batchNo}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Pack Size</span><p className="font-medium">{detailFP.packSize}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Manufacture Date</span><p className="font-medium">{detailFP.manufactureDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Expiry Date</span><p className="font-medium">{detailFP.expiryDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Quantity</span><p className="font-medium">{detailFP.quantity.toLocaleString()} {detailFP.unit}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Unit Price</span><p className="font-medium">{fmt(detailFP.unitPrice)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Storage Condition</span><p className="font-medium">{detailFP.storageCondition}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Warehouse</span><p className="font-medium">{detailFP.warehouse}</p></div>
+                  <div><span className="text-sm text-muted-foreground">QC Released</span><p><Badge variant={detailFP.qcReleased ? "success" : "warning"}>{detailFP.qcReleased ? "Released" : "Pending QC"}</Badge></p></div>
+                  <div><span className="text-sm text-muted-foreground">Total Inventory Value</span><p className="font-medium text-lg">{fmt(totalValue)}</p></div>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Warehouse Detail Dialog ── */}
+      <Dialog open={!!detailWH} onOpenChange={(open) => { if (!open) setDetailWH(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailWH?.name}</DialogTitle>
+          </DialogHeader>
+          {detailWH && (() => {
+            const pct = Math.round((detailWH.used / detailWH.capacity) * 100);
+            const rmInWH = rawMaterials.filter((r) => r.warehouse === detailWH.name);
+            const fpInWH = finishedProducts.filter((p) => p.warehouse === detailWH.name);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium"><Badge variant="secondary">{detailWH.type}</Badge></p></div>
+                  <div><span className="text-sm text-muted-foreground">Location</span><p className="font-medium">{detailWH.location}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Manager</span><p className="font-medium">{detailWH.manager}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Temp Range</span><p className="font-medium">{detailWH.tempRange}</p></div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">Capacity Utilization</span>
+                    <span className={`font-medium ${pct > 85 ? "text-red-600" : ""}`}>{detailWH.used.toLocaleString()} / {detailWH.capacity.toLocaleString()} ({pct}%)</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${pct > 85 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+                {rmInWH.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Raw Materials Stored ({rmInWH.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {rmInWH.map((r) => (
+                        <div key={r.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className="font-medium">{r.name}</span>
+                            <span className="text-muted-foreground ml-2 text-xs font-mono">{r.code}</span>
+                          </div>
+                          <span className="text-muted-foreground">{r.quantityKg.toLocaleString()} kg</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {fpInWH.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Finished Products Stored ({fpInWH.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {fpInWH.map((p) => (
+                        <div key={p.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className="font-medium">{p.name} {p.strength}</span>
+                            <span className="text-muted-foreground ml-2 text-xs font-mono">{p.code}</span>
+                          </div>
+                          <span className="text-muted-foreground">{p.quantity.toLocaleString()} {p.unit}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {rmInWH.length === 0 && fpInWH.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-2">No materials or products stored in this warehouse.</p>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

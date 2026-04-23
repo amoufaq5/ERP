@@ -9,6 +9,8 @@ import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Column } from "@/components/shared/data-table";
 import {
   FolderKanban,
@@ -18,6 +20,7 @@ import {
   Plus,
   Calendar,
   User,
+  Eye,
 } from "lucide-react";
 
 type Project = {
@@ -107,6 +110,7 @@ export default function ProjectsPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [detailProject, setDetailProject] = useState<Project | null>(null);
 
   const activeProjects = projects.filter((p) => p.status === "In Progress").length;
   const totalTasks = tasks.length;
@@ -216,6 +220,8 @@ export default function ProjectsPage() {
                     <EditDeleteMenu
                       onEdit={() => { setEditingProject(p); setShowProjectModal(true); }}
                       onDelete={() => setProjects((prev) => prev.filter((x) => x.id !== p.id))}
+                      onView={() => setDetailProject(p)}
+                      canView
                       itemLabel={p.name}
                       extraItems={[
                         ...(next ? [{ label: `Set ${next}`, onClick: () => setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, status: next } : x)) }] : []),
@@ -349,6 +355,109 @@ export default function ProjectsPage() {
           setEditingTask(null);
         }}
       />
+
+      {/* ── Project Detail Dialog ── */}
+      <Dialog open={!!detailProject} onOpenChange={(open) => { if (!open) setDetailProject(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailProject?.name}</DialogTitle>
+          </DialogHeader>
+          {detailProject && (() => {
+            const projectTasks = tasks.filter((t) => t.project === detailProject.name);
+            const completedTasks = projectTasks.filter((t) => t.status === "Completed");
+            const budgetPct = Math.min(Math.round((detailProject.spent / detailProject.budget) * 100), 100);
+            const overBudget = detailProject.spent > detailProject.budget;
+            const teamMembers = Array.from(new Set(projectTasks.map((t) => t.assignee)));
+            const totalHours = projectTasks.reduce((s, t) => s + t.hours, 0);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Client</span><p className="font-medium">{detailProject.client}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Manager</span><p className="font-medium">{detailProject.manager}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Start Date</span><p className="font-medium">{detailProject.startDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">End Date</span><p className="font-medium">{detailProject.endDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={detailProject.status} /></p></div>
+                  <div><span className="text-sm text-muted-foreground">Total Hours</span><p className="font-medium">{totalHours} hrs</p></div>
+                </div>
+                {detailProject.description && (
+                  <div><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{detailProject.description}</p></div>
+                )}
+                {/* Progress */}
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">Progress</span>
+                    <span className="font-medium">{detailProject.progress}%</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${detailProject.progress}%` }} />
+                  </div>
+                </div>
+                {/* Budget */}
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">Budget</span>
+                    <span className={`font-medium ${overBudget ? "text-red-600" : ""}`}>{fmt(detailProject.spent)} / {fmt(detailProject.budget)} ({budgetPct}%)</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${overBudget ? "bg-red-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(budgetPct, 100)}%` }} />
+                  </div>
+                </div>
+                {/* Team Members */}
+                {teamMembers.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Team Members ({teamMembers.length})</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {teamMembers.map((m) => (
+                        <Badge key={m} variant="secondary">{m}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Task List */}
+                {projectTasks.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Tasks ({completedTasks.length}/{projectTasks.length} completed)</h4>
+                    <div className="border rounded-lg divide-y">
+                      {projectTasks.map((t) => (
+                        <div key={t.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium">{t.title}</span>
+                            <span className="text-muted-foreground ml-2 text-xs">{t.assignee}</span>
+                          </div>
+                          <div className="flex items-center gap-2 ml-2 shrink-0">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${priorityColors[t.priority] ?? ""}`}>{t.priority}</span>
+                            <StatusBadge status={t.status} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Milestone Timeline */}
+                <div>
+                  <h4 className="text-sm font-semibold mb-3">Milestone Timeline</h4>
+                  <div className="flex items-center gap-1">
+                    {["Kickoff", "Design", "Development", "Testing", "Launch"].map((milestone, i) => {
+                      const stepPct = (i / 4) * 100;
+                      const isReached = detailProject.progress >= stepPct;
+                      const isCurrent = detailProject.progress >= stepPct && detailProject.progress < stepPct + 25;
+                      return (
+                        <div key={milestone} className="flex items-center gap-1 flex-1">
+                          <div className="flex flex-col items-center flex-1">
+                            <div className={`h-3 w-3 rounded-full border-2 ${isCurrent ? "bg-primary border-primary" : isReached ? "bg-primary/60 border-primary/60" : "bg-muted border-muted-foreground/30"}`} />
+                            <span className={`text-[10px] mt-1 text-center leading-tight ${isCurrent ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{milestone}</span>
+                          </div>
+                          {i < 4 && <div className={`h-0.5 flex-1 -mt-4 ${isReached && i < Math.floor(detailProject.progress / 25) ? "bg-primary/60" : "bg-muted"}`} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
