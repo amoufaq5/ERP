@@ -31,6 +31,8 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
   ADMIN: ["*"],
   BUM: [
     "/dashboard", "/messages", "/tasks",
+    "/crm/accounts", "/crm/contacts", "/crm/leads", "/crm/opportunities",
+    "/crm/campaigns", "/crm/tickets", "/crm/loyalty",
     "/crm/bum", "/crm/marketeer", "/crm/district-manager", "/crm/medical-rep",
     "/crm/business-units", "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests", "/crm/reports",
     "/erp/finance", "/erp/accounting", "/erp/collections", "/erp/returns",
@@ -38,18 +40,22 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
   ],
   MARKETEER: [
     "/dashboard", "/messages", "/tasks",
+    "/crm/accounts", "/crm/contacts", "/crm/leads", "/crm/opportunities",
+    "/crm/campaigns", "/crm/tickets", "/crm/loyalty",
     "/crm/marketeer", "/crm/district-manager", "/crm/medical-rep",
     "/crm/business-units", "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests", "/crm/reports",
     "/settings/profile",
   ],
   DISTRICT_MANAGER: [
     "/dashboard", "/messages", "/tasks",
+    "/crm/accounts", "/crm/contacts", "/crm/tickets",
     "/crm/district-manager", "/crm/medical-rep",
     "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests", "/crm/reports",
     "/settings/profile",
   ],
   MEDICAL_REP: [
     "/dashboard", "/messages", "/tasks",
+    "/crm/accounts", "/crm/contacts", "/crm/tickets",
     "/crm/medical-rep", "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests",
     "/settings/profile",
   ],

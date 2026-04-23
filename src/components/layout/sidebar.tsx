@@ -32,6 +32,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Building,
+  Building2,
   X,
   ShieldCheck,
   Scale,
@@ -47,6 +48,12 @@ import {
   Database,
   Target,
   Calculator,
+  Contact,
+  Megaphone,
+  TrendingUp,
+  LifeBuoy,
+  Heart,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -88,6 +95,13 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: "CRM",
     items: [
+      { label: "Accounts", href: "/crm/accounts", icon: Building2 },
+      { label: "Contacts", href: "/crm/contacts", icon: Contact },
+      { label: "Leads", href: "/crm/leads", icon: Sparkles },
+      { label: "Opportunities", href: "/crm/opportunities", icon: TrendingUp },
+      { label: "Campaigns", href: "/crm/campaigns", icon: Megaphone },
+      { label: "Tickets", href: "/crm/tickets", icon: LifeBuoy },
+      { label: "Loyalty", href: "/crm/loyalty", icon: Heart },
       { label: "Business Units", href: "/crm/business-units", icon: Building },
       { label: "Medical Reps", href: "/crm/medical-rep", icon: UserCheck },
       { label: "District Manager", href: "/crm/district-manager", icon: Users },
