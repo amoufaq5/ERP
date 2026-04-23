@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 type LeadStatus = "NEW" | "CONTACTED" | "QUALIFIED" | "PROPOSAL" | "NEGOTIATION" | "CLOSED_WON" | "CLOSED_LOST" | "NURTURING";
 type LeadSource = "WEBSITE" | "REFERRAL" | "COLD_CALL" | "EMAIL" | "SOCIAL_MEDIA" | "TRADE_SHOW" | "PARTNER";
@@ -184,70 +186,83 @@ export default function LeadsPage() {
             onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
           />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Company</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Source</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Score</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Assigned To</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">Value</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((lead) => (
-                <tr key={lead.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-gray-900">
-                    {lead.firstName} {lead.lastName}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{lead.company}</td>
-                  <td className="px-4 py-3 text-gray-600">{lead.email}</td>
-                  <td className="px-4 py-3 text-gray-600">{lead.source.replace("_", " ")}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 bg-gray-200 rounded-full h-1.5">
-                        <div
-                          className={`h-1.5 rounded-full ${lead.score >= 80 ? "bg-green-500" : lead.score >= 60 ? "bg-yellow-500" : "bg-red-400"}`}
-                          style={{ width: `${lead.score}%` }}
-                        />
-                      </div>
-                      <span className="text-gray-700 font-medium">{lead.score}</span>
+        <DataTable
+          columns={[
+            {
+              key: "firstName",
+              label: "Name",
+              render: (_v: unknown, row: unknown) => {
+                const lead = row as Lead;
+                return <span className="font-medium text-gray-900">{lead.firstName} {lead.lastName}</span>;
+              },
+            },
+            { key: "company", label: "Company" },
+            { key: "email", label: "Email" },
+            {
+              key: "source",
+              label: "Source",
+              render: (v: unknown) => <span>{String(v).replace("_", " ")}</span>,
+            },
+            {
+              key: "score",
+              label: "Score",
+              render: (_v: unknown, row: unknown) => {
+                const lead = row as Lead;
+                return (
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 bg-gray-200 rounded-full h-1.5">
+                      <div
+                        className={`h-1.5 rounded-full ${lead.score >= 80 ? "bg-green-500" : lead.score >= 60 ? "bg-yellow-500" : "bg-red-400"}`}
+                        style={{ width: `${lead.score}%` }}
+                      />
                     </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={lead.status} />
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{lead.assignedTo}</td>
-                  <td className="px-4 py-3 text-right font-medium text-gray-900">
-                    ${lead.value.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3">
-                    <EditDeleteMenu
-                      onEdit={() => { setEditing(lead); setShowModal(true); }}
-                      onDelete={() => setLeads((prev) => prev.filter((l) => l.id !== lead.id))}
-                      itemLabel={`${lead.firstName} ${lead.lastName}`}
-                      extraItems={(() => {
-                        const next = statusFlow[lead.status];
-                        if (!next) return [];
-                        return [{ label: `Move to ${next.replace("_", " ")}`, onClick: () => setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, status: next } : l)) }];
-                      })()}
-                    />
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center text-gray-400">No leads found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                    <span className="text-gray-700 font-medium">{lead.score}</span>
+                  </div>
+                );
+              },
+            },
+            {
+              key: "status",
+              label: "Status",
+              render: (_v: unknown, row: unknown) => {
+                const lead = row as Lead;
+                return <StatusBadge status={lead.status} />;
+              },
+            },
+            { key: "assignedTo", label: "Assigned To" },
+            {
+              key: "value",
+              label: "Value",
+              className: "text-right",
+              render: (_v: unknown, row: unknown) => {
+                const lead = row as Lead;
+                return <span className="font-medium text-gray-900">${lead.value.toLocaleString()}</span>;
+              },
+            },
+            {
+              key: "actions",
+              label: "",
+              render: (_v: unknown, row: unknown) => {
+                const lead = row as Lead;
+                return (
+                  <EditDeleteMenu
+                    onEdit={() => { setEditing(lead); setShowModal(true); }}
+                    onDelete={() => setLeads((prev) => prev.filter((l) => l.id !== lead.id))}
+                    itemLabel={`${lead.firstName} ${lead.lastName}`}
+                    extraItems={(() => {
+                      const next = statusFlow[lead.status];
+                      if (!next) return [];
+                      return [{ label: `Move to ${next.replace("_", " ")}`, onClick: () => setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, status: next } : l)) }];
+                    })()}
+                  />
+                );
+              },
+            },
+          ] as Column<Record<string, unknown>>[]}
+          data={filtered as unknown as Record<string, unknown>[]}
+          emptyMessage="No leads found."
+          pagination={false}
+        />
       </div>
 
       <EntityFormModal

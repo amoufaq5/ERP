@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 interface Interview {
   id: number;
@@ -196,64 +198,95 @@ export default function InterviewsPage() {
               onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
             />
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Candidate</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Position</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Type</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Interviewer</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date / Time</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Duration</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Rating</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((iv) => (
-                  <tr key={iv.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 font-medium text-foreground">{iv.candidate}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{iv.job}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TYPE_COLORS[iv.type] ?? ""}`}>
-                        {iv.type.replace(/_/g, " ")}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
+          <DataTable
+            columns={[
+              {
+                key: "candidate",
+                label: "Candidate",
+                render: (v: unknown) => <span className="font-medium text-foreground">{v as string}</span>,
+              },
+              { key: "job", label: "Position" },
+              {
+                key: "type",
+                label: "Type",
+                render: (_v: unknown, row: unknown) => {
+                  const iv = row as Interview;
+                  return (
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TYPE_COLORS[iv.type] ?? ""}`}>
+                      {iv.type.replace(/_/g, " ")}
+                    </span>
+                  );
+                },
+              },
+              {
+                key: "interviewer",
+                label: "Interviewer",
+                render: (_v: unknown, row: unknown) => {
+                  const iv = row as Interview;
+                  return (
+                    <div>
                       <div className="text-foreground">{iv.interviewer}</div>
                       <div className="text-xs text-muted-foreground">{iv.interviewerRole}</div>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{iv.date} {iv.time}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{iv.duration} min</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[iv.status] ?? ""}`}>
-                        {iv.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3"><StarRating rating={iv.rating} /></td>
-                    <td className="px-4 py-3">
-                      <EditDeleteMenu
-                        onEdit={() => { setEditing(iv); setShowModal(true); }}
-                        onDelete={() => setInterviews((prev) => prev.filter((x) => x.id !== iv.id))}
-                        itemLabel={`${iv.candidate} interview`}
-                        extraItems={[
-                          ...(statusFlow[iv.status] ? [{ label: `Mark ${statusFlow[iv.status]}`, onClick: () => setInterviews((prev) => prev.map((x) => x.id === iv.id ? { ...x, status: statusFlow[iv.status] } : x)) }] : []),
-                          ...(iv.status === "SCHEDULED" ? [{ label: "Cancel", onClick: () => setInterviews((prev) => prev.map((x) => x.id === iv.id ? { ...x, status: "CANCELLED" } : x)) }] : []),
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                ))}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">No interviews found.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "date",
+                label: "Date / Time",
+                render: (_v: unknown, row: unknown) => {
+                  const iv = row as Interview;
+                  return <span className="text-muted-foreground">{iv.date} {iv.time}</span>;
+                },
+              },
+              {
+                key: "duration",
+                label: "Duration",
+                render: (v: unknown) => <span className="text-muted-foreground">{v as number} min</span>,
+              },
+              {
+                key: "status",
+                label: "Status",
+                render: (_v: unknown, row: unknown) => {
+                  const iv = row as Interview;
+                  return (
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[iv.status] ?? ""}`}>
+                      {iv.status}
+                    </span>
+                  );
+                },
+              },
+              {
+                key: "rating",
+                label: "Rating",
+                render: (_v: unknown, row: unknown) => {
+                  const iv = row as Interview;
+                  return <StarRating rating={iv.rating} />;
+                },
+              },
+              {
+                key: "actions",
+                label: "",
+                render: (_v: unknown, row: unknown) => {
+                  const iv = row as Interview;
+                  return (
+                    <EditDeleteMenu
+                      onEdit={() => { setEditing(iv); setShowModal(true); }}
+                      onDelete={() => setInterviews((prev) => prev.filter((x) => x.id !== iv.id))}
+                      itemLabel={`${iv.candidate} interview`}
+                      extraItems={[
+                        ...(statusFlow[iv.status] ? [{ label: `Mark ${statusFlow[iv.status]}`, onClick: () => setInterviews((prev) => prev.map((x) => x.id === iv.id ? { ...x, status: statusFlow[iv.status] } : x)) }] : []),
+                        ...(iv.status === "SCHEDULED" ? [{ label: "Cancel", onClick: () => setInterviews((prev) => prev.map((x) => x.id === iv.id ? { ...x, status: "CANCELLED" } : x)) }] : []),
+                      ]}
+                    />
+                  );
+                },
+              },
+            ] as Column<Record<string, unknown>>[]}
+            data={filtered as unknown as Record<string, unknown>[]}
+            emptyMessage="No interviews found."
+            pagination={false}
+          />
         </div>
       )}
 

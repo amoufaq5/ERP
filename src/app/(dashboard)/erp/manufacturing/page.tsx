@@ -15,6 +15,8 @@ import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import {
   EntityFormModal, type EntityField, type EntityFormData,
 } from "@/components/shared/entity-form-modal";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 /* ─── Types ─── */
 
@@ -223,43 +225,30 @@ export default function ManufacturingPage() {
 
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">BOM / Assembly</th>
-                      <th className="text-right p-3">Quantity</th>
-                      <th className="text-left p-3">Priority</th>
-                      <th className="text-left p-3">Assigned To</th>
-                      <th className="text-left p-3">Start</th>
-                      <th className="text-left p-3">End</th>
-                      <th className="text-left p-3">Status</th>
-                      <th className="text-right p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredWO.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-500">No work orders match your filters.</td></tr>}
-                    {filteredWO.map((w) => (
-                      <tr key={w.id} className="border-b hover:bg-slate-50">
-                        <td className="p-3 font-medium">{w.bomName}</td>
-                        <td className="p-3 text-right font-medium">{w.quantity.toLocaleString()}</td>
-                        <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColor[w.priority]}`}>{w.priority}</span></td>
-                        <td className="p-3 text-xs">{w.assignedTo}</td>
-                        <td className="p-3 text-xs">{w.startDate}</td>
-                        <td className="p-3 text-xs">{w.endDate || "—"}</td>
-                        <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[w.status]}`}>{w.status}</span></td>
-                        <td className="p-3 text-right">
-                          <EditDeleteMenu onEdit={() => handleEditWO(w)} onDelete={() => handleDeleteWO(w)} itemLabel={`WO: ${w.bomName}`} compact
-                            extraItems={[
-                              ...(w.status === "PLANNED" ? [{ label: "Start Production", onClick: () => setWorkOrders((prev) => prev.map((x) => x.id === w.id ? { ...x, status: "IN_PROGRESS" as const } : x)), icon: <Play className="h-3.5 w-3.5 text-orange-600" /> }] : []),
-                              ...(w.status === "IN_PROGRESS" ? [{ label: "Mark Complete", onClick: () => setWorkOrders((prev) => prev.map((x) => x.id === w.id ? { ...x, status: "COMPLETED" as const, endDate: new Date().toISOString().split("T")[0] } : x)), icon: <CheckCircle className="h-3.5 w-3.5 text-green-600" /> }] : []),
-                            ]} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "bomName", label: "BOM / Assembly", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "quantity", label: "Quantity", className: "text-right", render: (v) => <span className="font-medium">{(v as number).toLocaleString()}</span> },
+                  { key: "priority", label: "Priority", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColor[v as string]}`}>{v as string}</span> },
+                  { key: "assignedTo", label: "Assigned To", className: "text-xs" },
+                  { key: "startDate", label: "Start", className: "text-xs" },
+                  { key: "endDate", label: "End", className: "text-xs", render: (v) => <>{(v as string) || "—"}</> },
+                  { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
+                  { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
+                    const w = row as unknown as WorkOrder;
+                    return (
+                      <EditDeleteMenu onEdit={() => handleEditWO(w)} onDelete={() => handleDeleteWO(w)} itemLabel={`WO: ${w.bomName}`} compact
+                        extraItems={[
+                          ...(w.status === "PLANNED" ? [{ label: "Start Production", onClick: () => setWorkOrders((prev) => prev.map((x) => x.id === w.id ? { ...x, status: "IN_PROGRESS" as const } : x)), icon: <Play className="h-3.5 w-3.5 text-orange-600" /> }] : []),
+                          ...(w.status === "IN_PROGRESS" ? [{ label: "Mark Complete", onClick: () => setWorkOrders((prev) => prev.map((x) => x.id === w.id ? { ...x, status: "COMPLETED" as const, endDate: new Date().toISOString().split("T")[0] } : x)), icon: <CheckCircle className="h-3.5 w-3.5 text-green-600" /> }] : []),
+                        ]} />
+                    );
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={filteredWO as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No work orders match your filters."
+              />
             </CardContent>
           </Card>
         </TabsContent>

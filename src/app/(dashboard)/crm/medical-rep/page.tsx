@@ -10,7 +10,6 @@ import {
   Stethoscope,
   CheckCircle2,
   Target,
-  Users as UsersIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +19,8 @@ import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import {
   EntityFormModal,
   type EntityField,
@@ -468,70 +469,40 @@ export default function MedicalRepPage() {
 
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">Doctor</th>
-                      <th className="text-left p-3">Specialty</th>
-                      <th className="text-left p-3">Hospital</th>
-                      <th className="text-left p-3">City</th>
-                      <th className="text-left p-3">Class</th>
-                      <th className="text-left p-3">Assigned Rep</th>
-                      <th className="text-left p-3">Last Visit</th>
-                      <th className="text-right p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredDoctors.length === 0 && (
-                      <tr>
-                        <td colSpan={8} className="p-8 text-center text-slate-500">
-                          No doctors match your filters.
-                        </td>
-                      </tr>
-                    )}
-                    {filteredDoctors.map((d) => {
-                      const rep = allUsers.find((u) => u.id === d.assignedRepId);
-                      return (
-                        <tr key={d.id} className="border-b hover:bg-slate-50">
-                          <td className="p-3 font-medium">{d.name}</td>
-                          <td className="p-3">{d.specialty}</td>
-                          <td className="p-3">{d.hospital}</td>
-                          <td className="p-3">{d.city}</td>
-                          <td className="p-3">
-                            <Badge
-                              variant={
-                                d.classification === "A"
-                                  ? "success"
-                                  : d.classification === "B"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                            >
-                              {d.classification}
-                            </Badge>
-                          </td>
-                          <td className="p-3 text-xs">{rep?.name ?? "—"}</td>
-                          <td className="p-3 text-xs">
-                            {d.lastVisitAt
-                              ? new Date(d.lastVisitAt).toLocaleDateString()
-                              : "—"}
-                          </td>
-                          <td className="p-3 text-right">
-                            <EditDeleteMenu
-                              onEdit={() => handleEditDoctor(d)}
-                              onDelete={canDirectlyEditDoctor ? () => handleDeleteDoctor(d) : undefined}
-                              canDelete={canDirectlyEditDoctor}
-                              itemLabel={d.name}
-                              compact
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "name", label: "Doctor", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "specialty", label: "Specialty" },
+                  { key: "hospital", label: "Hospital" },
+                  { key: "city", label: "City" },
+                  { key: "classification", label: "Class", render: (v) => (
+                    <Badge variant={v === "A" ? "success" : v === "B" ? "default" : "secondary"}>
+                      {v as string}
+                    </Badge>
+                  )},
+                  { key: "assignedRepId", label: "Assigned Rep", render: (v) => {
+                    const rep = allUsers.find((u) => u.id === v);
+                    return <span className="text-xs">{rep?.name ?? "—"}</span>;
+                  }},
+                  { key: "lastVisitAt", label: "Last Visit", render: (v) => (
+                    <span className="text-xs">{v ? new Date(v as string).toLocaleDateString() : "—"}</span>
+                  )},
+                  { key: "_actions", label: "", className: "text-right", render: (_v, row) => {
+                    const d = row as unknown as Doctor;
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => handleEditDoctor(d)}
+                        onDelete={canDirectlyEditDoctor ? () => handleDeleteDoctor(d) : undefined}
+                        canDelete={canDirectlyEditDoctor}
+                        itemLabel={d.name}
+                        compact
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredDoctors as unknown as Record<string, unknown>[]}
+                emptyMessage="No doctors match your filters."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -571,96 +542,60 @@ export default function MedicalRepPage() {
           />
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">Date</th>
-                      <th className="text-left p-3">Doctor</th>
-                      <th className="text-left p-3">Rep</th>
-                      <th className="text-left p-3">Type</th>
-                      <th className="text-left p-3">Partner</th>
-                      <th className="text-left p-3">Duration</th>
-                      <th className="text-left p-3">GPS</th>
-                      <th className="text-left p-3">Status</th>
-                      <th className="text-right p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredVisits.length === 0 && (
-                      <tr>
-                        <td colSpan={9} className="p-8 text-center text-slate-500">
-                          No visits logged yet.
-                        </td>
-                      </tr>
-                    )}
-                    {filteredVisits
-                      .slice()
-                      .sort((a, b) => (b.dateTime > a.dateTime ? 1 : -1))
-                      .map((v) => {
-                        const doctor = store.doctors.find((d) => d.id === v.doctorId);
-                        const rep = allUsers.find((u) => u.id === v.repId);
-                        const partner = v.partnerId
-                          ? allUsers.find((u) => u.id === v.partnerId)
-                          : null;
-                        return (
-                          <tr key={v.id} className="border-b hover:bg-slate-50">
-                            <td className="p-3 text-xs">
-                              {new Date(v.dateTime).toLocaleString()}
-                            </td>
-                            <td className="p-3 font-medium">{doctor?.name ?? "—"}</td>
-                            <td className="p-3 text-xs">{rep?.name ?? "—"}</td>
-                            <td className="p-3">
-                              <Badge variant={v.type === "DOUBLE" ? "default" : "outline"}>
-                                {v.type}
-                              </Badge>
-                            </td>
-                            <td className="p-3 text-xs">{partner?.name ?? "—"}</td>
-                            <td className="p-3 text-xs">{v.durationMin}m</td>
-                            <td className="p-3">
-                              {v.gpsVerified ? (
-                                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                              ) : (
-                                <span className="text-slate-300">—</span>
-                              )}
-                            </td>
-                            <td className="p-3">
-                              <Badge
-                                variant={
-                                  v.status === "APPROVED"
-                                    ? "success"
-                                    : v.status === "REJECTED"
-                                    ? "destructive"
-                                    : "warning"
-                                }
-                              >
-                                {v.status}
-                              </Badge>
-                            </td>
-                            <td className="p-3 text-right">
-                              <EditDeleteMenu
-                                onEdit={() => handleEditVisit(v)}
-                                onDelete={() => handleDeleteVisit(v)}
-                                itemLabel={`visit on ${new Date(v.dateTime).toLocaleDateString()}`}
-                                extraItems={
-                                  !isRep && v.status === "LOGGED"
-                                    ? [
-                                        {
-                                          label: "Approve",
-                                          onClick: () => handleApproveVisit(v),
-                                          icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
-                                        },
-                                      ]
-                                    : []
-                                }
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "dateTime", label: "Date", render: (v) => <span className="text-xs">{new Date(v as string).toLocaleString()}</span> },
+                  { key: "doctorId", label: "Doctor", render: (v) => {
+                    const doctor = store.doctors.find((d) => d.id === v);
+                    return <span className="font-medium">{doctor?.name ?? "—"}</span>;
+                  }},
+                  { key: "repId", label: "Rep", render: (v) => {
+                    const rep = allUsers.find((u) => u.id === v);
+                    return <span className="text-xs">{rep?.name ?? "—"}</span>;
+                  }},
+                  { key: "type", label: "Type", render: (v) => (
+                    <Badge variant={v === "DOUBLE" ? "default" : "outline"}>
+                      {v as string}
+                    </Badge>
+                  )},
+                  { key: "partnerId", label: "Partner", render: (v) => {
+                    const partner = v ? allUsers.find((u) => u.id === v) : null;
+                    return <span className="text-xs">{partner?.name ?? "—"}</span>;
+                  }},
+                  { key: "durationMin", label: "Duration", render: (v) => <span className="text-xs">{v as number}m</span> },
+                  { key: "gpsVerified", label: "GPS", render: (v) => (
+                    v ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <span className="text-slate-300">—</span>
+                  )},
+                  { key: "status", label: "Status", render: (v) => (
+                    <Badge variant={v === "APPROVED" ? "success" : v === "REJECTED" ? "destructive" : "warning"}>
+                      {v as string}
+                    </Badge>
+                  )},
+                  { key: "_actions", label: "", className: "text-right", render: (_v, row) => {
+                    const v = row as unknown as Visit;
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => handleEditVisit(v)}
+                        onDelete={() => handleDeleteVisit(v)}
+                        itemLabel={`visit on ${new Date(v.dateTime).toLocaleDateString()}`}
+                        extraItems={
+                          !isRep && v.status === "LOGGED"
+                            ? [
+                                {
+                                  label: "Approve",
+                                  onClick: () => handleApproveVisit(v),
+                                  icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
+                                },
+                              ]
+                            : []
+                        }
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredVisits.slice().sort((a, b) => (b.dateTime > a.dateTime ? 1 : -1)) as unknown as Record<string, unknown>[]}
+                emptyMessage="No visits logged yet."
+              />
             </CardContent>
           </Card>
         </TabsContent>

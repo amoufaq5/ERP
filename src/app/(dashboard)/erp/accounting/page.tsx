@@ -399,51 +399,36 @@ export default function AccountingPage() {
           />
           <Card>
             <CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                  <tr>
-                    <th className="text-left p-3">Number</th>
-                    <th className="text-left p-3">Bank</th>
-                    <th className="text-left p-3">Type</th>
-                    <th className="text-left p-3">Party</th>
-                    <th className="text-right p-3">Amount</th>
-                    <th className="text-left p-3">Issue Date</th>
-                    <th className="text-left p-3">Due Date</th>
-                    <th className="text-left p-3">Status</th>
-                    <th className="text-right p-3">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCheques.map((c) => (
-                    <tr key={c.id} className="border-b hover:bg-slate-50">
-                      <td className="p-3 font-mono text-xs">{c.number}</td>
-                      <td className="p-3">{c.bankName}</td>
-                      <td className="p-3">
-                        <Badge variant={c.type === "INCOMING" ? "success" : "default"}>
-                          {c.type}
-                        </Badge>
-                      </td>
-                      <td className="p-3 font-medium">{c.partyName}</td>
-                      <td className="p-3 text-right font-semibold">{c.amount.toLocaleString()}</td>
-                      <td className="p-3 text-xs">{new Date(c.issueDate).toLocaleDateString()}</td>
-                      <td className="p-3 text-xs">{new Date(c.dueDate).toLocaleDateString()}</td>
-                      <td className="p-3">
-                        <Badge variant={c.status === "CLEARED" ? "success" : c.status === "BOUNCED" ? "destructive" : c.status === "DEPOSITED" ? "default" : "warning"}>
-                          {c.status}
-                        </Badge>
-                      </td>
-                      <td className="p-3 text-right">
-                        <EditDeleteMenu
-                          onEdit={() => { setEditingCheque(c); setChequeFormOpen(true); }}
-                          onDelete={() => store.remove("cheques", c.id)}
-                          itemLabel={`Cheque ${c.number}`}
-                          compact
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                columns={[
+                  { key: "number", label: "Number", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "bankName", label: "Bank" },
+                  { key: "type", label: "Type", render: (v: string) => (
+                    <Badge variant={v === "INCOMING" ? "success" : "default"}>{v}</Badge>
+                  ) },
+                  { key: "partyName", label: "Party", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "amount", label: "Amount", className: "text-right", render: (v: number) => <span className="font-semibold">{v.toLocaleString()}</span> },
+                  { key: "issueDate", label: "Issue Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
+                  { key: "dueDate", label: "Due Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
+                  { key: "status", label: "Status", render: (v: string) => (
+                    <Badge variant={v === "CLEARED" ? "success" : v === "BOUNCED" ? "destructive" : v === "DEPOSITED" ? "default" : "warning"}>{v}</Badge>
+                  ) },
+                  { key: "actions", label: "Actions", className: "text-right", render: (_: unknown, row: Record<string, unknown>) => {
+                    const c = row as unknown as Cheque;
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingCheque(c); setChequeFormOpen(true); }}
+                        onDelete={() => store.remove("cheques", c.id)}
+                        itemLabel={`Cheque ${c.number}`}
+                        compact
+                      />
+                    );
+                  } },
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredCheques as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No cheques found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -462,46 +447,36 @@ export default function AccountingPage() {
           />
           <Card>
             <CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                  <tr>
-                    <th className="text-left p-3">Invoice #</th>
-                    <th className="text-left p-3">Customer</th>
-                    <th className="text-left p-3">Date</th>
-                    <th className="text-left p-3">Due Date</th>
-                    <th className="text-right p-3">Total</th>
-                    <th className="text-left p-3">Status</th>
-                    <th className="text-right p-3">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredInvoices.map((i) => {
-                    const cust = store.customers.find((c) => c.id === i.customerId);
+              <DataTable
+                columns={[
+                  { key: "number", label: "Invoice #", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "customerId", label: "Customer", render: (_: unknown, row: Record<string, unknown>) => {
+                    const inv = row as unknown as Invoice;
+                    const cust = store.customers.find((c) => c.id === inv.customerId);
+                    return <span className="font-medium">{cust?.name ?? "—"}</span>;
+                  } },
+                  { key: "date", label: "Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
+                  { key: "dueDate", label: "Due Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
+                  { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{v.toLocaleString()}</span> },
+                  { key: "status", label: "Status", render: (v: string) => (
+                    <Badge variant={v === "PAID" ? "success" : v === "OVERDUE" ? "destructive" : v === "VOID" ? "secondary" : "warning"}>{v}</Badge>
+                  ) },
+                  { key: "actions", label: "Actions", className: "text-right", render: (_: unknown, row: Record<string, unknown>) => {
+                    const i = row as unknown as Invoice;
                     return (
-                      <tr key={i.id} className="border-b hover:bg-slate-50">
-                        <td className="p-3 font-mono text-xs">{i.number}</td>
-                        <td className="p-3 font-medium">{cust?.name ?? "—"}</td>
-                        <td className="p-3 text-xs">{new Date(i.date).toLocaleDateString()}</td>
-                        <td className="p-3 text-xs">{new Date(i.dueDate).toLocaleDateString()}</td>
-                        <td className="p-3 text-right font-semibold">{i.total.toLocaleString()}</td>
-                        <td className="p-3">
-                          <Badge variant={i.status === "PAID" ? "success" : i.status === "OVERDUE" ? "destructive" : i.status === "VOID" ? "secondary" : "warning"}>
-                            {i.status}
-                          </Badge>
-                        </td>
-                        <td className="p-3 text-right">
-                          <EditDeleteMenu
-                            onEdit={() => { setEditingInvoice(i); setInvFormOpen(true); }}
-                            onDelete={() => store.remove("invoices", i.id)}
-                            itemLabel={i.number}
-                            compact
-                          />
-                        </td>
-                      </tr>
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingInvoice(i); setInvFormOpen(true); }}
+                        onDelete={() => store.remove("invoices", i.id)}
+                        itemLabel={i.number}
+                        compact
+                      />
                     );
-                  })}
-                </tbody>
-              </table>
+                  } },
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredInvoices as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No invoices found."
+              />
             </CardContent>
           </Card>
         </TabsContent>

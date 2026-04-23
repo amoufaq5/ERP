@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
+import DataTable from "@/components/shared/data-table"
+import type { Column } from "@/components/shared/data-table"
 
 const assetFields: EntityField[] = [
   { name: "name", label: "Asset Name", type: "text", required: true },
@@ -96,14 +98,19 @@ export default function AssetsPage() {
             values={filters}
             onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
           />
-          <table className="w-full text-sm">
-            <thead><tr className="border-b bg-gray-50">
-              <th className="text-left p-3 font-medium">Asset</th><th className="text-left p-3 font-medium">Tag</th><th className="text-left p-3 font-medium">Category</th><th className="text-left p-3 font-medium">Location</th><th className="text-left p-3 font-medium">Assigned To</th><th className="text-right p-3 font-medium">Value</th><th className="text-left p-3 font-medium">Warranty</th><th className="text-left p-3 font-medium">Status</th><th className="p-3"></th>
-            </tr></thead>
-            <tbody>{filtered.map(a => (
-              <tr key={a.id} className="border-b hover:bg-gray-50">
-                <td className="p-3 font-medium">{a.name}</td><td className="p-3 text-gray-500">{a.assetTag}</td><td className="p-3">{a.category}</td><td className="p-3">{a.location}</td><td className="p-3">{a.assignedTo}</td><td className="p-3 text-right">{fmt(a.currentValue)}</td><td className="p-3">{a.warrantyExpiry}</td><td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[a.status]}`}>{a.status}</span></td>
-                <td className="p-3">
+          <DataTable
+            columns={[
+              { key: "name", label: "Asset", render: (v) => <span className="font-medium">{v as string}</span> },
+              { key: "assetTag", label: "Tag", className: "text-gray-500" },
+              { key: "category", label: "Category" },
+              { key: "location", label: "Location" },
+              { key: "assignedTo", label: "Assigned To" },
+              { key: "currentValue", label: "Value", className: "text-right", render: (v) => fmt(v as number) },
+              { key: "warrantyExpiry", label: "Warranty" },
+              { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
+              { key: "id", label: "", render: (_v, row) => {
+                const a = row as unknown as typeof initialAssets[0];
+                return (
                   <EditDeleteMenu
                     onEdit={() => { setEditing(a); setShowModal(true) }}
                     onDelete={() => setAssets(prev => prev.filter(x => x.id !== a.id))}
@@ -115,25 +122,32 @@ export default function AssetsPage() {
                       return [{ label: `Set ${next}`, onClick: () => setAssets(prev => prev.map(x => x.id === a.id ? { ...x, status: next } : x)) }]
                     })()}
                   />
-                </td>
-              </tr>
-            ))}</tbody>
-          </table>
+                );
+              }},
+            ] satisfies Column<Record<string, unknown>>[]}
+            data={filtered as unknown as Record<string, unknown>[]}
+            pagination={false}
+            emptyMessage="No assets match your filters."
+          />
         </CardContent></Card>
       )}
 
       {tab === "maintenance" && (
         <Card><CardContent className="pt-6">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b bg-gray-50">
-              <th className="text-left p-3 font-medium">Asset</th><th className="text-left p-3 font-medium">Type</th><th className="text-left p-3 font-medium">Description</th><th className="text-left p-3 font-medium">Scheduled</th><th className="text-left p-3 font-medium">Completed</th><th className="text-right p-3 font-medium">Cost</th><th className="text-left p-3 font-medium">Status</th>
-            </tr></thead>
-            <tbody>{maintenanceRecords.map(m => (
-              <tr key={m.id} className="border-b hover:bg-gray-50">
-                <td className="p-3 font-medium">{m.asset}</td><td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${m.type === "PREVENTIVE" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"}`}>{m.type}</span></td><td className="p-3">{m.description}</td><td className="p-3">{m.scheduledDate}</td><td className="p-3">{m.completedDate || "—"}</td><td className="p-3 text-right">{m.cost > 0 ? fmt(m.cost) : "—"}</td><td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[m.status]}`}>{m.status}</span></td>
-              </tr>
-            ))}</tbody>
-          </table>
+          <DataTable
+            columns={[
+              { key: "asset", label: "Asset", render: (v) => <span className="font-medium">{v as string}</span> },
+              { key: "type", label: "Type", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${(v as string) === "PREVENTIVE" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"}`}>{v as string}</span> },
+              { key: "description", label: "Description" },
+              { key: "scheduledDate", label: "Scheduled" },
+              { key: "completedDate", label: "Completed", render: (v) => <>{(v as string | null) || "—"}</> },
+              { key: "cost", label: "Cost", className: "text-right", render: (v) => <>{(v as number) > 0 ? fmt(v as number) : "—"}</> },
+              { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
+            ] satisfies Column<Record<string, unknown>>[]}
+            data={maintenanceRecords as unknown as Record<string, unknown>[]}
+            pagination={false}
+            emptyMessage="No maintenance records found."
+          />
         </CardContent></Card>
       )}
       <EntityFormModal

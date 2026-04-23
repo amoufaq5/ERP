@@ -11,6 +11,8 @@ import StatusBadge from "@/components/shared/status-badge";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 const RETURNS = [
   { id: "RET-1001", customer: "Al-Shifa Pharmacy", product: "Augmentin 625mg Tab", batch: "AUG2024-08", qty: 120, reason: "Near-Expiry", invoice: "INV-2401", value: "$1,440", date: "2026-03-28", status: "Pending" },
@@ -151,48 +153,42 @@ export default function ReturnsPage() {
           <Card>
             <CardHeader><CardTitle>Return Requests</CardTitle><CardDescription>{returns.length} return requests</CardDescription></CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Return#</th><th className="p-3">Customer</th><th className="p-3">Product</th><th className="p-3">Batch#</th><th className="p-3">Qty</th><th className="p-3">Reason</th><th className="p-3">Invoice</th><th className="p-3">Value</th><th className="p-3">Date</th><th className="p-3">Status</th><th className="p-3">Actions</th></tr>
-                  </thead>
-                  <tbody>
-                    {returns
-                      .filter(r => !retFilters._search || r.id.toLowerCase().includes(retFilters._search.toLowerCase()) || r.customer.toLowerCase().includes(retFilters._search.toLowerCase()) || r.product.toLowerCase().includes(retFilters._search.toLowerCase()))
-                      .filter(r => !retFilters.status || r.status === retFilters.status)
-                      .filter(r => !retFilters.reason || r.reason === retFilters.reason)
-                      .map(r => {
-                        const flow: Record<string, string> = { "Pending": "Approved", "Approved": "Received", "Received": "Credit Issued" };
-                        const next = flow[r.status];
-                        return (
-                          <tr key={r.id} className="border-t">
-                            <td className="p-3 font-mono">{r.id}</td>
-                            <td className="p-3 font-medium">{r.customer}</td>
-                            <td className="p-3">{r.product}</td>
-                            <td className="p-3 font-mono text-xs">{r.batch}</td>
-                            <td className="p-3">{r.qty}</td>
-                            <td className="p-3"><StatusBadge status={r.reason} /></td>
-                            <td className="p-3 font-mono text-xs">{r.invoice}</td>
-                            <td className="p-3 font-semibold">{r.value}</td>
-                            <td className="p-3">{r.date}</td>
-                            <td className="p-3"><StatusBadge status={r.status} /></td>
-                            <td className="p-3">
-                              <EditDeleteMenu
-                                onEdit={() => setModal({ kind: "return", editing: r })}
-                                onDelete={() => setReturns(prev => prev.filter(x => x.id !== r.id))}
-                                itemLabel={r.id}
-                                extraItems={[
-                                  ...(next ? [{ label: `→ ${next}`, onClick: () => setReturns(prev => prev.map(x => x.id === r.id ? { ...x, status: next } : x)) }] : []),
-                                  ...(r.status === "Pending" ? [{ label: "Reject", onClick: () => setReturns(prev => prev.map(x => x.id === r.id ? { ...x, status: "Rejected" } : x)), destructive: true }] : []),
-                                ]}
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Return#", render: (v) => <span className="font-mono">{v as string}</span> },
+                  { key: "customer", label: "Customer", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "product", label: "Product" },
+                  { key: "batch", label: "Batch#", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                  { key: "qty", label: "Qty" },
+                  { key: "reason", label: "Reason", render: (v) => <StatusBadge status={v as string} /> },
+                  { key: "invoice", label: "Invoice", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                  { key: "value", label: "Value", render: (v) => <span className="font-semibold">{v as string}</span> },
+                  { key: "date", label: "Date" },
+                  { key: "status", label: "Status", render: (v) => <StatusBadge status={v as string} /> },
+                  { key: "_actions", label: "Actions", render: (_v, row) => {
+                    const r = row as unknown as typeof RETURNS[0];
+                    const flow: Record<string, string> = { "Pending": "Approved", "Approved": "Received", "Received": "Credit Issued" };
+                    const next = flow[r.status];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ kind: "return", editing: r })}
+                        onDelete={() => setReturns(prev => prev.filter(x => x.id !== r.id))}
+                        itemLabel={r.id}
+                        extraItems={[
+                          ...(next ? [{ label: `→ ${next}`, onClick: () => setReturns(prev => prev.map(x => x.id === r.id ? { ...x, status: next } : x)) }] : []),
+                          ...(r.status === "Pending" ? [{ label: "Reject", onClick: () => setReturns(prev => prev.map(x => x.id === r.id ? { ...x, status: "Rejected" } : x)), destructive: true }] : []),
+                        ]}
+                      />
+                    );
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={returns
+                  .filter(r => !retFilters._search || r.id.toLowerCase().includes(retFilters._search.toLowerCase()) || r.customer.toLowerCase().includes(retFilters._search.toLowerCase()) || r.product.toLowerCase().includes(retFilters._search.toLowerCase()))
+                  .filter(r => !retFilters.status || r.status === retFilters.status)
+                  .filter(r => !retFilters.reason || r.reason === retFilters.reason) as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No return requests found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -204,39 +200,34 @@ export default function ReturnsPage() {
           <Card>
             <CardHeader><CardTitle>Credit Notes</CardTitle><CardDescription>Issued credit notes for approved returns</CardDescription></CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Credit Note#</th><th className="p-3">Return Ref</th><th className="p-3">Customer</th><th className="p-3">Amount</th><th className="p-3">Tax Adj</th><th className="p-3">Net Credit</th><th className="p-3">Issue Date</th><th className="p-3">Applied To</th><th className="p-3">Status</th><th className="p-3">Actions</th></tr>
-                  </thead>
-                  <tbody>
-                    {credits.map(c => {
-                      const nextCn = c.status === "Issued" ? "Applied" : undefined;
-                      return (
-                        <tr key={c.id} className="border-t">
-                          <td className="p-3 font-mono">{c.id}</td>
-                          <td className="p-3 font-mono text-xs">{c.returnRef}</td>
-                          <td className="p-3 font-medium">{c.customer}</td>
-                          <td className="p-3">{c.amount}</td>
-                          <td className="p-3">{c.taxAdj}</td>
-                          <td className="p-3 font-semibold">{c.net}</td>
-                          <td className="p-3">{c.date}</td>
-                          <td className="p-3">{c.appliedTo}</td>
-                          <td className="p-3"><StatusBadge status={c.status} /></td>
-                          <td className="p-3">
-                            <EditDeleteMenu
-                              onEdit={() => setModal({ kind: "credit", editing: c })}
-                              onDelete={() => setCredits(prev => prev.filter(x => x.id !== c.id))}
-                              itemLabel={c.id}
-                              extraItems={nextCn ? [{ label: `→ ${nextCn}`, onClick: () => setCredits(prev => prev.map(x => x.id === c.id ? { ...x, status: nextCn } : x)) }] : []}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Credit Note#", render: (v) => <span className="font-mono">{v as string}</span> },
+                  { key: "returnRef", label: "Return Ref", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                  { key: "customer", label: "Customer", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "amount", label: "Amount" },
+                  { key: "taxAdj", label: "Tax Adj" },
+                  { key: "net", label: "Net Credit", render: (v) => <span className="font-semibold">{v as string}</span> },
+                  { key: "date", label: "Issue Date" },
+                  { key: "appliedTo", label: "Applied To" },
+                  { key: "status", label: "Status", render: (v) => <StatusBadge status={v as string} /> },
+                  { key: "_actions", label: "Actions", render: (_v, row) => {
+                    const c = row as unknown as typeof CREDIT_NOTES[0];
+                    const nextCn = c.status === "Issued" ? "Applied" : undefined;
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ kind: "credit", editing: c })}
+                        onDelete={() => setCredits(prev => prev.filter(x => x.id !== c.id))}
+                        itemLabel={c.id}
+                        extraItems={nextCn ? [{ label: `→ ${nextCn}`, onClick: () => setCredits(prev => prev.map(x => x.id === c.id ? { ...x, status: nextCn } : x)) }] : []}
+                      />
+                    );
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={credits as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No credit notes found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -251,40 +242,35 @@ export default function ReturnsPage() {
               <CardDescription>Documented destruction of unsellable pharmaceutical products (regulatory requirement)</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Log#</th><th className="p-3">Product</th><th className="p-3">Batch#</th><th className="p-3">Qty</th><th className="p-3">Reason</th><th className="p-3">Method</th><th className="p-3">Witnessed By</th><th className="p-3">Date</th><th className="p-3">Certificate#</th><th className="p-3">Status</th><th className="p-3">Actions</th></tr>
-                  </thead>
-                  <tbody>
-                    {destructions.map(d => {
-                      const nextD = d.status === "Scheduled" ? "Completed" : undefined;
-                      return (
-                        <tr key={d.id} className="border-t">
-                          <td className="p-3 font-mono">{d.id}</td>
-                          <td className="p-3 font-medium">{d.product}</td>
-                          <td className="p-3 font-mono text-xs">{d.batch}</td>
-                          <td className="p-3">{d.qty}</td>
-                          <td className="p-3"><StatusBadge status={d.reason} /></td>
-                          <td className="p-3">{d.method}</td>
-                          <td className="p-3 text-xs">{d.witnessed}</td>
-                          <td className="p-3">{d.date}</td>
-                          <td className="p-3 font-mono text-xs">{d.certificate}</td>
-                          <td className="p-3"><StatusBadge status={d.status} /></td>
-                          <td className="p-3">
-                            <EditDeleteMenu
-                              onEdit={() => setModal({ kind: "destruction", editing: d })}
-                              onDelete={() => setDestructions(prev => prev.filter(x => x.id !== d.id))}
-                              itemLabel={d.id}
-                              extraItems={nextD ? [{ label: `→ ${nextD}`, onClick: () => setDestructions(prev => prev.map(x => x.id === d.id ? { ...x, status: nextD, certificate: `CERT-2026-${String(32 + prev.indexOf(x)).padStart(3, "0")}` } : x)) }] : []}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Log#", render: (v) => <span className="font-mono">{v as string}</span> },
+                  { key: "product", label: "Product", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "batch", label: "Batch#", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                  { key: "qty", label: "Qty" },
+                  { key: "reason", label: "Reason", render: (v) => <StatusBadge status={v as string} /> },
+                  { key: "method", label: "Method" },
+                  { key: "witnessed", label: "Witnessed By", className: "text-xs" },
+                  { key: "date", label: "Date" },
+                  { key: "certificate", label: "Certificate#", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                  { key: "status", label: "Status", render: (v) => <StatusBadge status={v as string} /> },
+                  { key: "_actions", label: "Actions", render: (_v, row) => {
+                    const d = row as unknown as typeof DESTRUCTION[0];
+                    const nextD = d.status === "Scheduled" ? "Completed" : undefined;
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ kind: "destruction", editing: d })}
+                        onDelete={() => setDestructions(prev => prev.filter(x => x.id !== d.id))}
+                        itemLabel={d.id}
+                        extraItems={nextD ? [{ label: `→ ${nextD}`, onClick: () => setDestructions(prev => prev.map(x => x.id === d.id ? { ...x, status: nextD, certificate: `CERT-2026-${String(32 + prev.indexOf(x)).padStart(3, "0")}` } : x)) }] : []}
+                      />
+                    );
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={destructions as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No destruction records found."
+              />
             </CardContent>
           </Card>
         </TabsContent>

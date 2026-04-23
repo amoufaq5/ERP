@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge"
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
+import DataTable from "@/components/shared/data-table"
+import type { Column } from "@/components/shared/data-table"
 
 interface Course {
   id: number
@@ -216,44 +218,44 @@ export default function TrainingPage() {
       )}
 
       {activeTab === "enrollments" && (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Employee</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Course</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Enrolled Date</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Completed Date</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {initialEnrollments.map((enrollment) => (
-                    <tr key={enrollment.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-medium">{enrollment.employee}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{enrollment.course}</td>
-                      <td className="px-4 py-3">
-                        <Badge className={`text-xs ${statusColors[enrollment.status]}`}>{enrollment.status.replace("_", " ")}</Badge>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{enrollment.enrolledDate}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{enrollment.completedDate ?? "—"}</td>
-                      <td className="px-4 py-3">
-                        {enrollment.score !== null ? (
-                          <span className={`font-semibold ${enrollment.score >= 90 ? "text-green-600" : enrollment.score >= 75 ? "text-yellow-600" : "text-red-600"}`}>{enrollment.score}%</span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+        <DataTable
+          columns={[
+            { key: "employee", label: "Employee" },
+            { key: "course", label: "Course" },
+            {
+              key: "status",
+              label: "Status",
+              render: (_v: unknown, row: unknown) => {
+                const enrollment = row as Enrollment;
+                return (
+                  <Badge className={`text-xs ${statusColors[enrollment.status]}`}>{enrollment.status.replace("_", " ")}</Badge>
+                );
+              },
+            },
+            { key: "enrolledDate", label: "Enrolled Date" },
+            {
+              key: "completedDate",
+              label: "Completed Date",
+              render: (v: unknown) => <span>{(v as string | null) ?? "—"}</span>,
+            },
+            {
+              key: "score",
+              label: "Score",
+              render: (_v: unknown, row: unknown) => {
+                const enrollment = row as Enrollment;
+                if (enrollment.score !== null) {
+                  return (
+                    <span className={`font-semibold ${enrollment.score >= 90 ? "text-green-600" : enrollment.score >= 75 ? "text-yellow-600" : "text-red-600"}`}>{enrollment.score}%</span>
+                  );
+                }
+                return <span className="text-muted-foreground">—</span>;
+              },
+            },
+          ] as Column<Record<string, unknown>>[]}
+          data={initialEnrollments as unknown as Record<string, unknown>[]}
+          emptyMessage="No enrollments found."
+          pagination={false}
+        />
       )}
 
       <EntityFormModal

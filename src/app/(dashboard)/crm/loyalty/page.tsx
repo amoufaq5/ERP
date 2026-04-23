@@ -11,6 +11,8 @@ import { EntityFormModal, type EntityField } from "@/components/shared/entity-fo
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 type Tier = "BRONZE" | "SILVER" | "GOLD" | "PLATINUM";
 type TransactionType = "EARN" | "REDEEM" | "ADJUST";
@@ -201,48 +203,31 @@ export default function LoyaltyPage() {
                 onChange={(k, v) => setMemberFilters((f) => ({ ...f, [k]: v }))}
               />
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Member Name</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Account</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Program</th>
-                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Points</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tier</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Join Date</th>
-                    <th className="px-4 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredMembers.length === 0 ? (
-                    <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">No members found.</td></tr>
-                  ) : (
-                    filteredMembers.map((member) => (
-                      <tr key={member.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 font-medium text-foreground">{member.name}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{member.account}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{member.program}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-foreground">{member.points.toLocaleString()}</td>
-                        <td className="px-4 py-3"><TierBadge tier={member.tier} /></td>
-                        <td className="px-4 py-3 text-muted-foreground">{member.joinDate}</td>
-                        <td className="px-4 py-3">
-                          <EditDeleteMenu
-                            onEdit={() => { setEditingMember(member); setShowModal(true); }}
-                            onDelete={() => setMembers((prev) => prev.filter((m) => m.id !== member.id))}
-                            itemLabel={member.name}
-                            extraItems={(() => {
-                              const next = tierFlow[member.tier];
-                              return next ? [{ label: `Upgrade to ${next}`, onClick: () => setMembers((prev) => prev.map((m) => m.id === member.id ? { ...m, tier: next } : m)) }] : [];
-                            })()}
-                          />
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={[
+                { key: "name", label: "Member Name", render: (v) => <span className="font-medium text-foreground">{v as string}</span> },
+                { key: "account", label: "Account", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
+                { key: "program", label: "Program", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
+                { key: "points", label: "Points", className: "text-right", render: (v) => <span className="font-semibold text-foreground">{(v as number).toLocaleString()}</span> },
+                { key: "tier", label: "Tier", render: (v) => <TierBadge tier={v as Tier} /> },
+                { key: "joinDate", label: "Join Date", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
+                { key: "_actions", label: "", render: (_v, row) => {
+                  const member = row as unknown as LoyaltyMember;
+                  const next = tierFlow[member.tier];
+                  return (
+                    <EditDeleteMenu
+                      onEdit={() => { setEditingMember(member); setShowModal(true); }}
+                      onDelete={() => setMembers((prev) => prev.filter((m) => m.id !== member.id))}
+                      itemLabel={member.name}
+                      extraItems={next ? [{ label: `Upgrade to ${next}`, onClick: () => setMembers((prev) => prev.map((m) => m.id === member.id ? { ...m, tier: next } : m)) }] : []}
+                    />
+                  );
+                }},
+              ] as Column<Record<string, unknown>>[]}
+              data={filteredMembers as unknown as Record<string, unknown>[]}
+              pagination={false}
+              emptyMessage="No members found."
+            />
           </div>
         </TabsContent>
 
@@ -257,36 +242,21 @@ export default function LoyaltyPage() {
                 onChange={() => {}}
               />
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Member</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Type</th>
-                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Points</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Description</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTxns.length === 0 ? (
-                    <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">No transactions found.</td></tr>
-                  ) : (
-                    filteredTxns.map((txn) => (
-                      <tr key={txn.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 font-medium text-foreground">{txn.member}</td>
-                        <td className="px-4 py-3"><TxnTypeBadge type={txn.type} /></td>
-                        <td className={`px-4 py-3 text-right font-semibold tabular-nums ${txn.points > 0 ? "text-green-600" : "text-red-600"}`}>
-                          {txn.points > 0 ? "+" : ""}{txn.points.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground max-w-[280px] truncate">{txn.description}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{txn.date}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={[
+                { key: "member", label: "Member", render: (v) => <span className="font-medium text-foreground">{v as string}</span> },
+                { key: "type", label: "Type", render: (v) => <TxnTypeBadge type={v as TransactionType} /> },
+                { key: "points", label: "Points", className: "text-right", render: (v) => {
+                  const pts = v as number;
+                  return <span className={`font-semibold tabular-nums ${pts > 0 ? "text-green-600" : "text-red-600"}`}>{pts > 0 ? "+" : ""}{pts.toLocaleString()}</span>;
+                }},
+                { key: "description", label: "Description", className: "max-w-[280px] truncate", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
+                { key: "date", label: "Date", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
+              ] as Column<Record<string, unknown>>[]}
+              data={filteredTxns as unknown as Record<string, unknown>[]}
+              pagination={false}
+              emptyMessage="No transactions found."
+            />
           </div>
         </TabsContent>
       </Tabs>

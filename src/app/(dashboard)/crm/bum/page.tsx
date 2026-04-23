@@ -11,6 +11,8 @@ import StatusBadge from "@/components/shared/status-badge";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 const HIERARCHY = [
   {
@@ -172,27 +174,21 @@ export default function BUMPage() {
           <Card>
             <CardHeader><CardTitle>Marketeer Performance</CardTitle><CardDescription>Regional KPIs</CardDescription></CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Marketeer</th><th className="p-3">Region</th><th className="p-3">Team Size</th><th className="p-3">Call Rate</th><th className="p-3">Compliance</th><th className="p-3">Sales Achievement</th><th className="p-3">Budget Used</th><th className="p-3">Rating</th></tr>
-                  </thead>
-                  <tbody>
-                    {PERFORMANCE.map((p, i) => (
-                      <tr key={i} className="border-t">
-                        <td className="p-3 font-medium">{p.marketeer}</td>
-                        <td className="p-3">{p.region}</td>
-                        <td className="p-3">{p.teamSize}</td>
-                        <td className="p-3">{p.callRate}</td>
-                        <td className="p-3">{p.compliance}</td>
-                        <td className="p-3 font-semibold">{p.sales}</td>
-                        <td className="p-3">{p.budget}</td>
-                        <td className="p-3"><StatusBadge status={p.rating === "A" ? "Excellent" : "Good"} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "marketeer", label: "Marketeer", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "region", label: "Region" },
+                  { key: "teamSize", label: "Team Size" },
+                  { key: "callRate", label: "Call Rate" },
+                  { key: "compliance", label: "Compliance" },
+                  { key: "sales", label: "Sales Achievement", render: (v) => <span className="font-semibold">{v as string}</span> },
+                  { key: "budget", label: "Budget Used" },
+                  { key: "rating", label: "Rating", render: (_v, row) => <StatusBadge status={(row as unknown as (typeof PERFORMANCE)[0]).rating === "A" ? "Excellent" : "Good"} /> },
+                ] as Column<Record<string, unknown>>[]}
+                data={PERFORMANCE as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No performance data available."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -213,37 +209,34 @@ export default function BUMPage() {
               />
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Request#</th><th className="p-3">From</th><th className="p-3">Type</th><th className="p-3">Description</th><th className="p-3">Value</th><th className="p-3">Justification</th><th className="p-3">Decision</th><th className="p-3"></th></tr>
-                  </thead>
-                  <tbody>
-                    {filteredApprovals.map(a => (
-                      <tr key={a.id} className="border-t">
-                        <td className="p-3 font-mono">{a.id}</td>
-                        <td className="p-3">{a.from}</td>
-                        <td className="p-3">{a.type}</td>
-                        <td className="p-3 max-w-xs truncate">{a.description}</td>
-                        <td className="p-3 font-bold">{a.value}</td>
-                        <td className="p-3 max-w-xs truncate text-muted-foreground">{a.justification}</td>
-                        <td className="p-3"><StatusBadge status={a.decision} /></td>
-                        <td className="p-3">
-                          <EditDeleteMenu
-                            onDelete={() => setApprovals(prev => prev.filter(x => x.id !== a.id))}
-                            itemLabel={a.id}
-                            canEdit={false}
-                            extraItems={a.decision === "Pending" ? [
-                              { label: "Approve", onClick: () => setApprovals(prev => prev.map(x => x.id === a.id ? { ...x, decision: "Approved" } : x)) },
-                              { label: "Reject", onClick: () => setApprovals(prev => prev.map(x => x.id === a.id ? { ...x, decision: "Rejected" } : x)), destructive: true },
-                            ] : []}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Request#", render: (v) => <span className="font-mono">{v as string}</span> },
+                  { key: "from", label: "From" },
+                  { key: "type", label: "Type" },
+                  { key: "description", label: "Description", className: "max-w-xs truncate" },
+                  { key: "value", label: "Value", render: (v) => <span className="font-bold">{v as string}</span> },
+                  { key: "justification", label: "Justification", className: "max-w-xs truncate", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
+                  { key: "decision", label: "Decision", render: (v) => <StatusBadge status={v as string} /> },
+                  { key: "_actions", label: "", render: (_v, row) => {
+                    const a = row as unknown as (typeof STRATEGIC_APPROVALS)[0];
+                    return (
+                      <EditDeleteMenu
+                        onDelete={() => setApprovals(prev => prev.filter(x => x.id !== a.id))}
+                        itemLabel={a.id}
+                        canEdit={false}
+                        extraItems={a.decision === "Pending" ? [
+                          { label: "Approve", onClick: () => setApprovals(prev => prev.map(x => x.id === a.id ? { ...x, decision: "Approved" } : x)) },
+                          { label: "Reject", onClick: () => setApprovals(prev => prev.map(x => x.id === a.id ? { ...x, decision: "Rejected" } : x)), destructive: true },
+                        ] : []}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredApprovals as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No strategic approvals."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -265,33 +258,30 @@ export default function BUMPage() {
                 values={visitFilters}
                 onChange={(k, v) => setVisitFilters((f) => ({ ...f, [k]: v }))}
               />
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Visit#</th><th className="p-3">Region</th><th className="p-3">Accompanied</th><th className="p-3">Doctor/KOL</th><th className="p-3">Date</th><th className="p-3">Purpose</th><th className="p-3">Notes</th><th className="p-3"></th></tr>
-                  </thead>
-                  <tbody>
-                    {filteredVisits.map(v => (
-                      <tr key={v.id} className="border-t">
-                        <td className="p-3 font-mono">{v.id}</td>
-                        <td className="p-3">{v.region}</td>
-                        <td className="p-3 font-medium">{v.accompanied}</td>
-                        <td className="p-3">{v.doctor}</td>
-                        <td className="p-3">{v.date}</td>
-                        <td className="p-3"><StatusBadge status={v.purpose} /></td>
-                        <td className="p-3 max-w-xs truncate">{v.notes}</td>
-                        <td className="p-3">
-                          <EditDeleteMenu
-                            onEdit={() => { setEditingVisit(v); setShowVisit(true); }}
-                            onDelete={() => setVisits(prev => prev.filter(x => x.id !== v.id))}
-                            itemLabel={v.id}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Visit#", render: (v) => <span className="font-mono">{v as string}</span> },
+                  { key: "region", label: "Region" },
+                  { key: "accompanied", label: "Accompanied", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "doctor", label: "Doctor/KOL" },
+                  { key: "date", label: "Date" },
+                  { key: "purpose", label: "Purpose", render: (v) => <StatusBadge status={v as string} /> },
+                  { key: "notes", label: "Notes", className: "max-w-xs truncate" },
+                  { key: "_actions", label: "", render: (_v, row) => {
+                    const v = row as unknown as (typeof FIELD_VISITS)[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingVisit(v); setShowVisit(true); }}
+                        onDelete={() => setVisits(prev => prev.filter(x => x.id !== v.id))}
+                        itemLabel={v.id}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredVisits as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No field visits found."
+              />
             </CardContent>
           </Card>
         </TabsContent>

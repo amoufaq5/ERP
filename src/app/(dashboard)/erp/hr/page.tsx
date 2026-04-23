@@ -560,59 +560,36 @@ export default function HRPage() {
 
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">Employee</th>
-                      <th className="text-left p-3">Period</th>
-                      <th className="text-right p-3">Basic</th>
-                      <th className="text-right p-3">Overtime</th>
-                      <th className="text-right p-3">Deductions</th>
-                      <th className="text-right p-3">Tax</th>
-                      <th className="text-right p-3">Net Pay</th>
-                      <th className="text-left p-3">Status</th>
-                      <th className="text-right p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredPayroll.length === 0 && (
-                      <tr><td colSpan={9} className="p-8 text-center text-slate-500">No payroll records match your filters.</td></tr>
-                    )}
-                    {filteredPayroll.map((p) => (
-                      <tr key={p.id} className="border-b hover:bg-slate-50">
-                        <td className="p-3 font-medium">{p.employeeName}</td>
-                        <td className="p-3">{p.period}</td>
-                        <td className="p-3 text-right">{fmt(p.basicSalary)}</td>
-                        <td className="p-3 text-right">{fmt(p.overtime)}</td>
-                        <td className="p-3 text-right text-red-600">-{fmt(p.deductions)}</td>
-                        <td className="p-3 text-right text-red-600">-{fmt(p.tax)}</td>
-                        <td className="p-3 text-right font-semibold">{fmt(p.netPay)}</td>
-                        <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[p.status]}`}>{p.status}</span></td>
-                        <td className="p-3 text-right">
-                          <EditDeleteMenu
-                            onEdit={() => handleEditPayroll(p)}
-                            onDelete={() => handleDeletePayroll(p)}
-                            itemLabel={`Payroll: ${p.employeeName}`}
-                            compact
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                    {filteredPayroll.length > 0 && (
-                      <tr className="border-t-2 bg-slate-50 font-bold text-sm">
-                        <td className="p-3" colSpan={2}>Total</td>
-                        <td className="p-3 text-right">{fmt(filteredPayroll.reduce((s, p) => s + p.basicSalary, 0))}</td>
-                        <td className="p-3 text-right">{fmt(filteredPayroll.reduce((s, p) => s + p.overtime, 0))}</td>
-                        <td className="p-3 text-right text-red-600">-{fmt(filteredPayroll.reduce((s, p) => s + p.deductions, 0))}</td>
-                        <td className="p-3 text-right text-red-600">-{fmt(filteredPayroll.reduce((s, p) => s + p.tax, 0))}</td>
-                        <td className="p-3 text-right">{fmt(filteredPayroll.reduce((s, p) => s + p.netPay, 0))}</td>
-                        <td colSpan={2}></td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "employeeName", label: "Employee", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "period", label: "Period" },
+                  { key: "basicSalary", label: "Basic", className: "text-right", render: (v) => fmt(v as number) },
+                  { key: "overtime", label: "Overtime", className: "text-right", render: (v) => fmt(v as number) },
+                  { key: "deductions", label: "Deductions", className: "text-right", render: (v) => <span className="text-red-600">-{fmt(v as number)}</span> },
+                  { key: "tax", label: "Tax", className: "text-right", render: (v) => <span className="text-red-600">-{fmt(v as number)}</span> },
+                  { key: "netPay", label: "Net Pay", className: "text-right", render: (v) => <span className="font-semibold">{fmt(v as number)}</span> },
+                  { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
+                  { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
+                    const p = row as unknown as PayrollRecord;
+                    return (<EditDeleteMenu onEdit={() => handleEditPayroll(p)} onDelete={() => handleDeletePayroll(p)} itemLabel={`Payroll: ${p.employeeName}`} compact />);
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={filteredPayroll as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No payroll records match your filters."
+              />
+              {filteredPayroll.length > 0 && (
+                <div className="border-t-2 bg-slate-50 font-bold text-sm flex">
+                  <div className="p-3 flex-[2]">Total</div>
+                  <div className="p-3 flex-1 text-right">{fmt(filteredPayroll.reduce((s, p) => s + p.basicSalary, 0))}</div>
+                  <div className="p-3 flex-1 text-right">{fmt(filteredPayroll.reduce((s, p) => s + p.overtime, 0))}</div>
+                  <div className="p-3 flex-1 text-right text-red-600">-{fmt(filteredPayroll.reduce((s, p) => s + p.deductions, 0))}</div>
+                  <div className="p-3 flex-1 text-right text-red-600">-{fmt(filteredPayroll.reduce((s, p) => s + p.tax, 0))}</div>
+                  <div className="p-3 flex-1 text-right">{fmt(filteredPayroll.reduce((s, p) => s + p.netPay, 0))}</div>
+                  <div className="p-3 flex-[2]"></div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

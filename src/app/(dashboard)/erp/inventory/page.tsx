@@ -19,6 +19,8 @@ import {
   FlaskConical, Pill, Warehouse, AlertTriangle,
   Thermometer, Download, Plus, Package,
 } from "lucide-react";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 /* ─── Types ──────────────────────────────────────────────────────── */
 
@@ -321,45 +323,37 @@ export default function InventoryPage() {
             values={filters} onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))} />
           <Card>
             <CardContent className="overflow-x-auto p-0">
-              <table className="w-full text-sm">
-                <thead className="bg-purple-50 border-y">
-                  <tr>
-                    <th className="text-left p-3 font-semibold text-xs uppercase">Code</th>
-                    <th className="text-left p-3 font-semibold text-xs uppercase">Material</th>
-                    <th className="text-left p-3 font-semibold text-xs uppercase">Type</th>
-                    <th className="text-left p-3 font-semibold text-xs uppercase">Supplier</th>
-                    <th className="text-left p-3 font-semibold text-xs uppercase">Batch / Expiry</th>
-                    <th className="text-right p-3 font-semibold text-xs uppercase">Qty (kg)</th>
-                    <th className="text-left p-3 font-semibold text-xs uppercase">Storage</th>
-                    <th className="text-left p-3 font-semibold text-xs uppercase">QC</th>
-                    <th className="text-right p-3 font-semibold text-xs uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRM.length === 0 && <tr><td colSpan={9} className="p-8 text-center text-slate-500">No raw materials match your filters.</td></tr>}
-                  {filteredRM.map((r) => {
+              <DataTable
+                columns={[
+                  { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                  { key: "name", label: "Material", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "type", label: "Type", render: (v) => <Badge variant="secondary">{v as string}</Badge> },
+                  { key: "supplier", label: "Supplier", className: "text-muted-foreground" },
+                  { key: "batchNo", label: "Batch / Expiry", render: (_v, row) => {
+                    const r = row as unknown as RawMaterial;
+                    return (<div><div className="font-mono text-xs">{r.batchNo}</div><div className="text-[11px] text-muted-foreground">exp {r.expiryDate}</div></div>);
+                  }},
+                  { key: "quantityKg", label: "Qty (kg)", className: "text-right", render: (_v, row) => {
+                    const r = row as unknown as RawMaterial;
                     const isLow = r.quantityKg <= r.reorderLevel;
                     return (
-                      <tr key={r.id} className="border-b hover:bg-slate-50">
-                        <td className="p-3 font-mono text-xs">{r.code}</td>
-                        <td className="p-3 font-medium">{r.name}</td>
-                        <td className="p-3"><Badge variant="secondary">{r.type}</Badge></td>
-                        <td className="p-3 text-muted-foreground">{r.supplier}</td>
-                        <td className="p-3"><div className="font-mono text-xs">{r.batchNo}</div><div className="text-[11px] text-muted-foreground">exp {r.expiryDate}</div></td>
-                        <td className={`p-3 text-right font-medium ${isLow ? "text-red-600" : ""}`}>
-                          {r.quantityKg.toLocaleString()}
-                          {isLow && <div className="text-[10px] text-red-500">below reorder</div>}
-                        </td>
-                        <td className="p-3 text-xs">{r.storageCondition}</td>
-                        <td className="p-3"><Badge variant={r.qcStatus === "Approved" ? "success" : r.qcStatus === "Rejected" ? "destructive" : "warning"}>{r.qcStatus}</Badge></td>
-                        <td className="p-3 text-right">
-                          <EditDeleteMenu onEdit={() => handleEditRM(r)} onDelete={() => handleDeleteRM(r)} itemLabel={r.name} compact />
-                        </td>
-                      </tr>
+                      <div className={`font-medium ${isLow ? "text-red-600" : ""}`}>
+                        {r.quantityKg.toLocaleString()}
+                        {isLow && <div className="text-[10px] text-red-500">below reorder</div>}
+                      </div>
                     );
-                  })}
-                </tbody>
-              </table>
+                  }},
+                  { key: "storageCondition", label: "Storage", className: "text-xs" },
+                  { key: "qcStatus", label: "QC", render: (v) => <Badge variant={(v as string) === "Approved" ? "success" : (v as string) === "Rejected" ? "destructive" : "warning"}>{v as string}</Badge> },
+                  { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
+                    const r = row as unknown as RawMaterial;
+                    return (<EditDeleteMenu onEdit={() => handleEditRM(r)} onDelete={() => handleDeleteRM(r)} itemLabel={r.name} compact />);
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={filteredRM as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No raw materials match your filters."
+              />
             </CardContent>
           </Card>
         </>
@@ -376,41 +370,32 @@ export default function InventoryPage() {
             values={filters} onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))} />
           <Card>
             <CardContent className="overflow-x-auto p-0">
-              <table className="w-full text-sm">
-                <thead className="bg-emerald-50 border-y">
-                  <tr>
-                    <th className="text-left p-3 font-semibold text-xs uppercase">Code</th>
-                    <th className="text-left p-3 font-semibold text-xs uppercase">Product</th>
-                    <th className="text-left p-3 font-semibold text-xs uppercase">Form</th>
-                    <th className="text-left p-3 font-semibold text-xs uppercase">EDA Reg.</th>
-                    <th className="text-left p-3 font-semibold text-xs uppercase">Batch</th>
-                    <th className="text-left p-3 font-semibold text-xs uppercase">Expiry</th>
-                    <th className="text-right p-3 font-semibold text-xs uppercase">Qty</th>
-                    <th className="text-right p-3 font-semibold text-xs uppercase">Price</th>
-                    <th className="text-left p-3 font-semibold text-xs uppercase">Released</th>
-                    <th className="text-right p-3 font-semibold text-xs uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredFP.length === 0 && <tr><td colSpan={10} className="p-8 text-center text-slate-500">No finished products match your filters.</td></tr>}
-                  {filteredFP.map((p) => (
-                    <tr key={p.id} className="border-b hover:bg-slate-50">
-                      <td className="p-3 font-mono text-xs">{p.code}</td>
-                      <td className="p-3"><div className="font-medium">{p.name} {p.strength}</div><div className="text-[11px] text-muted-foreground">{p.packSize}</div></td>
-                      <td className="p-3"><Badge variant="secondary">{p.form}</Badge></td>
-                      <td className="p-3 font-mono text-xs">{p.registration}</td>
-                      <td className="p-3 font-mono text-xs">{p.batchNo}</td>
-                      <td className="p-3 text-xs">{p.expiryDate}</td>
-                      <td className="p-3 text-right">{p.quantity.toLocaleString()} {p.unit}</td>
-                      <td className="p-3 text-right font-medium">{fmt(p.unitPrice)}</td>
-                      <td className="p-3"><Badge variant={p.qcReleased ? "success" : "warning"}>{p.qcReleased ? "Released" : "Pending QC"}</Badge></td>
-                      <td className="p-3 text-right">
-                        <EditDeleteMenu onEdit={() => handleEditFP(p)} onDelete={() => handleDeleteFP(p)} itemLabel={p.name} compact />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                columns={[
+                  { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                  { key: "name", label: "Product", render: (_v, row) => {
+                    const p = row as unknown as FinishedProduct;
+                    return (<div><div className="font-medium">{p.name} {p.strength}</div><div className="text-[11px] text-muted-foreground">{p.packSize}</div></div>);
+                  }},
+                  { key: "form", label: "Form", render: (v) => <Badge variant="secondary">{v as string}</Badge> },
+                  { key: "registration", label: "EDA Reg.", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                  { key: "batchNo", label: "Batch", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                  { key: "expiryDate", label: "Expiry", className: "text-xs" },
+                  { key: "quantity", label: "Qty", className: "text-right", render: (_v, row) => {
+                    const p = row as unknown as FinishedProduct;
+                    return <>{p.quantity.toLocaleString()} {p.unit}</>;
+                  }},
+                  { key: "unitPrice", label: "Price", className: "text-right", render: (v) => <span className="font-medium">{fmt(v as number)}</span> },
+                  { key: "qcReleased", label: "Released", render: (v) => <Badge variant={(v as boolean) ? "success" : "warning"}>{(v as boolean) ? "Released" : "Pending QC"}</Badge> },
+                  { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
+                    const p = row as unknown as FinishedProduct;
+                    return (<EditDeleteMenu onEdit={() => handleEditFP(p)} onDelete={() => handleDeleteFP(p)} itemLabel={p.name} compact />);
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={filteredFP as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No finished products match your filters."
+              />
             </CardContent>
           </Card>
         </>

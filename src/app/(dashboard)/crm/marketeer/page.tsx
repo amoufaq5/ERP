@@ -240,33 +240,30 @@ export default function MarketeerPage() {
                 values={visitFilters}
                 onChange={(k, v) => setVisitFilters((f) => ({ ...f, [k]: v }))}
               />
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Visit#</th><th className="p-3">Accompanied</th><th className="p-3">Doctor</th><th className="p-3">Date</th><th className="p-3">Purpose</th><th className="p-3">Observations</th><th className="p-3">Follow-up</th><th className="p-3"></th></tr>
-                  </thead>
-                  <tbody>
-                    {filteredVisits.map(v => (
-                      <tr key={v.id} className="border-t">
-                        <td className="p-3 font-mono">{v.id}</td>
-                        <td className="p-3 font-medium">{v.accompanied}</td>
-                        <td className="p-3">{v.doctor}</td>
-                        <td className="p-3">{v.date}</td>
-                        <td className="p-3"><StatusBadge status={v.purpose} /></td>
-                        <td className="p-3 max-w-xs truncate">{v.observations}</td>
-                        <td className="p-3 max-w-xs truncate">{v.followUp}</td>
-                        <td className="p-3">
-                          <EditDeleteMenu
-                            onEdit={() => { setEditing(v); setShowVisit(true); }}
-                            onDelete={() => setDoubleVisits(prev => prev.filter(x => x.id !== v.id))}
-                            itemLabel={v.id}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Visit#", render: (v) => <span className="font-mono">{v as string}</span> },
+                  { key: "accompanied", label: "Accompanied", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "doctor", label: "Doctor" },
+                  { key: "date", label: "Date" },
+                  { key: "purpose", label: "Purpose", render: (v) => <StatusBadge status={v as string} /> },
+                  { key: "observations", label: "Observations", className: "max-w-xs truncate" },
+                  { key: "followUp", label: "Follow-up", className: "max-w-xs truncate" },
+                  { key: "_actions", label: "", render: (_v, row) => {
+                    const v = row as unknown as (typeof DOUBLE_VISITS)[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditing(v); setShowVisit(true); }}
+                        onDelete={() => setDoubleVisits(prev => prev.filter(x => x.id !== v.id))}
+                        itemLabel={v.id}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredVisits as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No visits found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -275,26 +272,19 @@ export default function MarketeerPage() {
           <Card>
             <CardHeader><CardTitle>Product Performance by Territory</CardTitle><CardDescription>Market share and growth analysis</CardDescription></CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Product</th><th className="p-3">Territory</th><th className="p-3">Target</th><th className="p-3">Actual</th><th className="p-3">Growth</th><th className="p-3">Market Share</th><th className="p-3">Competition</th></tr>
-                  </thead>
-                  <tbody>
-                    {MARKET_ANALYSIS.map((m, i) => (
-                      <tr key={i} className="border-t">
-                        <td className="p-3 font-medium">{m.product}</td>
-                        <td className="p-3">{m.territory}</td>
-                        <td className="p-3">{m.target}</td>
-                        <td className="p-3 font-semibold">{m.actual}</td>
-                        <td className={`p-3 ${m.growth.startsWith("+") ? "text-green-600" : "text-red-600"}`}>{m.growth}</td>
-                        <td className="p-3">{m.share}</td>
-                        <td className="p-3 text-muted-foreground">{m.competition}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "product", label: "Product", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "territory", label: "Territory" },
+                  { key: "target", label: "Target" },
+                  { key: "actual", label: "Actual", render: (v) => <span className="font-semibold">{v as string}</span> },
+                  { key: "growth", label: "Growth", render: (v) => <span className={(v as string).startsWith("+") ? "text-green-600" : "text-red-600"}>{v as string}</span> },
+                  { key: "share", label: "Market Share" },
+                  { key: "competition", label: "Competition", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
+                ] as Column<Record<string, unknown>>[]}
+                data={MARKET_ANALYSIS as unknown as Record<string, unknown>[]}
+                emptyMessage="No market analysis data."
+              />
             </CardContent>
           </Card>
         </TabsContent>

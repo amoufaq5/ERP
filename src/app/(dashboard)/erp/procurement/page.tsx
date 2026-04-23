@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Package, Truck, ClipboardCheck, FlaskConical, Plus, ShieldCheck, AlertTriangle, FileText } from "lucide-react";
+import { Package, Truck, ClipboardCheck, Plus, ShieldCheck, AlertTriangle, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import StatusBadge from "@/components/shared/status-badge";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 
 const PURCHASE_ORDERS = [
@@ -122,43 +124,28 @@ export default function ProcurementPage() {
               <CardDescription>Active pharmaceutical procurement orders for raw materials, excipients, packaging, and finished products</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">PO #</th>
-                      <th className="pb-3 font-medium">Supplier</th>
-                      <th className="pb-3 font-medium">Category</th>
-                      <th className="pb-3 font-medium">Material / Product</th>
-                      <th className="pb-3 font-medium">Quantity</th>
-                      <th className="pb-3 font-medium">Total</th>
-                      <th className="pb-3 font-medium">Expected</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {PURCHASE_ORDERS.map((po) => (
-                      <tr key={po.id} className="border-b hover:bg-muted/50">
-                        <td className="py-3 font-mono text-xs">{po.id}</td>
-                        <td className="py-3 font-medium">{po.supplier}</td>
-                        <td className="py-3">
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            po.category === "Raw Material" ? "bg-red-100 text-red-700" :
-                            po.category === "Excipient" ? "bg-blue-100 text-blue-700" :
-                            po.category === "Packaging" ? "bg-gray-100 text-gray-700" :
-                            "bg-green-100 text-green-700"
-                          }`}>{po.category}</span>
-                        </td>
-                        <td className="py-3">{po.items}</td>
-                        <td className="py-3">{po.qty}</td>
-                        <td className="py-3 font-semibold">{po.total}</td>
-                        <td className="py-3">{po.expectedDate}</td>
-                        <td className="py-3"><StatusBadge status={po.status} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "PO #", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "supplier", label: "Supplier", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "category", label: "Category", render: (v: string) => (
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      v === "Raw Material" ? "bg-red-100 text-red-700" :
+                      v === "Excipient" ? "bg-blue-100 text-blue-700" :
+                      v === "Packaging" ? "bg-gray-100 text-gray-700" :
+                      "bg-green-100 text-green-700"
+                    }`}>{v}</span>
+                  ) },
+                  { key: "items", label: "Material / Product" },
+                  { key: "qty", label: "Quantity" },
+                  { key: "total", label: "Total", render: (v: string) => <span className="font-semibold">{v}</span> },
+                  { key: "expectedDate", label: "Expected" },
+                  { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
+                ] as Column<Record<string, unknown>>[]}
+                data={PURCHASE_ORDERS as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No purchase orders found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -170,55 +157,40 @@ export default function ProcurementPage() {
               <CardDescription>GMP-certified suppliers for APIs, excipients, packaging, and finished products</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Supplier</th>
-                      <th className="pb-3 font-medium">Type</th>
-                      <th className="pb-3 font-medium">Country</th>
-                      <th className="pb-3 font-medium">Contact</th>
-                      <th className="pb-3 font-medium">GMP Status</th>
-                      <th className="pb-3 font-medium">Rating</th>
-                      <th className="pb-3 font-medium">Orders</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {SUPPLIERS.map((sup) => (
-                      <tr key={sup.id} className="border-b hover:bg-muted/50">
-                        <td className="py-3 font-mono text-xs">{sup.id}</td>
-                        <td className="py-3 font-medium">{sup.name}</td>
-                        <td className="py-3">
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            sup.type === "API Manufacturer" ? "bg-red-100 text-red-700" :
-                            sup.type === "Excipient Supplier" ? "bg-blue-100 text-blue-700" :
-                            sup.type === "Packaging Supplier" ? "bg-gray-100 text-gray-700" :
-                            "bg-green-100 text-green-700"
-                          }`}>{sup.type}</span>
-                        </td>
-                        <td className="py-3">{sup.country}</td>
-                        <td className="py-3">
-                          <div>{sup.contact}</div>
-                          <div className="text-xs text-muted-foreground">{sup.email}</div>
-                        </td>
-                        <td className="py-3">
-                          <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 font-medium">
-                            <ShieldCheck className="h-3 w-3 inline mr-1" />{sup.gmpStatus}
-                          </span>
-                        </td>
-                        <td className="py-3">
-                          <span className="font-medium">{sup.rating}</span>
-                          <span className="text-amber-500 ml-1">★</span>
-                        </td>
-                        <td className="py-3">{sup.orders}</td>
-                        <td className="py-3"><StatusBadge status={sup.status} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "name", label: "Supplier", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "type", label: "Type", render: (v: string) => (
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      v === "API Manufacturer" ? "bg-red-100 text-red-700" :
+                      v === "Excipient Supplier" ? "bg-blue-100 text-blue-700" :
+                      v === "Packaging Supplier" ? "bg-gray-100 text-gray-700" :
+                      "bg-green-100 text-green-700"
+                    }`}>{v}</span>
+                  ) },
+                  { key: "country", label: "Country" },
+                  { key: "contact", label: "Contact", render: (_: unknown, row: Record<string, unknown>) => (
+                    <div>
+                      <div>{row.contact as string}</div>
+                      <div className="text-xs text-muted-foreground">{row.email as string}</div>
+                    </div>
+                  ) },
+                  { key: "gmpStatus", label: "GMP Status", render: (v: string) => (
+                    <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 font-medium">
+                      <ShieldCheck className="h-3 w-3 inline mr-1" />{v}
+                    </span>
+                  ) },
+                  { key: "rating", label: "Rating", render: (v: number) => (
+                    <><span className="font-medium">{v}</span><span className="text-amber-500 ml-1">&#9733;</span></>
+                  ) },
+                  { key: "orders", label: "Orders" },
+                  { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
+                ] as Column<Record<string, unknown>>[]}
+                data={SUPPLIERS as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No suppliers found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -230,56 +202,35 @@ export default function ProcurementPage() {
               <CardDescription>Incoming material receipts with batch tracking, CoA verification, and storage conditions</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">GRN #</th>
-                      <th className="pb-3 font-medium">PO Ref</th>
-                      <th className="pb-3 font-medium">Material</th>
-                      <th className="pb-3 font-medium">Qty</th>
-                      <th className="pb-3 font-medium">Batch No.</th>
-                      <th className="pb-3 font-medium">CoA</th>
-                      <th className="pb-3 font-medium">Storage</th>
-                      <th className="pb-3 font-medium">Expiry</th>
-                      <th className="pb-3 font-medium">QC</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {GRN.map((grn) => (
-                      <tr key={grn.id} className={`border-b hover:bg-muted/50 ${grn.status === "Rejected" ? "bg-red-50" : ""}`}>
-                        <td className="py-3 font-mono text-xs">{grn.id}</td>
-                        <td className="py-3 font-mono text-xs">{grn.po}</td>
-                        <td className="py-3 font-medium">{grn.material}</td>
-                        <td className="py-3">{grn.qty}</td>
-                        <td className="py-3 font-mono text-xs">{grn.batchNo}</td>
-                        <td className="py-3">
-                          {grn.coa ? (
-                            <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700"><FileText className="h-3 w-3 inline mr-1" />Received</span>
-                          ) : (
-                            <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-500">N/A</span>
-                          )}
-                        </td>
-                        <td className="py-3">
-                          <span className={`text-xs ${grn.storageCondition === "2-8°C" ? "text-blue-600 font-medium" : ""}`}>
-                            {grn.storageCondition}
-                          </span>
-                        </td>
-                        <td className="py-3">{grn.expiryDate}</td>
-                        <td className="py-3">
-                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                            grn.qcStatus === "Passed" ? "bg-green-100 text-green-700" :
-                            grn.qcStatus === "Under Testing" ? "bg-amber-100 text-amber-700" :
-                            "bg-red-100 text-red-700"
-                          }`}>{grn.qcStatus}</span>
-                        </td>
-                        <td className="py-3"><StatusBadge status={grn.status} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "GRN #", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "po", label: "PO Ref", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "material", label: "Material", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "qty", label: "Qty" },
+                  { key: "batchNo", label: "Batch No.", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "coa", label: "CoA", render: (v: boolean) => v ? (
+                    <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700"><FileText className="h-3 w-3 inline mr-1" />Received</span>
+                  ) : (
+                    <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-500">N/A</span>
+                  ) },
+                  { key: "storageCondition", label: "Storage", render: (v: string) => (
+                    <span className={`text-xs ${v === "2-8°C" ? "text-blue-600 font-medium" : ""}`}>{v}</span>
+                  ) },
+                  { key: "expiryDate", label: "Expiry" },
+                  { key: "qcStatus", label: "QC", render: (v: string) => (
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                      v === "Passed" ? "bg-green-100 text-green-700" :
+                      v === "Under Testing" ? "bg-amber-100 text-amber-700" :
+                      "bg-red-100 text-red-700"
+                    }`}>{v}</span>
+                  ) },
+                  { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
+                ] as Column<Record<string, unknown>>[]}
+                data={GRN as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No goods received notes found."
+              />
 
               <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card>
@@ -315,43 +266,29 @@ export default function ProcurementPage() {
               <CardDescription>Incoming material QC test results against pharmacopoeial specifications</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">Test ID</th>
-                      <th className="pb-3 font-medium">GRN Ref</th>
-                      <th className="pb-3 font-medium">Material</th>
-                      <th className="pb-3 font-medium">Test</th>
-                      <th className="pb-3 font-medium">Specification</th>
-                      <th className="pb-3 font-medium">Result</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {QC_TESTS.map((test) => (
-                      <tr key={test.id} className={`border-b hover:bg-muted/50 ${test.status === "Fail" ? "bg-red-50" : ""}`}>
-                        <td className="py-3 font-mono text-xs">{test.id}</td>
-                        <td className="py-3 font-mono text-xs">{test.grn}</td>
-                        <td className="py-3 font-medium">{test.material}</td>
-                        <td className="py-3">{test.test}</td>
-                        <td className="py-3 text-muted-foreground">{test.specification}</td>
-                        <td className="py-3 font-medium">{test.result}</td>
-                        <td className="py-3">
-                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                            test.status === "Pass" ? "bg-green-100 text-green-700" :
-                            test.status === "In Progress" ? "bg-amber-100 text-amber-700" :
-                            "bg-red-100 text-red-700"
-                          }`}>
-                            {test.status === "Fail" && <AlertTriangle className="h-3 w-3 inline mr-1" />}
-                            {test.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Test ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "grn", label: "GRN Ref", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "material", label: "Material", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "test", label: "Test" },
+                  { key: "specification", label: "Specification", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
+                  { key: "result", label: "Result", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "status", label: "Status", render: (v: string) => (
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                      v === "Pass" ? "bg-green-100 text-green-700" :
+                      v === "In Progress" ? "bg-amber-100 text-amber-700" :
+                      "bg-red-100 text-red-700"
+                    }`}>
+                      {v === "Fail" && <AlertTriangle className="h-3 w-3 inline mr-1" />}
+                      {v}
+                    </span>
+                  ) },
+                ] as Column<Record<string, unknown>>[]}
+                data={QC_TESTS as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No QC tests found."
+              />
 
               <div className="mt-6">
                 <Card>
