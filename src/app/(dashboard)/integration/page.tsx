@@ -377,7 +377,7 @@ export default function IntegrationPage() {
           if (modal?.kind === "flow" && modal.editing) {
             setFlows((prev) => prev.map((f) => f.id === modal.editing!.id ? { ...f, source: data.source as string, dest: data.dest as string, type: data.type as string, frequency: data.frequency as string } : f));
           } else {
-            setFlows((prev) => [...prev, { id: `DF-${String(prev.length + 1).padStart(3, "0")}`, source: data.source as string, dest: data.dest as string, type: data.type as string, frequency: data.frequency as string, status: "paused", lastRun: "Never", records: "—" }]);
+            setFlows((prev) => [...prev, { id: `DF-${Date.now().toString(36)}`, source: data.source as string, dest: data.dest as string, type: data.type as string, frequency: data.frequency as string, status: "paused", lastRun: "Never", records: "—" }]);
           }
           setModal(null);
         }}

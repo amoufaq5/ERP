@@ -472,7 +472,7 @@ export default function DataMigrationPage() {
             setJobs((prev) => prev.map((j) => j.id === modal.editing!.id ? { ...j, name: data.name as string, source: data.source as string, destination: data.destination as string, recordsTotal: (data.recordsTotal as number) || j.recordsTotal } : j));
           } else {
             const newJob: MigrationJob = {
-              id: `MIG-${String(jobs.length + 1).padStart(3, "0")}`,
+              id: `MIG-${Date.now().toString(36)}`,
               name: data.name as string,
               source: data.source as string,
               destination: data.destination as string,
@@ -506,7 +506,7 @@ export default function DataMigrationPage() {
             setSources((prev) => prev.map((s) => s.id === modal.editing!.id ? { ...s, name: data.name as string, type: data.type as string, recordCount: (data.recordCount as number) || s.recordCount, icon: sourceIcons[data.type as string] || <Database className="h-5 w-5" /> } : s));
           } else {
             const newSource: DataSource = {
-              id: `ds-${sources.length + 1}`,
+              id: `ds-${Date.now().toString(36)}`,
               name: data.name as string,
               type: data.type as string,
               icon: sourceIcons[data.type as string] || <Database className="h-5 w-5" />,

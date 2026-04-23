@@ -447,7 +447,7 @@ export default function SafetyPage() {
             } : i));
           } else {
             setIncidentList(prev => [{
-              id: `INC-${String(prev.length + 1).padStart(3, "0")}`,
+              id: `INC-${Date.now().toString(36)}`,
               date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
               type: String(data.type),
               location: String(data.location),

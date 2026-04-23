@@ -128,7 +128,7 @@ export default function AutomationPage() {
           if (editing) {
             setWorkflows(prev => prev.map(w => w.id === editing.id ? { ...w, name: data.name as string, module: data.module as string, trigger: data.trigger as string, conditions: (data.conditions as string) || "None", actions: (data.actions as string) || "Log event" } : w));
           } else {
-            setWorkflows(prev => [...prev, { id: String(prev.length + 1), name: data.name as string, module: data.module as string, trigger: data.trigger as string, conditions: (data.conditions as string) || "None", actions: (data.actions as string) || "Log event", isActive: true, runCount: 0, lastRun: "Never" }]);
+            setWorkflows(prev => [...prev, { id: Date.now().toString(36), name: data.name as string, module: data.module as string, trigger: data.trigger as string, conditions: (data.conditions as string) || "None", actions: (data.actions as string) || "Log event", isActive: true, runCount: 0, lastRun: "Never" }]);
           }
           setShowModal(false);
           setEditing(null);

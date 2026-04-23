@@ -376,7 +376,7 @@ export default function CompliancePage() {
             } : r));
           } else {
             setRegs(prev => [{
-              id: `REG-${String(prev.length + 1).padStart(3, "0")}`,
+              id: `REG-${Date.now().toString(36)}`,
               name: String(data.name), authority: String(data.authority),
               category: String(data.category) || "Financial",
               jurisdiction: String(data.jurisdiction) || "—",

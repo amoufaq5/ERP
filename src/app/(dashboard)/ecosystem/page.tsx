@@ -637,7 +637,7 @@ export default function EcosystemPage() {
           if (modal?.kind === "field" && modal.editing) {
             setCustomFields((prev) => prev.map((f) => f.id === modal.editing!.id ? { ...f, module: (data.entity as string) || f.module, name: data.fieldName as string, type: (data.fieldType as string) || f.type, required: data.required === "Yes", options: (data.defaultValue as string) || "" } : f));
           } else {
-            setCustomFields((prev) => [{ id: prev.length + 1, module: (data.entity as string) || "CRM", name: data.fieldName as string, type: (data.fieldType as string) || "Text", required: data.required === "Yes", options: (data.defaultValue as string) || "" }, ...prev]);
+            setCustomFields((prev) => [{ id: Date.now(), module: (data.entity as string) || "CRM", name: data.fieldName as string, type: (data.fieldType as string) || "Text", required: data.required === "Yes", options: (data.defaultValue as string) || "" }, ...prev]);
           }
           setModal(null);
         }}
@@ -653,7 +653,7 @@ export default function EcosystemPage() {
           if (modal?.kind === "workflow" && modal.editing) {
             setWorkflows((prev) => prev.map((w) => w.id === modal.editing!.id ? { ...w, name: data.name as string, trigger: (data.trigger as string) || w.trigger } : w));
           } else {
-            setWorkflows((prev) => [{ id: prev.length + 1, name: data.name as string, trigger: (data.trigger as string) || "Manual", actions: 1, status: "Active", lastRun: "Never", runs: 0 }, ...prev]);
+            setWorkflows((prev) => [{ id: Date.now(), name: data.name as string, trigger: (data.trigger as string) || "Manual", actions: 1, status: "Active", lastRun: "Never", runs: 0 }, ...prev]);
           }
           setModal(null);
         }}
@@ -669,7 +669,7 @@ export default function EcosystemPage() {
           if (modal?.kind === "role" && modal.editing) {
             setRoles((prev) => prev.map((r) => r.id === modal.editing!.id ? { ...r, name: data.roleName as string, description: data.description as string, permissions: (data.permissions as string) || r.permissions } : r));
           } else {
-            setRoles((prev) => [{ id: prev.length + 1, name: data.roleName as string, users: 0, permissions: (data.permissions as string) || "Custom", description: data.description as string, editable: true }, ...prev]);
+            setRoles((prev) => [{ id: Date.now(), name: data.roleName as string, users: 0, permissions: (data.permissions as string) || "Custom", description: data.description as string, editable: true }, ...prev]);
           }
           setModal(null);
         }}

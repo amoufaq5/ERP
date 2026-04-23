@@ -519,7 +519,7 @@ export default function FacilityPage() {
           } else {
             const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
             setWos(prev => [{
-              id: `WO-${1010 + prev.length + 1}`,
+              id: `WO-${Date.now().toString(36)}`,
               title: String(data.title),
               building: String(data.building),
               priority: String(data.priority) || "Medium",

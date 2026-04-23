@@ -513,7 +513,7 @@ export default function PlanningPage() {
           if (editingGoal) {
             setStrategicGoals(prev => prev.map(g => g.id === editingGoal.id ? { ...g, goal: data.objective as string, owner: data.owner as string, department: data.kpi as string, target: data.target as string, status: (data.status as string) || g.status, deadline: data.timeline as string } : g));
           } else {
-            const id = `SG-${String(strategicGoals.length + 1).padStart(3, "0")}`;
+            const id = `SG-${Date.now().toString(36)}`;
             setStrategicGoals(prev => [{ id, goal: data.objective as string, owner: data.owner as string, department: data.kpi as string, target: data.target as string, progress: 0, status: (data.status as string) || "On Track", deadline: data.timeline as string }, ...prev]);
           }
           setShowForm(false);

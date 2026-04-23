@@ -143,7 +143,7 @@ export default function DocumentsPage() {
           if (editing) {
             setDocs(prev => prev.map(d => d.id === editing.id ? { ...d, name: data.name as string, type: (data.type as string) || d.type, category: (data.category as string) || d.category, module: (data.module as string) || d.module } : d))
           } else {
-            setDocs(prev => [...prev, { id: String(prev.length + 1), name: data.name as string, type: (data.type as string) || "PDF", category: (data.category as string) || "General", module: (data.module as string) || "General", size: "0 KB", uploadedBy: "Admin User", version: 1, date: new Date().toISOString().split("T")[0] }])
+            setDocs(prev => [...prev, { id: Date.now().toString(36), name: data.name as string, type: (data.type as string) || "PDF", category: (data.category as string) || "General", module: (data.module as string) || "General", size: "0 KB", uploadedBy: "Admin User", version: 1, date: new Date().toISOString().split("T")[0] }])
           }
           setShowModal(false)
           setEditing(null)

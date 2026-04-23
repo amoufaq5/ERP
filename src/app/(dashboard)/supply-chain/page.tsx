@@ -713,7 +713,7 @@ export default function SupplyChainPage() {
             } else {
               const today = new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
               setPos(prev => [{
-                id: `PO-${4510 + prev.length + 1}`,
+                id: `PO-${Date.now().toString(36)}`,
                 supplier: String(data.supplier),
                 items: Number(data.items) || 1,
                 total: `$${Number(data.totalValue).toLocaleString()}`,
@@ -759,7 +759,7 @@ export default function SupplyChainPage() {
               } : s));
             } else {
               setSupplierList(prev => [{
-                id: `SUP-${String(prev.length + 1).padStart(3, "0")}`,
+                id: `SUP-${Date.now().toString(36)}`,
                 name: String(data.name),
                 category: String(data.category),
                 location: String(data.location),

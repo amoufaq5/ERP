@@ -395,7 +395,7 @@ export default function SpreadsheetPage() {
   }, [data]);
 
   const addSheet = () => {
-    setSheets(prev => [...prev, { name: `Sheet${prev.length + 1}`, data: {} }]);
+    setSheets(prev => [...prev, { name: `Sheet${Date.now().toString(36)}`, data: {} }]);
     setActiveSheet(sheets.length);
   };
 

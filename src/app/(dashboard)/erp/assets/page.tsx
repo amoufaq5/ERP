@@ -160,7 +160,7 @@ export default function AssetsPage() {
           if (editing) {
             setAssets(prev => prev.map(a => a.id === editing.id ? { ...a, name: data.name as string, category: (data.category as string) || a.category, purchasePrice: (data.purchasePrice as number) || a.purchasePrice, location: (data.location as string) || a.location, assignedTo: (data.assignedTo as string) || a.assignedTo } : a))
           } else {
-            setAssets(prev => [...prev, { id: String(prev.length + 1), name: data.name as string, assetTag: `AST-${String(prev.length + 1).padStart(3, "0")}`, category: (data.category as string) || "Other", status: "ACTIVE", purchaseDate: new Date().toISOString().split("T")[0], purchasePrice: (data.purchasePrice as number) || 0, currentValue: (data.purchasePrice as number) || 0, location: (data.location as string) || "Office", assignedTo: (data.assignedTo as string) || "Unassigned", warrantyExpiry: "2027-01-01" }])
+            setAssets(prev => { const uid = Date.now().toString(36); return [...prev, { id: uid, name: data.name as string, assetTag: `AST-${uid}`, category: (data.category as string) || "Other", status: "ACTIVE", purchaseDate: new Date().toISOString().split("T")[0], purchasePrice: (data.purchasePrice as number) || 0, currentValue: (data.purchasePrice as number) || 0, location: (data.location as string) || "Office", assignedTo: (data.assignedTo as string) || "Unassigned", warrantyExpiry: "2027-01-01" }]})
           }
           setShowModal(false); setEditing(null)
         }}
