@@ -9,6 +9,8 @@ import { Activity, ArrowDownUp, CheckCircle2, Clock, Database, Link2, Plus, Refr
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 interface Connection {
   name: string;
@@ -276,54 +278,45 @@ export default function IntegrationPage() {
                 values={flowFilters}
                 onChange={(k, v) => setFlowFilters((f) => ({ ...f, [k]: v }))}
               />
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-2 font-medium">ID</th>
-                      <th className="pb-2 font-medium">Source</th>
-                      <th className="pb-2 font-medium">Destination</th>
-                      <th className="pb-2 font-medium">Type</th>
-                      <th className="pb-2 font-medium">Frequency</th>
-                      <th className="pb-2 font-medium">Status</th>
-                      <th className="pb-2 font-medium">Last Run</th>
-                      <th className="pb-2 font-medium text-right">Records</th>
-                      <th className="pb-2 font-medium"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredFlows.map((f) => (
-                      <tr key={f.id} className="border-b last:border-0">
-                        <td className="py-2 font-mono">{f.id}</td>
-                        <td className="py-2">{f.source}</td>
-                        <td className="py-2">{f.dest}</td>
-                        <td className="py-2">{f.type}</td>
-                        <td className="py-2">{f.frequency}</td>
-                        <td className="py-2">{statusBadge(f.status)}</td>
-                        <td className="py-2 text-muted-foreground">{f.lastRun}</td>
-                        <td className="py-2 text-right font-mono">{f.records}</td>
-                        <td className="py-2">
-                          <EditDeleteMenu
-                            onEdit={() => setModal({ kind: "flow", editing: f })}
-                            onDelete={() => setFlows((prev) => prev.filter((x) => x.id !== f.id))}
-                            itemLabel={f.id}
-                            extraItems={(() => {
-                              const flow: Record<string, { label: string; status: DataFlow["status"] }> = {
-                                active: { label: "Pause Flow", status: "paused" },
-                                paused: { label: "Resume Flow", status: "active" },
-                                error: { label: "Retry Flow", status: "active" },
-                              };
-                              const next = flow[f.status];
-                              if (!next) return [];
-                              return [{ label: next.label, onClick: () => setFlows((prev) => prev.map((x) => x.id === f.id ? { ...x, status: next.status } : x)) }];
-                            })()}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v: unknown) => <span className="font-mono">{String(v)}</span> },
+                  { key: "source", label: "Source" },
+                  { key: "dest", label: "Destination" },
+                  { key: "type", label: "Type" },
+                  { key: "frequency", label: "Frequency" },
+                  { key: "status", label: "Status", render: (v: unknown) => statusBadge(String(v)) },
+                  { key: "lastRun", label: "Last Run", render: (v: unknown) => <span className="text-muted-foreground">{String(v)}</span> },
+                  { key: "records", label: "Records", className: "text-right", render: (v: unknown) => <span className="font-mono">{String(v)}</span> },
+                  {
+                    key: "_actions",
+                    label: "",
+                    render: (_v: unknown, row: Record<string, unknown>) => {
+                      const f = row as unknown as DataFlow;
+                      return (
+                        <EditDeleteMenu
+                          onEdit={() => setModal({ kind: "flow", editing: f })}
+                          onDelete={() => setFlows((prev) => prev.filter((x) => x.id !== f.id))}
+                          itemLabel={f.id}
+                          extraItems={(() => {
+                            const flow: Record<string, { label: string; status: DataFlow["status"] }> = {
+                              active: { label: "Pause Flow", status: "paused" },
+                              paused: { label: "Resume Flow", status: "active" },
+                              error: { label: "Retry Flow", status: "active" },
+                            };
+                            const next = flow[f.status];
+                            if (!next) return [];
+                            return [{ label: next.label, onClick: () => setFlows((prev) => prev.map((x) => x.id === f.id ? { ...x, status: next.status } : x)) }];
+                          })()}
+                        />
+                      );
+                    },
+                  },
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredFlows as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No data flows found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -336,28 +329,17 @@ export default function IntegrationPage() {
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-2 font-medium">Timestamp</th>
-                      <th className="pb-2 font-medium">Level</th>
-                      <th className="pb-2 font-medium">Source</th>
-                      <th className="pb-2 font-medium">Message</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logs.map((log, i) => (
-                      <tr key={i} className="border-b last:border-0">
-                        <td className="py-2 font-mono text-xs text-muted-foreground whitespace-nowrap">{log.ts}</td>
-                        <td className="py-2">{levelBadge(log.level)}</td>
-                        <td className="py-2 font-medium whitespace-nowrap">{log.source}</td>
-                        <td className="py-2 text-muted-foreground">{log.message}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "ts", label: "Timestamp", render: (v: unknown) => <span className="font-mono text-xs text-muted-foreground whitespace-nowrap">{String(v)}</span> },
+                  { key: "level", label: "Level", render: (v: unknown) => levelBadge(String(v)) },
+                  { key: "source", label: "Source", render: (v: unknown) => <span className="font-medium whitespace-nowrap">{String(v)}</span> },
+                  { key: "message", label: "Message", render: (v: unknown) => <span className="text-muted-foreground">{String(v)}</span> },
+                ] as Column<Record<string, unknown>>[]}
+                data={logs as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No logs available."
+              />
             </CardContent>
           </Card>
         </TabsContent>

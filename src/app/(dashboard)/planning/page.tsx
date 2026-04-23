@@ -23,6 +23,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
+import DataTable from "@/components/shared/data-table"
+import type { Column } from "@/components/shared/data-table"
 
 const initialStrategicGoals = [
   { id: "SG-001", goal: "Expand APAC Market Presence", owner: "Sarah Chen", department: "Sales", target: "15% revenue share", progress: 72, status: "On Track", deadline: "2026-12-31" },
@@ -297,37 +299,24 @@ export default function PlanningPage() {
               <CardDescription>Allocated budgets, spending, and variance analysis by department</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium">Department</th>
-                      <th className="text-right py-3 px-4 font-medium">Allocated</th>
-                      <th className="text-right py-3 px-4 font-medium">Spent</th>
-                      <th className="text-right py-3 px-4 font-medium">Committed</th>
-                      <th className="text-right py-3 px-4 font-medium">Remaining</th>
-                      <th className="text-right py-3 px-4 font-medium">Variance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {departmentBudgets.map((b) => (
-                      <tr key={b.department} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4 font-medium">{b.department}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(b.allocated)}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(b.spent)}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(b.committed)}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(b.remaining)}</td>
-                        <td className="py-3 px-4 text-right">
-                          <span className={`inline-flex items-center gap-1 ${b.variance >= 0 ? "text-green-600" : "text-red-600"}`}>
-                            {b.variance >= 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
-                            {Math.abs(b.variance)}%
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "department", label: "Department", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "allocated", label: "Allocated", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "spent", label: "Spent", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "committed", label: "Committed", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "remaining", label: "Remaining", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "variance", label: "Variance", className: "text-right", render: (v: number) => (
+                    <span className={`inline-flex items-center gap-1 ${v >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {v >= 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+                      {Math.abs(v)}%
+                    </span>
+                  )},
+                ] as Column<Record<string, unknown>>[]}
+                data={departmentBudgets as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No budget data available."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -339,38 +328,24 @@ export default function PlanningPage() {
               <CardDescription>Headcount, hiring pipeline, and attrition metrics by department</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium">Department</th>
-                      <th className="text-right py-3 px-4 font-medium">Current HC</th>
-                      <th className="text-right py-3 px-4 font-medium">Planned HC</th>
-                      <th className="text-right py-3 px-4 font-medium">Open Reqs</th>
-                      <th className="text-right py-3 px-4 font-medium">Attrition %</th>
-                      <th className="text-right py-3 px-4 font-medium">Avg Tenure (yr)</th>
-                      <th className="text-right py-3 px-4 font-medium">Contractors</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {workforceData.map((w) => (
-                      <tr key={w.department} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4 font-medium">{w.department}</td>
-                        <td className="py-3 px-4 text-right">{w.current}</td>
-                        <td className="py-3 px-4 text-right">{w.planned}</td>
-                        <td className="py-3 px-4 text-right">
-                          <Badge variant={w.openReqs >= 8 ? "destructive" : w.openReqs >= 4 ? "secondary" : "outline"}>{w.openReqs}</Badge>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <span className={w.attrition > 10 ? "text-red-600 font-medium" : ""}>{w.attrition}%</span>
-                        </td>
-                        <td className="py-3 px-4 text-right">{w.avgTenure}</td>
-                        <td className="py-3 px-4 text-right">{w.contractors}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "department", label: "Department", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "current", label: "Current HC", className: "text-right" },
+                  { key: "planned", label: "Planned HC", className: "text-right" },
+                  { key: "openReqs", label: "Open Reqs", className: "text-right", render: (v: number) => (
+                    <Badge variant={v >= 8 ? "destructive" : v >= 4 ? "secondary" : "outline"}>{v}</Badge>
+                  )},
+                  { key: "attrition", label: "Attrition %", className: "text-right", render: (v: number) => (
+                    <span className={v > 10 ? "text-red-600 font-medium" : ""}>{v}%</span>
+                  )},
+                  { key: "avgTenure", label: "Avg Tenure (yr)", className: "text-right" },
+                  { key: "contractors", label: "Contractors", className: "text-right" },
+                ] as Column<Record<string, unknown>>[]}
+                data={workforceData as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No workforce data available."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -382,36 +357,21 @@ export default function PlanningPage() {
               <CardDescription>Active and scheduled production orders across manufacturing lines</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium">Order ID</th>
-                      <th className="text-left py-3 px-4 font-medium">Product</th>
-                      <th className="text-right py-3 px-4 font-medium">Qty</th>
-                      <th className="text-left py-3 px-4 font-medium">Line</th>
-                      <th className="text-left py-3 px-4 font-medium">Start</th>
-                      <th className="text-left py-3 px-4 font-medium">Due</th>
-                      <th className="text-left py-3 px-4 font-medium">Status</th>
-                      <th className="text-left py-3 px-4 font-medium">Priority</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {productionOrders.map((po) => (
-                      <tr key={po.id} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4 font-mono text-xs">{po.id}</td>
-                        <td className="py-3 px-4 font-medium">{po.product}</td>
-                        <td className="py-3 px-4 text-right">{po.quantity.toLocaleString()}</td>
-                        <td className="py-3 px-4">{po.line}</td>
-                        <td className="py-3 px-4">{po.startDate}</td>
-                        <td className="py-3 px-4">{po.dueDate}</td>
-                        <td className="py-3 px-4"><Badge variant={getStatusBadge(po.status)}>{po.status}</Badge></td>
-                        <td className="py-3 px-4"><Badge variant={getPriorityBadge(po.priority)}>{po.priority}</Badge></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Order ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "product", label: "Product", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "quantity", label: "Qty", className: "text-right", render: (v: number) => v.toLocaleString() },
+                  { key: "line", label: "Line" },
+                  { key: "startDate", label: "Start" },
+                  { key: "dueDate", label: "Due" },
+                  { key: "status", label: "Status", render: (v: string) => <Badge variant={getStatusBadge(v)}>{v}</Badge> },
+                  { key: "priority", label: "Priority", render: (v: string) => <Badge variant={getPriorityBadge(v)}>{v}</Badge> },
+                ] as Column<Record<string, unknown>>[]}
+                data={productionOrders as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No production orders found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -423,38 +383,24 @@ export default function PlanningPage() {
               <CardDescription>Revenue targets, pipeline, and growth metrics by sales territory</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium">Territory</th>
-                      <th className="text-left py-3 px-4 font-medium">Manager</th>
-                      <th className="text-right py-3 px-4 font-medium">Target</th>
-                      <th className="text-right py-3 px-4 font-medium">Current</th>
-                      <th className="text-right py-3 px-4 font-medium">Pipeline</th>
-                      <th className="text-right py-3 px-4 font-medium">Win Rate</th>
-                      <th className="text-right py-3 px-4 font-medium">QoQ Growth</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {territoryPlans.map((t) => (
-                      <tr key={t.territory} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4 font-medium">{t.territory}</td>
-                        <td className="py-3 px-4">{t.manager}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(t.targetRevenue)}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(t.currentRevenue)}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(t.pipeline)}</td>
-                        <td className="py-3 px-4 text-right">{t.winRate}%</td>
-                        <td className="py-3 px-4 text-right">
-                          <span className="inline-flex items-center gap-1 text-green-600">
-                            <ArrowUpRight className="h-3.5 w-3.5" />{t.qoqGrowth}%
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "territory", label: "Territory", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "manager", label: "Manager" },
+                  { key: "targetRevenue", label: "Target", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "currentRevenue", label: "Current", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "pipeline", label: "Pipeline", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "winRate", label: "Win Rate", className: "text-right", render: (v: number) => `${v}%` },
+                  { key: "qoqGrowth", label: "QoQ Growth", className: "text-right", render: (v: number) => (
+                    <span className="inline-flex items-center gap-1 text-green-600">
+                      <ArrowUpRight className="h-3.5 w-3.5" />{v}%
+                    </span>
+                  )},
+                ] as Column<Record<string, unknown>>[]}
+                data={territoryPlans as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No territory plans found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -466,45 +412,29 @@ export default function PlanningPage() {
               <CardDescription>Technology initiatives, budget tracking, and delivery timelines</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium">ID</th>
-                      <th className="text-left py-3 px-4 font-medium">Project</th>
-                      <th className="text-left py-3 px-4 font-medium">Lead</th>
-                      <th className="text-left py-3 px-4 font-medium">Phase</th>
-                      <th className="text-right py-3 px-4 font-medium">Budget</th>
-                      <th className="text-right py-3 px-4 font-medium">Spent</th>
-                      <th className="text-right py-3 px-4 font-medium">Completion</th>
-                      <th className="text-left py-3 px-4 font-medium">Go-Live</th>
-                      <th className="text-left py-3 px-4 font-medium">Risk</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {itProjects.map((p) => (
-                      <tr key={p.id} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4 font-mono text-xs">{p.id}</td>
-                        <td className="py-3 px-4 font-medium">{p.project}</td>
-                        <td className="py-3 px-4">{p.lead}</td>
-                        <td className="py-3 px-4"><Badge variant="outline">{p.phase}</Badge></td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(p.budget)}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(p.spent)}</td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center gap-2 justify-end">
-                            <div className="w-16 bg-secondary rounded-full h-2">
-                              <div className="h-2 rounded-full bg-blue-500" style={{ width: `${p.completion}%` }} />
-                            </div>
-                            <span className="text-xs w-8 text-right">{p.completion}%</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">{p.goLive}</td>
-                        <td className="py-3 px-4"><Badge variant={getPriorityBadge(p.risk)}>{p.risk}</Badge></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "project", label: "Project", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "lead", label: "Lead" },
+                  { key: "phase", label: "Phase", render: (v: string) => <Badge variant="outline">{v}</Badge> },
+                  { key: "budget", label: "Budget", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "spent", label: "Spent", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "completion", label: "Completion", className: "text-right", render: (v: number) => (
+                    <div className="flex items-center gap-2 justify-end">
+                      <div className="w-16 bg-secondary rounded-full h-2">
+                        <div className="h-2 rounded-full bg-blue-500" style={{ width: `${v}%` }} />
+                      </div>
+                      <span className="text-xs w-8 text-right">{v}%</span>
+                    </div>
+                  )},
+                  { key: "goLive", label: "Go-Live" },
+                  { key: "risk", label: "Risk", render: (v: string) => <Badge variant={getPriorityBadge(v)}>{v}</Badge> },
+                ] as Column<Record<string, unknown>>[]}
+                data={itProjects as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No IT projects found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -516,36 +446,21 @@ export default function PlanningPage() {
               <CardDescription>Identified risks, mitigation strategies, and ownership tracking</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium">ID</th>
-                      <th className="text-left py-3 px-4 font-medium">Risk Description</th>
-                      <th className="text-left py-3 px-4 font-medium">Category</th>
-                      <th className="text-left py-3 px-4 font-medium">Likelihood</th>
-                      <th className="text-left py-3 px-4 font-medium">Impact</th>
-                      <th className="text-left py-3 px-4 font-medium">Owner</th>
-                      <th className="text-left py-3 px-4 font-medium">Mitigation</th>
-                      <th className="text-left py-3 px-4 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {enterpriseRisks.map((r) => (
-                      <tr key={r.id} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4 font-mono text-xs">{r.id}</td>
-                        <td className="py-3 px-4 font-medium max-w-xs truncate">{r.risk}</td>
-                        <td className="py-3 px-4"><Badge variant="outline">{r.category}</Badge></td>
-                        <td className="py-3 px-4"><Badge variant={getStatusBadge(r.likelihood)}>{r.likelihood}</Badge></td>
-                        <td className="py-3 px-4"><Badge variant={getStatusBadge(r.impact)}>{r.impact}</Badge></td>
-                        <td className="py-3 px-4">{r.owner}</td>
-                        <td className="py-3 px-4 text-muted-foreground">{r.mitigation}</td>
-                        <td className="py-3 px-4"><Badge variant={getStatusBadge(r.status)}>{r.status}</Badge></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "risk", label: "Risk Description", render: (v: string) => <span className="font-medium max-w-xs truncate block">{v}</span> },
+                  { key: "category", label: "Category", render: (v: string) => <Badge variant="outline">{v}</Badge> },
+                  { key: "likelihood", label: "Likelihood", render: (v: string) => <Badge variant={getStatusBadge(v)}>{v}</Badge> },
+                  { key: "impact", label: "Impact", render: (v: string) => <Badge variant={getStatusBadge(v)}>{v}</Badge> },
+                  { key: "owner", label: "Owner" },
+                  { key: "mitigation", label: "Mitigation", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
+                  { key: "status", label: "Status", render: (v: string) => <Badge variant={getStatusBadge(v)}>{v}</Badge> },
+                ] as Column<Record<string, unknown>>[]}
+                data={enterpriseRisks as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No enterprise risks found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -557,46 +472,32 @@ export default function PlanningPage() {
               <CardDescription>FTE allocation, utilization rates, and availability across resource pools</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium">Resource Pool</th>
-                      <th className="text-left py-3 px-4 font-medium">Department</th>
-                      <th className="text-right py-3 px-4 font-medium">Total FTE</th>
-                      <th className="text-right py-3 px-4 font-medium">Allocated</th>
-                      <th className="text-right py-3 px-4 font-medium">Available</th>
-                      <th className="text-right py-3 px-4 font-medium">Utilization</th>
-                      <th className="text-left py-3 px-4 font-medium">Top Project</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {resourceAllocations.map((r) => (
-                      <tr key={r.resource} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4 font-medium">{r.resource}</td>
-                        <td className="py-3 px-4">{r.department}</td>
-                        <td className="py-3 px-4 text-right">{r.totalFTE}</td>
-                        <td className="py-3 px-4 text-right">{r.allocated}</td>
-                        <td className="py-3 px-4 text-right">
-                          <span className={r.available === 0 ? "text-red-600 font-medium" : ""}>{r.available}</span>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center gap-2 justify-end">
-                            <div className="w-16 bg-secondary rounded-full h-2">
-                              <div
-                                className={`h-2 rounded-full ${r.utilization >= 95 ? "bg-red-500" : r.utilization >= 85 ? "bg-yellow-500" : "bg-green-500"}`}
-                                style={{ width: `${r.utilization}%` }}
-                              />
-                            </div>
-                            <span className="text-xs w-8 text-right">{r.utilization}%</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-muted-foreground">{r.topProject}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "resource", label: "Resource Pool", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "department", label: "Department" },
+                  { key: "totalFTE", label: "Total FTE", className: "text-right" },
+                  { key: "allocated", label: "Allocated", className: "text-right" },
+                  { key: "available", label: "Available", className: "text-right", render: (v: number) => (
+                    <span className={v === 0 ? "text-red-600 font-medium" : ""}>{v}</span>
+                  )},
+                  { key: "utilization", label: "Utilization", className: "text-right", render: (v: number) => (
+                    <div className="flex items-center gap-2 justify-end">
+                      <div className="w-16 bg-secondary rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full ${v >= 95 ? "bg-red-500" : v >= 85 ? "bg-yellow-500" : "bg-green-500"}`}
+                          style={{ width: `${v}%` }}
+                        />
+                      </div>
+                      <span className="text-xs w-8 text-right">{v}%</span>
+                    </div>
+                  )},
+                  { key: "topProject", label: "Top Project", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
+                ] as Column<Record<string, unknown>>[]}
+                data={resourceAllocations as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No resource allocations found."
+              />
             </CardContent>
           </Card>
         </TabsContent>

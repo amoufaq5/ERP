@@ -30,6 +30,8 @@ import {
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 interface MigrationJob {
   id: string;
@@ -278,57 +280,77 @@ export default function DataMigrationPage() {
           />
         </CardHeader>
         <CardContent className="p-0">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b text-xs text-muted-foreground">
-                <th className="text-left p-3 font-medium">Job</th>
-                <th className="text-left p-3 font-medium">Source → Destination</th>
-                <th className="text-left p-3 font-medium">Status</th>
-                <th className="text-left p-3 font-medium">Progress</th>
-                <th className="text-left p-3 font-medium">Records</th>
-                <th className="text-left p-3 font-medium">Duration</th>
-                <th className="text-left p-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredJobs.map((job) => {
-                const config = statusConfig[job.status];
-                const StatusIcon = config.icon;
-                return (
-                  <tr key={job.id} className="border-b last:border-0 hover:bg-muted/50">
-                    <td className="p-3">
+          <DataTable
+            columns={[
+              {
+                key: "name",
+                label: "Job",
+                render: (_v: unknown, row: Record<string, unknown>) => {
+                  const job = row as unknown as MigrationJob;
+                  return (
+                    <div>
                       <p className="text-sm font-medium">{job.name}</p>
                       <p className="text-xs text-muted-foreground font-mono">{job.id}</p>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="text-muted-foreground">{job.source}</span>
-                        <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                        <span className="font-medium">{job.destination}</span>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "source",
+                label: "Source → Destination",
+                render: (_v: unknown, row: Record<string, unknown>) => {
+                  const job = row as unknown as MigrationJob;
+                  return (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-muted-foreground">{job.source}</span>
+                      <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="font-medium">{job.destination}</span>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "status",
+                label: "Status",
+                render: (_v: unknown, row: Record<string, unknown>) => {
+                  const job = row as unknown as MigrationJob;
+                  const config = statusConfig[job.status];
+                  const StatusIcon = config.icon;
+                  return (
+                    <div className="flex items-center gap-1.5">
+                      <StatusIcon className={`h-3.5 w-3.5 ${config.color} ${job.status === "running" ? "animate-spin" : ""}`} />
+                      <Badge variant={config.badgeVariant} className="text-xs">{config.label}</Badge>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "progress",
+                label: "Progress",
+                render: (_v: unknown, row: Record<string, unknown>) => {
+                  const job = row as unknown as MigrationJob;
+                  return (
+                    <div className="flex items-center gap-2">
+                      <div className="w-24 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            job.status === "failed" ? "bg-red-500" : job.status === "completed" ? "bg-green-500" : "bg-blue-500"
+                          }`}
+                          style={{ width: `${job.progress}%` }}
+                        />
                       </div>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-1.5">
-                        <StatusIcon className={`h-3.5 w-3.5 ${config.color} ${job.status === "running" ? "animate-spin" : ""}`} />
-                        <Badge variant={config.badgeVariant} className="text-xs">
-                          {config.label}
-                        </Badge>
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-24 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              job.status === "failed" ? "bg-red-500" : job.status === "completed" ? "bg-green-500" : "bg-blue-500"
-                            }`}
-                            style={{ width: `${job.progress}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-muted-foreground">{job.progress}%</span>
-                      </div>
-                    </td>
-                    <td className="p-3 text-xs">
+                      <span className="text-xs text-muted-foreground">{job.progress}%</span>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "recordsMigrated",
+                label: "Records",
+                render: (_v: unknown, row: Record<string, unknown>) => {
+                  const job = row as unknown as MigrationJob;
+                  return (
+                    <div className="text-xs">
                       <span className="font-medium">{job.recordsMigrated.toLocaleString()}</span>
                       <span className="text-muted-foreground"> / {job.recordsTotal.toLocaleString()}</span>
                       {job.errors > 0 && (
@@ -337,34 +359,48 @@ export default function DataMigrationPage() {
                           <span>{job.errors} errors</span>
                         </div>
                       )}
-                    </td>
-                    <td className="p-3 text-xs text-muted-foreground">{job.duration}</td>
-                    <td className="p-3">
-                      <EditDeleteMenu
-                        onEdit={() => setModal({ kind: "job", editing: job })}
-                        onDelete={() => setJobs((prev) => prev.filter((j) => j.id !== job.id))}
-                        itemLabel={job.name}
-                        extraItems={(() => {
-                          const flow: Record<string, { label: string; status: MigrationJob["status"]; progress?: number }> = {
-                            pending: { label: "Start Job", status: "running" },
-                            running: { label: "Pause Job", status: "pending" },
-                            failed: { label: "Retry Job", status: "running", progress: 0 },
-                          };
-                          const next = flow[job.status];
-                          if (!next) return [];
-                          return [{
-                            label: next.label,
-                            icon: job.status === "pending" ? <Play className="h-4 w-4" /> : job.status === "running" ? <Pause className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />,
-                            onClick: () => setJobs((prev) => prev.map((j) => j.id === job.id ? { ...j, status: next.status, ...(next.progress !== undefined ? { progress: next.progress } : {}) } : j)),
-                          }];
-                        })()}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "duration",
+                label: "Duration",
+                render: (v: unknown) => <span className="text-xs text-muted-foreground">{String(v)}</span>,
+              },
+              {
+                key: "id",
+                label: "Actions",
+                render: (_v: unknown, row: Record<string, unknown>) => {
+                  const job = row as unknown as MigrationJob;
+                  return (
+                    <EditDeleteMenu
+                      onEdit={() => setModal({ kind: "job", editing: job })}
+                      onDelete={() => setJobs((prev) => prev.filter((j) => j.id !== job.id))}
+                      itemLabel={job.name}
+                      extraItems={(() => {
+                        const flow: Record<string, { label: string; status: MigrationJob["status"]; progress?: number }> = {
+                          pending: { label: "Start Job", status: "running" },
+                          running: { label: "Pause Job", status: "pending" },
+                          failed: { label: "Retry Job", status: "running", progress: 0 },
+                        };
+                        const next = flow[job.status];
+                        if (!next) return [];
+                        return [{
+                          label: next.label,
+                          icon: job.status === "pending" ? <Play className="h-4 w-4" /> : job.status === "running" ? <Pause className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />,
+                          onClick: () => setJobs((prev) => prev.map((j) => j.id === job.id ? { ...j, status: next.status, ...(next.progress !== undefined ? { progress: next.progress } : {}) } : j)),
+                        }];
+                      })()}
+                    />
+                  );
+                },
+              },
+            ] as Column<Record<string, unknown>>[]}
+            data={filteredJobs as unknown as Record<string, unknown>[]}
+            pagination={false}
+            emptyMessage="No migration jobs found."
+          />
         </CardContent>
       </Card>
 
