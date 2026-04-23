@@ -391,7 +391,7 @@ export default function FacilityPage() {
                   <CardTitle>Facility Assets</CardTitle>
                   <CardDescription>Critical equipment and infrastructure assets</CardDescription>
                 </div>
-                <Button size="sm"><Plus className="mr-2 h-4 w-4" />Register Asset</Button>
+                <Button size="sm" onClick={() => setShowAssetModal(true)}><Plus className="mr-2 h-4 w-4" />Register Asset</Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -406,7 +406,7 @@ export default function FacilityPage() {
                   { key: "condition", label: "Condition", render: (v) => conditionBadge(v) },
                   { key: "value", label: "Value", render: (v) => <span className="font-medium">{v}</span> },
                 ] as Column<Record<string, unknown>>[]}
-                data={facilityAssets as unknown as Record<string, unknown>[]}
+                data={assetList as unknown as Record<string, unknown>[]}
                 emptyMessage="No assets found."
               />
             </CardContent>
@@ -466,7 +466,7 @@ export default function FacilityPage() {
                   <CardTitle>Visitor Log</CardTitle>
                   <CardDescription>Track visitor check-ins and check-outs across all facilities</CardDescription>
                 </div>
-                <Button size="sm"><Plus className="mr-2 h-4 w-4" />Register Visitor</Button>
+                <Button size="sm" onClick={() => setShowVisitorModal(true)}><Plus className="mr-2 h-4 w-4" />Register Visitor</Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -481,7 +481,7 @@ export default function FacilityPage() {
                   { key: "checkOut", label: "Check Out" },
                   { key: "status", label: "Status", render: (v) => statusBadge(v) },
                 ] as Column<Record<string, unknown>>[]}
-                data={visitors as unknown as Record<string, unknown>[]}
+                data={visitorList as unknown as Record<string, unknown>[]}
                 emptyMessage="No visitors found."
               />
             </CardContent>
@@ -497,7 +497,7 @@ export default function FacilityPage() {
                   <CardTitle>Facility Vendors</CardTitle>
                   <CardDescription>Contracted service providers and supplier management</CardDescription>
                 </div>
-                <Button size="sm"><Plus className="mr-2 h-4 w-4" />Add Vendor</Button>
+                <Button size="sm" onClick={() => setShowVendorModal(true)}><Plus className="mr-2 h-4 w-4" />Add Vendor</Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -515,7 +515,7 @@ export default function FacilityPage() {
                     </span>
                   )},
                   { key: "contact", label: "Contact", render: (_v, row) => {
-                    const vendor = row as unknown as typeof vendors[0];
+                    const vendor = row as unknown as typeof vendorList[0];
                     return (
                       <div>
                         <div>{vendor.contact}</div>
@@ -525,7 +525,7 @@ export default function FacilityPage() {
                   }},
                   { key: "status", label: "Status", render: (v) => statusBadge(v) },
                 ] as Column<Record<string, unknown>>[]}
-                data={vendors as unknown as Record<string, unknown>[]}
+                data={vendorList as unknown as Record<string, unknown>[]}
                 emptyMessage="No vendors found."
               />
             </CardContent>
@@ -572,6 +572,70 @@ export default function FacilityPage() {
               status: "Scheduled",
             }, ...prev]);
           }
+        }}
+      />
+
+      <EntityFormModal
+        open={showAssetModal}
+        onOpenChange={setShowAssetModal}
+        title="Register Asset"
+        fields={assetFields}
+        submitLabel="Register"
+        onSubmit={(data) => {
+          const today = new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" });
+          setAssetList(prev => [{
+            id: `FA-${Date.now().toString(36)}`,
+            name: String(data.name),
+            category: String(data.type) || "Equipment",
+            building: "",
+            location: String(data.location),
+            installed: today,
+            lastService: today,
+            condition: String(data.status) || "Good",
+            value: "",
+          }, ...prev]);
+        }}
+      />
+
+      <EntityFormModal
+        open={showVisitorModal}
+        onOpenChange={setShowVisitorModal}
+        title="Register Visitor"
+        fields={visitorFields}
+        submitLabel="Register"
+        onSubmit={(data) => {
+          setVisitorList(prev => [{
+            id: `VIS-${Date.now().toString(36)}`,
+            name: String(data.name),
+            company: String(data.company),
+            host: String(data.host),
+            purpose: String(data.purpose),
+            checkIn: String(data.checkIn),
+            checkOut: "-",
+            building: "",
+            status: "Expected",
+          }, ...prev]);
+        }}
+      />
+
+      <EntityFormModal
+        open={showVendorModal}
+        onOpenChange={setShowVendorModal}
+        title="Add Vendor"
+        fields={vendorFields}
+        submitLabel="Add"
+        onSubmit={(data) => {
+          setVendorList(prev => [{
+            id: `VND-${Date.now().toString(36)}`,
+            name: String(data.name),
+            service: String(data.specialty),
+            contract: "",
+            value: "",
+            rating: 0,
+            contact: String(data.contact),
+            phone: String(data.phone),
+            status: String(data.contractStatus) || "Active",
+          }, ...prev]);
         }}
       />
     </div>

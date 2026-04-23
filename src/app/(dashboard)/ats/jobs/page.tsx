@@ -8,6 +8,7 @@ import DataTable, { Column } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 
@@ -85,6 +86,7 @@ export default function JobsPage() {
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", department: "" });
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Job | null>(null);
+  const [detailJob, setDetailJob] = useState<Job | null>(null);
 
   const filtered = jobs.filter((j) => {
     const q = (filters._search || "").toLowerCase();
@@ -117,6 +119,8 @@ export default function JobsPage() {
           <EditDeleteMenu
             onEdit={() => { setEditing(row); setShowModal(true); }}
             onDelete={() => setJobs((prev) => prev.filter((j) => j.id !== row.id))}
+            onView={() => setDetailJob(row)}
+            canView
             itemLabel={row.title}
             extraItems={[
               ...(next ? [{ label: `Set ${next}`, onClick: () => setJobs((prev) => prev.map((j) => j.id === row.id ? { ...j, status: next } : j)) }] : []),
@@ -199,6 +203,40 @@ export default function JobsPage() {
           setEditing(null);
         }}
       />
+
+      {/* ── Job Detail Dialog ── */}
+      <Dialog open={!!detailJob} onOpenChange={(open) => { if (!open) setDetailJob(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailJob?.title}</DialogTitle>
+          </DialogHeader>
+          {detailJob && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div><span className="text-sm text-muted-foreground">Department</span><p className="font-medium">{detailJob.department}</p></div>
+                <div><span className="text-sm text-muted-foreground">Location</span><p className="font-medium">{detailJob.location}</p></div>
+                <div><span className="text-sm text-muted-foreground">Employment Type</span><p className="font-medium">{typeLabels[detailJob.type] ?? detailJob.type}</p></div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <p><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[detailJob.status] ?? ""}`}>{detailJob.status}</span></p>
+                </div>
+                <div><span className="text-sm text-muted-foreground">Salary Range</span><p className="font-medium">{detailJob.salaryRange || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Applications</span><p className="font-medium">{detailJob.applications}</p></div>
+                <div><span className="text-sm text-muted-foreground">Posted Date</span><p className="font-medium">{detailJob.postedDate}</p></div>
+                <div><span className="text-sm text-muted-foreground">Closing Date</span><p className="font-medium">{detailJob.closingDate || "—"}</p></div>
+              </div>
+              <div>
+                <span className="text-sm text-muted-foreground">Requirements</span>
+                <p className="font-medium mt-1">{detailJob.requirements || "—"}</p>
+              </div>
+              <div>
+                <span className="text-sm text-muted-foreground">Full Description</span>
+                <p className="font-medium mt-1 whitespace-pre-wrap">{detailJob.description || "—"}</p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
