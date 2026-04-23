@@ -2,12 +2,20 @@
 
 import { useMemo, useState } from "react";
 import {
-  Factory, ClipboardList, Play, CheckCircle, Plus, Package, Layers,
+  Factory, ClipboardList, Play, CheckCircle, Plus, Package, Layers, Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
@@ -17,6 +25,7 @@ import {
 } from "@/components/shared/entity-form-modal";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
+import { useDataStore } from "@/lib/data-store";
 
 /* ─── Types ─── */
 
@@ -80,6 +89,7 @@ const statusColor: Record<string, string> = {
 const priorityColor: Record<string, string> = { LOW: "bg-gray-100 text-gray-800", MEDIUM: "bg-blue-100 text-blue-800", HIGH: "bg-orange-100 text-orange-800", URGENT: "bg-red-100 text-red-800" };
 
 export default function ManufacturingPage() {
+  const store = useDataStore();
   const [boms, setBoms] = useState<BOM[]>(SEED_BOMS);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>(SEED_WO);
   const [filters, setFilters] = useState<FilterState>({});
@@ -89,6 +99,11 @@ export default function ManufacturingPage() {
   const [editingBom, setEditingBom] = useState<BOM | null>(null);
   const [woFormOpen, setWoFormOpen] = useState(false);
   const [editingWo, setEditingWo] = useState<WorkOrder | null>(null);
+
+  /* ─── BOM Materials editor state ─── */
+  const [materialsModalOpen, setMaterialsModalOpen] = useState(false);
+  const [materialsTarget, setMaterialsTarget] = useState<BOM | null>(null);
+  const [editMaterials, setEditMaterials] = useState<BOMItem[]>([]);
 
   let _n = Date.now();
   const genId = (p: string) => `${p}-${(_n++).toString(36).slice(-6)}`;
@@ -103,10 +118,11 @@ export default function ManufacturingPage() {
   }, [workOrders, search, filters]);
 
   /* ─── BOM CRUD ─── */
+  const productOptions = store.products.map((p) => ({ label: `${p.name} ${p.strength} (${p.code})`, value: p.id }));
+
   const bomFields: EntityField[] = [
     { name: "name", label: "BOM Name", type: "text", required: true },
-    { name: "productCode", label: "Product Code", type: "text", required: true },
-    { name: "productName", label: "Product Name", type: "text", required: true },
+    { name: "productId", label: "Product", type: "select", required: true, options: productOptions },
     { name: "version", label: "Version", type: "text", required: true, defaultValue: "1.0" },
     { name: "status", label: "Status", type: "select", required: true, options: [{ label: "Draft", value: "DRAFT" }, { label: "Active", value: "ACTIVE" }, { label: "Obsolete", value: "OBSOLETE" }] },
     { name: "batchSize", label: "Batch Size", type: "number", required: true },
@@ -116,14 +132,44 @@ export default function ManufacturingPage() {
   function handleCreateBom() { setEditingBom(null); setBomFormOpen(true); }
   function handleEditBom(b: BOM) { setEditingBom(b); setBomFormOpen(true); }
   function handleBomSubmit(data: EntityFormData) {
+    const prod = store.products.find((p) => p.id === String(data.productId));
+    const productCode = prod?.code ?? "";
+    const productName = prod ? `${prod.name} ${prod.strength}` : "";
     if (editingBom) {
-      setBoms((prev) => prev.map((b) => b.id === editingBom.id ? { ...b, name: String(data.name), productCode: String(data.productCode), productName: String(data.productName), version: String(data.version), status: data.status as BOM["status"], batchSize: Number(data.batchSize), batchUnit: String(data.batchUnit) } : b));
+      setBoms((prev) => prev.map((b) => b.id === editingBom.id ? { ...b, name: String(data.name), productCode, productName, version: String(data.version), status: data.status as BOM["status"], batchSize: Number(data.batchSize), batchUnit: String(data.batchUnit) } : b));
     } else {
-      setBoms((prev) => [...prev, { id: genId("bom"), name: String(data.name), productCode: String(data.productCode), productName: String(data.productName), version: String(data.version), status: (data.status as BOM["status"]) || "DRAFT", batchSize: Number(data.batchSize), batchUnit: String(data.batchUnit), materials: [] }]);
+      setBoms((prev) => [...prev, { id: genId("bom"), name: String(data.name), productCode, productName, version: String(data.version), status: (data.status as BOM["status"]) || "DRAFT", batchSize: Number(data.batchSize), batchUnit: String(data.batchUnit), materials: [] }]);
     }
     setBomFormOpen(false); setEditingBom(null);
   }
   function handleDeleteBom(b: BOM) { setBoms((prev) => prev.filter((x) => x.id !== b.id)); }
+
+  /* ─── Materials management ─── */
+  function handleOpenMaterials(b: BOM) {
+    setMaterialsTarget(b);
+    setEditMaterials([...b.materials]);
+    setMaterialsModalOpen(true);
+  }
+  function handleAddMaterial() {
+    setEditMaterials((prev) => [...prev, { materialCode: "", materialName: "", quantity: 0, unit: "kg" }]);
+  }
+  function handleAddMaterialFromProduct(productId: string) {
+    const prod = store.products.find((p) => p.id === productId);
+    if (!prod) return;
+    setEditMaterials((prev) => [...prev, { materialCode: prod.code, materialName: `${prod.name} ${prod.strength}`, quantity: 0, unit: "kg" }]);
+  }
+  function handleRemoveMaterial(idx: number) {
+    setEditMaterials((prev) => prev.filter((_, i) => i !== idx));
+  }
+  function handleMaterialChange(idx: number, field: keyof BOMItem, value: string | number) {
+    setEditMaterials((prev) => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m));
+  }
+  function handleSaveMaterials() {
+    if (!materialsTarget) return;
+    setBoms((prev) => prev.map((b) => b.id === materialsTarget.id ? { ...b, materials: editMaterials } : b));
+    setMaterialsModalOpen(false);
+    setMaterialsTarget(null);
+  }
 
   /* ─── WO CRUD ─── */
   const woFields: EntityField[] = [
@@ -193,8 +239,11 @@ export default function ManufacturingPage() {
                       <span>{b.materials.length} materials</span>
                       <span>{woCount} orders</span>
                     </div>
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Batch: {b.batchSize.toLocaleString()} {b.batchUnit}
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Batch: {b.batchSize.toLocaleString()} {b.batchUnit}</span>
+                      <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => handleOpenMaterials(b)}>
+                        <Plus className="h-3 w-3 mr-1" />Materials
+                      </Button>
                     </div>
                     {b.materials.length > 0 && (
                       <div className="mt-3 border-t pt-2">
@@ -256,13 +305,72 @@ export default function ManufacturingPage() {
 
       <EntityFormModal open={bomFormOpen} onOpenChange={setBomFormOpen}
         title={editingBom ? `Edit ${editingBom.name}` : "Add Bill of Materials"} fields={bomFields}
-        initialData={editingBom ? { name: editingBom.name, productCode: editingBom.productCode, productName: editingBom.productName, version: editingBom.version, status: editingBom.status, batchSize: editingBom.batchSize, batchUnit: editingBom.batchUnit } : undefined}
+        initialData={editingBom ? { name: editingBom.name, productId: store.products.find((p) => p.code === editingBom.productCode)?.id ?? "", version: editingBom.version, status: editingBom.status, batchSize: editingBom.batchSize, batchUnit: editingBom.batchUnit } : undefined}
         onSubmit={handleBomSubmit} submitLabel={editingBom ? "Save" : "Create"} size="lg" />
 
       <EntityFormModal open={woFormOpen} onOpenChange={setWoFormOpen}
         title={editingWo ? "Edit Work Order" : "New Work Order"} fields={woFields}
         initialData={editingWo ? { bomId: editingWo.bomId, quantity: editingWo.quantity, priority: editingWo.priority, status: editingWo.status, startDate: editingWo.startDate, endDate: editingWo.endDate, assignedTo: editingWo.assignedTo, notes: editingWo.notes || "" } : undefined}
         onSubmit={handleWOSubmit} submitLabel={editingWo ? "Save" : "Create"} size="lg" />
+
+      {/* Materials modal */}
+      <Dialog open={materialsModalOpen} onOpenChange={setMaterialsModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Materials — {materialsTarget?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Label className="mb-1.5 block text-sm">Add from Product Catalog</Label>
+                <Select onValueChange={(v) => handleAddMaterialFromProduct(v)}>
+                  <SelectTrigger><SelectValue placeholder="Select product..." /></SelectTrigger>
+                  <SelectContent>
+                    {store.products.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name} {p.strength} ({p.code})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={handleAddMaterial}>
+                <Plus className="h-3.5 w-3.5 mr-1" />Custom Material
+              </Button>
+            </div>
+
+            {editMaterials.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">No materials added yet. Use the dropdown or button above to add materials.</p>
+            )}
+
+            {editMaterials.map((m, idx) => (
+              <div key={idx} className="grid grid-cols-[1fr_1fr_100px_80px_auto] gap-2 items-end">
+                <div>
+                  <Label className="text-xs">Code</Label>
+                  <Input value={m.materialCode} onChange={(e) => handleMaterialChange(idx, "materialCode", e.target.value)} placeholder="e.g. API-001" className="h-8 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs">Name</Label>
+                  <Input value={m.materialName} onChange={(e) => handleMaterialChange(idx, "materialName", e.target.value)} placeholder="Material name" className="h-8 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs">Qty</Label>
+                  <Input type="number" value={m.quantity} onChange={(e) => handleMaterialChange(idx, "quantity", Number(e.target.value))} className="h-8 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs">Unit</Label>
+                  <Input value={m.unit} onChange={(e) => handleMaterialChange(idx, "unit", e.target.value)} className="h-8 text-sm" />
+                </div>
+                <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500" onClick={() => handleRemoveMaterial(idx)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setMaterialsModalOpen(false)}>Cancel</Button>
+            <Button type="button" onClick={handleSaveMaterials}>Save Materials</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

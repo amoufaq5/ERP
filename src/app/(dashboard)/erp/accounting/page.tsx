@@ -22,6 +22,7 @@ import {
   type Vendor,
   type Cheque,
   type Invoice,
+  type BankAccount,
 } from "@/lib/data-store";
 import {
   Users,
@@ -30,8 +31,11 @@ import {
   CreditCard,
   Plus,
   Download,
+  Landmark,
+  ScrollText,
 } from "lucide-react";
-import { downloadCSV } from "@/lib/download";
+import { downloadCSV, downloadHTML, buildPrintableReport } from "@/lib/download";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function AccountingPage() {
   const store = useDataStore();
@@ -50,12 +54,16 @@ export default function AccountingPage() {
   const [editingCheque, setEditingCheque] = useState<Cheque | null>(null);
   const [invFormOpen, setInvFormOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [bankFormOpen, setBankFormOpen] = useState(false);
+  const [editingBank, setEditingBank] = useState<BankAccount | null>(null);
+  const [statementParty, setStatementParty] = useState<{ type: "customer" | "vendor"; id: string } | null>(null);
 
   // ─── Computed ──────────────────────────────────────────────────────────
   const totalAR = store.customers.reduce((s, c) => s + c.outstanding, 0);
   const totalAP = store.vendors.reduce((s, v) => s + v.outstanding, 0);
   const pendingCheques = store.cheques.filter((c) => c.status === "PENDING").length;
   const invoiceTotal = store.invoices.reduce((s, i) => s + i.total, 0);
+  const totalBankBalance = store.bankAccounts.reduce((s, b) => s + b.balance, 0);
 
   // Filters
   const filteredCustomers = useMemo(() => {
@@ -219,6 +227,9 @@ export default function AccountingPage() {
     { name: "customerId", label: "Customer", type: "select", required: true, options: store.customers.map((c) => ({ label: c.name, value: c.id })) },
     { name: "date", label: "Invoice Date", type: "date", required: true },
     { name: "dueDate", label: "Due Date", type: "date", required: true },
+    { name: "productId", label: "Product", type: "select", options: store.products.map((p) => ({ label: `${p.name} ${p.strength} (${p.code})`, value: p.id })), helperText: "Select a product to auto-fill a line item" },
+    { name: "quantity", label: "Item Quantity", type: "number", defaultValue: 1, helperText: "Quantity for the selected product" },
+    { name: "unitPrice", label: "Unit Price (EGP)", type: "number", helperText: "Auto-filled from product catalog" },
     { name: "subtotal", label: "Subtotal (EGP)", type: "number", required: true },
     { name: "tax", label: "Tax (EGP)", type: "number", required: true },
     { name: "total", label: "Total (EGP)", type: "number", required: true },
@@ -227,6 +238,14 @@ export default function AccountingPage() {
   ];
 
   function handleInvoiceSubmit(data: EntityFormData) {
+    const qty = Number(data.quantity || 1);
+    const up = Number(data.unitPrice || 0);
+    const prod = store.products.find((p) => p.id === String(data.productId));
+    const items: Invoice["items"] = editingInvoice?.items ?? [];
+    if (prod && qty > 0) {
+      const lineTotal = qty * up;
+      items.push({ productId: prod.id, description: `${prod.name} ${prod.strength} (${prod.form})`, quantity: qty, unitPrice: up, total: lineTotal });
+    }
     const payload = {
       number: String(data.number),
       customerId: String(data.customerId),
@@ -237,7 +256,7 @@ export default function AccountingPage() {
       total: Number(data.total),
       currency: "EGP",
       status: String(data.status) as Invoice["status"],
-      items: editingInvoice?.items ?? [],
+      items,
       notes: data.notes ? String(data.notes) : undefined,
     };
     if (editingInvoice) {
@@ -268,7 +287,8 @@ export default function AccountingPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatsCard icon={Landmark} title="Bank Balance" value={`EGP ${(totalBankBalance / 1e6).toFixed(1)}M`} subtitle={`${store.bankAccounts.length} accounts`} iconColor="bg-indigo-100 text-indigo-600" />
         <StatsCard icon={Users} title="Total AR" value={`EGP ${(totalAR / 1e6).toFixed(1)}M`} subtitle={`${store.customers.length} customers`} iconColor="bg-blue-100 text-blue-600" />
         <StatsCard icon={Building2} title="Total AP" value={`EGP ${(totalAP / 1e6).toFixed(1)}M`} subtitle={`${store.vendors.length} vendors`} iconColor="bg-red-100 text-red-600" />
         <StatsCard icon={CreditCard} title="Pending Cheques" value={pendingCheques} subtitle={`of ${store.cheques.length} total`} iconColor="bg-amber-100 text-amber-600" />
@@ -281,6 +301,7 @@ export default function AccountingPage() {
           <TabsTrigger value="vendors">Vendors ({store.vendors.length})</TabsTrigger>
           <TabsTrigger value="cheques">Cheques ({store.cheques.length})</TabsTrigger>
           <TabsTrigger value="invoices">Invoices ({store.invoices.length})</TabsTrigger>
+          <TabsTrigger value="bank">Bank Accounts ({store.bankAccounts.length})</TabsTrigger>
         </TabsList>
 
         {/* Customers */}
@@ -322,6 +343,7 @@ export default function AccountingPage() {
                         onDelete={() => store.remove("customers", c.id)}
                         itemLabel={c.name}
                         compact
+                        extraItems={[{ label: "View Statement", onClick: () => setStatementParty({ type: "customer", id: c.id }) }]}
                       />
                     );
                   } },
@@ -367,6 +389,7 @@ export default function AccountingPage() {
                         onDelete={() => store.remove("vendors", v.id)}
                         itemLabel={v.name}
                         compact
+                        extraItems={[{ label: "View Statement", onClick: () => setStatementParty({ type: "vendor", id: v.id }) }]}
                       />
                     );
                   } },
@@ -480,7 +503,139 @@ export default function AccountingPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Bank Accounts */}
+        <TabsContent value="bank" className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Total Balance: <span className="font-semibold text-foreground">EGP {totalBankBalance.toLocaleString()}</span>
+            </div>
+            <Button size="sm" onClick={() => { setEditingBank(null); setBankFormOpen(true); }}><Plus className="h-4 w-4 mr-1" /> Add Account</Button>
+          </div>
+          <Card>
+            <CardContent className="p-0">
+              <DataTable
+                columns={[
+                  { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                  { key: "name", label: "Account Name", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "bankName", label: "Bank" },
+                  { key: "accountNumber", label: "Account #", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                  { key: "currency", label: "Cur." },
+                  { key: "balance", label: "Balance", render: (v) => <span className="font-semibold text-green-700">EGP {(v as number).toLocaleString()}</span>, className: "text-right" },
+                  { key: "id", label: "Cheques", render: (_v, row) => {
+                    const incoming = store.cheques.filter((c) => c.bankAccountId === row.id && c.type === "INCOMING" && (c.status === "PENDING" || c.status === "DEPOSITED")).reduce((s, c) => s + c.amount, 0);
+                    const outgoing = store.cheques.filter((c) => c.bankAccountId === row.id && c.type === "OUTGOING" && c.status === "PENDING").reduce((s, c) => s + c.amount, 0);
+                    if (!incoming && !outgoing) return <span className="text-xs text-muted-foreground">—</span>;
+                    return (
+                      <div className="text-xs">
+                        {incoming > 0 && <span className="text-green-600">+{(incoming / 1000).toFixed(0)}K in</span>}
+                        {incoming > 0 && outgoing > 0 && " / "}
+                        {outgoing > 0 && <span className="text-red-600">-{(outgoing / 1000).toFixed(0)}K out</span>}
+                      </div>
+                    );
+                  }},
+                  { key: "status", label: "Status", render: (v) => (
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${(v as string) === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600"}`}>{v as string}</span>
+                  )},
+                  { key: "type", label: "", render: (_v, row) => (
+                    <EditDeleteMenu
+                      onEdit={() => { const b = store.bankAccounts.find((x) => x.id === row.id); if (b) { setEditingBank(b); setBankFormOpen(true); } }}
+                      onDelete={() => store.remove("bankAccounts", row.id as string)}
+                      itemLabel={row.name as string}
+                    />
+                  )},
+                ] as Column<Record<string, unknown>>[]}
+                data={store.bankAccounts as unknown as Record<string, unknown>[]}
+                emptyMessage="No bank accounts."
+                pagination={false}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Statement dialog */}
+      <Dialog open={!!statementParty} onOpenChange={(open) => { if (!open) setStatementParty(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><ScrollText className="h-5 w-5" /> Account Statement</DialogTitle>
+          </DialogHeader>
+          {statementParty && (() => {
+            const isCustomer = statementParty.type === "customer";
+            const entity = isCustomer ? store.customers.find((c) => c.id === statementParty.id) : store.vendors.find((v) => v.id === statementParty.id);
+            if (!entity) return null;
+            const invoices = isCustomer ? store.invoices.filter((i) => i.customerId === statementParty.id) : [];
+            const payments = store.payments.filter((p) => isCustomer ? p.customerId === statementParty.id : p.vendorId === statementParty.id);
+            const cheques = store.cheques.filter((c) => c.partyName === entity.name);
+            const lines: { date: string; description: string; debit: number; credit: number }[] = [];
+            invoices.forEach((i) => lines.push({ date: i.date.slice(0, 10), description: `Invoice ${i.number}`, debit: i.total, credit: 0 }));
+            payments.forEach((p) => lines.push({ date: p.date, description: `Payment ${p.reference}`, debit: 0, credit: p.amount }));
+            cheques.forEach((c) => lines.push({ date: c.issueDate.slice(0, 10), description: `Cheque ${c.number} (${c.status})`, debit: c.type === "OUTGOING" ? c.amount : 0, credit: c.type === "INCOMING" ? c.amount : 0 }));
+            lines.sort((a, b) => a.date.localeCompare(b.date));
+            let balance = 0;
+            const withBalance = lines.map((l) => { balance += l.debit - l.credit; return { ...l, balance }; });
+            return (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-semibold">{entity.name}</p>
+                    <p className="text-sm text-muted-foreground">{"code" in entity ? entity.code : ""} · Outstanding: EGP {entity.outstanding.toLocaleString()}</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const html = buildPrintableReport({
+                      title: `Account Statement — ${entity.name}`,
+                      subtitle: `${"code" in entity ? entity.code : ""} · Generated ${new Date().toLocaleDateString()}`,
+                      sections: [{ heading: "Transactions", rows: withBalance.map((l) => ({ Date: l.date, Description: l.description, Debit: l.debit ? `EGP ${l.debit.toLocaleString()}` : "—", Credit: l.credit ? `EGP ${l.credit.toLocaleString()}` : "—", Balance: `EGP ${l.balance.toLocaleString()}` })) }],
+                    });
+                    downloadHTML(`statement-${entity.name.replace(/\s+/g, "-").toLowerCase()}.html`, html);
+                  }}><Download className="h-4 w-4 mr-1" /> Download</Button>
+                </div>
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50"><tr><th className="px-3 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Description</th><th className="px-3 py-2 text-right">Debit</th><th className="px-3 py-2 text-right">Credit</th><th className="px-3 py-2 text-right">Balance</th></tr></thead>
+                    <tbody className="divide-y">
+                      {withBalance.length === 0 && <tr><td colSpan={5} className="px-3 py-4 text-center text-muted-foreground">No transactions found.</td></tr>}
+                      {withBalance.map((l, i) => (
+                        <tr key={i} className="hover:bg-muted/30">
+                          <td className="px-3 py-2 font-mono text-xs">{l.date}</td>
+                          <td className="px-3 py-2">{l.description}</td>
+                          <td className="px-3 py-2 text-right text-red-600">{l.debit ? `EGP ${l.debit.toLocaleString()}` : "—"}</td>
+                          <td className="px-3 py-2 text-right text-green-600">{l.credit ? `EGP ${l.credit.toLocaleString()}` : "—"}</td>
+                          <td className="px-3 py-2 text-right font-semibold">{`EGP ${l.balance.toLocaleString()}`}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Bank Account modal */}
+      <EntityFormModal
+        open={bankFormOpen} onOpenChange={setBankFormOpen}
+        title={editingBank ? `Edit ${editingBank.name}` : "Add Bank Account"}
+        fields={[
+          { name: "code", label: "Code", type: "text", required: true, placeholder: "BA-XXX" },
+          { name: "name", label: "Account Name", type: "text", required: true },
+          { name: "bankName", label: "Bank Name", type: "text", required: true },
+          { name: "accountNumber", label: "Account Number", type: "text", required: true },
+          { name: "iban", label: "IBAN", type: "text" },
+          { name: "currency", label: "Currency", type: "select", defaultValue: "EGP", options: [{ label: "EGP", value: "EGP" }, { label: "USD", value: "USD" }, { label: "EUR", value: "EUR" }] },
+          { name: "balance", label: "Balance", type: "number", required: true },
+          { name: "type", label: "Type", type: "select", defaultValue: "CURRENT", options: [{ label: "Current", value: "CURRENT" }, { label: "Savings", value: "SAVINGS" }, { label: "Foreign Currency", value: "FOREIGN_CURRENCY" }] },
+          { name: "status", label: "Status", type: "select", defaultValue: "ACTIVE", options: [{ label: "Active", value: "ACTIVE" }, { label: "Dormant", value: "DORMANT" }, { label: "Closed", value: "CLOSED" }] },
+        ] as EntityField[]}
+        initialData={editingBank ? { code: editingBank.code, name: editingBank.name, bankName: editingBank.bankName, accountNumber: editingBank.accountNumber, iban: editingBank.iban ?? "", currency: editingBank.currency, balance: editingBank.balance, type: editingBank.type, status: editingBank.status } : undefined}
+        onSubmit={(data) => {
+          const payload = { code: String(data.code), name: String(data.name), bankName: String(data.bankName), accountNumber: String(data.accountNumber), iban: data.iban ? String(data.iban) : undefined, currency: String(data.currency || "EGP"), balance: Number(data.balance), type: String(data.type) as BankAccount["type"], status: String(data.status) as BankAccount["status"], openedAt: editingBank?.openedAt ?? new Date().toISOString() };
+          if (editingBank) store.update("bankAccounts", editingBank.id, payload);
+          else store.add("bankAccounts", { id: store.genId("ba"), ...payload });
+          setBankFormOpen(false); setEditingBank(null);
+        }}
+      />
 
       {/* Customer modal */}
       <EntityFormModal
@@ -515,7 +670,7 @@ export default function AccountingPage() {
         open={invFormOpen} onOpenChange={setInvFormOpen}
         title={editingInvoice ? `Edit ${editingInvoice.number}` : "Add Invoice"}
         fields={invoiceFields}
-        initialData={editingInvoice ? { number: editingInvoice.number, customerId: editingInvoice.customerId, date: editingInvoice.date.slice(0, 10), dueDate: editingInvoice.dueDate.slice(0, 10), subtotal: editingInvoice.subtotal, tax: editingInvoice.tax, total: editingInvoice.total, status: editingInvoice.status, notes: editingInvoice.notes ?? "" } : undefined}
+        initialData={editingInvoice ? { number: editingInvoice.number, customerId: editingInvoice.customerId, date: editingInvoice.date.slice(0, 10), dueDate: editingInvoice.dueDate.slice(0, 10), productId: editingInvoice.items[0]?.productId ?? "", quantity: editingInvoice.items[0]?.quantity ?? 1, unitPrice: editingInvoice.items[0]?.unitPrice ?? 0, subtotal: editingInvoice.subtotal, tax: editingInvoice.tax, total: editingInvoice.total, status: editingInvoice.status, notes: editingInvoice.notes ?? "" } : undefined}
         onSubmit={handleInvoiceSubmit}
         submitLabel={editingInvoice ? "Save" : "Create"}
       />

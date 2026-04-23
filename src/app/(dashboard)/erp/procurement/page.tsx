@@ -11,6 +11,7 @@ import StatusBadge from "@/components/shared/status-badge";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
+import { useDataStore } from "@/lib/data-store";
 
 const PURCHASE_ORDERS = [
   { id: "PO-4001", supplier: "Aurobindo Pharma (API)", category: "Raw Material", items: "Amoxicillin Trihydrate (API)", qty: "500 kg", unitPrice: "$85/kg", total: "$42,500", orderDate: "2026-03-10", expectedDate: "2026-04-15", status: "Approved" },
@@ -60,16 +61,7 @@ const QC_TESTS = [
   { id: "QC-810", grn: "GRN-603", material: "Opadry II Film Coating", test: "Viscosity", specification: "80-120 cP", result: "98 cP", status: "Pass" },
 ];
 
-const poFields: EntityField[] = [
-  { name: "supplier", label: "Supplier", type: "select", required: true, options: SUPPLIERS.filter(s => s.status === "Approved").map(s => ({ value: s.name, label: `${s.name} (${s.type})` })) },
-  { name: "category", label: "Category", type: "select", required: true, options: [{ value: "Raw Material", label: "Raw Material (API)" }, { value: "Excipient", label: "Excipient" }, { value: "Packaging", label: "Packaging Material" }, { value: "Finished Product", label: "Finished Product" }] },
-  { name: "items", label: "Material / Product", type: "text", required: true },
-  { name: "qty", label: "Quantity", type: "text", required: true },
-  { name: "unitPrice", label: "Unit Price", type: "text", required: true },
-  { name: "total", label: "Total Amount ($)", type: "number", required: true },
-  { name: "expectedDate", label: "Expected Delivery", type: "date", required: true },
-  { name: "notes", label: "Special Requirements", type: "textarea" },
-];
+/* poFields is built inside the component to access store.products */
 
 const supplierFields: EntityField[] = [
   { name: "name", label: "Company Name", type: "text", required: true },
@@ -81,9 +73,27 @@ const supplierFields: EntityField[] = [
 ];
 
 export default function ProcurementPage() {
+  const store = useDataStore();
   const [showPOModal, setShowPOModal] = useState(false);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [activeTab, setActiveTab] = useState("orders");
+
+  const productCatalogOptions = store.products.map((p) => ({
+    value: p.id,
+    label: `${p.name} ${p.strength} (${p.code})`,
+  }));
+
+  const poFields: EntityField[] = [
+    { name: "supplier", label: "Supplier", type: "select", required: true, options: SUPPLIERS.filter(s => s.status === "Approved").map(s => ({ value: s.name, label: `${s.name} (${s.type})` })) },
+    { name: "category", label: "Category", type: "select", required: true, options: [{ value: "Raw Material", label: "Raw Material (API)" }, { value: "Excipient", label: "Excipient" }, { value: "Packaging", label: "Packaging Material" }, { value: "Finished Product", label: "Finished Product" }] },
+    { name: "productId", label: "Product (from catalog)", type: "select", options: productCatalogOptions, helperText: "Optionally pick from the product catalog" },
+    { name: "items", label: "Material / Product", type: "text", required: true, helperText: "Auto-filled if product selected, or enter manually" },
+    { name: "qty", label: "Quantity", type: "text", required: true },
+    { name: "unitPrice", label: "Unit Price", type: "text", required: true },
+    { name: "total", label: "Total Amount ($)", type: "number", required: true },
+    { name: "expectedDate", label: "Expected Delivery", type: "date", required: true },
+    { name: "notes", label: "Special Requirements", type: "textarea" },
+  ];
 
   return (
     <div className="space-y-6">
