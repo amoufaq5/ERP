@@ -14,6 +14,8 @@ import {
   type EntityField,
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import {
   useDataStore,
   type Customer,
@@ -26,7 +28,6 @@ import {
   Building2,
   FileText,
   CreditCard,
-  Wallet,
   Plus,
   Download,
 } from "lucide-react";
@@ -302,45 +303,33 @@ export default function AccountingPage() {
           />
           <Card>
             <CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                  <tr>
-                    <th className="text-left p-3">Code</th>
-                    <th className="text-left p-3">Name</th>
-                    <th className="text-left p-3">Type</th>
-                    <th className="text-left p-3">Phone</th>
-                    <th className="text-right p-3">Credit Limit</th>
-                    <th className="text-right p-3">Outstanding</th>
-                    <th className="text-left p-3">Status</th>
-                    <th className="text-right p-3">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCustomers.map((c) => (
-                    <tr key={c.id} className="border-b hover:bg-slate-50">
-                      <td className="p-3 font-mono text-xs">{c.code}</td>
-                      <td className="p-3 font-medium">{c.name}</td>
-                      <td className="p-3 text-xs">{c.type}</td>
-                      <td className="p-3 text-xs">{c.phone}</td>
-                      <td className="p-3 text-right font-semibold">{c.creditLimit.toLocaleString()}</td>
-                      <td className="p-3 text-right">{c.outstanding.toLocaleString()}</td>
-                      <td className="p-3">
-                        <Badge variant={c.status === "ACTIVE" ? "success" : c.status === "HOLD" ? "warning" : "destructive"}>
-                          {c.status}
-                        </Badge>
-                      </td>
-                      <td className="p-3 text-right">
-                        <EditDeleteMenu
-                          onEdit={() => { setEditingCustomer(c); setCustFormOpen(true); }}
-                          onDelete={() => store.remove("customers", c.id)}
-                          itemLabel={c.name}
-                          compact
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                columns={[
+                  { key: "code", label: "Code", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "name", label: "Name", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "type", label: "Type", render: (v: string) => <span className="text-xs">{v}</span> },
+                  { key: "phone", label: "Phone", render: (v: string) => <span className="text-xs">{v}</span> },
+                  { key: "creditLimit", label: "Credit Limit", className: "text-right", render: (v: number) => <span className="font-semibold">{v.toLocaleString()}</span> },
+                  { key: "outstanding", label: "Outstanding", className: "text-right", render: (v: number) => v.toLocaleString() },
+                  { key: "status", label: "Status", render: (v: string) => (
+                    <Badge variant={v === "ACTIVE" ? "success" : v === "HOLD" ? "warning" : "destructive"}>{v}</Badge>
+                  ) },
+                  { key: "actions", label: "Actions", className: "text-right", render: (_: unknown, row: Record<string, unknown>) => {
+                    const c = row as unknown as Customer;
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingCustomer(c); setCustFormOpen(true); }}
+                        onDelete={() => store.remove("customers", c.id)}
+                        itemLabel={c.name}
+                        compact
+                      />
+                    );
+                  } },
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredCustomers as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No customers found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -359,45 +348,33 @@ export default function AccountingPage() {
           />
           <Card>
             <CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                  <tr>
-                    <th className="text-left p-3">Code</th>
-                    <th className="text-left p-3">Name</th>
-                    <th className="text-left p-3">Category</th>
-                    <th className="text-left p-3">Contact</th>
-                    <th className="text-right p-3">Outstanding</th>
-                    <th className="text-left p-3">Terms</th>
-                    <th className="text-left p-3">GMP</th>
-                    <th className="text-right p-3">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredVendors.map((v) => (
-                    <tr key={v.id} className="border-b hover:bg-slate-50">
-                      <td className="p-3 font-mono text-xs">{v.code}</td>
-                      <td className="p-3 font-medium">{v.name}</td>
-                      <td className="p-3 text-xs">{v.category}</td>
-                      <td className="p-3 text-xs">{v.email}</td>
-                      <td className="p-3 text-right">{v.outstanding.toLocaleString()}</td>
-                      <td className="p-3 text-xs">{v.paymentTerms}</td>
-                      <td className="p-3">
-                        <Badge variant={v.gmpCertified ? "success" : "secondary"}>
-                          {v.gmpCertified ? "Yes" : "No"}
-                        </Badge>
-                      </td>
-                      <td className="p-3 text-right">
-                        <EditDeleteMenu
-                          onEdit={() => { setEditingVendor(v); setVendFormOpen(true); }}
-                          onDelete={() => store.remove("vendors", v.id)}
-                          itemLabel={v.name}
-                          compact
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                columns={[
+                  { key: "code", label: "Code", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "name", label: "Name", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "category", label: "Category", render: (v: string) => <span className="text-xs">{v}</span> },
+                  { key: "email", label: "Contact", render: (v: string) => <span className="text-xs">{v}</span> },
+                  { key: "outstanding", label: "Outstanding", className: "text-right", render: (v: number) => v.toLocaleString() },
+                  { key: "paymentTerms", label: "Terms", render: (v: string) => <span className="text-xs">{v}</span> },
+                  { key: "gmpCertified", label: "GMP", render: (v: boolean) => (
+                    <Badge variant={v ? "success" : "secondary"}>{v ? "Yes" : "No"}</Badge>
+                  ) },
+                  { key: "actions", label: "Actions", className: "text-right", render: (_: unknown, row: Record<string, unknown>) => {
+                    const v = row as unknown as Vendor;
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingVendor(v); setVendFormOpen(true); }}
+                        onDelete={() => store.remove("vendors", v.id)}
+                        itemLabel={v.name}
+                        compact
+                      />
+                    );
+                  } },
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredVendors as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No vendors found."
+              />
             </CardContent>
           </Card>
         </TabsContent>

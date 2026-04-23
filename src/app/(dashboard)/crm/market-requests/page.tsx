@@ -13,6 +13,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
@@ -304,122 +306,151 @@ export default function MarketRequestsPage() {
             collapsible
           />
 
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">Type</th>
-                      <th className="text-left p-3">Requester</th>
-                      <th className="text-left p-3">Description</th>
-                      <th className="text-left p-3">Priority</th>
-                      <th className="text-left p-3">Amount</th>
-                      <th className="text-left p-3">Status</th>
-                      <th className="text-left p-3">Date</th>
-                      <th className="text-right p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRequests.length === 0 && (
-                      <tr>
-                        <td colSpan={8} className="p-8 text-center text-slate-500">
-                          No requests match your filters.
-                        </td>
-                      </tr>
-                    )}
-                    {filteredRequests
-                      .slice()
-                      .sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))
-                      .map((r) => {
-                        const requester = allUsers.find((u) => u.id === r.requestedById);
-                        return (
-                          <tr key={r.id} className="border-b hover:bg-slate-50">
-                            <td className="p-3">
-                              <Badge variant="outline">{r.type}</Badge>
-                            </td>
-                            <td className="p-3">
-                              <div className="font-medium text-sm">
-                                {requester?.name ?? "—"}
-                              </div>
-                              <div className="text-[11px] text-slate-500">
-                                {requester ? ROLE_LABEL[requester.role] : ""}
-                              </div>
-                            </td>
-                            <td className="p-3 max-w-xs truncate">{r.description}</td>
-                            <td className="p-3">
-                              <Badge
-                                variant={
-                                  r.priority === "URGENT"
-                                    ? "destructive"
-                                    : r.priority === "HIGH"
-                                    ? "warning"
-                                    : "secondary"
-                                }
-                              >
-                                {r.priority}
-                              </Badge>
-                            </td>
-                            <td className="p-3 font-semibold">
-                              {r.amount ? `EGP ${r.amount.toLocaleString()}` : "—"}
-                            </td>
-                            <td className="p-3">
-                              <Badge
-                                variant={
-                                  r.status === "APPROVED"
-                                    ? "success"
-                                    : r.status === "REJECTED"
-                                    ? "destructive"
-                                    : r.status === "FULFILLED"
-                                    ? "default"
-                                    : "warning"
-                                }
-                              >
-                                {r.status}
-                              </Badge>
-                            </td>
-                            <td className="p-3 text-xs">
-                              {new Date(r.createdAt).toLocaleDateString()}
-                            </td>
-                            <td className="p-3 text-right">
-                              <EditDeleteMenu
-                                onEdit={
-                                  r.status === "PENDING" ? () => handleEdit(r) : undefined
-                                }
-                                canEdit={r.status === "PENDING"}
-                                onDelete={() => handleDelete(r)}
-                                itemLabel={r.description.slice(0, 40)}
-                                extraItems={
-                                  canApprove && r.status === "PENDING"
-                                    ? [
-                                        {
-                                          label: "Approve",
-                                          onClick: () => handleApprove(r),
-                                          icon: (
-                                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                                          ),
-                                        },
-                                        {
-                                          label: "Reject",
-                                          onClick: () => handleReject(r),
-                                          icon: (
-                                            <XCircle className="h-4 w-4 text-red-600" />
-                                          ),
-                                          destructive: true,
-                                        },
-                                      ]
-                                    : []
-                                }
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          <DataTable
+            columns={[
+              {
+                key: "type",
+                label: "Type",
+                render: (_v: unknown, row: unknown) => {
+                  const r = row as MarketRequest;
+                  return <Badge variant="outline">{r.type}</Badge>;
+                },
+              },
+              {
+                key: "requestedById",
+                label: "Requester",
+                render: (_v: unknown, row: unknown) => {
+                  const r = row as MarketRequest;
+                  const requester = allUsers.find((u) => u.id === r.requestedById);
+                  return (
+                    <div>
+                      <div className="font-medium text-sm">{requester?.name ?? "—"}</div>
+                      <div className="text-[11px] text-slate-500">
+                        {requester ? ROLE_LABEL[requester.role] : ""}
+                      </div>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "description",
+                label: "Description",
+                className: "max-w-xs truncate",
+              },
+              {
+                key: "priority",
+                label: "Priority",
+                render: (_v: unknown, row: unknown) => {
+                  const r = row as MarketRequest;
+                  return (
+                    <Badge
+                      variant={
+                        r.priority === "URGENT"
+                          ? "destructive"
+                          : r.priority === "HIGH"
+                          ? "warning"
+                          : "secondary"
+                      }
+                    >
+                      {r.priority}
+                    </Badge>
+                  );
+                },
+              },
+              {
+                key: "amount",
+                label: "Amount",
+                render: (_v: unknown, row: unknown) => {
+                  const r = row as MarketRequest;
+                  return (
+                    <span className="font-semibold">
+                      {r.amount ? `EGP ${r.amount.toLocaleString()}` : "—"}
+                    </span>
+                  );
+                },
+              },
+              {
+                key: "status",
+                label: "Status",
+                render: (_v: unknown, row: unknown) => {
+                  const r = row as MarketRequest;
+                  return (
+                    <Badge
+                      variant={
+                        r.status === "APPROVED"
+                          ? "success"
+                          : r.status === "REJECTED"
+                          ? "destructive"
+                          : r.status === "FULFILLED"
+                          ? "default"
+                          : "warning"
+                      }
+                    >
+                      {r.status}
+                    </Badge>
+                  );
+                },
+              },
+              {
+                key: "createdAt",
+                label: "Date",
+                render: (_v: unknown, row: unknown) => {
+                  const r = row as MarketRequest;
+                  return (
+                    <span className="text-xs">
+                      {new Date(r.createdAt).toLocaleDateString()}
+                    </span>
+                  );
+                },
+              },
+              {
+                key: "actions",
+                label: "Actions",
+                className: "text-right",
+                render: (_v: unknown, row: unknown) => {
+                  const r = row as MarketRequest;
+                  return (
+                    <EditDeleteMenu
+                      onEdit={
+                        r.status === "PENDING" ? () => handleEdit(r) : undefined
+                      }
+                      canEdit={r.status === "PENDING"}
+                      onDelete={() => handleDelete(r)}
+                      itemLabel={r.description.slice(0, 40)}
+                      extraItems={
+                        canApprove && r.status === "PENDING"
+                          ? [
+                              {
+                                label: "Approve",
+                                onClick: () => handleApprove(r),
+                                icon: (
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                ),
+                              },
+                              {
+                                label: "Reject",
+                                onClick: () => handleReject(r),
+                                icon: (
+                                  <XCircle className="h-4 w-4 text-red-600" />
+                                ),
+                                destructive: true,
+                              },
+                            ]
+                          : []
+                      }
+                    />
+                  );
+                },
+              },
+            ] as Column<Record<string, unknown>>[]}
+            data={
+              filteredRequests
+                .slice()
+                .sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1)) as unknown as Record<string, unknown>[]
+            }
+            emptyMessage="No requests match your filters."
+            pagination={false}
+          />
         </TabsContent>
 
         {/* Pending requests */}

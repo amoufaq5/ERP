@@ -11,6 +11,8 @@ import StatusBadge from "@/components/shared/status-badge";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 const DISTRICTS = [
   { dm: "Hany Mansour", district: "Greater Cairo", reps: 8, doctors: 320, callRate: 88, compliance: 91, budget: "62%", rating: "A" },
@@ -151,27 +153,21 @@ export default function MarketeerPage() {
           <Card>
             <CardHeader><CardTitle>District Manager Performance</CardTitle><CardDescription>Aggregated team metrics</CardDescription></CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">DM Name</th><th className="p-3">District</th><th className="p-3">Team Size</th><th className="p-3">Call Rate</th><th className="p-3">Compliance</th><th className="p-3">Pending</th><th className="p-3">Budget</th><th className="p-3">Rating</th></tr>
-                  </thead>
-                  <tbody>
-                    {TEAM_PERFORMANCE.map((t, i) => (
-                      <tr key={i} className="border-t">
-                        <td className="p-3 font-medium">{t.dm}</td>
-                        <td className="p-3">{t.district}</td>
-                        <td className="p-3">{t.teamSize}</td>
-                        <td className="p-3">{t.callRate}</td>
-                        <td className="p-3">{t.compliance}</td>
-                        <td className="p-3">{t.pending}</td>
-                        <td className="p-3">{t.budget}</td>
-                        <td className="p-3"><StatusBadge status={t.rating === "A" ? "Excellent" : "Good"} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "dm", label: "DM Name" },
+                  { key: "district", label: "District" },
+                  { key: "teamSize", label: "Team Size" },
+                  { key: "callRate", label: "Call Rate" },
+                  { key: "compliance", label: "Compliance" },
+                  { key: "pending", label: "Pending" },
+                  { key: "budget", label: "Budget" },
+                  { key: "rating", label: "Rating", render: (_v, row) => <StatusBadge status={(row as unknown as (typeof TEAM_PERFORMANCE)[0]).rating === "A" ? "Excellent" : "Good"} /> },
+                ] as Column<Record<string, unknown>>[]}
+                data={TEAM_PERFORMANCE as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No performance data available."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -192,38 +188,35 @@ export default function MarketeerPage() {
               />
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Request#</th><th className="p-3">From DM</th><th className="p-3">Rep</th><th className="p-3">Type</th><th className="p-3">Description</th><th className="p-3">Cost</th><th className="p-3">DM Recommendation</th><th className="p-3">Decision</th><th className="p-3"></th></tr>
-                  </thead>
-                  <tbody>
-                    {filteredEscalated.map(e => (
-                      <tr key={e.id} className="border-t">
-                        <td className="p-3 font-mono">{e.id}</td>
-                        <td className="p-3">{e.from}</td>
-                        <td className="p-3">{e.rep}</td>
-                        <td className="p-3">{e.type}</td>
-                        <td className="p-3 max-w-xs truncate">{e.description}</td>
-                        <td className="p-3 font-medium">{e.cost}</td>
-                        <td className="p-3">{e.recommendation}</td>
-                        <td className="p-3"><StatusBadge status={e.decision} /></td>
-                        <td className="p-3">
-                          <EditDeleteMenu
-                            onDelete={() => setEscalated(prev => prev.filter(x => x.id !== e.id))}
-                            itemLabel={e.id}
-                            canEdit={false}
-                            extraItems={e.decision === "Pending" ? [
-                              { label: "Approve", onClick: () => setEscalated(prev => prev.map(x => x.id === e.id ? { ...x, decision: "Approved" } : x)) },
-                              { label: "Reject", onClick: () => setEscalated(prev => prev.map(x => x.id === e.id ? { ...x, decision: "Rejected" } : x)), destructive: true },
-                            ] : []}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Request#", render: (v) => <span className="font-mono">{v as string}</span> },
+                  { key: "from", label: "From DM" },
+                  { key: "rep", label: "Rep" },
+                  { key: "type", label: "Type" },
+                  { key: "description", label: "Description", className: "max-w-xs truncate" },
+                  { key: "cost", label: "Cost", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "recommendation", label: "DM Recommendation" },
+                  { key: "decision", label: "Decision", render: (v) => <StatusBadge status={v as string} /> },
+                  { key: "_actions", label: "", render: (_v, row) => {
+                    const e = row as unknown as (typeof ESCALATED)[0];
+                    return (
+                      <EditDeleteMenu
+                        onDelete={() => setEscalated(prev => prev.filter(x => x.id !== e.id))}
+                        itemLabel={e.id}
+                        canEdit={false}
+                        extraItems={e.decision === "Pending" ? [
+                          { label: "Approve", onClick: () => setEscalated(prev => prev.map(x => x.id === e.id ? { ...x, decision: "Approved" } : x)) },
+                          { label: "Reject", onClick: () => setEscalated(prev => prev.map(x => x.id === e.id ? { ...x, decision: "Rejected" } : x)), destructive: true },
+                        ] : []}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredEscalated as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No escalated requests."
+              />
             </CardContent>
           </Card>
         </TabsContent>

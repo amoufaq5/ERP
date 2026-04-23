@@ -25,6 +25,8 @@ import {
   type EntityField,
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 /* ─── Types ────────────────────────────────────────────────────────── */
 
@@ -426,49 +428,26 @@ export default function HRPage() {
 
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">Employee</th>
-                      <th className="text-left p-3">Department</th>
-                      <th className="text-left p-3">Position</th>
-                      <th className="text-left p-3">Hire Date</th>
-                      <th className="text-right p-3">Salary</th>
-                      <th className="text-left p-3">Status</th>
-                      <th className="text-right p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredEmployees.length === 0 && (
-                      <tr><td colSpan={7} className="p-8 text-center text-slate-500">No employees match your filters.</td></tr>
-                    )}
-                    {filteredEmployees.map((emp) => (
-                      <tr key={emp.id} className="border-b hover:bg-slate-50">
-                        <td className="p-3">
-                          <div className="font-medium">{emp.firstName} {emp.lastName}</div>
-                          <div className="text-[11px] text-slate-500">{emp.email}</div>
-                        </td>
-                        <td className="p-3">{emp.department}</td>
-                        <td className="p-3">{emp.position}</td>
-                        <td className="p-3">{emp.hireDate}</td>
-                        <td className="p-3 text-right font-medium">{fmt(emp.salary)}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[emp.status]}`}>{emp.status}</span>
-                        </td>
-                        <td className="p-3 text-right">
-                          <EditDeleteMenu
-                            onEdit={() => handleEditEmp(emp)}
-                            onDelete={() => handleDeleteEmp(emp)}
-                            itemLabel={`${emp.firstName} ${emp.lastName}`}
-                            compact
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "firstName", label: "Employee", render: (_v, row) => {
+                    const r = row as unknown as Employee;
+                    return (<div><div className="font-medium">{r.firstName} {r.lastName}</div><div className="text-[11px] text-slate-500">{r.email}</div></div>);
+                  }},
+                  { key: "department", label: "Department" },
+                  { key: "position", label: "Position" },
+                  { key: "hireDate", label: "Hire Date" },
+                  { key: "salary", label: "Salary", className: "text-right", render: (v) => <span className="font-medium">{fmt(v as number)}</span> },
+                  { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
+                  { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
+                    const r = row as unknown as Employee;
+                    return (<EditDeleteMenu onEdit={() => handleEditEmp(r)} onDelete={() => handleDeleteEmp(r)} itemLabel={`${r.firstName} ${r.lastName}`} compact />);
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={filteredEmployees as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No employees match your filters."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -526,54 +505,39 @@ export default function HRPage() {
 
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">Employee</th>
-                      <th className="text-left p-3">Type</th>
-                      <th className="text-left p-3">From</th>
-                      <th className="text-left p-3">To</th>
-                      <th className="text-right p-3">Days</th>
-                      <th className="text-left p-3">Status</th>
-                      <th className="text-left p-3">Reason</th>
-                      <th className="text-right p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredLeaves.length === 0 && (
-                      <tr><td colSpan={8} className="p-8 text-center text-slate-500">No leave requests match your filters.</td></tr>
-                    )}
-                    {filteredLeaves.map((l) => (
-                      <tr key={l.id} className="border-b hover:bg-slate-50">
-                        <td className="p-3 font-medium">{l.employeeName}</td>
-                        <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[l.type]}`}>{l.type}</span></td>
-                        <td className="p-3">{l.startDate}</td>
-                        <td className="p-3">{l.endDate}</td>
-                        <td className="p-3 text-right">{l.days}</td>
-                        <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[l.status]}`}>{l.status}</span></td>
-                        <td className="p-3 text-gray-500 max-w-[200px] truncate">{l.reason}</td>
-                        <td className="p-3 text-right">
-                          <EditDeleteMenu
-                            onEdit={() => handleEditLeave(l)}
-                            onDelete={() => handleDeleteLeave(l)}
-                            itemLabel={`Leave: ${l.employeeName}`}
-                            compact
-                            extraItems={
-                              l.status === "PENDING"
-                                ? [
-                                    { label: "Approve", onClick: () => handleApproveLeave(l), icon: <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> },
-                                    { label: "Reject", onClick: () => handleRejectLeave(l), icon: <XCircle className="h-3.5 w-3.5 text-red-600" /> },
-                                  ]
-                                : undefined
-                            }
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "employeeName", label: "Employee", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "type", label: "Type", render: (v) => <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
+                  { key: "startDate", label: "From" },
+                  { key: "endDate", label: "To" },
+                  { key: "days", label: "Days", className: "text-right" },
+                  { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
+                  { key: "reason", label: "Reason", className: "text-gray-500 max-w-[200px] truncate" },
+                  { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
+                    const l = row as unknown as LeaveRequest;
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => handleEditLeave(l)}
+                        onDelete={() => handleDeleteLeave(l)}
+                        itemLabel={`Leave: ${l.employeeName}`}
+                        compact
+                        extraItems={
+                          l.status === "PENDING"
+                            ? [
+                                { label: "Approve", onClick: () => handleApproveLeave(l), icon: <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> },
+                                { label: "Reject", onClick: () => handleRejectLeave(l), icon: <XCircle className="h-3.5 w-3.5 text-red-600" /> },
+                              ]
+                            : undefined
+                        }
+                      />
+                    );
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={filteredLeaves as unknown as Record<string, unknown>[]}
+                pagination={false}
+                emptyMessage="No leave requests match your filters."
+              />
             </CardContent>
           </Card>
         </TabsContent>
