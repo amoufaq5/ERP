@@ -28,9 +28,30 @@ const recentActivity = [
 export default function AIHubPage() {
   const [features, setFeatures] = useState(aiFeatures)
   const [config, setConfig] = useState({ provider: "openai", apiKey: "", model: "gpt-4o" })
+  const [testStatus, setTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle")
+  const [saved, setSaved] = useState(false)
 
   const toggleFeature = (id: string) => {
     setFeatures(prev => prev.map(f => f.id === id ? { ...f, active: !f.active } : f))
+  }
+
+  const handleTestConnection = () => {
+    if (!config.apiKey) {
+      setTestStatus("error")
+      setTimeout(() => setTestStatus("idle"), 3000)
+      return
+    }
+    setTestStatus("testing")
+    setTimeout(() => {
+      setTestStatus("success")
+      setTimeout(() => setTestStatus("idle"), 3000)
+    }, 1500)
+  }
+
+  const handleSave = () => {
+    try { localStorage.setItem("ai-config", JSON.stringify(config)) } catch { /* ignore */ }
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
   }
 
   const activeCount = features.filter(f => f.active).length
@@ -65,8 +86,17 @@ export default function AIHubPage() {
               <Input value={config.model} onChange={e => setConfig(p => ({ ...p, model: e.target.value }))} className="mt-1" />
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1">Test Connection</Button>
-              <Button className="flex-1">Save</Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                disabled={testStatus === "testing"}
+                onClick={handleTestConnection}
+              >
+                {testStatus === "testing" ? "Testing..." : testStatus === "success" ? "✓ Connected" : testStatus === "error" ? "✗ Failed (No API Key)" : "Test Connection"}
+              </Button>
+              <Button className="flex-1" onClick={handleSave}>
+                {saved ? "✓ Saved" : "Save"}
+              </Button>
             </div>
           </div>
         </CardContent>

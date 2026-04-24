@@ -58,15 +58,18 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 interface NavItem {
   label: string;
+  labelKey?: string;
   href: string;
   icon: LucideIcon;
 }
 
 interface NavSection {
   title: string;
+  titleKey?: string;
   icon?: LucideIcon;
   hub?: string;
   items: NavItem[];
@@ -74,120 +77,120 @@ interface NavSection {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    title: "Main",
+    title: "Main", titleKey: "sidebar.main",
     items: [
-      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { label: "Messages", href: "/messages", icon: MessageSquare },
-      { label: "Tasks", href: "/tasks", icon: ClipboardList },
+      { label: "Dashboard", labelKey: "nav.dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Messages", labelKey: "nav.messages", href: "/messages", icon: MessageSquare },
+      { label: "Tasks", labelKey: "sidebar.tasks", href: "/tasks", icon: ClipboardList },
     ],
   },
   {
-    title: "Finance & Accounting",
+    title: "Finance & Accounting", titleKey: "nav.finance",
     icon: DollarSign,
     hub: "/hubs/finance",
     items: [
-      { label: "Hub Overview", href: "/hubs/finance", icon: LayoutDashboard },
-      { label: "Finance", href: "/erp/finance", icon: DollarSign },
-      { label: "Accounting", href: "/erp/accounting", icon: Calculator },
-      { label: "Collections", href: "/erp/collections", icon: Banknote },
-      { label: "Returns", href: "/erp/returns", icon: RotateCcw },
-      { label: "Partner Ledger", href: "/erp/partner-ledger", icon: Scale },
+      { label: "Hub Overview", labelKey: "sidebar.hubOverview", href: "/hubs/finance", icon: LayoutDashboard },
+      { label: "Finance", labelKey: "sidebar.finance", href: "/erp/finance", icon: DollarSign },
+      { label: "Accounting", labelKey: "nav.accounting", href: "/erp/accounting", icon: Calculator },
+      { label: "Collections", labelKey: "nav.collections", href: "/erp/collections", icon: Banknote },
+      { label: "Returns", labelKey: "nav.returns", href: "/erp/returns", icon: RotateCcw },
+      { label: "Partner Ledger", labelKey: "nav.partnerLedger", href: "/erp/partner-ledger", icon: Scale },
     ],
   },
   {
-    title: "HR & Talent",
+    title: "HR & Talent", titleKey: "nav.hr",
     icon: Users,
     hub: "/hubs/hr",
     items: [
-      { label: "Hub Overview", href: "/hubs/hr", icon: LayoutDashboard },
-      { label: "HR & Payroll", href: "/erp/hr", icon: Users },
-      { label: "Jobs", href: "/ats/jobs", icon: Briefcase },
-      { label: "Candidates", href: "/ats/candidates", icon: UserSearch },
-      { label: "Interviews", href: "/ats/interviews", icon: CalendarCheck },
-      { label: "Onboarding", href: "/ats/onboarding", icon: Rocket },
-      { label: "Training", href: "/ats/training", icon: GraduationCap },
+      { label: "Hub Overview", labelKey: "sidebar.hubOverview", href: "/hubs/hr", icon: LayoutDashboard },
+      { label: "HR & Payroll", labelKey: "sidebar.hrPayroll", href: "/erp/hr", icon: Users },
+      { label: "Jobs", labelKey: "sidebar.jobs", href: "/ats/jobs", icon: Briefcase },
+      { label: "Candidates", labelKey: "sidebar.candidates", href: "/ats/candidates", icon: UserSearch },
+      { label: "Interviews", labelKey: "nav.interviews", href: "/ats/interviews", icon: CalendarCheck },
+      { label: "Onboarding", labelKey: "nav.onboarding", href: "/ats/onboarding", icon: Rocket },
+      { label: "Training", labelKey: "nav.training", href: "/ats/training", icon: GraduationCap },
     ],
   },
   {
-    title: "Supply Chain",
+    title: "Supply Chain", titleKey: "nav.supplyChain",
     icon: Truck,
     hub: "/hubs/supply-chain",
     items: [
-      { label: "Hub Overview", href: "/hubs/supply-chain", icon: LayoutDashboard },
-      { label: "Supply Chain", href: "/supply-chain", icon: Truck },
-      { label: "Procurement", href: "/erp/procurement", icon: ShoppingCart },
-      { label: "Inventory", href: "/erp/inventory", icon: Package },
+      { label: "Hub Overview", labelKey: "sidebar.hubOverview", href: "/hubs/supply-chain", icon: LayoutDashboard },
+      { label: "Supply Chain", labelKey: "sidebar.supplyChain", href: "/supply-chain", icon: Truck },
+      { label: "Procurement", labelKey: "nav.procurement", href: "/erp/procurement", icon: ShoppingCart },
+      { label: "Inventory", labelKey: "nav.inventory", href: "/erp/inventory", icon: Package },
     ],
   },
   {
-    title: "CRM Sales",
+    title: "CRM Sales", titleKey: "nav.sales",
     icon: TrendingUp,
     hub: "/hubs/crm",
     items: [
-      { label: "Hub Overview", href: "/hubs/crm", icon: LayoutDashboard },
-      { label: "Accounts", href: "/crm/accounts", icon: Building2 },
-      { label: "Contacts", href: "/crm/contacts", icon: Contact },
-      { label: "Leads", href: "/crm/leads", icon: Sparkles },
-      { label: "Opportunities", href: "/crm/opportunities", icon: TrendingUp },
-      { label: "Campaigns", href: "/crm/campaigns", icon: Megaphone },
-      { label: "Tickets", href: "/crm/tickets", icon: LifeBuoy },
-      { label: "Loyalty", href: "/crm/loyalty", icon: Heart },
+      { label: "Hub Overview", labelKey: "sidebar.hubOverview", href: "/hubs/crm", icon: LayoutDashboard },
+      { label: "Accounts", labelKey: "nav.accounts", href: "/crm/accounts", icon: Building2 },
+      { label: "Contacts", labelKey: "nav.contacts", href: "/crm/contacts", icon: Contact },
+      { label: "Leads", labelKey: "nav.leads", href: "/crm/leads", icon: Sparkles },
+      { label: "Opportunities", labelKey: "nav.opportunities", href: "/crm/opportunities", icon: TrendingUp },
+      { label: "Campaigns", labelKey: "nav.campaigns", href: "/crm/campaigns", icon: Megaphone },
+      { label: "Tickets", labelKey: "nav.tickets", href: "/crm/tickets", icon: LifeBuoy },
+      { label: "Loyalty", labelKey: "sidebar.loyalty", href: "/crm/loyalty", icon: Heart },
     ],
   },
   {
-    title: "Field Operations",
+    title: "Field Operations", titleKey: "sidebar.fieldOps",
     icon: MapPin,
     items: [
-      { label: "Business Units", href: "/crm/business-units", icon: Building },
-      { label: "Medical Reps", href: "/crm/medical-rep", icon: UserCheck },
-      { label: "District Manager", href: "/crm/district-manager", icon: Users },
-      { label: "Marketeer", href: "/crm/marketeer", icon: Target },
-      { label: "BUM Dashboard", href: "/crm/bum", icon: Crown },
-      { label: "Doctor Directory", href: "/crm/doctors", icon: Stethoscope },
-      { label: "Visit Tracking", href: "/crm/gps-tracking", icon: MapPin },
-      { label: "Market Requests", href: "/crm/market-requests", icon: ClipboardList },
-      { label: "CRM Reports", href: "/crm/reports", icon: BarChart3 },
+      { label: "Business Units", labelKey: "sidebar.businessUnits", href: "/crm/business-units", icon: Building },
+      { label: "Medical Reps", labelKey: "sidebar.medicalReps", href: "/crm/medical-rep", icon: UserCheck },
+      { label: "District Manager", labelKey: "sidebar.districtManager", href: "/crm/district-manager", icon: Users },
+      { label: "Marketeer", labelKey: "sidebar.marketeer", href: "/crm/marketeer", icon: Target },
+      { label: "BUM Dashboard", labelKey: "sidebar.bumDashboard", href: "/crm/bum", icon: Crown },
+      { label: "Doctor Directory", labelKey: "sidebar.doctorDirectory", href: "/crm/doctors", icon: Stethoscope },
+      { label: "Visit Tracking", labelKey: "sidebar.visitTracking", href: "/crm/gps-tracking", icon: MapPin },
+      { label: "Market Requests", labelKey: "sidebar.marketRequests", href: "/crm/market-requests", icon: ClipboardList },
+      { label: "CRM Reports", labelKey: "sidebar.crmReports", href: "/crm/reports", icon: BarChart3 },
     ],
   },
   {
-    title: "Quality & Compliance",
+    title: "Quality & Compliance", titleKey: "nav.quality",
     icon: ShieldCheck,
     hub: "/hubs/quality",
     items: [
-      { label: "Hub Overview", href: "/hubs/quality", icon: LayoutDashboard },
-      { label: "QA / QC", href: "/qaqc", icon: CheckSquare },
-      { label: "Safety", href: "/safety", icon: ShieldCheck },
-      { label: "Compliance", href: "/compliance", icon: Scale },
+      { label: "Hub Overview", labelKey: "sidebar.hubOverview", href: "/hubs/quality", icon: LayoutDashboard },
+      { label: "QA / QC", labelKey: "nav.qaqc", href: "/qaqc", icon: CheckSquare },
+      { label: "Safety", labelKey: "nav.safety", href: "/safety", icon: ShieldCheck },
+      { label: "Compliance", labelKey: "nav.compliance", href: "/compliance", icon: Scale },
     ],
   },
   {
-    title: "Operations",
+    title: "Operations", titleKey: "sidebar.operations",
     icon: Factory,
     items: [
-      { label: "Projects", href: "/erp/projects", icon: FolderKanban },
-      { label: "Assets", href: "/erp/assets", icon: Monitor },
-      { label: "Manufacturing", href: "/erp/manufacturing", icon: Factory },
-      { label: "Facility", href: "/facility", icon: Wrench },
-      { label: "Planning", href: "/planning", icon: Target },
-      { label: "Industry", href: "/industry", icon: Factory },
+      { label: "Projects", labelKey: "sidebar.projects", href: "/erp/projects", icon: FolderKanban },
+      { label: "Assets", labelKey: "sidebar.assets", href: "/erp/assets", icon: Monitor },
+      { label: "Manufacturing", labelKey: "sidebar.manufacturing", href: "/erp/manufacturing", icon: Factory },
+      { label: "Facility", labelKey: "sidebar.facility", href: "/facility", icon: Wrench },
+      { label: "Planning", labelKey: "sidebar.planning", href: "/planning", icon: Target },
+      { label: "Industry", labelKey: "sidebar.industry", href: "/industry", icon: Factory },
     ],
   },
   {
-    title: "Tools & Admin",
+    title: "Tools & Admin", titleKey: "nav.tools",
     icon: Settings,
     hub: "/hubs/tools",
     items: [
-      { label: "Hub Overview", href: "/hubs/tools", icon: LayoutDashboard },
-      { label: "Spreadsheet", href: "/spreadsheet", icon: Table2 },
-      { label: "Data Upload", href: "/data-upload", icon: Upload },
-      { label: "Data Migration", href: "/data-migration", icon: Database },
-      { label: "Integration", href: "/integration", icon: Link2 },
-      { label: "Ecosystem", href: "/ecosystem", icon: Puzzle },
-      { label: "Automation", href: "/automation", icon: Zap },
-      { label: "AI Hub", href: "/ai", icon: Brain },
-      { label: "Documents", href: "/documents", icon: FileText },
-      { label: "Reports", href: "/reports", icon: BarChart3 },
-      { label: "Settings", href: "/settings", icon: Settings },
+      { label: "Hub Overview", labelKey: "sidebar.hubOverview", href: "/hubs/tools", icon: LayoutDashboard },
+      { label: "Spreadsheet", labelKey: "tools.spreadsheet", href: "/spreadsheet", icon: Table2 },
+      { label: "Data Upload", labelKey: "nav.dataUpload", href: "/data-upload", icon: Upload },
+      { label: "Data Migration", labelKey: "sidebar.dataMigration", href: "/data-migration", icon: Database },
+      { label: "Integration", labelKey: "nav.integration", href: "/integration", icon: Link2 },
+      { label: "Ecosystem", labelKey: "sidebar.ecosystem", href: "/ecosystem", icon: Puzzle },
+      { label: "Automation", labelKey: "nav.automation", href: "/automation", icon: Zap },
+      { label: "AI Hub", labelKey: "sidebar.aiHub", href: "/ai", icon: Brain },
+      { label: "Documents", labelKey: "nav.documents", href: "/documents", icon: FileText },
+      { label: "Reports", labelKey: "nav.reports", href: "/reports", icon: BarChart3 },
+      { label: "Settings", labelKey: "nav.settings", href: "/settings", icon: Settings },
     ],
   },
 ];
@@ -282,6 +285,7 @@ function SidebarContent({
   onMobileClose,
   isMobile,
 }: SidebarContentProps) {
+  const { t } = useTranslation();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
     const initial = new Set<string>();
     sections.forEach((s) => {
@@ -360,7 +364,7 @@ function SidebarContent({
                       !isExpanded && "-rotate-90"
                     )}
                   />
-                  <span className="truncate">{section.title}</span>
+                  <span className="truncate">{section.titleKey ? t(section.titleKey) : section.title}</span>
                   {section.hub && (
                     <span className="ml-auto text-[9px] font-normal text-slate-600 tracking-normal normal-case">
                       Hub
@@ -369,7 +373,7 @@ function SidebarContent({
                 </button>
               ) : !collapsed ? (
                 <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500 select-none">
-                  {section.title}
+                  {section.titleKey ? t(section.titleKey) : section.title}
                 </p>
               ) : (
                 <div className="my-1 mx-3 border-t border-slate-800" />
@@ -385,7 +389,7 @@ function SidebarContent({
                       <li key={item.href}>
                         <Link
                           href={item.href}
-                          title={collapsed ? item.label : undefined}
+                          title={collapsed ? (item.labelKey ? t(item.labelKey) : item.label) : undefined}
                           className={cn(
                             "group flex items-center gap-3 mx-2 rounded-md text-sm font-medium transition-all duration-150",
                             collapsed ? "justify-center px-0 py-2.5" : "px-3 py-1.5",
@@ -404,7 +408,7 @@ function SidebarContent({
                             )}
                           />
                           {!collapsed && (
-                            <span className="truncate">{item.label}</span>
+                            <span className="truncate">{item.labelKey ? t(item.labelKey) : item.label}</span>
                           )}
                         </Link>
                       </li>

@@ -124,9 +124,29 @@ export default function SettingsPage() {
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
 
+  // Custom roles
+  const [customRoles, setCustomRoles] = useState<{ id: string; name: string; description: string; routes: string[] }[]>(() => {
+    try {
+      const raw = localStorage.getItem("pharma.customRoles");
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
+  const [customRoleFormOpen, setCustomRoleFormOpen] = useState(false);
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRoleDesc, setNewRoleDesc] = useState("");
+  const [newRoleRoutes, setNewRoleRoutes] = useState<string[]>([]);
+
+  function deleteCustomRole(id: string) {
+    const next = customRoles.filter((r) => r.id !== id);
+    setCustomRoles(next);
+    try { localStorage.setItem("pharma.customRoles", JSON.stringify(next)); } catch {}
+  }
+
   const userFormFields: EntityField[] = [
     { name: "name", label: "Full Name", type: "text", required: true, placeholder: "e.g. Dr. Sarah Ahmed" },
     { name: "email", label: "Email", type: "email", required: true, placeholder: "name@pharma.com" },
+    { name: "username", label: "Username (Login)", type: "text", required: true, placeholder: "e.g. sarah.ahmed" },
+    { name: "password", label: "Password", type: "text", required: !editingUser, placeholder: editingUser ? "(leave blank to keep current)" : "min 6 characters" },
     {
       name: "role",
       label: "Role",
@@ -165,14 +185,44 @@ export default function SettingsPage() {
       department: String(data.department),
       territory: data.territory ? String(data.territory) : undefined,
     };
+    const username = String(data.username || "").trim();
+    const password = String(data.password || "").trim();
+
     if (editingUser) {
       updateUser(editingUser.id, payload);
+      if (username) {
+        saveUserCredential(editingUser.id, username, password || undefined);
+      }
     } else {
       const created = createUser(payload);
       setSelectedUserId(created.id);
+      if (username && password) {
+        saveUserCredential(created.id, username, password);
+      }
     }
     setUserFormOpen(false);
     setEditingUser(null);
+  }
+
+  function saveUserCredential(userId: string, username: string, password?: string) {
+    try {
+      const raw = localStorage.getItem("pharma.credentials") || "{}";
+      const creds: Record<string, { username: string; password: string }> = JSON.parse(raw);
+      if (password) {
+        creds[userId] = { username, password };
+      } else if (creds[userId]) {
+        creds[userId].username = username;
+      }
+      localStorage.setItem("pharma.credentials", JSON.stringify(creds));
+    } catch { /* ignore */ }
+  }
+
+  function getUserCredential(userId: string): { username: string; password: string } | null {
+    try {
+      const raw = localStorage.getItem("pharma.credentials") || "{}";
+      const creds: Record<string, { username: string; password: string }> = JSON.parse(raw);
+      return creds[userId] ?? null;
+    } catch { return null; }
   }
 
   function confirmDeleteUser() {
@@ -359,6 +409,11 @@ export default function SettingsPage() {
                           {ROLE_LABEL[u.role]}
                           {u.territory ? ` · ${u.territory}` : ""}
                         </p>
+                        {getUserCredential(u.id) && (
+                          <p className="text-[10px] text-blue-500 font-mono truncate">
+                            @{getUserCredential(u.id)!.username}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         {navOverrides[u.id] && (
@@ -1313,50 +1368,188 @@ export default function SettingsPage() {
 
       {/* Permissions Matrix */}
       {tab === "permissions" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Role Permissions Matrix</CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
-              Default routes per role. Per-user overrides take precedence (set in &ldquo;Users &amp; Access&rdquo;).
-            </p>
-          </CardHeader>
-          <CardContent className="overflow-x-auto p-0">
-            <table className="w-full text-xs">
-              <thead className="bg-slate-50 border-y">
-                <tr>
-                  <th className="text-left p-2 font-semibold sticky left-0 bg-slate-50 z-10">Module</th>
-                  {(["BUM", "MARKETEER", "DISTRICT_MANAGER", "MEDICAL_REP", "ACCOUNTANT", "WAREHOUSE", "HR"] as const).map((r) => (
-                    <th key={r} className="text-center p-2 font-semibold text-[10px]">
-                      {ROLE_LABEL[r]}
-                    </th>
+        <div className="space-y-4">
+          {/* Custom Roles */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Custom Roles</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Create custom roles with specific permissions. Click &ldquo;+&rdquo; to create a new role.
+                </p>
+              </div>
+              {isAdmin && (
+                <Button size="sm" onClick={() => setCustomRoleFormOpen(true)}>
+                  <Plus className="h-3 w-3 mr-1" /> New Role
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent>
+              {customRoles.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No custom roles yet. Built-in roles are shown below.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {customRoles.map((cr) => (
+                    <div key={cr.id} className="border rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-sm">{cr.name}</p>
+                          <p className="text-[11px] text-muted-foreground">{cr.description}</p>
+                        </div>
+                        {isAdmin && (
+                          <button
+                            onClick={() => deleteCustomRole(cr.id)}
+                            className="p-1 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {cr.routes.slice(0, 5).map((r) => (
+                          <Badge key={r} variant="secondary" className="text-[10px]">
+                            {ALL_ROUTES.find((ar) => ar.href === r)?.label ?? r}
+                          </Badge>
+                        ))}
+                        {cr.routes.length > 5 && (
+                          <Badge variant="secondary" className="text-[10px]">+{cr.routes.length - 5} more</Badge>
+                        )}
+                      </div>
+                    </div>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {ALL_ROUTES.map((route) => (
-                  <tr key={route.href} className="border-b hover:bg-slate-50">
-                    <td className="p-2 font-medium sticky left-0 bg-card">
-                      <div className="text-[10px] text-muted-foreground uppercase">{route.group}</div>
-                      {route.label}
-                    </td>
-                    {(["BUM", "MARKETEER", "DISTRICT_MANAGER", "MEDICAL_REP", "ACCOUNTANT", "WAREHOUSE", "HR"] as const).map((r) => {
-                      const has = ROLE_ROUTES[r].includes(route.href);
-                      return (
-                        <td key={r} className="text-center p-2">
-                          {has ? (
-                            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                          ) : (
-                            <span className="inline-block h-2 w-2 rounded-full bg-slate-200" />
-                          )}
-                        </td>
-                      );
-                    })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Built-in Role Matrix */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Built-in Role Permissions Matrix</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                Default routes per built-in role. {isAdmin ? "Click cells to toggle access for all users of that role." : "Read-only — switch to Administrator to edit."} Per-user overrides in &ldquo;Users &amp; Access&rdquo; take precedence.
+              </p>
+            </CardHeader>
+            <CardContent className="overflow-x-auto p-0">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50 border-y">
+                  <tr>
+                    <th className="text-left p-2 font-semibold sticky left-0 bg-slate-50 z-10">Module</th>
+                    {(["BUM", "MARKETEER", "DISTRICT_MANAGER", "MEDICAL_REP", "ACCOUNTANT", "WAREHOUSE", "HR"] as const).map((r) => (
+                      <th key={r} className="text-center p-2 font-semibold text-[10px]">
+                        {ROLE_LABEL[r]}
+                      </th>
+                    ))}
                   </tr>
+                </thead>
+                <tbody>
+                  {ALL_ROUTES.map((route) => (
+                    <tr key={route.href} className="border-b hover:bg-slate-50">
+                      <td className="p-2 font-medium sticky left-0 bg-card">
+                        <div className="text-[10px] text-muted-foreground uppercase">{route.group}</div>
+                        {route.label}
+                      </td>
+                      {(["BUM", "MARKETEER", "DISTRICT_MANAGER", "MEDICAL_REP", "ACCOUNTANT", "WAREHOUSE", "HR"] as const).map((r) => {
+                        const has = ROLE_ROUTES[r].includes(route.href);
+                        return (
+                          <td key={r} className="text-center p-2">
+                            {has ? (
+                              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                            ) : (
+                              <span className="inline-block h-2 w-2 rounded-full bg-slate-200" />
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Custom Role Create Dialog */}
+      {customRoleFormOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setCustomRoleFormOpen(false)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold">Create Custom Role</h3>
+              <p className="text-sm text-muted-foreground">Define a new role with specific module access.</p>
+            </div>
+            <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Role Name</Label>
+                  <Input
+                    value={newRoleName}
+                    onChange={(e) => setNewRoleName(e.target.value)}
+                    placeholder="e.g. Regional Manager"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Description</Label>
+                  <Input
+                    value={newRoleDesc}
+                    onChange={(e) => setNewRoleDesc(e.target.value)}
+                    placeholder="Brief description of role"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="mb-2 block">Permitted Modules</Label>
+                {Object.entries(groups).map(([group, items]) => (
+                  <div key={group} className="mb-3">
+                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5 tracking-wider">{group}</h4>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {items.map((item) => (
+                        <label key={item.href} className={`flex items-center gap-2 p-1.5 rounded border text-xs cursor-pointer hover:border-blue-400 ${newRoleRoutes.includes(item.href) ? "bg-blue-50 border-blue-200" : "bg-card"}`}>
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5"
+                            checked={newRoleRoutes.includes(item.href)}
+                            onChange={() => {
+                              setNewRoleRoutes((prev) =>
+                                prev.includes(item.href)
+                                  ? prev.filter((r) => r !== item.href)
+                                  : [...prev, item.href]
+                              );
+                            }}
+                          />
+                          {item.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+              </div>
+            </div>
+            <div className="px-6 py-3 border-t flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCustomRoleFormOpen(false)}>Cancel</Button>
+              <Button
+                disabled={!newRoleName.trim() || newRoleRoutes.length === 0}
+                onClick={() => {
+                  const role = {
+                    id: `cr-${Date.now()}`,
+                    name: newRoleName.trim(),
+                    description: newRoleDesc.trim(),
+                    routes: newRoleRoutes,
+                  };
+                  const next = [...customRoles, role];
+                  setCustomRoles(next);
+                  try { localStorage.setItem("pharma.customRoles", JSON.stringify(next)); } catch {}
+                  setNewRoleName("");
+                  setNewRoleDesc("");
+                  setNewRoleRoutes([]);
+                  setCustomRoleFormOpen(false);
+                }}
+              >
+                Create Role
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* User CRUD modal */}
@@ -1371,6 +1564,8 @@ export default function SettingsPage() {
             ? {
                 name: editingUser.name,
                 email: editingUser.email,
+                username: getUserCredential(editingUser.id)?.username ?? "",
+                password: "",
                 role: editingUser.role,
                 department: editingUser.department,
                 territory: editingUser.territory ?? "",

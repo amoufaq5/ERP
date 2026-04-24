@@ -51,29 +51,49 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
 
-    // Simulate a brief network delay for UX
     setTimeout(() => {
+      // 1. Check hardcoded demo credentials
       const matched = DEMO_CREDENTIALS.find(
         (cred) => cred.username === username && cred.password === password
       );
 
-      if (!matched) {
-        setError("Invalid username or password. Please try again.");
+      if (matched) {
+        const profile = USER_PROFILES[matched.userId];
+        if (profile) {
+          localStorage.setItem("pharma.currentUser", JSON.stringify(profile));
+        }
+        localStorage.setItem("token", `demo-token-${matched.userId}-${Date.now()}`);
         setIsLoading(false);
+        router.push("/dashboard");
         return;
       }
 
-      // Get the full user profile for the matched credential
-      const profile = USER_PROFILES[matched.userId];
-      if (profile) {
-        localStorage.setItem("pharma.currentUser", JSON.stringify(profile));
-      }
+      // 2. Check dynamically created user credentials
+      try {
+        const credsRaw = localStorage.getItem("pharma.credentials") || "{}";
+        const creds: Record<string, { username: string; password: string }> = JSON.parse(credsRaw);
+        const usersRaw = localStorage.getItem("pharma.allUsers");
+        const allUsers = usersRaw ? JSON.parse(usersRaw) : [];
 
-      // Store a fake auth token
-      localStorage.setItem("token", `demo-token-${matched.userId}-${Date.now()}`);
+        const matchedEntry = Object.entries(creds).find(
+          ([, c]) => c.username === username && c.password === password
+        );
 
+        if (matchedEntry) {
+          const [userId] = matchedEntry;
+          const userProfile = allUsers.find((u: { id: string }) => u.id === userId);
+          if (userProfile) {
+            localStorage.setItem("pharma.currentUser", JSON.stringify(userProfile));
+            localStorage.setItem("token", `demo-token-${userId}-${Date.now()}`);
+            setIsLoading(false);
+            router.push("/dashboard");
+            return;
+          }
+        }
+      } catch { /* ignore parse errors */ }
+
+      setError("Invalid username or password. Please try again.");
       setIsLoading(false);
-      router.push("/dashboard");
     }, 600);
   }
 

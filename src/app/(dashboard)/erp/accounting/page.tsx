@@ -1101,7 +1101,7 @@ export default function AccountingPage() {
 
       {/* Bank Account modal */}
       <EntityFormModal
-        open={bankFormOpen} onOpenChange={setBankFormOpen}
+        open={bankFormOpen} onOpenChange={(open) => { setBankFormOpen(open); if (!open) setEditingBank(null); }}
         title={editingBank ? `Edit ${editingBank.name}` : "Add Bank Account"}
         fields={[
           { name: "code", label: "Code", type: "text", required: true, placeholder: "BA-XXX" },
@@ -1125,7 +1125,7 @@ export default function AccountingPage() {
 
       {/* Customer modal */}
       <EntityFormModal
-        open={custFormOpen} onOpenChange={setCustFormOpen}
+        open={custFormOpen} onOpenChange={(open) => { setCustFormOpen(open); if (!open) setEditingCustomer(null); }}
         title={editingCustomer ? `Edit ${editingCustomer.name}` : "Add Customer"}
         fields={customerFields}
         initialData={editingCustomer ? { code: editingCustomer.code, name: editingCustomer.name, type: editingCustomer.type, phone: editingCustomer.phone, email: editingCustomer.email, address: editingCustomer.address, city: editingCustomer.city ?? "", creditLimit: editingCustomer.creditLimit, outstanding: editingCustomer.outstanding, currency: editingCustomer.currency, paymentTerms: editingCustomer.paymentTerms, status: editingCustomer.status } : undefined}
@@ -1135,7 +1135,7 @@ export default function AccountingPage() {
       />
       {/* Vendor modal */}
       <EntityFormModal
-        open={vendFormOpen} onOpenChange={setVendFormOpen}
+        open={vendFormOpen} onOpenChange={(open) => { setVendFormOpen(open); if (!open) setEditingVendor(null); }}
         title={editingVendor ? `Edit ${editingVendor.name}` : "Add Vendor"}
         fields={vendorFields}
         initialData={editingVendor ? { code: editingVendor.code, name: editingVendor.name, category: editingVendor.category, phone: editingVendor.phone, email: editingVendor.email, address: editingVendor.address, outstanding: editingVendor.outstanding, paymentTerms: editingVendor.paymentTerms, gmpCertified: editingVendor.gmpCertified } : undefined}
@@ -1144,7 +1144,7 @@ export default function AccountingPage() {
       />
       {/* Cheque modal */}
       <EntityFormModal
-        open={chequeFormOpen} onOpenChange={setChequeFormOpen}
+        open={chequeFormOpen} onOpenChange={(open) => { setChequeFormOpen(open); if (!open) setEditingCheque(null); }}
         title={editingCheque ? `Edit Cheque ${editingCheque.number}` : "Add Cheque"}
         fields={chequeFields}
         initialData={editingCheque ? { number: editingCheque.number, bankName: editingCheque.bankName, type: editingCheque.type, partyName: editingCheque.partyName, amount: editingCheque.amount, currency: editingCheque.currency, issueDate: editingCheque.issueDate.slice(0, 10), dueDate: editingCheque.dueDate.slice(0, 10), status: editingCheque.status, notes: editingCheque.notes ?? "" } : undefined}
@@ -1153,7 +1153,7 @@ export default function AccountingPage() {
       />
       {/* Invoice modal */}
       <EntityFormModal
-        open={invFormOpen} onOpenChange={setInvFormOpen}
+        open={invFormOpen} onOpenChange={(open) => { setInvFormOpen(open); if (!open) setEditingInvoice(null); }}
         title={editingInvoice ? `Edit ${editingInvoice.number}` : "Add Invoice"}
         fields={invoiceFields}
         initialData={editingInvoice ? { number: editingInvoice.number, customerId: editingInvoice.customerId, date: editingInvoice.date.slice(0, 10), dueDate: editingInvoice.dueDate.slice(0, 10), productId: editingInvoice.items[0]?.productId ?? "", quantity: editingInvoice.items[0]?.quantity ?? 1, unitPrice: editingInvoice.items[0]?.unitPrice ?? 0, subtotal: editingInvoice.subtotal, tax: editingInvoice.tax, total: editingInvoice.total, status: editingInvoice.status, notes: editingInvoice.notes ?? "" } : undefined}
@@ -1161,19 +1161,19 @@ export default function AccountingPage() {
         submitLabel={editingInvoice ? "Save" : "Create"}
       />
       {/* GL Account modal */}
-      <EntityFormModal open={glFormOpen} onOpenChange={setGlFormOpen} title={editingGL ? `Edit ${editingGL.name}` : "Add GL Account"} fields={glFields}
+      <EntityFormModal open={glFormOpen} onOpenChange={(open) => { setGlFormOpen(open); if (!open) setEditingGL(null); }} title={editingGL ? `Edit ${editingGL.name}` : "Add GL Account"} fields={glFields}
         initialData={editingGL ? { code: editingGL.code, name: editingGL.name, type: editingGL.type, subType: editingGL.subType, balance: editingGL.balance, isActive: editingGL.isActive } : undefined}
         onSubmit={handleGLSubmit} submitLabel={editingGL ? "Save" : "Create"} />
       {/* Journal Entry modal */}
-      <EntityFormModal open={jeFormOpen} onOpenChange={setJeFormOpen} title={editingJE ? `Edit ${editingJE.number}` : "New Journal Entry"} fields={jeFields}
+      <EntityFormModal open={jeFormOpen} onOpenChange={(open) => { setJeFormOpen(open); if (!open) setEditingJE(null); }} title={editingJE ? `Edit ${editingJE.number}` : "New Journal Entry"} fields={jeFields}
         initialData={editingJE ? { date: editingJE.date.slice(0, 10), description: editingJE.description, reference: editingJE.reference ?? "", type: editingJE.type } : undefined}
         onSubmit={handleJESubmit} submitLabel={editingJE ? "Save" : "Create"} />
       {/* Cost Center modal */}
-      <EntityFormModal open={ccFormOpen} onOpenChange={setCcFormOpen} title={editingCC ? `Edit ${editingCC.name}` : "Add Cost Center"} fields={ccFields}
+      <EntityFormModal open={ccFormOpen} onOpenChange={(open) => { setCcFormOpen(open); if (!open) setEditingCC(null); }} title={editingCC ? `Edit ${editingCC.name}` : "Add Cost Center"} fields={ccFields}
         initialData={editingCC ? { code: editingCC.code, name: editingCC.name, type: editingCC.type, budget: editingCC.budget, actualSpend: editingCC.actualSpend, isActive: editingCC.isActive } : undefined}
         onSubmit={handleCCSubmit} submitLabel={editingCC ? "Save" : "Create"} />
       {/* Budget modal */}
-      <EntityFormModal open={budgetFormOpen} onOpenChange={setBudgetFormOpen} title={editingBudget ? `Edit ${editingBudget.name}` : "Add Budget"} fields={budgetFields}
+      <EntityFormModal open={budgetFormOpen} onOpenChange={(open) => { setBudgetFormOpen(open); if (!open) setEditingBudget(null); }} title={editingBudget ? `Edit ${editingBudget.name}` : "Add Budget"} fields={budgetFields}
         initialData={editingBudget ? { name: editingBudget.name, fiscalYear: editingBudget.fiscalYear, period: editingBudget.period, accountId: editingBudget.accountId ?? "", costCenterId: editingBudget.costCenterId ?? "", budgeted: editingBudget.budgeted, actual: editingBudget.actual, status: editingBudget.status } : undefined}
         onSubmit={handleBudgetSubmit} submitLabel={editingBudget ? "Save" : "Create"} />
     </div>
