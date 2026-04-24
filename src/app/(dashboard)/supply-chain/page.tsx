@@ -157,7 +157,7 @@ function contractStatusBadge(status: string) {
 const poFields: EntityField[] = [
   { name: "supplier", label: "Supplier", type: "text", required: true },
   { name: "items", label: "Number of Items", type: "number", required: true },
-  { name: "totalValue", label: "Total Value ($)", type: "number", required: true, placeholder: "0" },
+  { name: "totalValue", label: "Total Value (EGP)", type: "number", required: true, placeholder: "0" },
   { name: "expectedDelivery", label: "Expected Delivery", type: "date", required: true },
   { name: "buyer", label: "Buyer", type: "text", required: true },
   { name: "priority", label: "Priority", type: "select", defaultValue: "Medium", options: [
@@ -203,7 +203,70 @@ const contractFields: EntityField[] = [
   ]},
 ];
 
-type ModalMode = { type: "po"; editing: typeof purchaseOrders[0] | null } | { type: "supplier"; editing: typeof suppliers[0] | null } | { type: "contract" } | null;
+const shipmentFields: EntityField[] = [
+  { name: "origin", label: "Origin", type: "text", required: true },
+  { name: "destination", label: "Destination", type: "text", required: true },
+  { name: "carrier", label: "Carrier", type: "text", required: true },
+  { name: "mode", label: "Mode", type: "select", required: true, options: [
+    { label: "Ocean Freight", value: "Ocean Freight" }, { label: "Air Freight", value: "Air Freight" },
+    { label: "Ground", value: "Ground" }, { label: "Rail", value: "Rail" },
+  ]},
+  { name: "departed", label: "Departed", type: "date", required: true },
+  { name: "eta", label: "ETA", type: "date", required: true },
+  { name: "weight", label: "Weight", type: "text", required: true, placeholder: "e.g. 1,200 kg" },
+  { name: "status", label: "Status", type: "select", defaultValue: "Dispatched", options: [
+    { label: "Dispatched", value: "Dispatched" }, { label: "In Transit", value: "In Transit" },
+    { label: "Delivered", value: "Delivered" },
+  ]},
+];
+
+const inventoryFields: EntityField[] = [
+  { name: "name", label: "Item Name", type: "text", required: true, fullWidth: true },
+  { name: "category", label: "Category", type: "select", required: true, options: [
+    { label: "Raw Materials", value: "Raw Materials" }, { label: "Electronics", value: "Electronics" },
+    { label: "Mechanical", value: "Mechanical" }, { label: "Chemicals", value: "Chemicals" },
+    { label: "Hardware", value: "Hardware" }, { label: "Electrical", value: "Electrical" },
+    { label: "Polymers", value: "Polymers" }, { label: "Metals", value: "Metals" },
+  ]},
+  { name: "onHand", label: "On Hand", type: "number", required: true, min: 0 },
+  { name: "reorder", label: "Reorder Point", type: "number", required: true, min: 0 },
+  { name: "max", label: "Max Qty", type: "number", required: true, min: 0 },
+  { name: "unit", label: "Unit", type: "text", required: true, placeholder: "e.g. pcs, kg, meters" },
+  { name: "location", label: "Location", type: "select", required: true, options: [
+    { label: "WH-A", value: "WH-A" }, { label: "WH-B", value: "WH-B" },
+    { label: "WH-C", value: "WH-C" }, { label: "WH-D", value: "WH-D" },
+  ]},
+  { name: "status", label: "Status", type: "select", defaultValue: "Adequate", options: [
+    { label: "Adequate", value: "Adequate" }, { label: "Low Stock", value: "Low Stock" },
+    { label: "Critical", value: "Critical" },
+  ]},
+];
+
+const warehouseFields: EntityField[] = [
+  { name: "name", label: "Warehouse Name", type: "text", required: true, fullWidth: true },
+  { name: "location", label: "Location", type: "text", required: true },
+  { name: "capacity", label: "Total Capacity (sqft)", type: "number", required: true, min: 0 },
+  { name: "used", label: "Used Capacity (sqft)", type: "number", required: true, min: 0 },
+  { name: "zones", label: "Zones", type: "number", required: true, min: 1 },
+  { name: "staff", label: "Staff", type: "number", required: true, min: 0 },
+  { name: "temp", label: "Temp Control", type: "select", required: true, options: [
+    { label: "Ambient", value: "Ambient" }, { label: "Climate Controlled", value: "Climate Controlled" },
+    { label: "Regulated", value: "Regulated" },
+  ]},
+  { name: "status", label: "Status", type: "select", defaultValue: "Operational", options: [
+    { label: "Operational", value: "Operational" }, { label: "Maintenance", value: "Maintenance" },
+    { label: "Closed", value: "Closed" },
+  ]},
+];
+
+type ModalMode =
+  | { type: "po"; editing: typeof purchaseOrders[0] | null }
+  | { type: "supplier"; editing: typeof suppliers[0] | null }
+  | { type: "contract"; editing: typeof contracts[0] | null }
+  | { type: "shipment"; editing: typeof shipments[0] | null }
+  | { type: "inventory"; editing: typeof inventoryItems[0] | null }
+  | { type: "warehouse"; editing: typeof warehouses[0] | null }
+  | null;
 
 export default function SupplyChainPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -211,6 +274,9 @@ export default function SupplyChainPage() {
   const [pos, setPos] = useState(purchaseOrders);
   const [supplierList, setSupplierList] = useState(suppliers);
   const [contractList, setContractList] = useState(contracts);
+  const [shipmentList, setShipmentList] = useState(shipments);
+  const [inventoryList, setInventoryList] = useState(inventoryItems);
+  const [warehouseList, setWarehouseList] = useState(warehouses);
   const [poFilters, setPoFilters] = useState<FilterState>({});
   const [supFilters, setSupFilters] = useState<FilterState>({});
   const [viewPO, setViewPO] = useState<typeof purchaseOrders[0] | null>(null);
@@ -434,6 +500,7 @@ export default function SupplyChainPage() {
               <Input placeholder="Search shipments..." className="pl-8" />
             </div>
             <Button variant="outline" size="sm"><Filter className="mr-2 h-4 w-4" />Filter</Button>
+            <Button size="sm" onClick={() => setModal({ type: "shipment", editing: null })}><Plus className="mr-2 h-4 w-4" />Add Shipment</Button>
           </div>
           <Card>
             <CardHeader>
@@ -454,9 +521,19 @@ export default function SupplyChainPage() {
                   { key: "status", label: "Status", render: (v: string) => (
                     <Badge variant={v === "Delivered" ? "default" : v === "In Transit" ? "secondary" : "outline"}>{v}</Badge>
                   )},
+                  { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                    const s = row as unknown as typeof shipmentList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ type: "shipment", editing: s })}
+                        onDelete={() => setShipmentList(prev => prev.filter(x => x.id !== s.id))}
+                        itemLabel={s.id}
+                      />
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
-                data={shipments as unknown as Record<string, unknown>[]}
-                
+                data={shipmentList as unknown as Record<string, unknown>[]}
+
                 exportable exportFilename="supply-chain.csv" emptyMessage="No shipments found."
               />
             </CardContent>
@@ -473,6 +550,7 @@ export default function SupplyChainPage() {
             <div className="flex gap-2">
               <Button variant="outline" size="sm"><RefreshCw className="mr-2 h-4 w-4" />Sync Stock</Button>
               <Button variant="outline" size="sm"><Download className="mr-2 h-4 w-4" />Export</Button>
+              <Button size="sm" onClick={() => setModal({ type: "inventory", editing: null })}><Plus className="mr-2 h-4 w-4" />Add Item</Button>
             </div>
           </div>
           <Card>
@@ -492,8 +570,18 @@ export default function SupplyChainPage() {
                   { key: "unit", label: "Unit" },
                   { key: "location", label: "Location" },
                   { key: "status", label: "Status", render: (v: string) => stockBadge(v) },
+                  { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof inventoryList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ type: "inventory", editing: item })}
+                        onDelete={() => setInventoryList(prev => prev.filter(x => x.sku !== item.sku))}
+                        itemLabel={item.name}
+                      />
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
-                data={inventoryItems as unknown as Record<string, unknown>[]}
+                data={inventoryList as unknown as Record<string, unknown>[]}
                 exportable exportFilename="supply-chain.csv" emptyMessage="No inventory items found."
               />
             </CardContent>
@@ -502,9 +590,13 @@ export default function SupplyChainPage() {
 
         {/* Warehousing Tab */}
         <TabsContent value="warehousing" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Warehouses</h2>
+            <Button size="sm" onClick={() => setModal({ type: "warehouse", editing: null })}><Plus className="mr-2 h-4 w-4" />Add Warehouse</Button>
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
-            {warehouses.map((wh) => {
-              const utilization = Math.round((wh.used / wh.capacity) * 100);
+            {warehouseList.map((wh) => {
+              const utilization = wh.capacity > 0 ? Math.round((wh.used / wh.capacity) * 100) : 0;
               return (
                 <Card key={wh.id}>
                   <CardHeader>
@@ -513,7 +605,14 @@ export default function SupplyChainPage() {
                         <CardTitle className="text-lg">{wh.name}</CardTitle>
                         <CardDescription>{wh.id} | {wh.location}</CardDescription>
                       </div>
-                      <Badge variant={wh.status === "Operational" ? "default" : "secondary"}>{wh.status}</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={wh.status === "Operational" ? "default" : "secondary"}>{wh.status}</Badge>
+                        <EditDeleteMenu
+                          onEdit={() => setModal({ type: "warehouse", editing: wh })}
+                          onDelete={() => setWarehouseList(prev => prev.filter(x => x.id !== wh.id))}
+                          itemLabel={wh.name}
+                        />
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -558,7 +657,7 @@ export default function SupplyChainPage() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search contracts..." className="pl-8" />
             </div>
-            <Button size="sm" onClick={() => setModal({ type: "contract" })}><Plus className="mr-2 h-4 w-4" />New Contract</Button>
+            <Button size="sm" onClick={() => setModal({ type: "contract", editing: null })}><Plus className="mr-2 h-4 w-4" />New Contract</Button>
           </div>
           <Card>
             <CardHeader>
@@ -576,6 +675,16 @@ export default function SupplyChainPage() {
                   { key: "end", label: "End" },
                   { key: "status", label: "Status", render: (v: string) => contractStatusBadge(v) },
                   { key: "renewal", label: "Renewal", render: (v: string) => <Badge variant="outline">{v}</Badge> },
+                  { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                    const c = row as unknown as typeof contractList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ type: "contract", editing: c })}
+                        onDelete={() => setContractList(prev => prev.filter(x => x.id !== c.id))}
+                        itemLabel={c.id}
+                      />
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
                 data={contractList as unknown as Record<string, unknown>[]}
 
@@ -725,7 +834,7 @@ export default function SupplyChainPage() {
                 ...p,
                 supplier: String(data.supplier),
                 items: Number(data.items) || p.items,
-                total: `$${Number(data.totalValue).toLocaleString()}`,
+                total: `EGP ${Number(data.totalValue).toLocaleString()}`,
                 eta: String(data.expectedDelivery),
                 priority: String(data.priority) || p.priority,
                 status: String(data.status) || p.status,
@@ -736,7 +845,7 @@ export default function SupplyChainPage() {
                 id: `PO-${Date.now().toString(36)}`,
                 supplier: String(data.supplier),
                 items: Number(data.items) || 1,
-                total: `$${Number(data.totalValue).toLocaleString()}`,
+                total: `EGP ${Number(data.totalValue).toLocaleString()}`,
                 ordered: today,
                 eta: String(data.expectedDelivery),
                 status: "Draft",
@@ -798,20 +907,181 @@ export default function SupplyChainPage() {
         <EntityFormModal
           open
           onOpenChange={() => setModal(null)}
-          title="New Contract"
+          title={modal.editing ? `Edit ${modal.editing.id}` : "New Contract"}
           fields={contractFields}
-          submitLabel="Create"
+          initialData={modal.editing ? {
+            title: modal.editing.type,
+            supplier: modal.editing.supplier,
+            startDate: modal.editing.start,
+            endDate: modal.editing.end,
+            value: parseFloat(modal.editing.value.replace(/[^0-9.]/g, "")) || 0,
+            status: modal.editing.status,
+          } : undefined}
+          submitLabel={modal.editing ? "Update" : "Create"}
           onSubmit={(data) => {
-            setContractList(prev => [{
-              id: `CTR-${Date.now().toString(36)}`,
-              supplier: String(data.supplier),
-              type: String(data.title),
-              value: `$${Number(data.value).toLocaleString()}`,
-              start: String(data.startDate),
-              end: String(data.endDate),
-              status: String(data.status) || "Active",
-              renewal: "Manual",
-            }, ...prev]);
+            if (modal.editing) {
+              setContractList(prev => prev.map(c => c.id === modal.editing!.id ? {
+                ...c,
+                supplier: String(data.supplier),
+                type: String(data.title),
+                value: `EGP ${Number(data.value).toLocaleString()}`,
+                start: String(data.startDate),
+                end: String(data.endDate),
+                status: String(data.status) || c.status,
+              } : c));
+            } else {
+              setContractList(prev => [{
+                id: `CTR-${Date.now().toString(36)}`,
+                supplier: String(data.supplier),
+                type: String(data.title),
+                value: `EGP ${Number(data.value).toLocaleString()}`,
+                start: String(data.startDate),
+                end: String(data.endDate),
+                status: String(data.status) || "Active",
+                renewal: "Manual",
+              }, ...prev]);
+            }
+          }}
+        />
+      )}
+      {/* Shipment Modal */}
+      {modal?.type === "shipment" && (
+        <EntityFormModal
+          open
+          onOpenChange={() => setModal(null)}
+          title={modal.editing ? `Edit ${modal.editing.id}` : "Add Shipment"}
+          fields={shipmentFields}
+          initialData={modal.editing ? {
+            origin: modal.editing.origin,
+            destination: modal.editing.destination,
+            carrier: modal.editing.carrier,
+            mode: modal.editing.mode,
+            departed: modal.editing.departed,
+            eta: modal.editing.eta,
+            weight: modal.editing.weight,
+            status: modal.editing.status,
+          } : undefined}
+          submitLabel={modal.editing ? "Update" : "Create"}
+          onSubmit={(data) => {
+            if (modal.editing) {
+              setShipmentList(prev => prev.map(s => s.id === modal.editing!.id ? {
+                ...s,
+                origin: String(data.origin),
+                destination: String(data.destination),
+                carrier: String(data.carrier),
+                mode: String(data.mode),
+                departed: String(data.departed),
+                eta: String(data.eta),
+                weight: String(data.weight),
+                status: String(data.status) || s.status,
+              } : s));
+            } else {
+              setShipmentList(prev => [{
+                id: `SHP-${Date.now().toString(36)}`,
+                origin: String(data.origin),
+                destination: String(data.destination),
+                carrier: String(data.carrier),
+                mode: String(data.mode),
+                departed: String(data.departed),
+                eta: String(data.eta),
+                weight: String(data.weight),
+                status: String(data.status) || "Dispatched",
+              }, ...prev]);
+            }
+          }}
+        />
+      )}
+      {/* Inventory Modal */}
+      {modal?.type === "inventory" && (
+        <EntityFormModal
+          open
+          onOpenChange={() => setModal(null)}
+          title={modal.editing ? `Edit ${modal.editing.name}` : "Add Inventory Item"}
+          fields={inventoryFields}
+          initialData={modal.editing ? {
+            name: modal.editing.name,
+            category: modal.editing.category,
+            onHand: modal.editing.onHand,
+            reorder: modal.editing.reorder,
+            max: modal.editing.max,
+            unit: modal.editing.unit,
+            location: modal.editing.location,
+            status: modal.editing.status,
+          } : undefined}
+          submitLabel={modal.editing ? "Update" : "Create"}
+          onSubmit={(data) => {
+            if (modal.editing) {
+              setInventoryList(prev => prev.map(item => item.sku === modal.editing!.sku ? {
+                ...item,
+                name: String(data.name),
+                category: String(data.category),
+                onHand: Number(data.onHand) || 0,
+                reorder: Number(data.reorder) || 0,
+                max: Number(data.max) || 0,
+                unit: String(data.unit),
+                location: String(data.location),
+                status: String(data.status) || item.status,
+              } : item));
+            } else {
+              setInventoryList(prev => [{
+                sku: `SKU-${Date.now().toString(36)}`,
+                name: String(data.name),
+                category: String(data.category),
+                onHand: Number(data.onHand) || 0,
+                reorder: Number(data.reorder) || 0,
+                max: Number(data.max) || 0,
+                unit: String(data.unit),
+                location: String(data.location),
+                status: String(data.status) || "Adequate",
+              }, ...prev]);
+            }
+          }}
+        />
+      )}
+      {/* Warehouse Modal */}
+      {modal?.type === "warehouse" && (
+        <EntityFormModal
+          open
+          onOpenChange={() => setModal(null)}
+          title={modal.editing ? `Edit ${modal.editing.name}` : "Add Warehouse"}
+          fields={warehouseFields}
+          initialData={modal.editing ? {
+            name: modal.editing.name,
+            location: modal.editing.location,
+            capacity: modal.editing.capacity,
+            used: modal.editing.used,
+            zones: modal.editing.zones,
+            staff: modal.editing.staff,
+            temp: modal.editing.temp,
+            status: modal.editing.status,
+          } : undefined}
+          submitLabel={modal.editing ? "Update" : "Create"}
+          onSubmit={(data) => {
+            if (modal.editing) {
+              setWarehouseList(prev => prev.map(wh => wh.id === modal.editing!.id ? {
+                ...wh,
+                name: String(data.name),
+                location: String(data.location),
+                capacity: Number(data.capacity) || 0,
+                used: Number(data.used) || 0,
+                zones: Number(data.zones) || 0,
+                staff: Number(data.staff) || 0,
+                temp: String(data.temp),
+                status: String(data.status) || wh.status,
+              } : wh));
+            } else {
+              setWarehouseList(prev => [{
+                id: `WH-${Date.now().toString(36).toUpperCase()}`,
+                name: String(data.name),
+                location: String(data.location),
+                capacity: Number(data.capacity) || 0,
+                used: Number(data.used) || 0,
+                zones: Number(data.zones) || 0,
+                staff: Number(data.staff) || 0,
+                temp: String(data.temp) || "Ambient",
+                status: String(data.status) || "Operational",
+              }, ...prev]);
+            }
           }}
         />
       )}

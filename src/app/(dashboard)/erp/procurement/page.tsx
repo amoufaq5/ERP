@@ -79,6 +79,7 @@ const supplierFields: EntityField[] = [
 type PurchaseOrder = typeof INITIAL_PURCHASE_ORDERS[number];
 type Supplier = typeof INITIAL_SUPPLIERS[number];
 type GRNRecord = typeof INITIAL_GRN[number];
+type QCTest = typeof INITIAL_QC_TESTS[number];
 
 export default function ProcurementPage() {
   const store = useDataStore();
@@ -88,11 +89,15 @@ export default function ProcurementPage() {
 
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(INITIAL_PURCHASE_ORDERS);
   const [suppliers, setSuppliers] = useState<Supplier[]>(INITIAL_SUPPLIERS);
-  const [grn] = useState<GRNRecord[]>(INITIAL_GRN);
-  const [qcTests] = useState(INITIAL_QC_TESTS);
+  const [grn, setGrn] = useState<GRNRecord[]>(INITIAL_GRN);
+  const [qcTests, setQcTests] = useState<QCTest[]>(INITIAL_QC_TESTS);
 
   const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [showGrnForm, setShowGrnForm] = useState(false);
+  const [editingGrn, setEditingGrn] = useState<GRNRecord | null>(null);
+  const [showQcForm, setShowQcForm] = useState(false);
+  const [editingQc, setEditingQc] = useState<QCTest | null>(null);
 
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null);
   const [detailSupplier, setDetailSupplier] = useState<Supplier | null>(null);
@@ -141,6 +146,31 @@ export default function ProcurementPage() {
     { name: "total", label: "Total Amount ($)", type: "number", required: true },
     { name: "expectedDate", label: "Expected Delivery", type: "date", required: true },
     { name: "notes", label: "Special Requirements", type: "textarea" },
+  ];
+
+  const grnFields: EntityField[] = [
+    { name: "po", label: "PO Reference", type: "select", required: true, options: purchaseOrders.map(po => ({ value: po.id, label: `${po.id} — ${po.items}` })) },
+    { name: "supplier", label: "Supplier", type: "select", required: true, options: suppliers.filter(s => s.status === "Approved").map(s => ({ value: s.name, label: s.name })) },
+    { name: "material", label: "Material / Product", type: "text", required: true },
+    { name: "qty", label: "Quantity Received", type: "text", required: true },
+    { name: "receivedDate", label: "Received Date", type: "date", required: true },
+    { name: "batchNo", label: "Batch Number", type: "text", required: true },
+    { name: "coa", label: "Certificate of Analysis Received", type: "checkbox" },
+    { name: "storageCondition", label: "Storage Condition", type: "select", required: true, options: [{ value: "Room Temp", label: "Room Temp" }, { value: "2-8°C", label: "2-8°C (Refrigerated)" }, { value: "Below 25°C", label: "Below 25°C" }, { value: "-20°C", label: "-20°C (Frozen)" }] },
+    { name: "expiryDate", label: "Expiry Date", type: "date" },
+    { name: "qcStatus", label: "QC Status", type: "select", required: true, options: [{ value: "Under Testing", label: "Under Testing" }, { value: "Passed", label: "Passed" }, { value: "Failed", label: "Failed" }] },
+    { name: "status", label: "Status", type: "select", required: true, options: [{ value: "Quarantine", label: "Quarantine" }, { value: "Released", label: "Released" }, { value: "Rejected", label: "Rejected" }] },
+    { name: "notes", label: "Notes", type: "textarea" },
+  ];
+
+  const qcFields: EntityField[] = [
+    { name: "grn", label: "GRN Reference", type: "select", required: true, options: grn.map(g => ({ value: g.id, label: `${g.id} — ${g.material}` })) },
+    { name: "material", label: "Material", type: "text", required: true },
+    { name: "test", label: "Test Type", type: "text", required: true, helperText: "e.g. Identity (IR), Assay (HPLC), Dissolution" },
+    { name: "specification", label: "Specification", type: "text", required: true, helperText: "e.g. ≤ 5.0%, 90-150 μm" },
+    { name: "result", label: "Result", type: "text", helperText: "Leave blank if pending" },
+    { name: "status", label: "Status", type: "select", required: true, options: [{ value: "In Progress", label: "In Progress" }, { value: "Pass", label: "Pass" }, { value: "Fail", label: "Fail" }] },
+    { name: "notes", label: "Notes", type: "textarea" },
   ];
 
   return (
@@ -313,9 +343,14 @@ export default function ProcurementPage() {
 
         <TabsContent value="grn" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Goods Received Notes (GRN)</CardTitle>
-              <CardDescription>Incoming material receipts with batch tracking, CoA verification, and storage conditions</CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between">
+              <div>
+                <CardTitle>Goods Received Notes (GRN)</CardTitle>
+                <CardDescription>Incoming material receipts with batch tracking, CoA verification, and storage conditions</CardDescription>
+              </div>
+              <Button size="sm" onClick={() => { setEditingGrn(null); setShowGrnForm(true); }}>
+                <Plus className="h-4 w-4 mr-2" /> Record GRN
+              </Button>
             </CardHeader>
             <CardContent>
               <DataTable
@@ -345,9 +380,14 @@ export default function ProcurementPage() {
                   { key: "id", label: "", className: "text-right w-10", render: (_v: unknown, row: Record<string, unknown>) => {
                     const g = row as unknown as GRNRecord;
                     return (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDetailGRN(g)} title="View Details">
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
+                      <EditDeleteMenu
+                        onView={() => setDetailGRN(g)}
+                        onEdit={() => { setEditingGrn(g); setShowGrnForm(true); }}
+                        onDelete={() => setGrn(prev => prev.filter(item => item.id !== g.id))}
+                        canView
+                        itemLabel={g.id}
+                        compact
+                      />
                     );
                   }},
                 ] as Column<Record<string, unknown>>[]}
@@ -385,9 +425,14 @@ export default function ProcurementPage() {
 
         <TabsContent value="qc" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Quality Control Testing</CardTitle>
-              <CardDescription>Incoming material QC test results against pharmacopoeial specifications</CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between">
+              <div>
+                <CardTitle>Quality Control Testing</CardTitle>
+                <CardDescription>Incoming material QC test results against pharmacopoeial specifications</CardDescription>
+              </div>
+              <Button size="sm" onClick={() => { setEditingQc(null); setShowQcForm(true); }}>
+                <Plus className="h-4 w-4 mr-2" /> New QC Check
+              </Button>
             </CardHeader>
             <CardContent>
               <DataTable
@@ -408,6 +453,17 @@ export default function ProcurementPage() {
                       {v}
                     </span>
                   ) },
+                  { key: "id", label: "", className: "text-right w-10", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const q = row as unknown as QCTest;
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingQc(q); setShowQcForm(true); }}
+                        onDelete={() => setQcTests(prev => prev.filter(item => item.id !== q.id))}
+                        itemLabel={q.id}
+                        compact
+                      />
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
                 data={qcTests as unknown as Record<string, unknown>[]}
                 
@@ -535,6 +591,103 @@ export default function ProcurementPage() {
             setSuppliers(prev => [...prev, newSupplier]);
           }
           setShowSupplierModal(false);
+        }}
+      />
+
+      <EntityFormModal
+        open={showGrnForm}
+        onOpenChange={(open) => { setShowGrnForm(open); if (!open) setEditingGrn(null); }}
+        title={editingGrn ? `Edit ${editingGrn.id}` : "Record Goods Received (GRN)"}
+        fields={grnFields}
+        initialData={editingGrn ? {
+          po: editingGrn.po,
+          supplier: editingGrn.supplier,
+          material: editingGrn.material,
+          qty: editingGrn.qty,
+          receivedDate: editingGrn.receivedDate,
+          batchNo: editingGrn.batchNo,
+          coa: editingGrn.coa,
+          storageCondition: editingGrn.storageCondition,
+          expiryDate: editingGrn.expiryDate,
+          qcStatus: editingGrn.qcStatus,
+          status: editingGrn.status,
+        } : undefined}
+        onSubmit={(data) => {
+          if (editingGrn) {
+            setGrn(prev => prev.map(g => g.id === editingGrn.id ? {
+              ...g,
+              po: String(data.po ?? g.po),
+              supplier: String(data.supplier ?? g.supplier),
+              material: String(data.material ?? g.material),
+              qty: String(data.qty ?? g.qty),
+              receivedDate: String(data.receivedDate ?? g.receivedDate),
+              batchNo: String(data.batchNo ?? g.batchNo),
+              coa: Boolean(data.coa),
+              storageCondition: String(data.storageCondition ?? g.storageCondition),
+              expiryDate: String(data.expiryDate ?? g.expiryDate),
+              qcStatus: String(data.qcStatus ?? g.qcStatus),
+              status: String(data.status ?? g.status),
+            } : g));
+            setEditingGrn(null);
+          } else {
+            const newGrn: GRNRecord = {
+              id: `GRN-${Date.now().toString(36)}`,
+              po: String(data.po ?? ""),
+              supplier: String(data.supplier ?? ""),
+              material: String(data.material ?? ""),
+              qty: String(data.qty ?? ""),
+              receivedDate: String(data.receivedDate ?? ""),
+              batchNo: String(data.batchNo ?? ""),
+              coa: Boolean(data.coa),
+              storageCondition: String(data.storageCondition ?? "Room Temp"),
+              expiryDate: String(data.expiryDate ?? "N/A"),
+              qcStatus: String(data.qcStatus ?? "Under Testing"),
+              status: String(data.status ?? "Quarantine"),
+            };
+            setGrn(prev => [...prev, newGrn]);
+          }
+          setShowGrnForm(false);
+        }}
+      />
+
+      <EntityFormModal
+        open={showQcForm}
+        onOpenChange={(open) => { setShowQcForm(open); if (!open) setEditingQc(null); }}
+        title={editingQc ? `Edit ${editingQc.id}` : "New QC Check"}
+        fields={qcFields}
+        initialData={editingQc ? {
+          grn: editingQc.grn,
+          material: editingQc.material,
+          test: editingQc.test,
+          specification: editingQc.specification,
+          result: editingQc.result,
+          status: editingQc.status,
+        } : undefined}
+        onSubmit={(data) => {
+          if (editingQc) {
+            setQcTests(prev => prev.map(q => q.id === editingQc.id ? {
+              ...q,
+              grn: String(data.grn ?? q.grn),
+              material: String(data.material ?? q.material),
+              test: String(data.test ?? q.test),
+              specification: String(data.specification ?? q.specification),
+              result: String(data.result ?? q.result),
+              status: String(data.status ?? q.status),
+            } : q));
+            setEditingQc(null);
+          } else {
+            const newQc: QCTest = {
+              id: `QC-${Date.now().toString(36)}`,
+              grn: String(data.grn ?? ""),
+              material: String(data.material ?? ""),
+              test: String(data.test ?? ""),
+              specification: String(data.specification ?? ""),
+              result: String(data.result ?? "Pending"),
+              status: String(data.status ?? "In Progress"),
+            };
+            setQcTests(prev => [...prev, newQc]);
+          }
+          setShowQcForm(false);
         }}
       />
 

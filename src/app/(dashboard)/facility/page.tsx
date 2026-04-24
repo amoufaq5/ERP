@@ -166,36 +166,105 @@ const workOrderFields: EntityField[] = [
   { name: "due", label: "Due Date", type: "date", required: true },
 ];
 
-const assetFields: EntityField[] = [
-  { name: "name", label: "Name", type: "text", required: true },
+const buildingFields: EntityField[] = [
+  { name: "name", label: "Building Name", type: "text", required: true },
+  { name: "address", label: "Address", type: "text", required: true },
   { name: "type", label: "Type", type: "select", required: true, options: [
-    { label: "Equipment", value: "Equipment" }, { label: "Vehicle", value: "Vehicle" },
-    { label: "HVAC", value: "HVAC" }, { label: "Electrical", value: "Electrical" },
-    { label: "Plumbing", value: "Plumbing" },
+    { label: "Office", value: "Office" }, { label: "Manufacturing", value: "Manufacturing" },
+    { label: "Warehouse", value: "Warehouse" }, { label: "Laboratory", value: "Laboratory" },
+    { label: "Data Center", value: "Data Center" }, { label: "Amenity", value: "Amenity" },
   ]},
+  { name: "area", label: "Area (sqft)", type: "text", required: true },
+  { name: "floors", label: "Floors", type: "number", required: true, min: 1 },
+  { name: "occupancy", label: "Occupancy (%)", type: "number", min: 0, max: 100 },
+  { name: "built", label: "Year Built", type: "number", min: 1900, max: 2100 },
+  { name: "tenants", label: "Occupants", type: "number", min: 0 },
+  { name: "status", label: "Status", type: "select", defaultValue: "Operational", options: [
+    { label: "Operational", value: "Operational" }, { label: "Renovation", value: "Renovation" },
+    { label: "Decommissioned", value: "Decommissioned" },
+  ]},
+];
+
+const spaceFields: EntityField[] = [
+  { name: "name", label: "Space Name", type: "text", required: true },
+  { name: "building", label: "Building", type: "text", required: true },
+  { name: "floor", label: "Floor", type: "number", required: true, min: 1 },
+  { name: "type", label: "Type", type: "select", required: true, options: [
+    { label: "Office", value: "Office" }, { label: "Open Office", value: "Open Office" },
+    { label: "Meeting Room", value: "Meeting Room" }, { label: "Laboratory", value: "Laboratory" },
+    { label: "Server Room", value: "Server Room" }, { label: "Amenity", value: "Amenity" },
+    { label: "Production", value: "Production" }, { label: "Logistics", value: "Logistics" },
+    { label: "Training", value: "Training" }, { label: "Focus Area", value: "Focus Area" },
+  ]},
+  { name: "area", label: "Area (sqft)", type: "text", required: true },
+  { name: "capacity", label: "Capacity", type: "number", min: 0 },
+  { name: "current", label: "Current Occupants", type: "number", min: 0 },
+  { name: "status", label: "Status", type: "select", defaultValue: "Available", options: [
+    { label: "Available", value: "Available" }, { label: "Occupied", value: "Occupied" },
+    { label: "Restricted", value: "Restricted" },
+  ]},
+];
+
+const assetFields: EntityField[] = [
+  { name: "name", label: "Asset Name", type: "text", required: true },
+  { name: "category", label: "Category", type: "select", required: true, options: [
+    { label: "HVAC", value: "HVAC" }, { label: "Power", value: "Power" },
+    { label: "Vertical Transport", value: "Vertical Transport" }, { label: "Controls", value: "Controls" },
+    { label: "Fire Safety", value: "Fire Safety" }, { label: "Plumbing", value: "Plumbing" },
+  ]},
+  { name: "building", label: "Building", type: "text", required: true },
   { name: "location", label: "Location", type: "text", required: true },
-  { name: "serialNumber", label: "Serial Number", type: "text" },
-  { name: "status", label: "Status", type: "text" },
+  { name: "installed", label: "Installed", type: "text" },
+  { name: "lastService", label: "Last Service", type: "text" },
+  { name: "condition", label: "Condition", type: "select", defaultValue: "Good", options: [
+    { label: "Excellent", value: "Excellent" }, { label: "Good", value: "Good" },
+    { label: "Fair", value: "Fair" },
+  ]},
+  { name: "value", label: "Value (EGP)", type: "text" },
 ];
 
 const visitorFields: EntityField[] = [
-  { name: "name", label: "Name", type: "text", required: true },
+  { name: "name", label: "Visitor Name", type: "text", required: true },
   { name: "company", label: "Company", type: "text" },
+  { name: "host", label: "Host", type: "text", required: true },
   { name: "purpose", label: "Purpose", type: "text" },
-  { name: "host", label: "Host", type: "text" },
-  { name: "badge", label: "Badge", type: "text" },
-  { name: "checkIn", label: "Check In", type: "date" },
+  { name: "building", label: "Building", type: "text" },
+  { name: "checkIn", label: "Check In", type: "text" },
+  { name: "status", label: "Status", type: "select", defaultValue: "Expected", options: [
+    { label: "Expected", value: "Expected" }, { label: "On Site", value: "On Site" },
+    { label: "Checked Out", value: "Checked Out" },
+  ]},
+];
+
+const energyFields: EntityField[] = [
+  { name: "building", label: "Building", type: "text", required: true },
+  { name: "electricity", label: "Electricity (EGP)", type: "text", required: true },
+  { name: "gas", label: "Natural Gas (EGP)", type: "text", required: true },
+  { name: "water", label: "Water (EGP)", type: "text", required: true },
+  { name: "total", label: "Total (EGP)", type: "text", required: true },
+  { name: "change", label: "Change (%)", type: "number", step: 0.1 },
+  { name: "rating", label: "Rating", type: "select", defaultValue: "B", options: [
+    { label: "A", value: "A" }, { label: "A-", value: "A-" },
+    { label: "B+", value: "B+" }, { label: "B", value: "B" },
+    { label: "B-", value: "B-" }, { label: "C+", value: "C+" },
+    { label: "C", value: "C" },
+  ]},
 ];
 
 const vendorFields: EntityField[] = [
-  { name: "name", label: "Name", type: "text", required: true },
-  { name: "specialty", label: "Specialty", type: "text" },
-  { name: "contact", label: "Contact", type: "text" },
-  { name: "phone", label: "Phone", type: "text" },
-  { name: "email", label: "Email", type: "email" },
-  { name: "contractStatus", label: "Contract Status", type: "select", defaultValue: "Active", options: [
-    { label: "Active", value: "Active" }, { label: "Expired", value: "Expired" },
-    { label: "Pending", value: "Pending" },
+  { name: "name", label: "Vendor Name", type: "text", required: true },
+  { name: "service", label: "Service", type: "text", required: true },
+  { name: "contract", label: "Contract Term", type: "select", defaultValue: "Annual", options: [
+    { label: "Annual", value: "Annual" }, { label: "2-Year", value: "2-Year" },
+    { label: "3-Year", value: "3-Year" },
+  ]},
+  { name: "value", label: "Contract Value", type: "text" },
+  { name: "rating", label: "Rating", type: "number", min: 0, max: 5, step: 0.1 },
+  { name: "contact", label: "Contact Person", type: "text" },
+  { name: "phone", label: "Phone", type: "tel" },
+  { name: "status", label: "Status", type: "select", defaultValue: "Active", options: [
+    { label: "Active", value: "Active" }, { label: "Under Review", value: "Under Review" },
+    { label: "Inactive", value: "Inactive" },
   ]},
 ];
 
@@ -205,13 +274,28 @@ export default function FacilityPage() {
   const [wos, setWos] = useState(workOrders);
   const [woFilters, setWoFilters] = useState<FilterState>({});
 
+  const [showBuildingForm, setShowBuildingForm] = useState(false);
+  const [editingBuilding, setEditingBuilding] = useState<typeof buildings[0] | null>(null);
+  const [buildingList, setBuildingList] = useState(buildings);
+
+  const [showSpaceForm, setShowSpaceForm] = useState(false);
+  const [editingSpace, setEditingSpace] = useState<typeof spaces[0] | null>(null);
+  const [spaceList, setSpaceList] = useState(spaces);
+
   const [showAssetModal, setShowAssetModal] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<typeof facilityAssets[0] | null>(null);
   const [assetList, setAssetList] = useState(facilityAssets);
 
+  const [showEnergyForm, setShowEnergyForm] = useState(false);
+  const [editingEnergy, setEditingEnergy] = useState<typeof energyData[0] | null>(null);
+  const [energyList, setEnergyList] = useState(energyData);
+
   const [showVisitorModal, setShowVisitorModal] = useState(false);
+  const [editingVisitor, setEditingVisitor] = useState<typeof visitors[0] | null>(null);
   const [visitorList, setVisitorList] = useState(visitors);
 
   const [showVendorModal, setShowVendorModal] = useState(false);
+  const [editingVendor, setEditingVendor] = useState<typeof vendors[0] | null>(null);
   const [vendorList, setVendorList] = useState(vendors);
   const [viewWorkOrder, setViewWorkOrder] = useState<typeof workOrders[0] | null>(null);
 
@@ -262,13 +346,23 @@ export default function FacilityPage() {
 
         {/* ── Buildings ─────────────────────────────────────────────── */}
         <TabsContent value="buildings">
+          <div className="flex justify-end mb-4">
+            <Button size="sm" onClick={() => { setEditingBuilding(null); setShowBuildingForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Building</Button>
+          </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {buildings.map((b) => (
+            {buildingList.map((b) => (
               <Card key={b.id}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">{b.name}</CardTitle>
-                    {statusBadge(b.status)}
+                    <div className="flex items-center gap-2">
+                      {statusBadge(b.status)}
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingBuilding(b); setShowBuildingForm(true); }}
+                        onDelete={() => setBuildingList(prev => prev.filter(x => x.id !== b.id))}
+                        itemLabel={b.name}
+                      />
+                    </div>
                   </div>
                   <CardDescription className="flex items-center gap-1"><MapPin className="h-3 w-3" />{b.address}</CardDescription>
                 </CardHeader>
@@ -300,8 +394,13 @@ export default function FacilityPage() {
         <TabsContent value="spaces">
           <Card>
             <CardHeader>
-              <CardTitle>Space Allocation</CardTitle>
-              <CardDescription>Overview of all managed spaces across facilities</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Space Allocation</CardTitle>
+                  <CardDescription>Overview of all managed spaces across facilities</CardDescription>
+                </div>
+                <Button size="sm" onClick={() => { setEditingSpace(null); setShowSpaceForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Space</Button>
+              </div>
             </CardHeader>
             <CardContent>
               <DataTable
@@ -315,8 +414,18 @@ export default function FacilityPage() {
                   { key: "capacity", label: "Capacity" },
                   { key: "current", label: "Current" },
                   { key: "status", label: "Status", render: (v) => statusBadge(v) },
+                  { key: "actions", label: "Actions", render: (_v, row) => {
+                    const space = row as unknown as typeof spaceList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingSpace(space); setShowSpaceForm(true); }}
+                        onDelete={() => setSpaceList(prev => prev.filter(s => s.id !== space.id))}
+                        itemLabel={space.name}
+                      />
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
-                data={spaces as unknown as Record<string, unknown>[]}
+                data={spaceList as unknown as Record<string, unknown>[]}
                 exportable exportFilename="facility.csv" emptyMessage="No spaces found."
               />
             </CardContent>
@@ -395,7 +504,7 @@ export default function FacilityPage() {
                   <CardTitle>Facility Assets</CardTitle>
                   <CardDescription>Critical equipment and infrastructure assets</CardDescription>
                 </div>
-                <Button size="sm" onClick={() => setShowAssetModal(true)}><Plus className="mr-2 h-4 w-4" />Register Asset</Button>
+                <Button size="sm" onClick={() => { setEditingAsset(null); setShowAssetModal(true); }}><Plus className="mr-2 h-4 w-4" />Register Asset</Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -409,6 +518,16 @@ export default function FacilityPage() {
                   { key: "lastService", label: "Last Service" },
                   { key: "condition", label: "Condition", render: (v) => conditionBadge(v) },
                   { key: "value", label: "Value", render: (v) => <span className="font-medium">{v}</span> },
+                  { key: "actions", label: "Actions", render: (_v, row) => {
+                    const asset = row as unknown as typeof assetList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingAsset(asset); setShowAssetModal(true); }}
+                        onDelete={() => setAssetList(prev => prev.filter(a => a.id !== asset.id))}
+                        itemLabel={asset.name}
+                      />
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
                 data={assetList as unknown as Record<string, unknown>[]}
                 exportable exportFilename="facility.csv" emptyMessage="No assets found."
@@ -419,13 +538,23 @@ export default function FacilityPage() {
 
         {/* ── Energy ────────────────────────────────────────────────── */}
         <TabsContent value="energy">
+          <div className="flex justify-end mb-4">
+            <Button size="sm" onClick={() => { setEditingEnergy(null); setShowEnergyForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Energy Record</Button>
+          </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {energyData.map((e) => (
+            {energyList.map((e) => (
               <Card key={e.building}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">{e.building}</CardTitle>
-                    <Badge variant={e.rating.startsWith("A") ? "default" : e.rating.startsWith("B") ? "secondary" : "outline"}>{e.rating}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={e.rating.startsWith("A") ? "default" : e.rating.startsWith("B") ? "secondary" : "outline"}>{e.rating}</Badge>
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingEnergy(e); setShowEnergyForm(true); }}
+                        onDelete={() => setEnergyList(prev => prev.filter(x => x.building !== e.building))}
+                        itemLabel={e.building}
+                      />
+                    </div>
                   </div>
                   <CardDescription>Monthly utility consumption</CardDescription>
                 </CardHeader>

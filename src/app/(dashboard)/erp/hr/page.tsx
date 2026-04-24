@@ -126,6 +126,8 @@ export default function HRPage() {
 
   const [detailEmp, setDetailEmp] = useState<Employee | null>(null);
   const [detailDept, setDetailDept] = useState<Department | null>(null);
+  const [detailLeave, setDetailLeave] = useState<LeaveRequest | null>(null);
+  const [detailPayroll, setDetailPayroll] = useState<PayrollRecord | null>(null);
 
   // Derived
   const uniqueDepts = Array.from(new Set(employees.map((e) => e.department))).sort();
@@ -535,6 +537,7 @@ export default function HRPage() {
                       <EditDeleteMenu
                         onEdit={() => handleEditLeave(l)}
                         onDelete={() => handleDeleteLeave(l)}
+                        onView={() => setDetailLeave(l)}
                         itemLabel={`Leave: ${l.employeeName}`}
                         compact
                         extraItems={
@@ -550,7 +553,8 @@ export default function HRPage() {
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredLeaves as unknown as Record<string, unknown>[]}
-                
+                exportable
+                exportFilename="leave-requests.csv"
                 emptyMessage="No leave requests match your filters."
               />
             </CardContent>
@@ -587,11 +591,12 @@ export default function HRPage() {
                   { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
                   { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
                     const p = row as unknown as PayrollRecord;
-                    return (<EditDeleteMenu onEdit={() => handleEditPayroll(p)} onDelete={() => handleDeletePayroll(p)} itemLabel={`Payroll: ${p.employeeName}`} compact />);
+                    return (<EditDeleteMenu onEdit={() => handleEditPayroll(p)} onDelete={() => handleDeletePayroll(p)} onView={() => setDetailPayroll(p)} itemLabel={`Payroll: ${p.employeeName}`} compact />);
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredPayroll as unknown as Record<string, unknown>[]}
-                
+                exportable
+                exportFilename="payroll.csv"
                 emptyMessage="No payroll records match your filters."
               />
               {filteredPayroll.length > 0 && (
@@ -787,6 +792,52 @@ export default function HRPage() {
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Leave Detail Dialog ── */}
+      <Dialog open={!!detailLeave} onOpenChange={(open) => { if (!open) setDetailLeave(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Leave Request — {detailLeave?.employeeName}</DialogTitle>
+          </DialogHeader>
+          {detailLeave && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Employee</span><p className="font-medium">{detailLeave.employeeName}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[detailLeave.status]}`}>{detailLeave.status}</span></p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{detailLeave.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Days</span><p className="font-medium">{detailLeave.days}</p></div>
+              <div><span className="text-sm text-muted-foreground">From</span><p className="font-medium">{detailLeave.startDate}</p></div>
+              <div><span className="text-sm text-muted-foreground">To</span><p className="font-medium">{detailLeave.endDate}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Reason</span><p className="font-medium">{detailLeave.reason || "—"}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Payroll Detail Dialog ── */}
+      <Dialog open={!!detailPayroll} onOpenChange={(open) => { if (!open) setDetailPayroll(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Payroll — {detailPayroll?.employeeName}</DialogTitle>
+          </DialogHeader>
+          {detailPayroll && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div><span className="text-sm text-muted-foreground">Employee</span><p className="font-medium">{detailPayroll.employeeName}</p></div>
+                <div><span className="text-sm text-muted-foreground">Period</span><p className="font-medium">{detailPayroll.period}</p></div>
+                <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[detailPayroll.status]}`}>{detailPayroll.status}</span></p></div>
+              </div>
+              <div className="border rounded-lg divide-y text-sm">
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Basic Salary</span><span className="font-medium">{fmt(detailPayroll.basicSalary)}</span></div>
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Overtime</span><span className="font-medium">{fmt(detailPayroll.overtime)}</span></div>
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Bonuses</span><span className="font-medium">{fmt(detailPayroll.bonuses)}</span></div>
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Deductions</span><span className="font-medium text-red-600">-{fmt(detailPayroll.deductions)}</span></div>
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Tax</span><span className="font-medium text-red-600">-{fmt(detailPayroll.tax)}</span></div>
+                <div className="flex justify-between px-3 py-2 bg-muted/50 font-semibold"><span>Net Pay</span><span>{fmt(detailPayroll.netPay)}</span></div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
