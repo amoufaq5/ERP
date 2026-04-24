@@ -55,9 +55,8 @@ const INITIAL_TICKETS: SupportTicket[] = [
   { id: "8", ticketNumber: "TKT-00334", subject: "API rate limit documentation unclear", account: "Quantum Data AI", priority: "LOW", status: "CLOSED", assignedTo: "Dana Park", slaDeadline: "2026-03-31 17:00", createdAt: "2026-03-22" },
 ];
 
-const TICKET_FIELDS: EntityField[] = [
+const TICKET_FIELDS_STATIC: EntityField[] = [
   { name: "subject", label: "Subject", type: "text", placeholder: "Brief description of the issue", required: true, fullWidth: true },
-  { name: "account", label: "Account", type: "text", placeholder: "Customer account name", required: true },
   { name: "priority", label: "Priority", type: "select", defaultValue: "MEDIUM", options: [
     { label: "Low", value: "LOW" }, { label: "Medium", value: "MEDIUM" },
     { label: "High", value: "HIGH" }, { label: "Critical", value: "CRITICAL" },
@@ -88,6 +87,13 @@ function PriorityBadge({ priority }: { priority: Priority }) {
 
 export default function TicketsPage() {
   const store = useDataStore();
+
+  const TICKET_FIELDS: EntityField[] = [
+    TICKET_FIELDS_STATIC[0],
+    { name: "account", label: "Account", type: "select", required: true, options: store.customers.map(c => ({ label: c.name, value: c.name })) },
+    ...TICKET_FIELDS_STATIC.slice(1),
+  ];
+
   const [tickets, setTickets] = useState<SupportTicket[]>(INITIAL_TICKETS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", priority: "" });
   const [showModal, setShowModal] = useState(false);
@@ -171,7 +177,7 @@ export default function TicketsPage() {
 
       <EntityFormModal
         open={showModal}
-        onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null); } }}
+        onOpenChange={(open) => { setShowModal(open); if (!open) setEditing(null); }}
         title={editing ? "Edit Ticket" : "Create New Ticket"}
         fields={TICKET_FIELDS}
         initialData={editing ? { subject: editing.subject, account: editing.account, priority: editing.priority, assignedTo: editing.assignedTo, slaDeadline: editing.slaDeadline } : undefined}

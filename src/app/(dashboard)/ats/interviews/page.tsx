@@ -292,7 +292,7 @@ export default function InterviewsPage() {
 
       <EntityFormModal
         open={showModal}
-        onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null); } }}
+        onOpenChange={(open) => { setShowModal(open); if (!open) setEditing(null); }}
         title={editing ? "Edit Interview" : "Schedule Pharma Interview"}
         fields={interviewFields}
         initialData={editing ? { candidate: editing.candidate, job: editing.job, type: editing.type, interviewer: editing.interviewer, interviewerRole: editing.interviewerRole, date: editing.date, time: editing.time, duration: String(editing.duration) } : undefined}

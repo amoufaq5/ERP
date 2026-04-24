@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { useDataStore } from "@/lib/data-store";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
@@ -20,92 +21,61 @@ import {
   Eye, Calendar, Users, Anchor, CircleDot,
 } from "lucide-react";
 
-const kpis = [
-  { label: "Total Suppliers", value: "145", icon: Factory, color: "text-blue-600", bg: "bg-blue-100" },
-  { label: "Active POs", value: "67", icon: ShoppingCart, color: "text-purple-600", bg: "bg-purple-100" },
-  { label: "On-Time Delivery", value: "94.3%", icon: Clock, color: "text-green-600", bg: "bg-green-100" },
-  { label: "Fill Rate", value: "97.8%", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-100" },
-  { label: "Avg Lead Time", value: "12d", icon: TrendingUp, color: "text-amber-600", bg: "bg-amber-100" },
-  { label: "Inventory Turns", value: "8.4x", icon: RefreshCw, color: "text-cyan-600", bg: "bg-cyan-100" },
-  { label: "Procurement Cost", value: "4.2%", icon: DollarSign, color: "text-orange-600", bg: "bg-orange-100" },
-  { label: "Supply Risk", value: "Low", icon: ShieldCheck, color: "text-green-600", bg: "bg-green-100" },
+/* kpis are computed inside the component to access store data */
+
+const INITIAL_PURCHASE_ORDERS = [
+  { id: "PO-4501", supplier: "Sun Pharma API", items: 24, total: "EGP 1,420,000", ordered: "Mar 18, 2026", eta: "Apr 08, 2026", status: "In Transit", priority: "High" },
+  { id: "PO-4502", supplier: "BASF Pharma Solutions", items: 12, total: "EGP 620,000", ordered: "Mar 20, 2026", eta: "Apr 12, 2026", status: "Confirmed", priority: "Medium" },
+  { id: "PO-4503", supplier: "Schott Glass", items: 8, total: "EGP 340,000", ordered: "Mar 15, 2026", eta: "Apr 05, 2026", status: "In Transit", priority: "High" },
+  { id: "PO-4504", supplier: "Egyptian Lab Reagents", items: 15, total: "EGP 92,000", ordered: "Mar 22, 2026", eta: "Apr 14, 2026", status: "Pending Approval", priority: "Low" },
+  { id: "PO-4505", supplier: "Bormioli Pharma", items: 6, total: "EGP 275,000", ordered: "Mar 25, 2026", eta: "Apr 18, 2026", status: "Confirmed", priority: "Medium" },
+  { id: "PO-4506", supplier: "Sun Pharma API", items: 30, total: "EGP 850,000", ordered: "Mar 12, 2026", eta: "Apr 02, 2026", status: "Delivered", priority: "High" },
+  { id: "PO-4507", supplier: "BASF Pharma Solutions", items: 18, total: "EGP 310,000", ordered: "Mar 28, 2026", eta: "Apr 20, 2026", status: "Pending Approval", priority: "Medium" },
+  { id: "PO-4508", supplier: "Schott Glass", items: 42, total: "EGP 170,000", ordered: "Mar 30, 2026", eta: "Apr 10, 2026", status: "Confirmed", priority: "Low" },
+  { id: "PO-4509", supplier: "Bormioli Pharma", items: 9, total: "EGP 135,000", ordered: "Mar 14, 2026", eta: "Apr 04, 2026", status: "In Transit", priority: "High" },
+  { id: "PO-4510", supplier: "Egyptian Lab Reagents", items: 20, total: "EGP 46,000", ordered: "Apr 01, 2026", eta: "Apr 22, 2026", status: "Draft", priority: "Low" },
 ];
 
-const purchaseOrders = [
-  { id: "PO-4501", supplier: "Apex Materials Co.", items: 24, total: "EGP 128,450", ordered: "Mar 18, 2026", eta: "Apr 08, 2026", status: "In Transit", priority: "High" },
-  { id: "PO-4502", supplier: "GlobalTech Components", items: 12, total: "EGP 67,200", ordered: "Mar 20, 2026", eta: "Apr 12, 2026", status: "Confirmed", priority: "Medium" },
-  { id: "PO-4503", supplier: "SteelWorks International", items: 8, total: "EGP 245,000", ordered: "Mar 15, 2026", eta: "Apr 05, 2026", status: "In Transit", priority: "High" },
-  { id: "PO-4504", supplier: "ChemPro Industries", items: 15, total: "EGP 34,800", ordered: "Mar 22, 2026", eta: "Apr 14, 2026", status: "Pending Approval", priority: "Low" },
-  { id: "PO-4505", supplier: "Pacific Logistics Ltd.", items: 6, total: "EGP 89,300", ordered: "Mar 25, 2026", eta: "Apr 18, 2026", status: "Confirmed", priority: "Medium" },
-  { id: "PO-4506", supplier: "NordicParts AB", items: 30, total: "EGP 156,700", ordered: "Mar 12, 2026", eta: "Apr 02, 2026", status: "Delivered", priority: "High" },
-  { id: "PO-4507", supplier: "RawMat Suppliers Inc.", items: 18, total: "EGP 72,100", ordered: "Mar 28, 2026", eta: "Apr 20, 2026", status: "Pending Approval", priority: "Medium" },
-  { id: "PO-4508", supplier: "Precision Fasteners Co.", items: 42, total: "EGP 19,850", ordered: "Mar 30, 2026", eta: "Apr 10, 2026", status: "Confirmed", priority: "Low" },
-  { id: "PO-4509", supplier: "ElectroParts Global", items: 9, total: "EGP 203,600", ordered: "Mar 14, 2026", eta: "Apr 04, 2026", status: "In Transit", priority: "High" },
-  { id: "PO-4510", supplier: "BioPlastics Corp.", items: 20, total: "EGP 41,500", ordered: "Apr 01, 2026", eta: "Apr 22, 2026", status: "Draft", priority: "Low" },
-];
-
-const suppliers = [
-  { id: "SUP-001", name: "Apex Materials Co.", category: "Raw Materials", location: "Houston, TX", rating: 4.8, onTime: "96%", spend: "EGP 2.4M", status: "Preferred", risk: "Low" },
-  { id: "SUP-002", name: "GlobalTech Components", category: "Electronics", location: "Shenzhen, China", rating: 4.5, onTime: "91%", spend: "EGP 1.8M", status: "Approved", risk: "Medium" },
-  { id: "SUP-003", name: "SteelWorks International", category: "Metals", location: "Pittsburgh, PA", rating: 4.9, onTime: "98%", spend: "EGP 3.1M", status: "Preferred", risk: "Low" },
-  { id: "SUP-004", name: "ChemPro Industries", category: "Chemicals", location: "Basel, Switzerland", rating: 4.3, onTime: "89%", spend: "EGP 890K", status: "Approved", risk: "Medium" },
-  { id: "SUP-005", name: "Pacific Logistics Ltd.", category: "Logistics", location: "Singapore", rating: 4.6, onTime: "93%", spend: "EGP 1.2M", status: "Approved", risk: "Low" },
-  { id: "SUP-006", name: "NordicParts AB", category: "Mechanical Parts", location: "Stockholm, Sweden", rating: 4.7, onTime: "95%", spend: "EGP 1.5M", status: "Preferred", risk: "Low" },
-  { id: "SUP-007", name: "RawMat Suppliers Inc.", category: "Raw Materials", location: "Detroit, MI", rating: 4.1, onTime: "87%", spend: "EGP 670K", status: "Conditional", risk: "High" },
-  { id: "SUP-008", name: "Precision Fasteners Co.", category: "Hardware", location: "Osaka, Japan", rating: 4.8, onTime: "97%", spend: "EGP 420K", status: "Preferred", risk: "Low" },
-  { id: "SUP-009", name: "ElectroParts Global", category: "Electronics", location: "Taipei, Taiwan", rating: 4.4, onTime: "90%", spend: "EGP 2.1M", status: "Approved", risk: "Medium" },
-  { id: "SUP-010", name: "BioPlastics Corp.", category: "Polymers", location: "Rotterdam, Netherlands", rating: 4.2, onTime: "92%", spend: "EGP 560K", status: "Approved", risk: "Low" },
-];
+/* Suppliers are derived from store.vendors inside the component */
 
 const shipments = [
-  { id: "SHP-7801", origin: "Shenzhen, China", destination: "Los Angeles, CA", carrier: "Maersk Line", mode: "Ocean Freight", departed: "Mar 10, 2026", eta: "Apr 06, 2026", status: "In Transit", weight: "12,400 kg" },
-  { id: "SHP-7802", origin: "Stockholm, Sweden", destination: "Newark, NJ", carrier: "DHL Global", mode: "Air Freight", departed: "Mar 28, 2026", eta: "Apr 03, 2026", status: "In Transit", weight: "840 kg" },
-  { id: "SHP-7803", origin: "Houston, TX", destination: "Chicago, IL", carrier: "FedEx Freight", mode: "Ground", departed: "Mar 31, 2026", eta: "Apr 04, 2026", status: "In Transit", weight: "5,200 kg" },
-  { id: "SHP-7804", origin: "Osaka, Japan", destination: "Seattle, WA", carrier: "NYK Line", mode: "Ocean Freight", departed: "Mar 05, 2026", eta: "Apr 01, 2026", status: "Delivered", weight: "8,900 kg" },
-  { id: "SHP-7805", origin: "Basel, Switzerland", destination: "Houston, TX", carrier: "UPS Supply Chain", mode: "Air Freight", departed: "Apr 01, 2026", eta: "Apr 05, 2026", status: "In Transit", weight: "320 kg" },
-  { id: "SHP-7806", origin: "Detroit, MI", destination: "Atlanta, GA", carrier: "XPO Logistics", mode: "Ground", departed: "Apr 02, 2026", eta: "Apr 06, 2026", status: "Dispatched", weight: "3,100 kg" },
-  { id: "SHP-7807", origin: "Taipei, Taiwan", destination: "San Francisco, CA", carrier: "Evergreen Marine", mode: "Ocean Freight", departed: "Mar 15, 2026", eta: "Apr 08, 2026", status: "In Transit", weight: "15,600 kg" },
-  { id: "SHP-7808", origin: "Rotterdam, Netherlands", destination: "Savannah, GA", carrier: "Hapag-Lloyd", mode: "Ocean Freight", departed: "Mar 20, 2026", eta: "Apr 10, 2026", status: "In Transit", weight: "9,750 kg" },
+  { id: "SHP-7801", origin: "Mumbai, India", destination: "Cairo, Egypt", carrier: "Maersk Line", mode: "Ocean Freight", departed: "Mar 10, 2026", eta: "Apr 06, 2026", status: "In Transit", weight: "12,400 kg" },
+  { id: "SHP-7802", origin: "Ludwigshafen, Germany", destination: "Alexandria, Egypt", carrier: "DHL Global", mode: "Air Freight", departed: "Mar 28, 2026", eta: "Apr 03, 2026", status: "In Transit", weight: "840 kg" },
+  { id: "SHP-7803", origin: "Mainz, Germany", destination: "10th of Ramadan, Egypt", carrier: "FedEx Freight", mode: "Ground", departed: "Mar 31, 2026", eta: "Apr 04, 2026", status: "In Transit", weight: "5,200 kg" },
+  { id: "SHP-7804", origin: "Parma, Italy", destination: "Cairo, Egypt", carrier: "MSC", mode: "Ocean Freight", departed: "Mar 05, 2026", eta: "Apr 01, 2026", status: "Delivered", weight: "8,900 kg" },
+  { id: "SHP-7805", origin: "Mumbai, India", destination: "Port Said, Egypt", carrier: "UPS Supply Chain", mode: "Air Freight", departed: "Apr 01, 2026", eta: "Apr 05, 2026", status: "In Transit", weight: "320 kg" },
+  { id: "SHP-7806", origin: "Alexandria, Egypt", destination: "6th October, Egypt", carrier: "Local Freight Co.", mode: "Ground", departed: "Apr 02, 2026", eta: "Apr 06, 2026", status: "Dispatched", weight: "3,100 kg" },
+  { id: "SHP-7807", origin: "Ludwigshafen, Germany", destination: "Cairo, Egypt", carrier: "Evergreen Marine", mode: "Ocean Freight", departed: "Mar 15, 2026", eta: "Apr 08, 2026", status: "In Transit", weight: "15,600 kg" },
+  { id: "SHP-7808", origin: "Mainz, Germany", destination: "10th of Ramadan, Egypt", carrier: "Hapag-Lloyd", mode: "Ocean Freight", departed: "Mar 20, 2026", eta: "Apr 10, 2026", status: "In Transit", weight: "9,750 kg" },
 ];
 
-const inventoryItems = [
-  { sku: "SKU-10201", name: "Carbon Steel Plate 10mm", category: "Raw Materials", onHand: 2400, reorder: 800, max: 5000, unit: "sheets", location: "WH-A", status: "Adequate" },
-  { sku: "SKU-10202", name: "PCB Assembly Module v3", category: "Electronics", onHand: 340, reorder: 500, max: 2000, unit: "units", location: "WH-B", status: "Low Stock" },
-  { sku: "SKU-10203", name: "Hydraulic Cylinder HX-40", category: "Mechanical", onHand: 890, reorder: 300, max: 1500, unit: "units", location: "WH-A", status: "Adequate" },
-  { sku: "SKU-10204", name: "Industrial Epoxy Resin 5L", category: "Chemicals", onHand: 120, reorder: 200, max: 800, unit: "drums", location: "WH-C", status: "Low Stock" },
-  { sku: "SKU-10205", name: "Stainless Bolts M12x50", category: "Hardware", onHand: 15000, reorder: 5000, max: 30000, unit: "pcs", location: "WH-A", status: "Adequate" },
-  { sku: "SKU-10206", name: "Copper Wire 2.5mm AWG", category: "Electrical", onHand: 4500, reorder: 2000, max: 10000, unit: "meters", location: "WH-B", status: "Adequate" },
-  { sku: "SKU-10207", name: "HDPE Pellets Grade A", category: "Polymers", onHand: 60, reorder: 100, max: 500, unit: "bags", location: "WH-C", status: "Critical" },
-  { sku: "SKU-10208", name: "Servo Motor SM-200", category: "Electronics", onHand: 210, reorder: 150, max: 600, unit: "units", location: "WH-B", status: "Adequate" },
-  { sku: "SKU-10209", name: "Aluminum Extrusion 6061", category: "Metals", onHand: 1800, reorder: 1000, max: 4000, unit: "bars", location: "WH-A", status: "Adequate" },
-  { sku: "SKU-10210", name: "Safety Valve SV-100", category: "Mechanical", onHand: 75, reorder: 100, max: 400, unit: "units", location: "WH-A", status: "Low Stock" },
-];
+/* Inventory items are derived from store.products inside the component */
 
 const warehouses = [
-  { id: "WH-A", name: "Central Distribution Hub", location: "Dallas, TX", capacity: 50000, used: 38500, zones: 12, staff: 45, temp: "Ambient", status: "Operational" },
-  { id: "WH-B", name: "Electronics Storage Facility", location: "San Jose, CA", capacity: 25000, used: 21200, zones: 8, staff: 28, temp: "Climate Controlled", status: "Operational" },
-  { id: "WH-C", name: "Chemical & Hazmat Warehouse", location: "Houston, TX", capacity: 15000, used: 9800, zones: 6, staff: 18, temp: "Regulated", status: "Operational" },
-  { id: "WH-D", name: "Overflow & Returns Center", location: "Memphis, TN", capacity: 35000, used: 12400, zones: 10, staff: 22, temp: "Ambient", status: "Maintenance" },
+  { id: "WH-A", name: "Main Pharma Warehouse", location: "10th of Ramadan, Egypt", capacity: 50000, used: 38500, zones: 12, staff: 45, temp: "Climate Controlled", status: "Operational" },
+  { id: "WH-B", name: "Cold Chain Storage", location: "6th October, Egypt", capacity: 25000, used: 21200, zones: 8, staff: 28, temp: "Regulated", status: "Operational" },
+  { id: "WH-C", name: "API & Raw Materials Depot", location: "Cairo, Egypt", capacity: 15000, used: 9800, zones: 6, staff: 18, temp: "Climate Controlled", status: "Operational" },
+  { id: "WH-D", name: "Packaging & Finished Goods", location: "Alexandria, Egypt", capacity: 35000, used: 12400, zones: 10, staff: 22, temp: "Ambient", status: "Maintenance" },
 ];
 
 const contracts = [
-  { id: "CTR-301", supplier: "Apex Materials Co.", type: "Master Supply Agreement", value: "EGP 4.8M", start: "Jan 01, 2026", end: "Dec 31, 2027", status: "Active", renewal: "Auto" },
-  { id: "CTR-302", supplier: "SteelWorks International", type: "Volume Purchase Agreement", value: "EGP 6.2M", start: "Mar 01, 2026", end: "Feb 28, 2028", status: "Active", renewal: "Manual" },
-  { id: "CTR-303", supplier: "GlobalTech Components", type: "Framework Agreement", value: "EGP 3.5M", start: "Jun 01, 2025", end: "May 31, 2026", status: "Expiring Soon", renewal: "Auto" },
-  { id: "CTR-304", supplier: "Pacific Logistics Ltd.", type: "Service Level Agreement", value: "EGP 1.8M", start: "Jan 01, 2026", end: "Dec 31, 2026", status: "Active", renewal: "Auto" },
-  { id: "CTR-305", supplier: "NordicParts AB", type: "Blanket Purchase Order", value: "EGP 2.9M", start: "Apr 01, 2026", end: "Mar 31, 2027", status: "Active", renewal: "Manual" },
-  { id: "CTR-306", supplier: "ElectroParts Global", type: "Master Supply Agreement", value: "EGP 4.1M", start: "Feb 01, 2026", end: "Jan 31, 2028", status: "Active", renewal: "Auto" },
-  { id: "CTR-307", supplier: "ChemPro Industries", type: "Hazmat Handling Agreement", value: "EGP 1.2M", start: "Sep 01, 2025", end: "Aug 31, 2026", status: "Under Review", renewal: "Manual" },
-  { id: "CTR-308", supplier: "RawMat Suppliers Inc.", type: "Framework Agreement", value: "EGP 950K", start: "Nov 01, 2025", end: "Oct 31, 2026", status: "Active", renewal: "Manual" },
+  { id: "CTR-301", supplier: "Sun Pharma API", type: "Master Supply Agreement", value: "EGP 4.8M", start: "Jan 01, 2026", end: "Dec 31, 2027", status: "Active", renewal: "Auto" },
+  { id: "CTR-302", supplier: "Schott Glass", type: "Volume Purchase Agreement", value: "EGP 6.2M", start: "Mar 01, 2026", end: "Feb 28, 2028", status: "Active", renewal: "Manual" },
+  { id: "CTR-303", supplier: "BASF Pharma Solutions", type: "Framework Agreement", value: "EGP 3.5M", start: "Jun 01, 2025", end: "May 31, 2026", status: "Expiring Soon", renewal: "Auto" },
+  { id: "CTR-304", supplier: "Bormioli Pharma", type: "Service Level Agreement", value: "EGP 1.8M", start: "Jan 01, 2026", end: "Dec 31, 2026", status: "Active", renewal: "Auto" },
+  { id: "CTR-305", supplier: "Egyptian Lab Reagents", type: "Blanket Purchase Order", value: "EGP 920K", start: "Apr 01, 2026", end: "Mar 31, 2027", status: "Active", renewal: "Manual" },
+  { id: "CTR-306", supplier: "Sun Pharma API", type: "API Quality Agreement", value: "EGP 4.1M", start: "Feb 01, 2026", end: "Jan 31, 2028", status: "Active", renewal: "Auto" },
+  { id: "CTR-307", supplier: "Schott Glass", type: "Packaging Supply Agreement", value: "EGP 1.2M", start: "Sep 01, 2025", end: "Aug 31, 2026", status: "Under Review", renewal: "Manual" },
+  { id: "CTR-308", supplier: "BASF Pharma Solutions", type: "Excipient Framework Agreement", value: "EGP 950K", start: "Nov 01, 2025", end: "Oct 31, 2026", status: "Active", renewal: "Manual" },
 ];
 
 const spendCategories = [
-  { category: "Raw Materials", spend: "EGP 4.8M", pct: 32, trend: "+2.1%", suppliers: 28 },
-  { category: "Electronics & Components", spend: "EGP 3.9M", pct: 26, trend: "-1.4%", suppliers: 19 },
-  { category: "Logistics & Freight", spend: "EGP 2.3M", pct: 15, trend: "+4.7%", suppliers: 12 },
-  { category: "Chemicals & Polymers", spend: "EGP 1.5M", pct: 10, trend: "+0.8%", suppliers: 8 },
-  { category: "Mechanical Parts", spend: "EGP 1.2M", pct: 8, trend: "-0.3%", suppliers: 15 },
-  { category: "Services & MRO", spend: "EGP 1.3M", pct: 9, trend: "+1.9%", suppliers: 22 },
+  { category: "API Suppliers", spend: "EGP 4.8M", pct: 32, trend: "+2.1%", suppliers: 3 },
+  { category: "Excipients", spend: "EGP 3.9M", pct: 26, trend: "-1.4%", suppliers: 2 },
+  { category: "Primary Packaging", spend: "EGP 2.3M", pct: 15, trend: "+4.7%", suppliers: 2 },
+  { category: "Lab Reagents", spend: "EGP 1.5M", pct: 10, trend: "+0.8%", suppliers: 1 },
+  { category: "Logistics & Freight", spend: "EGP 1.2M", pct: 8, trend: "-0.3%", suppliers: 5 },
+  { category: "Services & MRO", spend: "EGP 1.3M", pct: 9, trend: "+1.9%", suppliers: 4 },
 ];
 
 function poStatusBadge(status: string) {
@@ -154,34 +124,19 @@ function contractStatusBadge(status: string) {
   }
 }
 
-const poFields: EntityField[] = [
-  { name: "supplier", label: "Supplier", type: "text", required: true },
-  { name: "items", label: "Number of Items", type: "number", required: true },
-  { name: "totalValue", label: "Total Value (EGP)", type: "number", required: true, placeholder: "0" },
-  { name: "expectedDelivery", label: "Expected Delivery", type: "date", required: true },
-  { name: "buyer", label: "Buyer", type: "text", required: true },
-  { name: "priority", label: "Priority", type: "select", defaultValue: "Medium", options: [
-    { label: "High", value: "High" }, { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
-  ]},
-  { name: "status", label: "Status", type: "select", defaultValue: "Draft", options: [
-    { label: "Draft", value: "Draft" }, { label: "Pending Approval", value: "Pending Approval" },
-    { label: "Confirmed", value: "Confirmed" }, { label: "In Transit", value: "In Transit" },
-    { label: "Delivered", value: "Delivered" },
-  ]},
-];
+/* poFields is built inside the component to access store.vendors */
 
 const supplierFields: EntityField[] = [
-  { name: "name", label: "Supplier Name", type: "text", required: true },
+  { name: "name", label: "Supplier Name", type: "text", required: true, fullWidth: true },
   { name: "category", label: "Category", type: "select", required: true, options: [
-    { label: "Raw Materials", value: "Raw Materials" }, { label: "Electronics", value: "Electronics" },
-    { label: "Metals", value: "Metals" }, { label: "Chemicals", value: "Chemicals" },
-    { label: "Logistics", value: "Logistics" }, { label: "Mechanical Parts", value: "Mechanical Parts" },
-    { label: "Hardware", value: "Hardware" }, { label: "Polymers", value: "Polymers" },
+    { label: "API Supplier", value: "API Supplier" }, { label: "Excipient Supplier", value: "Excipient Supplier" },
+    { label: "Packaging Supplier", value: "Packaging Supplier" }, { label: "Lab Reagents", value: "Lab Reagents" },
+    { label: "Equipment", value: "Equipment" }, { label: "Logistics", value: "Logistics" },
   ]},
   { name: "location", label: "Location", type: "text", required: true },
-  { name: "rating", label: "Rating (1-5)", type: "number", min: 1, max: 5, step: 0.1 },
-  { name: "onTime", label: "On-Time Delivery %", type: "text" },
-  { name: "spend", label: "Annual Spend", type: "text" },
+  { name: "rating", label: "Rating (1-5)", type: "number", min: 1, max: 5 },
+  { name: "onTime", label: "On-Time %", type: "text", placeholder: "95%" },
+  { name: "spend", label: "Annual Spend", type: "text", placeholder: "EGP 1.2M" },
   { name: "status", label: "Status", type: "select", defaultValue: "Approved", options: [
     { label: "Preferred", value: "Preferred" }, { label: "Approved", value: "Approved" },
     { label: "Conditional", value: "Conditional" },
@@ -189,22 +144,11 @@ const supplierFields: EntityField[] = [
   { name: "risk", label: "Risk Level", type: "select", defaultValue: "Low", options: [
     { label: "Low", value: "Low" }, { label: "Medium", value: "Medium" }, { label: "High", value: "High" },
   ]},
+  { name: "phone", label: "Phone", type: "text" },
+  { name: "email", label: "Email", type: "email" },
 ];
 
-const contractFields: EntityField[] = [
-  { name: "title", label: "Type", type: "text", required: true, fullWidth: true, placeholder: "e.g. Master Supply Agreement" },
-  { name: "supplier", label: "Supplier", type: "text", required: true },
-  { name: "startDate", label: "Start Date", type: "date", required: true },
-  { name: "endDate", label: "End Date", type: "date", required: true },
-  { name: "value", label: "Value (EGP)", type: "number", required: true, placeholder: "0" },
-  { name: "status", label: "Status", type: "select", defaultValue: "Active", options: [
-    { label: "Active", value: "Active" }, { label: "Expiring Soon", value: "Expiring Soon" },
-    { label: "Under Review", value: "Under Review" }, { label: "Expired", value: "Expired" },
-  ]},
-  { name: "renewal", label: "Renewal", type: "select", defaultValue: "Manual", options: [
-    { label: "Auto", value: "Auto" }, { label: "Manual", value: "Manual" },
-  ]},
-];
+/* contractFields is built inside the component to access store.vendors */
 
 const shipmentFields: EntityField[] = [
   { name: "origin", label: "Origin", type: "text", required: true },
@@ -223,27 +167,7 @@ const shipmentFields: EntityField[] = [
   ]},
 ];
 
-const inventoryFields: EntityField[] = [
-  { name: "name", label: "Item Name", type: "text", required: true, fullWidth: true },
-  { name: "category", label: "Category", type: "select", required: true, options: [
-    { label: "Raw Materials", value: "Raw Materials" }, { label: "Electronics", value: "Electronics" },
-    { label: "Mechanical", value: "Mechanical" }, { label: "Chemicals", value: "Chemicals" },
-    { label: "Hardware", value: "Hardware" }, { label: "Electrical", value: "Electrical" },
-    { label: "Polymers", value: "Polymers" }, { label: "Metals", value: "Metals" },
-  ]},
-  { name: "onHand", label: "On Hand", type: "number", required: true, min: 0 },
-  { name: "reorder", label: "Reorder Point", type: "number", required: true, min: 0 },
-  { name: "max", label: "Max Qty", type: "number", required: true, min: 0 },
-  { name: "unit", label: "Unit", type: "text", required: true, placeholder: "e.g. pcs, kg, meters" },
-  { name: "location", label: "Location", type: "select", required: true, options: [
-    { label: "WH-A", value: "WH-A" }, { label: "WH-B", value: "WH-B" },
-    { label: "WH-C", value: "WH-C" }, { label: "WH-D", value: "WH-D" },
-  ]},
-  { name: "status", label: "Status", type: "select", defaultValue: "Adequate", options: [
-    { label: "Adequate", value: "Adequate" }, { label: "Low Stock", value: "Low Stock" },
-    { label: "Critical", value: "Critical" },
-  ]},
-];
+/* inventoryFields is built inside the component to access store.products */
 
 const warehouseFields: EntityField[] = [
   { name: "name", label: "Warehouse Name", type: "text", required: true, fullWidth: true },
@@ -262,28 +186,155 @@ const warehouseFields: EntityField[] = [
   ]},
 ];
 
+interface SupplierRow {
+  id: string;
+  name: string;
+  category: string;
+  location: string;
+  rating: number;
+  onTime: string;
+  spend: string;
+  status: string;
+  risk: string;
+  gmpCertified: boolean;
+  phone: string;
+  email: string;
+}
+
+interface InventoryRow {
+  sku: string;
+  productId: string;
+  name: string;
+  category: string;
+  onHand: number;
+  reorder: number;
+  max: number;
+  unit: string;
+  location: string;
+  status: string;
+}
+
 type ModalMode =
-  | { type: "po"; editing: typeof purchaseOrders[0] | null }
-  | { type: "supplier"; editing: typeof suppliers[0] | null }
+  | { type: "po"; editing: typeof INITIAL_PURCHASE_ORDERS[0] | null }
+  | { type: "supplier"; editing: SupplierRow | null }
   | { type: "contract"; editing: typeof contracts[0] | null }
   | { type: "shipment"; editing: typeof shipments[0] | null }
-  | { type: "inventory"; editing: typeof inventoryItems[0] | null }
+  | { type: "inventory"; editing: InventoryRow | null }
   | { type: "warehouse"; editing: typeof warehouses[0] | null }
   | null;
 
 export default function SupplyChainPage() {
+  const store = useDataStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [modal, setModal] = useState<ModalMode>(null);
-  const [pos, setPos] = useState(purchaseOrders);
-  const [supplierList, setSupplierList] = useState(suppliers);
+  const [pos, setPos] = useState(INITIAL_PURCHASE_ORDERS);
   const [contractList, setContractList] = useState(contracts);
   const [shipmentList, setShipmentList] = useState(shipments);
-  const [inventoryList, setInventoryList] = useState(inventoryItems);
   const [warehouseList, setWarehouseList] = useState(warehouses);
+  const [supplierList, setSupplierList] = useState<SupplierRow[]>(() =>
+    store.vendors.map((v) => ({
+      id: v.code,
+      name: v.name,
+      category: v.category,
+      location: v.address,
+      rating: v.gmpCertified ? 4.7 : 4.0,
+      onTime: v.gmpCertified ? "95%" : "88%",
+      spend: `EGP ${(v.outstanding / 1000).toFixed(0)}K`,
+      status: v.gmpCertified ? "Preferred" : "Approved",
+      risk: v.gmpCertified ? "Low" : "Medium",
+      gmpCertified: v.gmpCertified,
+      phone: v.phone,
+      email: v.email,
+    }))
+  );
+  const [inventoryList, setInventoryList] = useState<InventoryRow[]>(() =>
+    store.products.map((p, idx) => {
+      const baseStock = Math.round(p.pricePerUnit * 20);
+      const reorder = Math.round(baseStock * 0.3);
+      const max = baseStock * 2;
+      const onHand = Math.round(baseStock * (0.5 + Math.random() * 0.8));
+      const stockStatus = onHand <= reorder * 0.5 ? "Critical" : onHand <= reorder ? "Low Stock" : "Adequate";
+      const locations = ["WH-A", "WH-B", "WH-C", "WH-D"];
+      return {
+        sku: p.code,
+        productId: p.id,
+        name: `${p.name} ${p.strength}`,
+        category: p.therapeuticArea,
+        onHand,
+        reorder,
+        max,
+        unit: p.form === "Syrup" ? "bottles" : p.form === "Injection" ? "vials" : "boxes",
+        location: locations[idx % locations.length],
+        status: stockStatus,
+      };
+    })
+  );
   const [poFilters, setPoFilters] = useState<FilterState>({});
   const [supFilters, setSupFilters] = useState<FilterState>({});
-  const [viewPO, setViewPO] = useState<typeof purchaseOrders[0] | null>(null);
-  const [viewSupplier, setViewSupplier] = useState<typeof suppliers[0] | null>(null);
+  const [viewPO, setViewPO] = useState<typeof INITIAL_PURCHASE_ORDERS[0] | null>(null);
+  const [viewSupplier, setViewSupplier] = useState<SupplierRow | null>(null);
+
+  // Build poFields with store.vendors as supplier options
+  const poFields: EntityField[] = [
+    { name: "supplier", label: "Supplier", type: "select" as const, required: true, options: store.vendors.map(v => ({ label: v.name, value: v.name })) },
+    { name: "items", label: "Number of Items", type: "number" as const, required: true },
+    { name: "totalValue", label: "Total Value (EGP)", type: "number" as const, required: true, placeholder: "0" },
+    { name: "expectedDelivery", label: "Expected Delivery", type: "date" as const, required: true },
+    { name: "buyer", label: "Buyer", type: "text" as const, required: true },
+    { name: "priority", label: "Priority", type: "select" as const, defaultValue: "Medium", options: [
+      { label: "High", value: "High" }, { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
+    ]},
+    { name: "status", label: "Status", type: "select" as const, defaultValue: "Draft", options: [
+      { label: "Draft", value: "Draft" }, { label: "Pending Approval", value: "Pending Approval" },
+      { label: "Confirmed", value: "Confirmed" }, { label: "In Transit", value: "In Transit" },
+      { label: "Delivered", value: "Delivered" },
+    ]},
+  ];
+
+  const contractFields: EntityField[] = [
+    { name: "title", label: "Type", type: "text" as const, required: true, fullWidth: true, placeholder: "e.g. Master Supply Agreement" },
+    { name: "supplier", label: "Supplier", type: "select" as const, required: true, options: store.vendors.map(v => ({ label: v.name, value: v.name })) },
+    { name: "startDate", label: "Start Date", type: "date" as const, required: true },
+    { name: "endDate", label: "End Date", type: "date" as const, required: true },
+    { name: "value", label: "Value (EGP)", type: "number" as const, required: true, placeholder: "0" },
+    { name: "status", label: "Status", type: "select" as const, defaultValue: "Active", options: [
+      { label: "Active", value: "Active" }, { label: "Expiring Soon", value: "Expiring Soon" },
+      { label: "Under Review", value: "Under Review" }, { label: "Expired", value: "Expired" },
+    ]},
+    { name: "renewal", label: "Renewal", type: "select" as const, defaultValue: "Manual", options: [
+      { label: "Auto", value: "Auto" }, { label: "Manual", value: "Manual" },
+    ]},
+  ];
+
+  const inventoryFields: EntityField[] = [
+    { name: "product", label: "Product", type: "select" as const, required: true, options: store.products.map(p => ({ label: `${p.code} - ${p.name}`, value: p.name })) },
+    { name: "name", label: "Item Name", type: "text" as const, required: true, fullWidth: true },
+    { name: "category", label: "Therapeutic Area", type: "text" as const, required: true },
+    { name: "onHand", label: "On Hand", type: "number" as const, required: true, min: 0 },
+    { name: "reorder", label: "Reorder Point", type: "number" as const, required: true, min: 0 },
+    { name: "max", label: "Max Qty", type: "number" as const, required: true, min: 0 },
+    { name: "unit", label: "Unit", type: "text" as const, required: true, placeholder: "e.g. boxes, vials, bottles" },
+    { name: "location", label: "Location", type: "select" as const, required: true, options: [
+      { label: "WH-A", value: "WH-A" }, { label: "WH-B", value: "WH-B" },
+      { label: "WH-C", value: "WH-C" }, { label: "WH-D", value: "WH-D" },
+    ]},
+    { name: "status", label: "Status", type: "select" as const, defaultValue: "Adequate", options: [
+      { label: "Adequate", value: "Adequate" }, { label: "Low Stock", value: "Low Stock" },
+      { label: "Critical", value: "Critical" },
+    ]},
+  ];
+
+  // Dynamic KPI values
+  const kpis = [
+    { label: "Total Suppliers", value: String(store.vendors.length), icon: Factory, color: "text-blue-600", bg: "bg-blue-100" },
+    { label: "Active POs", value: String(pos.filter(p => p.status !== "Delivered" && p.status !== "Draft").length), icon: ShoppingCart, color: "text-purple-600", bg: "bg-purple-100" },
+    { label: "On-Time Delivery", value: "94.3%", icon: Clock, color: "text-green-600", bg: "bg-green-100" },
+    { label: "Fill Rate", value: "97.8%", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-100" },
+    { label: "Avg Lead Time", value: "12d", icon: TrendingUp, color: "text-amber-600", bg: "bg-amber-100" },
+    { label: "Products Tracked", value: String(store.products.length), icon: RefreshCw, color: "text-cyan-600", bg: "bg-cyan-100" },
+    { label: "Vendor Outstanding", value: `EGP ${(store.vendors.reduce((s, v) => s + v.outstanding, 0) / 1_000_000).toFixed(1)}M`, icon: DollarSign, color: "text-orange-600", bg: "bg-orange-100" },
+    { label: "Supply Risk", value: store.vendors.every(v => v.gmpCertified) ? "Low" : "Medium", icon: ShieldCheck, color: "text-green-600", bg: "bg-green-100" },
+  ];
 
   return (
     <div className="space-y-6 p-6">
@@ -450,12 +501,12 @@ export default function SupplyChainPage() {
             ]}
             values={supFilters}
             onChange={(k, v) => setSupFilters(f => ({ ...f, [k]: v }))}
-            rightSlot={<Button size="sm" onClick={() => setModal({ type: "supplier", editing: null })}><Plus className="mr-2 h-4 w-4" />Add Supplier</Button>}
+            rightSlot={<span className="text-xs text-muted-foreground">Synced from vendor master</span>}
           />
           <Card>
             <CardHeader>
               <CardTitle>Supplier Directory</CardTitle>
-              <CardDescription>Approved vendor list with performance ratings</CardDescription>
+              <CardDescription>Vendors from the central data store with performance ratings</CardDescription>
             </CardHeader>
             <CardContent>
               <DataTable
@@ -464,11 +515,11 @@ export default function SupplyChainPage() {
                   { key: "name", label: "Supplier" },
                   { key: "category", label: "Category" },
                   { key: "location", label: "Location" },
-                  { key: "rating", label: "Rating", render: (v: number) => (
-                    <span className={v >= 4.5 ? "text-green-600 font-medium" : "text-amber-600 font-medium"}>{v}/5</span>
+                  { key: "gmpCertified", label: "GMP", render: (v: boolean) => (
+                    <Badge variant={v ? "default" : "secondary"}>{v ? "Certified" : "No"}</Badge>
                   )},
                   { key: "onTime", label: "On-Time" },
-                  { key: "spend", label: "Annual Spend" },
+                  { key: "spend", label: "Outstanding" },
                   { key: "status", label: "Status", render: (v: string) => supplierStatusBadge(v) },
                   { key: "risk", label: "Risk", render: (v: string) => riskBadge(v) },
                   { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
@@ -762,7 +813,7 @@ export default function SupplyChainPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {suppliers.sort((a, b) => parseFloat(b.spend.replace(/[$MK,]/g, "")) - parseFloat(a.spend.replace(/[$MK,]/g, ""))).slice(0, 5).map((s, i) => (
+                  {[...supplierList].sort((a: SupplierRow, b: SupplierRow) => parseFloat(b.spend.replace(/[EGPMK, ]/g, "")) - parseFloat(a.spend.replace(/[EGPMK, ]/g, ""))).slice(0, 5).map((s: SupplierRow, i: number) => (
                     <div key={s.id} className="flex items-center justify-between border-b pb-2 last:border-0">
                       <div className="flex items-center gap-3">
                         <span className="text-muted-foreground text-sm w-5">{i + 1}.</span>
@@ -900,6 +951,9 @@ export default function SupplyChainPage() {
                 spend: String(data.spend) || "EGP 0",
                 status: String(data.status) || "Approved",
                 risk: String(data.risk) || "Low",
+                gmpCertified: false,
+                phone: String(data.phone) || "",
+                email: String(data.email) || "",
               }, ...prev]);
             }
           }}
@@ -1030,6 +1084,7 @@ export default function SupplyChainPage() {
             } else {
               setInventoryList(prev => [{
                 sku: `SKU-${Date.now().toString(36)}`,
+                productId: `prod-${Date.now().toString(36)}`,
                 name: String(data.name),
                 category: String(data.category),
                 onHand: Number(data.onHand) || 0,

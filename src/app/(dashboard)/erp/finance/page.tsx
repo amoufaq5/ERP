@@ -604,7 +604,7 @@ export default function FinancePage() {
 
       <EntityFormModal
         open={showInvoiceModal}
-        onOpenChange={(open) => { if (!open) { setShowInvoiceModal(false); setEditingInvoice(null); } }}
+        onOpenChange={(open) => { setShowInvoiceModal(open); if (!open) setEditingInvoice(null); }}
         title={editingInvoice ? "Edit Invoice" : "New Invoice"}
         fields={invoiceFields}
         initialData={editingInvoice ? { customerId: editingInvoice.customerId, date: editingInvoice.date.slice(0, 10), dueDate: editingInvoice.dueDate.slice(0, 10), subtotal: editingInvoice.subtotal, tax: editingInvoice.tax, status: editingInvoice.status } : undefined}
@@ -613,7 +613,7 @@ export default function FinancePage() {
 
       <EntityFormModal
         open={showPaymentModal}
-        onOpenChange={(open) => { if (!open) { setShowPaymentModal(false); setEditingPayment(null); } }}
+        onOpenChange={(open) => { setShowPaymentModal(open); if (!open) setEditingPayment(null); }}
         title={editingPayment ? "Edit Payment" : "Record Payment"}
         fields={paymentFields}
         initialData={editingPayment ? { type: editingPayment.type, customerId: editingPayment.customerId || "", vendorId: editingPayment.vendorId || "", invoiceId: editingPayment.invoiceId || "", amount: editingPayment.amount, method: editingPayment.method, bankAccountId: editingPayment.bankAccountId || "", date: editingPayment.date, notes: editingPayment.notes || "" } : undefined}
@@ -622,7 +622,7 @@ export default function FinancePage() {
 
       <EntityFormModal
         open={showBudgetModal}
-        onOpenChange={(open) => { if (!open) { setShowBudgetModal(false); setEditingBudget(null); } }}
+        onOpenChange={(open) => { setShowBudgetModal(open); if (!open) setEditingBudget(null); }}
         title={editingBudget ? "Edit Budget" : "Add Budget"}
         fields={budgetFields}
         initialData={editingBudget ? { name: editingBudget.name, fiscalYear: editingBudget.fiscalYear, period: editingBudget.period, accountId: editingBudget.accountId ?? "", costCenterId: editingBudget.costCenterId ?? "", budgeted: editingBudget.budgeted, actual: editingBudget.actual, status: editingBudget.status } : undefined}

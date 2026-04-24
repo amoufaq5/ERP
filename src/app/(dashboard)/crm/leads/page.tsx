@@ -285,7 +285,7 @@ export default function LeadsPage() {
 
       <EntityFormModal
         open={showModal}
-        onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null); } }}
+        onOpenChange={(open) => { setShowModal(open); if (!open) setEditing(null); }}
         title={editing ? "Edit Lead" : "Add New Lead"}
         fields={LEAD_FIELDS}
         initialData={editing ? { firstName: editing.firstName, lastName: editing.lastName, email: editing.email, company: editing.company, source: editing.source, value: editing.value } : undefined}

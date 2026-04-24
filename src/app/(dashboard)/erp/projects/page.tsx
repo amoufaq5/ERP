@@ -241,7 +241,7 @@ export default function ProjectsPage() {
 
       <EntityFormModal
         open={showProjectModal}
-        onOpenChange={(open) => { if (!open) { setShowProjectModal(false); setEditingProject(null); } }}
+        onOpenChange={(open) => { setShowProjectModal(open); if (!open) setEditingProject(null); }}
         title={editingProject ? "Edit Project" : "New Project"}
         fields={PROJECT_FIELDS}
         initialData={editingProject ? { name: editingProject.name, client: editingProject.client, manager: editingProject.manager, startDate: editingProject.startDate, endDate: editingProject.endDate, budget: editingProject.budget, description: editingProject.description, status: editingProject.status } : undefined}
@@ -279,7 +279,7 @@ export default function ProjectsPage() {
 
       <EntityFormModal
         open={showTaskModal}
-        onOpenChange={(open) => { if (!open) { setShowTaskModal(false); setEditingTask(null); } }}
+        onOpenChange={(open) => { setShowTaskModal(open); if (!open) setEditingTask(null); }}
         title={editingTask ? "Edit Task" : "New Task"}
         fields={taskFields}
         initialData={editingTask ? { title: editingTask.title, project: editingTask.project, assignee: editingTask.assignee, dueDate: editingTask.dueDate, hours: editingTask.hours, priority: editingTask.priority, status: editingTask.status } : undefined}

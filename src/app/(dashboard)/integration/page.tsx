@@ -42,13 +42,35 @@ const connectionFields: EntityField[] = [
   { name: "latency", label: "Expected Latency (ms)", type: "text" },
 ];
 
+const MODULE_OPTIONS = [
+  { label: "Finance Module", value: "Finance Module" },
+  { label: "HR & Payroll", value: "HR & Payroll" },
+  { label: "Inventory", value: "Inventory" },
+  { label: "CRM Gateway", value: "CRM Gateway" },
+  { label: "Supply Chain", value: "Supply Chain" },
+  { label: "Analytics Engine", value: "Analytics Engine" },
+  { label: "SAP ERP", value: "SAP ERP" },
+  { label: "Salesforce", value: "Salesforce" },
+  { label: "Stripe", value: "Stripe" },
+  { label: "AWS S3", value: "AWS S3" },
+  { label: "Snowflake", value: "Snowflake" },
+  { label: "HubSpot", value: "HubSpot" },
+  { label: "Jira", value: "Jira" },
+  { label: "Slack", value: "Slack" },
+];
+
 const dataFlowFields: EntityField[] = [
-  { name: "source", label: "Source", type: "text", required: true },
-  { name: "dest", label: "Destination", type: "text", required: true },
+  { name: "source", label: "Source", type: "select", required: true, options: MODULE_OPTIONS },
+  { name: "dest", label: "Destination", type: "select", required: true, options: MODULE_OPTIONS },
   { name: "type", label: "Type", type: "select", required: true, options: [
     { label: "Batch", value: "Batch" }, { label: "Real-time", value: "Real-time" }, { label: "Webhook", value: "Webhook" },
   ]},
-  { name: "frequency", label: "Frequency", type: "text", required: true },
+  { name: "frequency", label: "Frequency", type: "select", required: true, options: [
+    { label: "Streaming", value: "Streaming" }, { label: "On event", value: "On event" },
+    { label: "Every 5m", value: "Every 5m" }, { label: "Every 15m", value: "Every 15m" },
+    { label: "Every 30m", value: "Every 30m" }, { label: "Hourly", value: "Hourly" },
+    { label: "Daily", value: "Daily" }, { label: "Weekly", value: "Weekly" },
+  ]},
 ];
 
 type ModalMode =
@@ -352,7 +374,7 @@ export default function IntegrationPage() {
       {/* Connection Modal */}
       <EntityFormModal
         open={modal?.kind === "connection"}
-        onOpenChange={(open) => !open && setModal(null)}
+        onOpenChange={(open) => { if (!open) setModal(null); }}
         title={modal?.kind === "connection" && modal.editing ? "Edit Connection" : "Add Connection"}
         fields={connectionFields}
         initialData={modal?.kind === "connection" && modal.editing ? {
@@ -371,7 +393,7 @@ export default function IntegrationPage() {
       {/* Data Flow Modal */}
       <EntityFormModal
         open={modal?.kind === "flow"}
-        onOpenChange={(open) => !open && setModal(null)}
+        onOpenChange={(open) => { if (!open) setModal(null); }}
         title={modal?.kind === "flow" && modal.editing ? "Edit Data Flow" : "Add Data Flow"}
         fields={dataFlowFields}
         initialData={modal?.kind === "flow" && modal.editing ? {

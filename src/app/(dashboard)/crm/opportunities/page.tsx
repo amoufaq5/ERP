@@ -52,15 +52,14 @@ const INITIAL_OPPORTUNITIES: Opportunity[] = [
   { id: "OPP-008", title: "AI Model Training Infrastructure", account: "Quantum Data AI", value: 430000, probability: 70, stage: "NEGOTIATION", owner: "Sarah Johnson", expectedClose: "2026-04-25", createdAt: "2026-02-20" },
 ];
 
-const OPP_FIELDS: EntityField[] = [
-  { name: "title", label: "Opportunity Title", type: "text", placeholder: "e.g. Enterprise Software License", required: true, fullWidth: true },
-  { name: "account", label: "Account", type: "text", placeholder: "Company name", required: true },
-  { name: "value", label: "Value (EGP)", type: "number", placeholder: "0" },
-  { name: "probability", label: "Probability (%)", type: "number", placeholder: "50", min: 0, max: 100 },
-  { name: "stage", label: "Stage", type: "select", defaultValue: "PROSPECTING", options: STAGES.map((s) => ({ label: s.replace(/_/g, " "), value: s })) },
-  { name: "owner", label: "Owner", type: "text", placeholder: "Sales rep name" },
-  { name: "expectedClose", label: "Expected Close Date", type: "text", placeholder: "YYYY-MM-DD" },
-];
+const OPP_FIELDS_STATIC = {
+  title: { name: "title", label: "Opportunity Title", type: "text" as const, placeholder: "e.g. Enterprise Software License", required: true, fullWidth: true },
+  value: { name: "value", label: "Value (EGP)", type: "number" as const, placeholder: "0" },
+  probability: { name: "probability", label: "Probability (%)", type: "number" as const, placeholder: "50", min: 0, max: 100 },
+  stage: { name: "stage", label: "Stage", type: "select" as const, defaultValue: "PROSPECTING", options: STAGES.map((s) => ({ label: s.replace(/_/g, " "), value: s })) },
+  owner: { name: "owner", label: "Owner", type: "text" as const, placeholder: "Sales rep name" },
+  expectedClose: { name: "expectedClose", label: "Expected Close Date", type: "text" as const, placeholder: "YYYY-MM-DD" },
+};
 
 const FILTER_FIELDS = [
   { key: "stage", label: "Stage", type: "select" as const, options: STAGES.map((s) => ({ label: s.replace(/_/g, " "), value: s })) },
@@ -72,6 +71,17 @@ function StageBadge({ stage }: { stage: Stage }) {
 
 export default function OpportunitiesPage() {
   const store = useDataStore();
+
+  const OPP_FIELDS: EntityField[] = [
+    OPP_FIELDS_STATIC.title,
+    { name: "account", label: "Account", type: "select", required: true, options: store.customers.map(c => ({ label: c.name, value: c.name })) },
+    OPP_FIELDS_STATIC.value,
+    OPP_FIELDS_STATIC.probability,
+    OPP_FIELDS_STATIC.stage,
+    OPP_FIELDS_STATIC.owner,
+    OPP_FIELDS_STATIC.expectedClose,
+  ];
+
   const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES);
   const [view, setView] = useState<"kanban" | "table">("kanban");
   const [filters, setFilters] = useState<FilterState>({ _search: "", stage: "" });
@@ -228,7 +238,7 @@ export default function OpportunitiesPage() {
 
       <EntityFormModal
         open={showModal}
-        onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null); } }}
+        onOpenChange={(open) => { setShowModal(open); if (!open) setEditing(null); }}
         title={editing ? "Edit Opportunity" : "Add New Opportunity"}
         fields={OPP_FIELDS}
         initialData={editing ? { title: editing.title, account: editing.account, value: editing.value, probability: editing.probability, stage: editing.stage, owner: editing.owner, expectedClose: editing.expectedClose } : undefined}

@@ -40,14 +40,12 @@ const INITIAL_CONTACTS: Contact[] = [
   { id: "CON-010", firstName: "Carlos", lastName: "Reyes", title: "Business Development Manager", email: "c.reyes@freeagent.biz", phone: "+1 (305) 555-0933", account: null, owner: "Marcus Williams", status: "pending", createdAt: "2026-03-20" },
 ];
 
-const CONTACT_FIELDS: EntityField[] = [
+const CONTACT_FIELDS_STATIC: EntityField[] = [
   { name: "firstName", label: "First Name", type: "text", placeholder: "First name", required: true },
   { name: "lastName", label: "Last Name", type: "text", placeholder: "Last name" },
   { name: "title", label: "Job Title", type: "text", placeholder: "e.g. VP of Sales", fullWidth: true },
   { name: "email", label: "Email", type: "email", placeholder: "email@company.com", required: true },
   { name: "phone", label: "Phone", type: "text", placeholder: "+1 (555) 000-0000" },
-  { name: "account", label: "Account", type: "text", placeholder: "Company name (optional)" },
-  { name: "owner", label: "Owner", type: "text", placeholder: "Assigned rep" },
 ];
 
 const FILTER_FIELDS = [
@@ -58,6 +56,13 @@ const FILTER_FIELDS = [
 
 export default function ContactsPage() {
   const store = useDataStore();
+
+  const CONTACT_FIELDS: EntityField[] = [
+    ...CONTACT_FIELDS_STATIC,
+    { name: "account", label: "Account", type: "select", options: [{ label: "None", value: "" }, ...store.customers.map(c => ({ label: c.name, value: c.name }))] },
+    { name: "owner", label: "Owner", type: "text", placeholder: "Assigned rep" },
+  ];
+
   const [contacts, setContacts] = useState<Contact[]>(INITIAL_CONTACTS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "" });
   const [showModal, setShowModal] = useState(false);
@@ -147,7 +152,7 @@ export default function ContactsPage() {
 
       <EntityFormModal
         open={showModal}
-        onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null); } }}
+        onOpenChange={(open) => { setShowModal(open); if (!open) setEditing(null); }}
         title={editing ? "Edit Contact" : "Add New Contact"}
         fields={CONTACT_FIELDS}
         initialData={editing ? { firstName: editing.firstName, lastName: editing.lastName, title: editing.title, email: editing.email, phone: editing.phone, account: editing.account || "", owner: editing.owner } : undefined}

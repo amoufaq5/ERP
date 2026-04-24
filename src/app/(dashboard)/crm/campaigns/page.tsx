@@ -168,7 +168,7 @@ export default function CampaignsPage() {
 
       <EntityFormModal
         open={showModal}
-        onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null); } }}
+        onOpenChange={(open) => { setShowModal(open); if (!open) setEditing(null); }}
         title={editing ? "Edit Campaign" : "Add New Campaign"}
         fields={CAMPAIGN_FIELDS}
         initialData={editing ? { name: editing.name, type: editing.type, budget: editing.budget, startDate: editing.startDate, endDate: editing.endDate, owner: editing.owner } : undefined}

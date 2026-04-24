@@ -62,7 +62,7 @@ const ACCOUNT_FIELDS: EntityField[] = [
   ]},
   { name: "phone", label: "Phone", type: "text", placeholder: "+1 (555) 000-0000" },
   { name: "city", label: "City", type: "text", placeholder: "City, State" },
-  { name: "revenue", label: "Annual Revenue ($)", type: "number", placeholder: "0" },
+  { name: "revenue", label: "Annual Revenue (EGP)", type: "number", placeholder: "0" },
   { name: "owner", label: "Account Owner", type: "text", placeholder: "Rep name" },
 ];
 
@@ -164,7 +164,7 @@ export default function AccountsPage() {
 
       <EntityFormModal
         open={showModal}
-        onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null); } }}
+        onOpenChange={(open) => { setShowModal(open); if (!open) setEditing(null); }}
         title={editing ? "Edit Account" : "Add New Account"}
         fields={ACCOUNT_FIELDS}
         initialData={editing ? { name: editing.name, industry: editing.industry, type: editing.type, phone: editing.phone, city: editing.city, revenue: editing.revenue, owner: editing.owner } : undefined}

@@ -156,7 +156,7 @@ export default function AssetsPage() {
       )}
       <EntityFormModal
         open={showModal}
-        onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null) } }}
+        onOpenChange={(open) => { setShowModal(open); if (!open) setEditing(null); }}
         title={editing ? "Edit Asset" : "Register New Asset"}
         fields={assetFields}
         initialData={editing ? { name: editing.name, category: editing.category, purchasePrice: editing.purchasePrice, location: editing.location, assignedTo: editing.assignedTo } : undefined}

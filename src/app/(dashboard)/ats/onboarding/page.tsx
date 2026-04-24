@@ -272,7 +272,7 @@ export default function OnboardingPage() {
 
       <EntityFormModal
         open={showModal}
-        onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null); } }}
+        onOpenChange={(open) => { setShowModal(open); if (!open) setEditing(null); }}
         title={editing ? "Edit Task" : "Add Onboarding Task"}
         fields={taskFields}
         initialData={editing ? { employee: editing.employee, task: editing.task, category: editing.category, assignedTo: editing.assignedTo, dueDate: editing.dueDate, status: editing.status } : undefined}

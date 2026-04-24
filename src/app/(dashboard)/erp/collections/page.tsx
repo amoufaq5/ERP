@@ -209,7 +209,7 @@ export default function CollectionsPage() {
   /* ─── Cheque CRUD (data store) ─── */
   const chequeFields: EntityField[] = [
     { name: "number", label: "Cheque Number", type: "text", required: true },
-    { name: "bankName", label: "Bank", type: "text", required: true },
+    { name: "bankName", label: "Bank", type: "select", required: true, options: store.bankAccounts.map(ba => ({ label: `${ba.bankName} - ${ba.accountNumber}`, value: ba.bankName })) },
     { name: "type", label: "Type", type: "select", required: true, options: [{ label: "Incoming", value: "INCOMING" }, { label: "Outgoing", value: "OUTGOING" }] },
     { name: "partyName", label: "Party Name", type: "text", required: true },
     { name: "amount", label: "Amount (EGP)", type: "number", required: true },

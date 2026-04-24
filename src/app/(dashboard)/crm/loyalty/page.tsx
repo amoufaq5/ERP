@@ -290,7 +290,7 @@ export default function LoyaltyPage() {
 
       <EntityFormModal
         open={showModal}
-        onOpenChange={(open) => { if (!open) { setShowModal(false); setEditingMember(null); } }}
+        onOpenChange={(open) => { setShowModal(open); if (!open) setEditingMember(null); }}
         title={editingMember ? "Edit Member" : "Add New Member"}
         fields={MEMBER_FIELDS}
         initialData={editingMember ? { name: editingMember.name, account: editingMember.account, program: editingMember.program } : undefined}

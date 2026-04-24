@@ -311,7 +311,7 @@ export default function TrainingPage() {
 
       <EntityFormModal
         open={showModal}
-        onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null) } }}
+        onOpenChange={(open) => { setShowModal(open); if (!open) setEditing(null); }}
         title={editing ? "Edit Course" : "Add New Course"}
         fields={COURSE_FIELDS}
         initialData={editing ? { title: editing.title, description: editing.description, category: editing.category, duration: editing.duration, format: editing.format } : undefined}

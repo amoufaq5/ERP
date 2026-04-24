@@ -90,6 +90,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Manufacturing", href: "/erp/manufacturing", icon: Factory },
       { label: "Returns", href: "/erp/returns", icon: RotateCcw },
       { label: "Collections", href: "/erp/collections", icon: Banknote },
+      { label: "Partner Ledger", href: "/erp/partner-ledger", icon: Scale },
     ],
   },
   {
