@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Monitor, Wrench, DollarSign, Plus } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
@@ -51,6 +52,7 @@ export default function AssetsPage() {
   const [editing, setEditing] = useState<typeof initialAssets[0] | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "" })
+  const [detailAsset, setDetailAsset] = useState<typeof initialAssets[0] | null>(null)
 
   const fmt = (n: number) => `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   const totalValue = assets.reduce((s, a) => s + a.currentValue, 0)
@@ -114,6 +116,8 @@ export default function AssetsPage() {
                   <EditDeleteMenu
                     onEdit={() => { setEditing(a); setShowModal(true) }}
                     onDelete={() => setAssets(prev => prev.filter(x => x.id !== a.id))}
+                    onView={() => setDetailAsset(a)}
+                    canView
                     itemLabel={a.name}
                     extraItems={(() => {
                       const flow: Record<string, string> = { ACTIVE: "MAINTENANCE", MAINTENANCE: "ACTIVE", RETIRED: "DISPOSED" }
@@ -165,6 +169,65 @@ export default function AssetsPage() {
           setShowModal(false); setEditing(null)
         }}
       />
+
+      {/* ── Asset Detail Dialog ── */}
+      <Dialog open={!!detailAsset} onOpenChange={(open) => { if (!open) setDetailAsset(null) }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailAsset?.name}</DialogTitle>
+          </DialogHeader>
+          {detailAsset && (() => {
+            const depreciationPct = detailAsset.purchasePrice > 0 ? Math.round((detailAsset.currentValue / detailAsset.purchasePrice) * 100) : 0;
+            const warrantyActive = new Date(detailAsset.warrantyExpiry) > new Date();
+            const relatedMaintenance = maintenanceRecords.filter(m => m.asset === detailAsset.name);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Asset Tag</span><p className="font-medium font-mono">{detailAsset.assetTag}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{detailAsset.category}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[detailAsset.status]}`}>{detailAsset.status}</span></p></div>
+                  <div><span className="text-sm text-muted-foreground">Location</span><p className="font-medium">{detailAsset.location}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Assigned To</span><p className="font-medium">{detailAsset.assignedTo}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Purchase Date</span><p className="font-medium">{detailAsset.purchaseDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Purchase Price</span><p className="font-medium">{fmt(detailAsset.purchasePrice)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Current Value</span><p className="font-medium">{fmt(detailAsset.currentValue)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Warranty Expiry</span><p className={`font-medium ${warrantyActive ? "text-green-600" : "text-red-600"}`}>{detailAsset.warrantyExpiry} {warrantyActive ? "(Active)" : "(Expired)"}</p></div>
+                </div>
+                {/* Depreciation Bar */}
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">Remaining Value</span>
+                    <span className="font-medium">{depreciationPct}% &mdash; {fmt(detailAsset.currentValue)} / {fmt(detailAsset.purchasePrice)}</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${depreciationPct >= 60 ? "bg-green-500" : depreciationPct >= 30 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${depreciationPct}%` }} />
+                  </div>
+                </div>
+                {/* Related Maintenance */}
+                {relatedMaintenance.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Maintenance History ({relatedMaintenance.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {relatedMaintenance.map((m) => (
+                        <div key={m.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium">{m.description}</span>
+                            <span className="text-muted-foreground ml-2 text-xs">{m.type}</span>
+                          </div>
+                          <div className="flex items-center gap-2 ml-2 shrink-0">
+                            <span className="text-xs text-muted-foreground">{m.scheduledDate}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColor[m.status]}`}>{m.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

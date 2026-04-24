@@ -281,6 +281,20 @@ export interface Budget {
   status: "DRAFT" | "APPROVED" | "CLOSED";
 }
 
+export interface Employee {
+  id: string;
+  employeeId: string;        // e.g. "EMP-001"
+  name: string;
+  email: string;
+  department: string;
+  position: string;
+  hireDate: string;
+  salary: number;
+  status: "ACTIVE" | "ON_LEAVE" | "TERMINATED";
+  manager: string;
+  phone: string;
+}
+
 // ─── Store shape ─────────────────────────────────────────────────────────────
 
 export interface DataStoreState {
@@ -302,6 +316,7 @@ export interface DataStoreState {
   journalEntries: JournalEntry[];
   costCenters: CostCenter[];
   budgets: Budget[];
+  employees: Employee[];
   nextInvoiceSeq: number;
   nextJournalSeq: number;
 }
@@ -567,6 +582,17 @@ const SEED_BUDGETS: Budget[] = [
   { id: "bud-008", name: "Distribution Q2", fiscalYear: "2026", period: "Q2", costCenterId: "cc-dist", budgeted: 300000, actual: 245000, status: "APPROVED" },
 ];
 
+const SEED_EMPLOYEES: Employee[] = [
+  { id: "emp-1", employeeId: "EMP-001", name: "John Smith", email: "john.smith@company.com", phone: "(555) 100-1001", department: "Engineering", position: "Senior Developer", hireDate: "2022-03-15", salary: 95000, status: "ACTIVE", manager: "David Martinez" },
+  { id: "emp-2", employeeId: "EMP-002", name: "Sarah Johnson", email: "sarah.j@company.com", phone: "(555) 100-1002", department: "Marketing", position: "Marketing Manager", hireDate: "2021-06-01", salary: 85000, status: "ACTIVE", manager: "David Martinez" },
+  { id: "emp-3", employeeId: "EMP-003", name: "Michael Chen", email: "m.chen@company.com", phone: "(555) 100-1003", department: "Finance", position: "Financial Analyst", hireDate: "2023-01-10", salary: 75000, status: "ACTIVE", manager: "Jennifer Taylor" },
+  { id: "emp-4", employeeId: "EMP-004", name: "Emily Davis", email: "e.davis@company.com", phone: "(555) 100-1004", department: "HR", position: "HR Specialist", hireDate: "2022-08-20", salary: 70000, status: "ON_LEAVE", manager: "David Martinez" },
+  { id: "emp-5", employeeId: "EMP-005", name: "Robert Wilson", email: "r.wilson@company.com", phone: "(555) 100-1005", department: "Sales", position: "Sales Rep", hireDate: "2023-04-12", salary: 65000, status: "ACTIVE", manager: "Sarah Johnson" },
+  { id: "emp-6", employeeId: "EMP-006", name: "Lisa Anderson", email: "l.anderson@company.com", phone: "(555) 100-1006", department: "Engineering", position: "QA Engineer", hireDate: "2022-11-05", salary: 80000, status: "ACTIVE", manager: "John Smith" },
+  { id: "emp-7", employeeId: "EMP-007", name: "David Martinez", email: "d.martinez@company.com", phone: "(555) 100-1007", department: "Operations", position: "Operations Lead", hireDate: "2021-02-28", salary: 90000, status: "ACTIVE", manager: "Jennifer Taylor" },
+  { id: "emp-8", employeeId: "EMP-008", name: "Jennifer Taylor", email: "j.taylor@company.com", phone: "(555) 100-1008", department: "Finance", position: "Controller", hireDate: "2020-09-14", salary: 110000, status: "ACTIVE", manager: "—" },
+];
+
 export const SEED_DATA: DataStoreState = {
   businessUnits: SEED_BUS,
   products: SEED_PRODUCTS,
@@ -586,6 +612,7 @@ export const SEED_DATA: DataStoreState = {
   journalEntries: SEED_JOURNAL_ENTRIES,
   costCenters: SEED_COST_CENTERS,
   budgets: SEED_BUDGETS,
+  employees: SEED_EMPLOYEES,
   nextInvoiceSeq: 3,
   nextJournalSeq: 9,
 };

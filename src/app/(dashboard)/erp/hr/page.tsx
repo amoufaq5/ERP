@@ -29,22 +29,7 @@ import {
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { downloadCSV } from "@/lib/download";
-
-/* ─── Types ────────────────────────────────────────────────────────── */
-
-interface Employee {
-  id: string;
-  employeeNumber: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  department: string;
-  position: string;
-  hireDate: string;
-  salary: number;
-  status: "ACTIVE" | "ON_LEAVE" | "TERMINATED";
-}
+import { useDataStore, type Employee } from "@/lib/data-store";
 
 interface LeaveRequest {
   id: string;
@@ -82,17 +67,6 @@ interface Department {
 
 /* ─── Seed Data ────────────────────────────────────────────────────── */
 
-const SEED_EMPLOYEES: Employee[] = [
-  { id: "emp-1", employeeNumber: "EMP001", firstName: "John", lastName: "Smith", email: "john.smith@company.com", phone: "(555) 100-1001", department: "Engineering", position: "Senior Developer", hireDate: "2022-03-15", salary: 95000, status: "ACTIVE" },
-  { id: "emp-2", employeeNumber: "EMP002", firstName: "Sarah", lastName: "Johnson", email: "sarah.j@company.com", phone: "(555) 100-1002", department: "Marketing", position: "Marketing Manager", hireDate: "2021-06-01", salary: 85000, status: "ACTIVE" },
-  { id: "emp-3", employeeNumber: "EMP003", firstName: "Michael", lastName: "Chen", email: "m.chen@company.com", phone: "(555) 100-1003", department: "Finance", position: "Financial Analyst", hireDate: "2023-01-10", salary: 75000, status: "ACTIVE" },
-  { id: "emp-4", employeeNumber: "EMP004", firstName: "Emily", lastName: "Davis", email: "e.davis@company.com", phone: "(555) 100-1004", department: "HR", position: "HR Specialist", hireDate: "2022-08-20", salary: 70000, status: "ON_LEAVE" },
-  { id: "emp-5", employeeNumber: "EMP005", firstName: "Robert", lastName: "Wilson", email: "r.wilson@company.com", phone: "(555) 100-1005", department: "Sales", position: "Sales Rep", hireDate: "2023-04-12", salary: 65000, status: "ACTIVE" },
-  { id: "emp-6", employeeNumber: "EMP006", firstName: "Lisa", lastName: "Anderson", email: "l.anderson@company.com", phone: "(555) 100-1006", department: "Engineering", position: "QA Engineer", hireDate: "2022-11-05", salary: 80000, status: "ACTIVE" },
-  { id: "emp-7", employeeNumber: "EMP007", firstName: "David", lastName: "Martinez", email: "d.martinez@company.com", phone: "(555) 100-1007", department: "Operations", position: "Operations Lead", hireDate: "2021-02-28", salary: 90000, status: "ACTIVE" },
-  { id: "emp-8", employeeNumber: "EMP008", firstName: "Jennifer", lastName: "Taylor", email: "j.taylor@company.com", phone: "(555) 100-1008", department: "Finance", position: "Controller", hireDate: "2020-09-14", salary: 110000, status: "ACTIVE" },
-];
-
 const SEED_LEAVES: LeaveRequest[] = [
   { id: "lv-1", employeeId: "emp-4", employeeName: "Emily Davis", type: "ANNUAL", startDate: "2024-03-25", endDate: "2024-03-29", days: 5, status: "APPROVED", reason: "Family vacation" },
   { id: "lv-2", employeeId: "emp-1", employeeName: "John Smith", type: "SICK", startDate: "2024-03-20", endDate: "2024-03-21", days: 2, status: "APPROVED", reason: "Medical appointment" },
@@ -125,8 +99,11 @@ export default function HRPage() {
   const fmt = (n: number) =>
     `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  // State
-  const [employees, setEmployees] = useState<Employee[]>(SEED_EMPLOYEES);
+  // Data store
+  const store = useDataStore();
+  const employees = store.employees;
+
+  // State (leave & payroll stay local for now)
   const [leaves, setLeaves] = useState<LeaveRequest[]>(SEED_LEAVES);
   const [payroll, setPayroll] = useState<PayrollRecord[]>(SEED_PAYROLL);
   const [departments, setDepartments] = useState<Department[]>(SEED_DEPARTMENTS);
@@ -150,9 +127,6 @@ export default function HRPage() {
   const [detailEmp, setDetailEmp] = useState<Employee | null>(null);
   const [detailDept, setDetailDept] = useState<Department | null>(null);
 
-  let nextId = Date.now();
-  const genId = (prefix: string) => `${prefix}-${(nextId++).toString(36).slice(-6)}`;
-
   // Derived
   const uniqueDepts = Array.from(new Set(employees.map((e) => e.department))).sort();
   const uniqueStatuses: Employee["status"][] = ["ACTIVE", "ON_LEAVE", "TERMINATED"];
@@ -162,7 +136,7 @@ export default function HRPage() {
       if (search) {
         const q = search.toLowerCase();
         if (
-          !`${e.firstName} ${e.lastName}`.toLowerCase().includes(q) &&
+          !e.name.toLowerCase().includes(q) &&
           !e.email.toLowerCase().includes(q) &&
           !e.department.toLowerCase().includes(q) &&
           !e.position.toLowerCase().includes(q)
@@ -206,12 +180,12 @@ export default function HRPage() {
 
   /* ─── Employee CRUD ─── */
   const empFields: EntityField[] = [
-    { name: "firstName", label: "First Name", type: "text", required: true },
-    { name: "lastName", label: "Last Name", type: "text", required: true },
+    { name: "name", label: "Full Name", type: "text", required: true },
     { name: "email", label: "Email", type: "email", required: true },
     { name: "phone", label: "Phone", type: "tel" },
     { name: "department", label: "Department", type: "select", required: true, options: uniqueDepts.map((d) => ({ label: d, value: d })) },
     { name: "position", label: "Position", type: "text", required: true },
+    { name: "manager", label: "Manager", type: "text" },
     { name: "hireDate", label: "Hire Date", type: "date", required: true },
     { name: "salary", label: "Annual Salary", type: "number", required: true },
     { name: "status", label: "Status", type: "select", required: true, options: uniqueStatuses.map((s) => ({ label: s, value: s })) },
@@ -221,41 +195,44 @@ export default function HRPage() {
   function handleEditEmp(e: Employee) { setEditingEmp(e); setEmpFormOpen(true); }
   function handleEmpSubmit(data: EntityFormData) {
     if (editingEmp) {
-      setEmployees((prev) =>
-        prev.map((e) =>
-          e.id === editingEmp.id
-            ? { ...e, firstName: String(data.firstName), lastName: String(data.lastName), email: String(data.email), phone: String(data.phone || e.phone), department: String(data.department), position: String(data.position), hireDate: String(data.hireDate), salary: Number(data.salary), status: data.status as Employee["status"] }
-            : e
-        )
-      );
+      store.update("employees", editingEmp.id, {
+        name: String(data.name),
+        email: String(data.email),
+        phone: String(data.phone || editingEmp.phone),
+        department: String(data.department),
+        position: String(data.position),
+        manager: String(data.manager || editingEmp.manager),
+        hireDate: String(data.hireDate),
+        salary: Number(data.salary),
+        status: data.status as Employee["status"],
+      });
     } else {
-      setEmployees((prev) => [
-        ...prev,
-        {
-          id: genId("emp"),
-          employeeNumber: `EMP${Date.now().toString(36)}`,
-          firstName: String(data.firstName),
-          lastName: String(data.lastName),
-          email: String(data.email),
-          phone: String(data.phone || ""),
-          department: String(data.department),
-          position: String(data.position),
-          hireDate: String(data.hireDate || new Date().toISOString().split("T")[0]),
-          salary: Number(data.salary) || 60000,
-          status: (data.status as Employee["status"]) || "ACTIVE",
-        },
-      ]);
+      const newId = store.genId("emp");
+      const seqNum = employees.length + 1;
+      store.add("employees", {
+        id: newId,
+        employeeId: `EMP-${String(seqNum).padStart(3, "0")}`,
+        name: String(data.name),
+        email: String(data.email),
+        phone: String(data.phone || ""),
+        department: String(data.department),
+        position: String(data.position),
+        manager: String(data.manager || ""),
+        hireDate: String(data.hireDate || new Date().toISOString().split("T")[0]),
+        salary: Number(data.salary) || 60000,
+        status: (data.status as Employee["status"]) || "ACTIVE",
+      });
     }
     setEmpFormOpen(false);
     setEditingEmp(null);
   }
   function handleDeleteEmp(e: Employee) {
-    setEmployees((prev) => prev.filter((x) => x.id !== e.id));
+    store.remove("employees", e.id);
   }
 
   /* ─── Leave CRUD ─── */
   const leaveFields: EntityField[] = [
-    { name: "employeeId", label: "Employee", type: "select", required: true, options: employees.map((e) => ({ label: `${e.firstName} ${e.lastName}`, value: e.id })) },
+    { name: "employeeId", label: "Employee", type: "select", required: true, options: employees.map((e) => ({ label: e.name, value: e.id })) },
     { name: "type", label: "Type", type: "select", required: true, options: [{ label: "Annual", value: "ANNUAL" }, { label: "Sick", value: "SICK" }, { label: "Personal", value: "PERSONAL" }] },
     { name: "startDate", label: "Start Date", type: "date", required: true },
     { name: "endDate", label: "End Date", type: "date", required: true },
@@ -274,7 +251,7 @@ export default function HRPage() {
       setLeaves((prev) =>
         prev.map((l) =>
           l.id === editingLeave.id
-            ? { ...l, employeeId: String(data.employeeId), employeeName: emp ? `${emp.firstName} ${emp.lastName}` : l.employeeName, type: data.type as LeaveRequest["type"], startDate: String(data.startDate), endDate: String(data.endDate), days, reason: String(data.reason) }
+            ? { ...l, employeeId: String(data.employeeId), employeeName: emp ? emp.name : l.employeeName, type: data.type as LeaveRequest["type"], startDate: String(data.startDate), endDate: String(data.endDate), days, reason: String(data.reason) }
             : l
         )
       );
@@ -282,9 +259,9 @@ export default function HRPage() {
       setLeaves((prev) => [
         ...prev,
         {
-          id: genId("lv"),
+          id: store.genId("lv"),
           employeeId: String(data.employeeId),
-          employeeName: emp ? `${emp.firstName} ${emp.lastName}` : "Unknown",
+          employeeName: emp ? emp.name : "Unknown",
           type: data.type as LeaveRequest["type"],
           startDate: String(data.startDate),
           endDate: String(data.endDate),
@@ -310,7 +287,7 @@ export default function HRPage() {
   /* ─── Department CRUD ─── */
   const deptFields: EntityField[] = [
     { name: "name", label: "Department Name", type: "text", required: true },
-    { name: "managerId", label: "Manager", type: "select", required: true, options: employees.map((e) => ({ label: `${e.firstName} ${e.lastName}`, value: e.id })) },
+    { name: "managerId", label: "Manager", type: "select", required: true, options: employees.map((e) => ({ label: e.name, value: e.id })) },
     { name: "budget", label: "Annual Budget", type: "number", required: true },
   ];
 
@@ -322,14 +299,14 @@ export default function HRPage() {
       setDepartments((prev) =>
         prev.map((d) =>
           d.id === editingDept.id
-            ? { ...d, name: String(data.name), managerId: String(data.managerId), managerName: mgr ? `${mgr.firstName} ${mgr.lastName}` : d.managerName, budget: Number(data.budget) }
+            ? { ...d, name: String(data.name), managerId: String(data.managerId), managerName: mgr ? `${mgr.name}` : d.managerName, budget: Number(data.budget) }
             : d
         )
       );
     } else {
       setDepartments((prev) => [
         ...prev,
-        { id: genId("dept"), name: String(data.name), managerId: String(data.managerId), managerName: mgr ? `${mgr.firstName} ${mgr.lastName}` : "—", budget: Number(data.budget) || 0 },
+        { id: store.genId("dept"), name: String(data.name), managerId: String(data.managerId), managerName: mgr ? `${mgr.name}` : "—", budget: Number(data.budget) || 0 },
       ]);
     }
     setDeptFormOpen(false);
@@ -341,7 +318,7 @@ export default function HRPage() {
 
   /* ─── Payroll CRUD ─── */
   const payrollFields: EntityField[] = [
-    { name: "employeeId", label: "Employee", type: "select", required: true, options: employees.map((e) => ({ label: `${e.firstName} ${e.lastName}`, value: e.id })) },
+    { name: "employeeId", label: "Employee", type: "select", required: true, options: employees.map((e) => ({ label: `${e.name}`, value: e.id })) },
     { name: "period", label: "Period", type: "text", required: true, placeholder: "e.g. Apr 2024" },
     { name: "basicSalary", label: "Basic Salary", type: "number", required: true },
     { name: "overtime", label: "Overtime", type: "number", defaultValue: 0 },
@@ -366,14 +343,14 @@ export default function HRPage() {
       setPayroll((prev) =>
         prev.map((p) =>
           p.id === editingPayroll.id
-            ? { ...p, employeeId: String(data.employeeId), employeeName: emp ? `${emp.firstName} ${emp.lastName}` : p.employeeName, period: String(data.period), basicSalary: basic, overtime: ot, deductions: ded, bonuses: bon, tax, netPay: net, status: data.status as PayrollRecord["status"] }
+            ? { ...p, employeeId: String(data.employeeId), employeeName: emp ? `${emp.name}` : p.employeeName, period: String(data.period), basicSalary: basic, overtime: ot, deductions: ded, bonuses: bon, tax, netPay: net, status: data.status as PayrollRecord["status"] }
             : p
         )
       );
     } else {
       setPayroll((prev) => [
         ...prev,
-        { id: genId("pr"), employeeId: String(data.employeeId), employeeName: emp ? `${emp.firstName} ${emp.lastName}` : "—", period: String(data.period), basicSalary: basic, overtime: ot, deductions: ded, bonuses: bon, tax, netPay: net, status: (data.status as PayrollRecord["status"]) || "DRAFT" },
+        { id: store.genId("pr"), employeeId: String(data.employeeId), employeeName: emp ? `${emp.name}` : "—", period: String(data.period), basicSalary: basic, overtime: ot, deductions: ded, bonuses: bon, tax, netPay: net, status: (data.status as PayrollRecord["status"]) || "DRAFT" },
       ]);
     }
     setPayrollFormOpen(false);
@@ -450,9 +427,8 @@ export default function HRPage() {
                 onBulkAction={(action, rows) => {
                   if (action === "export") {
                     const csvColumns = [
-                      { key: "employeeNumber" as const, label: "Employee #" },
-                      { key: "firstName" as const, label: "First Name" },
-                      { key: "lastName" as const, label: "Last Name" },
+                      { key: "employeeId" as const, label: "Employee #" },
+                      { key: "name" as const, label: "Name" },
                       { key: "email" as const, label: "Email" },
                       { key: "phone" as const, label: "Phone" },
                       { key: "department" as const, label: "Department" },
@@ -465,9 +441,9 @@ export default function HRPage() {
                   }
                 }}
                 columns={[
-                  { key: "firstName", label: "Employee", render: (_v, row) => {
+                  { key: "name", label: "Employee", render: (_v, row) => {
                     const r = row as unknown as Employee;
-                    return (<div><div className="font-medium">{r.firstName} {r.lastName}</div><div className="text-[11px] text-slate-500">{r.email}</div></div>);
+                    return (<div><div className="font-medium">{r.name}</div><div className="text-[11px] text-slate-500">{r.email}</div></div>);
                   }},
                   { key: "department", label: "Department" },
                   { key: "position", label: "Position" },
@@ -476,7 +452,7 @@ export default function HRPage() {
                   { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
                   { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
                     const r = row as unknown as Employee;
-                    return (<EditDeleteMenu onEdit={() => handleEditEmp(r)} onDelete={() => handleDeleteEmp(r)} onView={() => setDetailEmp(r)} canView itemLabel={`${r.firstName} ${r.lastName}`} compact />);
+                    return (<EditDeleteMenu onEdit={() => handleEditEmp(r)} onDelete={() => handleDeleteEmp(r)} onView={() => setDetailEmp(r)} canView itemLabel={`${r.name}`} compact />);
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredEmployees as unknown as Record<string, unknown>[]}
@@ -638,9 +614,9 @@ export default function HRPage() {
       <EntityFormModal
         open={empFormOpen}
         onOpenChange={setEmpFormOpen}
-        title={editingEmp ? `Edit ${editingEmp.firstName} ${editingEmp.lastName}` : "Add Employee"}
+        title={editingEmp ? `Edit ${editingEmp.name}` : "Add Employee"}
         fields={empFields}
-        initialData={editingEmp ? { firstName: editingEmp.firstName, lastName: editingEmp.lastName, email: editingEmp.email, phone: editingEmp.phone, department: editingEmp.department, position: editingEmp.position, hireDate: editingEmp.hireDate, salary: editingEmp.salary, status: editingEmp.status } : undefined}
+        initialData={editingEmp ? { name: editingEmp.name, email: editingEmp.email, phone: editingEmp.phone, department: editingEmp.department, position: editingEmp.position, hireDate: editingEmp.hireDate, salary: editingEmp.salary, status: editingEmp.status } : undefined}
         onSubmit={handleEmpSubmit}
         submitLabel={editingEmp ? "Save" : "Create"}
         size="lg"
@@ -683,7 +659,7 @@ export default function HRPage() {
       <Dialog open={!!detailEmp} onOpenChange={(open) => { if (!open) setDetailEmp(null); }}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{detailEmp?.firstName} {detailEmp?.lastName}</DialogTitle>
+            <DialogTitle>{detailEmp?.name}</DialogTitle>
           </DialogHeader>
           {detailEmp && (() => {
             const empLeaves = leaves.filter((l) => l.employeeId === detailEmp.id);
@@ -692,7 +668,7 @@ export default function HRPage() {
             return (
               <div className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">
-                  <div><span className="text-sm text-muted-foreground">Employee #</span><p className="font-medium font-mono">{detailEmp.employeeNumber}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Employee #</span><p className="font-medium font-mono">{detailEmp.employeeId}</p></div>
                   <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[detailEmp.status]}`}>{detailEmp.status}</span></p></div>
                   <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{detailEmp.email}</p></div>
                   <div><span className="text-sm text-muted-foreground">Phone</span><p className="font-medium">{detailEmp.phone}</p></div>
@@ -793,7 +769,7 @@ export default function HRPage() {
                       {deptEmployees.map((e) => (
                         <div key={e.id} className="flex items-center justify-between px-3 py-2 text-sm">
                           <div>
-                            <span className="font-medium">{e.firstName} {e.lastName}</span>
+                            <span className="font-medium">{e.name} {}</span>
                             <span className="text-muted-foreground ml-2 text-xs">{e.position}</span>
                           </div>
                           <div className="flex items-center gap-2">

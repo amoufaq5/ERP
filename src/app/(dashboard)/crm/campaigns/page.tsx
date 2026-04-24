@@ -51,7 +51,7 @@ const CAMPAIGN_FIELDS: EntityField[] = [
     { label: "Webinar", value: "WEBINAR" }, { label: "Trade Show", value: "TRADE_SHOW" },
     { label: "Direct Mail", value: "DIRECT_MAIL" },
   ]},
-  { name: "budget", label: "Budget ($)", type: "number", placeholder: "0" },
+  { name: "budget", label: "Budget (EGP)", type: "number", placeholder: "0" },
   { name: "startDate", label: "Start Date", type: "text", placeholder: "YYYY-MM-DD" },
   { name: "endDate", label: "End Date", type: "text", placeholder: "YYYY-MM-DD" },
   { name: "owner", label: "Owner", type: "text", placeholder: "Campaign manager" },
@@ -78,7 +78,7 @@ function BudgetProgress({ budget, spent }: { budget: number; spent: number }) {
       <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
         <div className={`h-1.5 rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs text-muted-foreground whitespace-nowrap">${(spent / 1000).toFixed(1)}K / ${(budget / 1000).toFixed(1)}K</span>
+      <span className="text-xs text-muted-foreground whitespace-nowrap">EGP {(spent / 1000).toFixed(1)}K / EGP {(budget / 1000).toFixed(1)}K</span>
     </div>
   );
 }
@@ -148,8 +148,8 @@ export default function CampaignsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard title="Active Campaigns" value={activeCampaigns} subtitle="Currently running" icon={<Megaphone className="w-5 h-5" />} />
-        <StatsCard title="Total Budget" value={`$${(totalBudget / 1000).toFixed(0)}K`} subtitle="Across all campaigns" icon={<DollarSign className="w-5 h-5" />} />
-        <StatsCard title="Total Spent" value={`$${(totalSpent / 1000).toFixed(1)}K`} subtitle={`${Math.round((totalSpent / totalBudget) * 100)}% of budget`} icon={<TrendingUp className="w-5 h-5" />} />
+        <StatsCard title="Total Budget" value={`EGP ${(totalBudget / 1000).toFixed(0)}K`} subtitle="Across all campaigns" icon={<DollarSign className="w-5 h-5" />} />
+        <StatsCard title="Total Spent" value={`EGP ${(totalSpent / 1000).toFixed(1)}K`} subtitle={`${Math.round((totalSpent / totalBudget) * 100)}% of budget`} icon={<TrendingUp className="w-5 h-5" />} />
         <StatsCard title="Total Leads Generated" value={totalLeads} subtitle="All campaigns combined" icon={<Users className="w-5 h-5" />} trend={{ value: 14, label: "vs last quarter" }} />
       </div>
 
@@ -221,8 +221,8 @@ export default function CampaignsPage() {
                   <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{detailCampaign.type.replace(/_/g, " ")}</p></div>
                   <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={STATUS_MAP[detailCampaign.status]} /></p></div>
                   <div><span className="text-sm text-muted-foreground">Owner</span><p className="font-medium">{detailCampaign.owner}</p></div>
-                  <div><span className="text-sm text-muted-foreground">Budget</span><p className="font-medium">${detailCampaign.budget.toLocaleString()}</p></div>
-                  <div><span className="text-sm text-muted-foreground">Spent</span><p className="font-medium">${detailCampaign.spent.toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Budget</span><p className="font-medium">EGP {detailCampaign.budget.toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Spent</span><p className="font-medium">EGP {detailCampaign.spent.toLocaleString()}</p></div>
                   <div><span className="text-sm text-muted-foreground">Leads Generated</span><p className="font-medium">{detailCampaign.leads}</p></div>
                   <div><span className="text-sm text-muted-foreground">Conversions</span><p className="font-medium">{detailCampaign.conversions}</p></div>
                   <div><span className="text-sm text-muted-foreground">Conversion Rate</span><p className="font-medium">{convRate}%</p></div>
@@ -233,7 +233,7 @@ export default function CampaignsPage() {
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-muted-foreground">Budget Utilization</span>
-                    <span className="font-medium">{budgetPct}% &mdash; ${detailCampaign.spent.toLocaleString()} / ${detailCampaign.budget.toLocaleString()}</span>
+                    <span className="font-medium">{budgetPct}% &mdash; EGP {detailCampaign.spent.toLocaleString()} / EGP {detailCampaign.budget.toLocaleString()}</span>
                   </div>
                   <div className="h-3 bg-muted rounded-full overflow-hidden">
                     <div className={`h-full rounded-full ${budgetColor}`} style={{ width: `${budgetPct}%` }} />

@@ -54,7 +54,7 @@ const INITIAL_OPPORTUNITIES: Opportunity[] = [
 const OPP_FIELDS: EntityField[] = [
   { name: "title", label: "Opportunity Title", type: "text", placeholder: "e.g. Enterprise Software License", required: true, fullWidth: true },
   { name: "account", label: "Account", type: "text", placeholder: "Company name", required: true },
-  { name: "value", label: "Value ($)", type: "number", placeholder: "0" },
+  { name: "value", label: "Value (EGP)", type: "number", placeholder: "0" },
   { name: "probability", label: "Probability (%)", type: "number", placeholder: "50", min: 0, max: 100 },
   { name: "stage", label: "Stage", type: "select", defaultValue: "PROSPECTING", options: STAGES.map((s) => ({ label: s.replace(/_/g, " "), value: s })) },
   { name: "owner", label: "Owner", type: "text", placeholder: "Sales rep name" },
@@ -98,7 +98,7 @@ export default function OpportunitiesPage() {
     { key: "id", label: "ID", className: "w-24" },
     { key: "title", label: "Title" },
     { key: "account", label: "Account" },
-    { key: "value", label: "Value", render: (v) => <span className="font-medium">${(v as number).toLocaleString()}</span> },
+    { key: "value", label: "Value", render: (v) => <span className="font-medium">EGP {(v as number).toLocaleString()}</span> },
     {
       key: "probability", label: "Probability",
       render: (v) => (
@@ -153,10 +153,10 @@ export default function OpportunitiesPage() {
       </PageHeader>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Total Pipeline Value" value={`$${(totalPipeline / 1000).toFixed(0)}K`} subtitle="Excluding closed lost" icon={DollarSign} change={12} changeLabel="vs last month" />
-        <StatsCard title="Won This Month" value={`$${(wonThisMonth / 1000).toFixed(0)}K`} subtitle="March 2026" icon={Award} change={8} changeLabel="vs last month" />
+        <StatsCard title="Total Pipeline Value" value={`EGP ${(totalPipeline / 1000).toFixed(0)}K`} subtitle="Excluding closed lost" icon={DollarSign} change={12} changeLabel="vs last month" />
+        <StatsCard title="Won This Month" value={`EGP ${(wonThisMonth / 1000).toFixed(0)}K`} subtitle="March 2026" icon={Award} change={8} changeLabel="vs last month" />
         <StatsCard title="Win Rate" value={`${winRate}%`} subtitle="Closed won / total closed" icon={TrendingUp} change={3} changeLabel="vs last month" />
-        <StatsCard title="Avg Deal Size" value={`$${(avgDealSize / 1000).toFixed(0)}K`} subtitle="Across all opportunities" icon={BarChart2} />
+        <StatsCard title="Avg Deal Size" value={`EGP ${(avgDealSize / 1000).toFixed(0)}K`} subtitle="Across all opportunities" icon={BarChart2} />
       </div>
 
       <FilterBar
@@ -177,7 +177,7 @@ export default function OpportunitiesPage() {
                 <div key={stage} className="w-64 flex-shrink-0">
                   <div className={`rounded-t-lg px-3 py-2 flex items-center justify-between ${STAGE_HEADER_COLORS[stage]}`}>
                     <span className="text-xs font-bold uppercase tracking-wide">{stage.replace(/_/g, " ")}</span>
-                    <span className="text-xs font-semibold">{cards.length} · ${(stageTotal / 1000).toFixed(0)}K</span>
+                    <span className="text-xs font-semibold">{cards.length} · EGP {(stageTotal / 1000).toFixed(0)}K</span>
                   </div>
                   <div className="rounded-b-lg border border-t-0 border-border bg-muted/50 min-h-40 space-y-2 p-2">
                     {cards.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No opportunities</p>}
@@ -202,7 +202,7 @@ export default function OpportunitiesPage() {
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">{opp.account}</p>
                         <div className="mt-2 flex items-center justify-between">
-                          <span className="text-sm font-bold text-foreground">${opp.value.toLocaleString()}</span>
+                          <span className="text-sm font-bold text-foreground">EGP {opp.value.toLocaleString()}</span>
                           <span className="text-xs text-muted-foreground">{opp.probability}%</span>
                         </div>
                         <div className="mt-2 w-full bg-muted rounded-full h-1">
@@ -274,11 +274,11 @@ export default function OpportunitiesPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div><span className="text-sm text-muted-foreground">Account</span><p className="font-medium">{detailOpp.account}</p></div>
                   <div><span className="text-sm text-muted-foreground">Owner</span><p className="font-medium">{detailOpp.owner}</p></div>
-                  <div><span className="text-sm text-muted-foreground">Value</span><p className="font-medium">${detailOpp.value.toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Value</span><p className="font-medium">EGP {detailOpp.value.toLocaleString()}</p></div>
                   <div><span className="text-sm text-muted-foreground">Probability</span><p className="font-medium">{detailOpp.probability}%</p></div>
                   <div><span className="text-sm text-muted-foreground">Stage</span><p><StageBadge stage={detailOpp.stage} /></p></div>
                   <div><span className="text-sm text-muted-foreground">Expected Close</span><p className="font-medium">{detailOpp.expectedClose}</p></div>
-                  <div><span className="text-sm text-muted-foreground">Weighted Value</span><p className="font-medium">${Math.round(detailOpp.value * detailOpp.probability / 100).toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Weighted Value</span><p className="font-medium">EGP {Math.round(detailOpp.value * detailOpp.probability / 100).toLocaleString()}</p></div>
                   <div><span className="text-sm text-muted-foreground">Created</span><p className="font-medium">{detailOpp.createdAt}</p></div>
                 </div>
                 {/* Probability Bar */}

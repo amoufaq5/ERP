@@ -14,13 +14,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppConfig } from "@/lib/config-context";
+import { useDataStore } from "@/lib/data-store";
 import { downloadCSV } from "@/lib/download";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   FlaskConical, Pill, Warehouse, AlertTriangle,
-  Thermometer, Download, Plus, Package, Eye,
+  Thermometer, Download, Plus, Package, BookOpen,
 } from "lucide-react";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
@@ -90,6 +91,7 @@ type Tab = "raw" | "finished" | "warehouses";
 
 export default function InventoryPage() {
   const { config } = useAppConfig();
+  const store = useDataStore();
   const [tab, setTab] = useState<Tab>("raw");
 
   const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>(SEED_RM);
@@ -113,8 +115,7 @@ export default function InventoryPage() {
   let _nxt = Date.now();
   const genId = (p: string) => `${p}-${(_nxt++).toString(36).slice(-6)}`;
 
-  const fmt = (n: number): string =>
-    `${config.finance.currency} ${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  const fmt = (n: number) => `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const warehouseNames = warehouses.map((w) => w.name);
 
@@ -293,9 +294,10 @@ export default function InventoryPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatsCard title="Raw Materials Value" value={fmt(stats.rmValue)} subtitle={`${rawMaterials.length} active SKUs`} icon={<FlaskConical className="h-5 w-5" />} iconColor="bg-purple-100 text-purple-700" />
         <StatsCard title="Finished Goods Value" value={fmt(stats.fgValue)} subtitle={`${finishedProducts.length} active SKUs`} icon={<Pill className="h-5 w-5" />} iconColor="bg-emerald-100 text-emerald-700" />
+        <StatsCard title="Catalog Products" value={store.products.length.toLocaleString()} subtitle={`${new Set(store.products.map((p) => p.therapeuticArea)).size} therapeutic areas`} icon={<BookOpen className="h-5 w-5" />} iconColor="bg-blue-100 text-blue-700" />
         <StatsCard title="Low Stock Alerts" value={stats.lowStock.toLocaleString()} subtitle="RM at/below reorder level" icon={<AlertTriangle className="h-5 w-5" />} iconColor="bg-amber-100 text-amber-700" />
         <StatsCard title="Expiring Soon" value={stats.expiringSoon.toLocaleString()} subtitle={`Within ${config.inventory.expiryAlertDays} days`} icon={<Thermometer className="h-5 w-5" />} iconColor="bg-red-100 text-red-700" />
       </div>

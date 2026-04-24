@@ -4,6 +4,7 @@ import { useState } from "react";
 import { RotateCcw, Clock, DollarSign, TrendingDown, Plus, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
@@ -97,6 +98,7 @@ export default function ReturnsPage() {
   const [destructions, setDestructions] = useState(DESTRUCTION);
   const [modal, setModal] = useState<ModalType>(null);
   const [retFilters, setRetFilters] = useState<FilterState>({});
+  const [detailReturn, setDetailReturn] = useState<typeof RETURNS[0] | null>(null);
 
   const pending = returns.filter(r => r.status === "Pending").length;
   const totalValue = returns.reduce((s, r) => s + r.value, 0);
@@ -166,6 +168,8 @@ export default function ReturnsPage() {
                       <EditDeleteMenu
                         onEdit={() => setModal({ kind: "return", editing: r })}
                         onDelete={() => setReturns(prev => prev.filter(x => x.id !== r.id))}
+                        onView={() => setDetailReturn(r)}
+                        canView
                         itemLabel={r.id}
                         extraItems={[
                           ...(next ? [{ label: `→ ${next}`, onClick: () => setReturns(prev => prev.map(x => x.id === r.id ? { ...x, status: next } : x)) }] : []),
@@ -433,6 +437,87 @@ export default function ReturnsPage() {
           }}
         />
       )}
+
+      {/* ── Return Detail Dialog ── */}
+      <Dialog open={!!detailReturn} onOpenChange={(open) => { if (!open) setDetailReturn(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Return {detailReturn?.id}</DialogTitle>
+          </DialogHeader>
+          {detailReturn && (() => {
+            const relatedCredit = credits.find(c => c.returnRef === detailReturn.id);
+            const relatedDestruction = destructions.find(d => d.product === detailReturn.product && d.batch === detailReturn.batch);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Return ID</span><p className="font-medium font-mono">{detailReturn.id}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={detailReturn.status} /></p></div>
+                  <div><span className="text-sm text-muted-foreground">Customer</span><p className="font-medium">{detailReturn.customer}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Product</span><p className="font-medium">{detailReturn.product}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Batch #</span><p className="font-medium font-mono">{detailReturn.batch}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Quantity</span><p className="font-medium">{detailReturn.qty}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Reason</span><p><StatusBadge status={detailReturn.reason} /></p></div>
+                  <div><span className="text-sm text-muted-foreground">Original Invoice</span><p className="font-medium font-mono">{detailReturn.invoice}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Return Value</span><p className="font-medium">{fmt(detailReturn.value)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{detailReturn.date}</p></div>
+                </div>
+                {/* Status Flow */}
+                <div>
+                  <h4 className="text-sm font-semibold mb-3">Processing Status</h4>
+                  <div className="flex items-center gap-1">
+                    {["Pending", "Approved", "Received", "Credit Issued"].map((step, i) => {
+                      const steps = ["Pending", "Approved", "Received", "Credit Issued"];
+                      const currentIdx = steps.indexOf(detailReturn.status);
+                      const isRejected = detailReturn.status === "Rejected";
+                      const isReached = !isRejected && i <= currentIdx;
+                      const isCurrent = !isRejected && i === currentIdx;
+                      return (
+                        <div key={step} className="flex items-center gap-1 flex-1">
+                          <div className="flex flex-col items-center flex-1">
+                            <div className={`h-3 w-3 rounded-full border-2 ${isCurrent ? "bg-primary border-primary" : isReached ? "bg-primary/60 border-primary/60" : "bg-muted border-muted-foreground/30"}`} />
+                            <span className={`text-[10px] mt-1 text-center leading-tight ${isCurrent ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{step}</span>
+                          </div>
+                          {i < 3 && <div className={`h-0.5 flex-1 -mt-4 ${isReached && i < currentIdx ? "bg-primary/60" : "bg-muted"}`} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {detailReturn.status === "Rejected" && (
+                    <p className="text-sm text-red-600 font-medium mt-2">This return was rejected.</p>
+                  )}
+                </div>
+                {/* Related Credit Note */}
+                {relatedCredit && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Credit Note</h4>
+                    <div className="border rounded-lg p-3 text-sm space-y-1">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Credit Note #</span><span className="font-mono">{relatedCredit.id}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="font-medium">{fmt(relatedCredit.amount)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Tax Adjustment</span><span>{fmt(relatedCredit.taxAdj)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Net Credit</span><span className="font-semibold">{fmt(relatedCredit.net)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Applied To</span><span>{relatedCredit.appliedTo}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Status</span><StatusBadge status={relatedCredit.status} /></div>
+                    </div>
+                  </div>
+                )}
+                {/* Related Destruction */}
+                {relatedDestruction && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Destruction Record</h4>
+                    <div className="border rounded-lg p-3 text-sm space-y-1">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Log #</span><span className="font-mono">{relatedDestruction.id}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Method</span><span>{relatedDestruction.method}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Witnessed By</span><span>{relatedDestruction.witnessed}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Certificate</span><span className="font-mono">{relatedDestruction.certificate}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Status</span><StatusBadge status={relatedDestruction.status} /></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
