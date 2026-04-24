@@ -155,6 +155,28 @@ const inspectionFields: EntityField[] = [
   { name: "followUp", label: "Follow-up Actions", type: "textarea", fullWidth: true, placeholder: "Actions required..." },
 ];
 
+const trainingFields: EntityField[] = [
+  { name: "name", label: "Training Name", type: "text", required: true, fullWidth: true },
+  { name: "desc", label: "Description", type: "textarea", fullWidth: true, placeholder: "Training description..." },
+  { name: "type", label: "Type", type: "select", required: true, options: [
+    { label: "Mandatory", value: "Mandatory" }, { label: "Optional", value: "Optional" },
+  ]},
+  { name: "completion", label: "Completion %", type: "number", min: 0, max: 100 },
+  { name: "due", label: "Due Date", type: "text", placeholder: "e.g. Apr 15, 2026" },
+  { name: "participants", label: "Participants", type: "number", min: 0 },
+  { name: "status", label: "Status", type: "select", options: [
+    { label: "Active", value: "Active" }, { label: "Completed", value: "Completed" },
+    { label: "Expired", value: "Expired" },
+  ]},
+];
+
+const emergencyEquipmentFields: EntityField[] = [
+  { name: "name", label: "Equipment Name", type: "text", required: true },
+  { name: "count", label: "Count", type: "number", required: true, min: 0 },
+  { name: "lastInspection", label: "Last Inspection", type: "text", placeholder: "e.g. Mar 15, 2026" },
+  { name: "nextInspection", label: "Next Inspection", type: "text", placeholder: "e.g. Sep 15, 2026" },
+];
+
 const permitFields: EntityField[] = [
   { name: "type", label: "Permit Type", type: "select", required: true, options: [
     { label: "Hot Work", value: "Hot Work" }, { label: "Confined Space", value: "Confined Space" },
@@ -186,6 +208,15 @@ export default function SafetyPage() {
   const [permitList, setPermitList] = useState(permits);
   const [showPermitForm, setShowPermitForm] = useState(false);
   const [editingPermit, setEditingPermit] = useState<typeof permits[0] | null>(null);
+
+  const [trainingList, setTrainingList] = useState(trainings);
+  const [showTrainingForm, setShowTrainingForm] = useState(false);
+  const [editingTraining, setEditingTraining] = useState<typeof trainings[0] | null>(null);
+
+  const [equipmentList, setEquipmentList] = useState(emergencyEquipment);
+  const [showEquipmentForm, setShowEquipmentForm] = useState(false);
+  const [editingEquipment, setEditingEquipment] = useState<typeof emergencyEquipment[0] | null>(null);
+
   const [viewItem, setViewItem] = useState<any>(null);
   const [viewType, setViewType] = useState<"incident" | "risk" | "inspection" | "permit" | null>(null);
 
@@ -397,13 +428,23 @@ export default function SafetyPage() {
 
         {/* ── Training ── */}
         <TabsContent value="training" className="space-y-4">
+          <div className="flex justify-end">
+            <Button size="sm" className="gap-1.5" onClick={() => { setEditingTraining(null); setShowTrainingForm(true); }}><Plus className="h-4 w-4" />Add Training</Button>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            {trainings.map(t => (
+            {trainingList.map(t => (
               <Card key={t.name} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <CardTitle className="text-sm font-semibold leading-tight">{t.name}</CardTitle>
-                    <Badge variant={t.type === "Mandatory" ? "destructive" : "secondary"} className="text-[10px] shrink-0">{t.type}</Badge>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Badge variant={t.type === "Mandatory" ? "destructive" : "secondary"} className="text-[10px]">{t.type}</Badge>
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingTraining(t); setShowTrainingForm(true); }}
+                        onDelete={() => setTrainingList(prev => prev.filter(x => x.name !== t.name))}
+                        itemLabel={t.name}
+                      />
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -478,7 +519,12 @@ export default function SafetyPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="text-base">Emergency Equipment</CardTitle></CardHeader>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Emergency Equipment</CardTitle>
+                  <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { setEditingEquipment(null); setShowEquipmentForm(true); }}><Plus className="h-4 w-4" />Add</Button>
+                </div>
+              </CardHeader>
               <CardContent className="p-0">
                 <DataTable
                   columns={[
@@ -486,9 +532,19 @@ export default function SafetyPage() {
                     { key: "count", label: "Count", render: (v: number) => <span className="font-bold">{v}</span> },
                     { key: "lastInspection", label: "Last Inspection", render: (v: string) => <span className="text-xs text-muted-foreground">{v}</span> },
                     { key: "nextInspection", label: "Next Inspection", render: (v: string) => <span className="text-xs text-muted-foreground">{v}</span> },
+                    { key: "actions", label: "", render: (_: unknown, row: Record<string, unknown>) => {
+                      const eq = row as unknown as typeof equipmentList[0];
+                      return (
+                        <EditDeleteMenu
+                          onEdit={() => { setEditingEquipment(eq); setShowEquipmentForm(true); }}
+                          onDelete={() => setEquipmentList(prev => prev.filter(x => x.name !== eq.name))}
+                          itemLabel={eq.name}
+                        />
+                      );
+                    }},
                   ] as Column<Record<string, unknown>>[]}
-                  data={emergencyEquipment as unknown as Record<string, unknown>[]}
-                  
+                  data={equipmentList as unknown as Record<string, unknown>[]}
+
                   emptyMessage="No equipment found."
                 />
               </CardContent>
@@ -651,6 +707,81 @@ export default function SafetyPage() {
             setPermitList(prev => prev.map(p => p.id === editingPermit.id ? { ...p, type: String(data.type), location: String(data.location), requestor: String(data.requestor), approver: String(data.approver), validFrom: String(data.validFrom), validTo: String(data.validTo), conditions: String(data.conditions || "") } : p));
           } else {
             setPermitList(prev => [{ id: `WP-${Date.now().toString(36)}`, type: String(data.type), location: String(data.location), requestor: String(data.requestor), approver: String(data.approver), validFrom: String(data.validFrom), validTo: String(data.validTo), status: "Pending", conditions: String(data.conditions || "") }, ...prev]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showTrainingForm}
+        onOpenChange={(v) => { setShowTrainingForm(v); if (!v) setEditingTraining(null); }}
+        title={editingTraining ? `Edit ${editingTraining.name}` : "Add Training Program"}
+        description={editingTraining ? undefined : "Create a new safety training program."}
+        fields={trainingFields}
+        initialData={editingTraining ? {
+          name: editingTraining.name,
+          desc: editingTraining.desc,
+          type: editingTraining.type,
+          completion: editingTraining.completion,
+          due: editingTraining.due,
+          participants: editingTraining.participants,
+          status: editingTraining.status,
+        } : undefined}
+        submitLabel={editingTraining ? "Update" : "Add Training"}
+        onSubmit={(data) => {
+          if (editingTraining) {
+            setTrainingList(prev => prev.map(t => t.name === editingTraining.name ? {
+              ...t,
+              name: String(data.name),
+              desc: String(data.desc) || t.desc,
+              type: String(data.type) || t.type,
+              completion: Number(data.completion) ?? t.completion,
+              due: String(data.due) || t.due,
+              participants: Number(data.participants) ?? t.participants,
+              status: String(data.status) || t.status,
+            } : t));
+          } else {
+            setTrainingList([{
+              name: String(data.name),
+              desc: String(data.desc) || "",
+              type: String(data.type) || "Optional",
+              completion: Number(data.completion) || 0,
+              due: String(data.due) || "",
+              participants: Number(data.participants) || 0,
+              status: String(data.status) || "Active",
+            }, ...trainingList]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showEquipmentForm}
+        onOpenChange={(v) => { setShowEquipmentForm(v); if (!v) setEditingEquipment(null); }}
+        title={editingEquipment ? `Edit ${editingEquipment.name}` : "Add Emergency Equipment"}
+        description={editingEquipment ? undefined : "Add new emergency equipment to the inventory."}
+        fields={emergencyEquipmentFields}
+        initialData={editingEquipment ? {
+          name: editingEquipment.name,
+          count: editingEquipment.count,
+          lastInspection: editingEquipment.lastInspection,
+          nextInspection: editingEquipment.nextInspection,
+        } : undefined}
+        submitLabel={editingEquipment ? "Update" : "Add Equipment"}
+        onSubmit={(data) => {
+          if (editingEquipment) {
+            setEquipmentList(prev => prev.map(e => e.name === editingEquipment.name ? {
+              ...e,
+              name: String(data.name),
+              count: Number(data.count) || e.count,
+              lastInspection: String(data.lastInspection) || e.lastInspection,
+              nextInspection: String(data.nextInspection) || e.nextInspection,
+            } : e));
+          } else {
+            setEquipmentList([{
+              name: String(data.name),
+              count: Number(data.count) || 0,
+              lastInspection: String(data.lastInspection) || new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+              nextInspection: String(data.nextInspection) || "",
+            }, ...equipmentList]);
           }
         }}
       />

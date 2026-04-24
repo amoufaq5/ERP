@@ -192,14 +192,17 @@ const supplierFields: EntityField[] = [
 ];
 
 const contractFields: EntityField[] = [
-  { name: "title", label: "Title", type: "text", required: true, fullWidth: true },
+  { name: "title", label: "Type", type: "text", required: true, fullWidth: true, placeholder: "e.g. Master Supply Agreement" },
   { name: "supplier", label: "Supplier", type: "text", required: true },
   { name: "startDate", label: "Start Date", type: "date", required: true },
   { name: "endDate", label: "End Date", type: "date", required: true },
-  { name: "value", label: "Value ($)", type: "number", required: true, placeholder: "0" },
+  { name: "value", label: "Value (EGP)", type: "number", required: true, placeholder: "0" },
   { name: "status", label: "Status", type: "select", defaultValue: "Active", options: [
-    { label: "Active", value: "Active" }, { label: "Pending", value: "Pending" },
-    { label: "Expired", value: "Expired" },
+    { label: "Active", value: "Active" }, { label: "Expiring Soon", value: "Expiring Soon" },
+    { label: "Under Review", value: "Under Review" }, { label: "Expired", value: "Expired" },
+  ]},
+  { name: "renewal", label: "Renewal", type: "select", defaultValue: "Manual", options: [
+    { label: "Auto", value: "Auto" }, { label: "Manual", value: "Manual" },
   ]},
 ];
 
@@ -821,7 +824,7 @@ export default function SupplyChainPage() {
           initialData={modal.editing ? {
             supplier: modal.editing.supplier,
             items: modal.editing.items,
-            totalValue: parseFloat(modal.editing.total.replace(/[$,]/g, "")) || 0,
+            totalValue: parseFloat(modal.editing.total.replace(/[^0-9.]/g, "")) || 0,
             expectedDelivery: modal.editing.eta,
             buyer: "",
             priority: modal.editing.priority,
@@ -916,6 +919,7 @@ export default function SupplyChainPage() {
             endDate: modal.editing.end,
             value: parseFloat(modal.editing.value.replace(/[^0-9.]/g, "")) || 0,
             status: modal.editing.status,
+            renewal: modal.editing.renewal,
           } : undefined}
           submitLabel={modal.editing ? "Update" : "Create"}
           onSubmit={(data) => {
@@ -928,6 +932,7 @@ export default function SupplyChainPage() {
                 start: String(data.startDate),
                 end: String(data.endDate),
                 status: String(data.status) || c.status,
+                renewal: String(data.renewal) || c.renewal,
               } : c));
             } else {
               setContractList(prev => [{
@@ -938,7 +943,7 @@ export default function SupplyChainPage() {
                 start: String(data.startDate),
                 end: String(data.endDate),
                 status: String(data.status) || "Active",
-                renewal: "Manual",
+                renewal: String(data.renewal) || "Manual",
               }, ...prev]);
             }
           }}

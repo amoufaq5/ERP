@@ -12,6 +12,7 @@ import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
 import StatusBadge from "@/components/shared/status-badge";
 import type { Column } from "@/components/shared/data-table";
+import { useDataStore } from "@/lib/data-store";
 
 type AccountType = "CUSTOMER" | "PROSPECT" | "PARTNER" | "VENDOR";
 type Industry = "Technology" | "Finance" | "Healthcare" | "Retail" | "Manufacturing" | "Logistics" | "Education" | "Energy";
@@ -81,7 +82,10 @@ function TypeBadge({ type }: { type: AccountType }) {
   return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${TYPE_STYLES[type]}`}>{type}</span>;
 }
 
+const fmtEGP = (n: number) => `EGP ${n >= 1_000_000 ? (n / 1_000_000).toFixed(1) + "M" : n >= 1_000 ? (n / 1_000).toFixed(0) + "K" : n.toLocaleString()}`;
+
 export default function AccountsPage() {
+  const store = useDataStore();
   const [accounts, setAccounts] = useState<Account[]>(INITIAL_ACCOUNTS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", type: "", industry: "" });
   const [showModal, setShowModal] = useState(false);
@@ -211,10 +215,26 @@ export default function AccountsPage() {
                 <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={detailAccount.status} /></p></div>
                 <div><span className="text-sm text-muted-foreground">Phone</span><p className="font-medium">{detailAccount.phone || "—"}</p></div>
                 <div><span className="text-sm text-muted-foreground">City</span><p className="font-medium">{detailAccount.city || "—"}</p></div>
-                <div><span className="text-sm text-muted-foreground">Annual Revenue</span><p className="font-medium">${(detailAccount.revenue / 1000000).toFixed(1)}M</p></div>
+                <div><span className="text-sm text-muted-foreground">Annual Revenue</span><p className="font-medium">{fmtEGP(detailAccount.revenue)}</p></div>
                 <div><span className="text-sm text-muted-foreground">Account Owner</span><p className="font-medium">{detailAccount.owner}</p></div>
                 <div><span className="text-sm text-muted-foreground">Created</span><p className="font-medium">{detailAccount.createdAt}</p></div>
               </div>
+              {/* Cross-module: related invoices from ERP */}
+              {(() => {
+                const matchedCustomer = store.customers.find(c => c.name === detailAccount.name);
+                const relatedInvoices = matchedCustomer ? store.invoices.filter(i => i.customerId === matchedCustomer.id) : [];
+                return matchedCustomer ? (
+                  <div className="pt-3 border-t">
+                    <h4 className="text-sm font-semibold mb-2">ERP Data — {matchedCustomer.name}</h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div><span className="text-muted-foreground">Outstanding</span><p className="font-medium">EGP {matchedCustomer.outstanding.toLocaleString()}</p></div>
+                      <div><span className="text-muted-foreground">Credit Limit</span><p className="font-medium">EGP {matchedCustomer.creditLimit.toLocaleString()}</p></div>
+                      <div><span className="text-muted-foreground">Invoices</span><p className="font-medium">{relatedInvoices.length} ({relatedInvoices.filter(i => i.status === "PAID").length} paid)</p></div>
+                      <div><span className="text-muted-foreground">Payment Terms</span><p className="font-medium">{matchedCustomer.paymentTerms}</p></div>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
             </div>
           )}
         </DialogContent>

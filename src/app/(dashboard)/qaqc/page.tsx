@@ -184,6 +184,36 @@ const inspectionFormFields: EntityField[] = [
   { name: "aql", label: "AQL", type: "text" },
 ];
 
+const supplierFormFields: EntityField[] = [
+  { name: "name", label: "Supplier Name", type: "text", required: true },
+  { name: "rating", label: "Rating", type: "select", required: true, options: [
+    { label: "A", value: "A" }, { label: "B", value: "B" }, { label: "C", value: "C" },
+  ]},
+  { name: "score", label: "Quality Score (%)", type: "number", required: true, min: 0, max: 100 },
+  { name: "delivery", label: "Delivery %", type: "number", required: true, min: 0, max: 100 },
+  { name: "ppm", label: "PPM (Defects per Million)", type: "number", min: 0 },
+  { name: "lastAudit", label: "Last Audit Date", type: "text", placeholder: "e.g. Jan 15, 2026" },
+  { name: "status", label: "Status", type: "select", options: [
+    { label: "Preferred", value: "Preferred" }, { label: "Approved", value: "Approved" },
+    { label: "Conditional", value: "Conditional" }, { label: "Probation", value: "Probation" },
+  ]},
+];
+
+const docFormFields: EntityField[] = [
+  { name: "title", label: "Title", type: "text", required: true, fullWidth: true },
+  { name: "type", label: "Type", type: "select", required: true, options: [
+    { label: "Manual", value: "Manual" }, { label: "Procedure", value: "Procedure" },
+    { label: "Policy", value: "Policy" }, { label: "Specification", value: "Specification" },
+    { label: "Work Instruction", value: "Work Instruction" },
+  ]},
+  { name: "revision", label: "Revision", type: "text", placeholder: "e.g. Rev 1" },
+  { name: "status", label: "Status", type: "select", options: [
+    { label: "Active", value: "Active" }, { label: "Draft", value: "Draft" },
+    { label: "Under Review", value: "Under Review" },
+  ]},
+  { name: "owner", label: "Owner", type: "text", required: true },
+];
+
 const capaFormFields: EntityField[] = [
   { name: "type", label: "Type", type: "select", required: true, options: [
     { label: "Corrective", value: "Corrective" }, { label: "Preventive", value: "Preventive" },
@@ -218,6 +248,16 @@ export default function QAQCPage() {
   const [editingCapa, setEditingCapa] = useState<typeof initialCapas[0] | null>(null);
   const [showCapaForm, setShowCapaForm] = useState(false);
   const [capaFilters, setCapaFilters] = useState<FilterState>({});
+
+  // Supplier CRUD state
+  const [supplierList, setSupplierList] = useState(suppliers);
+  const [editingSupplier, setEditingSupplier] = useState<typeof suppliers[0] | null>(null);
+  const [showSupplierForm, setShowSupplierForm] = useState(false);
+
+  // Document CRUD state
+  const [docList, setDocList] = useState(qualityDocs);
+  const [editingDoc, setEditingDoc] = useState<typeof qualityDocs[0] | null>(null);
+  const [showDocForm, setShowDocForm] = useState(false);
 
   // Detail view state
   const [viewItem, setViewItem] = useState<any>(null);
@@ -529,6 +569,9 @@ export default function QAQCPage() {
 
         {/* ── Supplier Quality ─────────────────────────────────────────── */}
         <TabsContent value="supplier" className="space-y-4">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => { setEditingSupplier(null); setShowSupplierForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Supplier</Button>
+          </div>
           <Card>
             <CardHeader>
               <CardTitle>Supplier Quality Scorecard</CardTitle>
@@ -544,9 +587,19 @@ export default function QAQCPage() {
                   { key: "ppm", label: "PPM" },
                   { key: "lastAudit", label: "Last Audit", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
                   { key: "status", label: "Status", render: (v: string) => statusBadge(v) },
+                  { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                    const s = row as unknown as typeof supplierList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingSupplier(s); setShowSupplierForm(true); }}
+                        onDelete={() => setSupplierList(prev => prev.filter(x => x.name !== s.name))}
+                        itemLabel={s.name}
+                      />
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
-                data={suppliers as unknown as Record<string, unknown>[]}
-                
+                data={supplierList as unknown as Record<string, unknown>[]}
+
                 exportable exportFilename="qaqc.csv" emptyMessage="No suppliers found."
               />
             </CardContent>
@@ -555,6 +608,9 @@ export default function QAQCPage() {
 
         {/* ── Documents ────────────────────────────────────────────────── */}
         <TabsContent value="documents" className="space-y-4">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => { setEditingDoc(null); setShowDocForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Document</Button>
+          </div>
           <Card>
             <CardHeader>
               <CardTitle>Quality Documentation</CardTitle>
@@ -570,8 +626,18 @@ export default function QAQCPage() {
                   { key: "date", label: "Date", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
                   { key: "status", label: "Status", render: (v: string) => statusBadge(v) },
                   { key: "owner", label: "Owner" },
+                  { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                    const d = row as unknown as typeof docList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingDoc(d); setShowDocForm(true); }}
+                        onDelete={() => setDocList(prev => prev.filter(x => x.id !== d.id))}
+                        itemLabel={d.id}
+                      />
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
-                data={qualityDocs as unknown as Record<string, unknown>[]}
+                data={docList as unknown as Record<string, unknown>[]}
                 exportable exportFilename="qaqc.csv" emptyMessage="No documents found."
               />
             </CardContent>
@@ -759,6 +825,88 @@ export default function QAQCPage() {
               status: String(data.status) || "Planning",
               effectiveness: String(data.effectiveness) || "Pending",
             }, ...capaItems]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showSupplierForm}
+        onOpenChange={(v) => { setShowSupplierForm(v); if (!v) setEditingSupplier(null); }}
+        title={editingSupplier ? `Edit ${editingSupplier.name}` : "Add Supplier"}
+        description={editingSupplier ? undefined : "Add a new supplier to the quality scorecard."}
+        fields={supplierFormFields}
+        initialData={editingSupplier ? {
+          name: editingSupplier.name,
+          rating: editingSupplier.rating,
+          score: editingSupplier.score,
+          delivery: editingSupplier.delivery,
+          ppm: editingSupplier.ppm,
+          lastAudit: editingSupplier.lastAudit,
+          status: editingSupplier.status,
+        } : undefined}
+        submitLabel={editingSupplier ? "Update" : "Add Supplier"}
+        onSubmit={(data) => {
+          if (editingSupplier) {
+            setSupplierList(prev => prev.map(s => s.name === editingSupplier.name ? {
+              ...s,
+              name: String(data.name),
+              rating: String(data.rating) || s.rating,
+              score: Number(data.score) || s.score,
+              delivery: Number(data.delivery) || s.delivery,
+              ppm: Number(data.ppm) ?? s.ppm,
+              lastAudit: String(data.lastAudit) || s.lastAudit,
+              status: String(data.status) || s.status,
+            } : s));
+          } else {
+            setSupplierList([{
+              name: String(data.name),
+              rating: String(data.rating) || "B",
+              score: Number(data.score) || 0,
+              delivery: Number(data.delivery) || 0,
+              ppm: Number(data.ppm) || 0,
+              lastAudit: String(data.lastAudit) || new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+              status: String(data.status) || "Conditional",
+            }, ...supplierList]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showDocForm}
+        onOpenChange={(v) => { setShowDocForm(v); if (!v) setEditingDoc(null); }}
+        title={editingDoc ? `Edit ${editingDoc.id}` : "Add Quality Document"}
+        description={editingDoc ? undefined : "Add a new controlled document to the QMS."}
+        fields={docFormFields}
+        initialData={editingDoc ? {
+          title: editingDoc.title,
+          type: editingDoc.type,
+          revision: editingDoc.revision,
+          status: editingDoc.status,
+          owner: editingDoc.owner,
+        } : undefined}
+        submitLabel={editingDoc ? "Update" : "Add Document"}
+        onSubmit={(data) => {
+          if (editingDoc) {
+            setDocList(prev => prev.map(d => d.id === editingDoc.id ? {
+              ...d,
+              title: String(data.title),
+              type: String(data.type) || d.type,
+              revision: String(data.revision) || d.revision,
+              status: String(data.status) || d.status,
+              owner: String(data.owner),
+            } : d));
+          } else {
+            const id = `QMS-${Date.now().toString(36)}`;
+            const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+            setDocList([{
+              id,
+              title: String(data.title),
+              type: String(data.type) || "Procedure",
+              revision: String(data.revision) || "Rev 1",
+              date: today,
+              status: String(data.status) || "Draft",
+              owner: String(data.owner),
+            }, ...docList]);
           }
         }}
       />

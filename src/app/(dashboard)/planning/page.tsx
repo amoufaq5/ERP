@@ -152,12 +152,155 @@ const planFormFields: EntityField[] = [
   ]},
 ]
 
+const budgetFormFields: EntityField[] = [
+  { name: "department", label: "Department", type: "text", required: true },
+  { name: "allocated", label: "Allocated (EGP)", type: "number", required: true },
+  { name: "spent", label: "Spent (EGP)", type: "number", required: true },
+  { name: "committed", label: "Committed (EGP)", type: "number", required: true },
+  { name: "remaining", label: "Remaining (EGP)", type: "number", required: true },
+  { name: "variance", label: "Variance (%)", type: "number", required: true, step: 0.1 },
+  { name: "fy", label: "Fiscal Year", type: "text", required: true },
+]
+
+const workforceFormFields: EntityField[] = [
+  { name: "department", label: "Department", type: "text", required: true },
+  { name: "current", label: "Current HC", type: "number", required: true },
+  { name: "planned", label: "Planned HC", type: "number", required: true },
+  { name: "openReqs", label: "Open Reqs", type: "number", required: true },
+  { name: "attrition", label: "Attrition %", type: "number", required: true, step: 0.1 },
+  { name: "avgTenure", label: "Avg Tenure (yr)", type: "number", required: true, step: 0.1 },
+  { name: "contractors", label: "Contractors", type: "number", required: true },
+]
+
+const productionFormFields: EntityField[] = [
+  { name: "product", label: "Product", type: "text", required: true },
+  { name: "quantity", label: "Quantity", type: "number", required: true },
+  { name: "line", label: "Line", type: "select", required: true, options: [
+    { label: "Line A", value: "Line A" },
+    { label: "Line B", value: "Line B" },
+    { label: "Line C", value: "Line C" },
+    { label: "Line D", value: "Line D" },
+  ]},
+  { name: "startDate", label: "Start Date", type: "date", required: true },
+  { name: "dueDate", label: "Due Date", type: "date", required: true },
+  { name: "status", label: "Status", type: "select", required: true, options: [
+    { label: "Scheduled", value: "Scheduled" },
+    { label: "In Progress", value: "In Progress" },
+    { label: "Pending Approval", value: "Pending Approval" },
+  ]},
+  { name: "priority", label: "Priority", type: "select", required: true, options: [
+    { label: "Critical", value: "Critical" },
+    { label: "High", value: "High" },
+    { label: "Medium", value: "Medium" },
+    { label: "Low", value: "Low" },
+  ]},
+]
+
+const salesFormFields: EntityField[] = [
+  { name: "territory", label: "Territory", type: "text", required: true },
+  { name: "manager", label: "Manager", type: "text", required: true },
+  { name: "targetRevenue", label: "Target Revenue (EGP)", type: "number", required: true },
+  { name: "currentRevenue", label: "Current Revenue (EGP)", type: "number", required: true },
+  { name: "accounts", label: "Accounts", type: "number", required: true },
+  { name: "pipeline", label: "Pipeline (EGP)", type: "number", required: true },
+  { name: "winRate", label: "Win Rate (%)", type: "number", required: true },
+  { name: "qoqGrowth", label: "QoQ Growth (%)", type: "number", required: true, step: 0.1 },
+]
+
+const itFormFields: EntityField[] = [
+  { name: "project", label: "Project", type: "text", required: true },
+  { name: "lead", label: "Lead", type: "text", required: true },
+  { name: "phase", label: "Phase", type: "select", required: true, options: [
+    { label: "Planning", value: "Planning" },
+    { label: "Design", value: "Design" },
+    { label: "Execution", value: "Execution" },
+    { label: "Testing", value: "Testing" },
+  ]},
+  { name: "budget", label: "Budget (EGP)", type: "number", required: true },
+  { name: "spent", label: "Spent (EGP)", type: "number", required: true },
+  { name: "completion", label: "Completion (%)", type: "number", required: true },
+  { name: "goLive", label: "Go-Live Date", type: "date", required: true },
+  { name: "risk", label: "Risk", type: "select", required: true, options: [
+    { label: "Low", value: "Low" },
+    { label: "Medium", value: "Medium" },
+    { label: "High", value: "High" },
+  ]},
+]
+
+const riskFormFields: EntityField[] = [
+  { name: "risk", label: "Risk Description", type: "text", required: true, fullWidth: true },
+  { name: "category", label: "Category", type: "select", required: true, options: [
+    { label: "Operational", value: "Operational" },
+    { label: "Technology", value: "Technology" },
+    { label: "Compliance", value: "Compliance" },
+    { label: "People", value: "People" },
+    { label: "Financial", value: "Financial" },
+    { label: "Legal", value: "Legal" },
+    { label: "Strategic", value: "Strategic" },
+  ]},
+  { name: "likelihood", label: "Likelihood", type: "select", required: true, options: [
+    { label: "Low", value: "Low" },
+    { label: "Medium", value: "Medium" },
+    { label: "High", value: "High" },
+  ]},
+  { name: "impact", label: "Impact", type: "select", required: true, options: [
+    { label: "Medium", value: "Medium" },
+    { label: "High", value: "High" },
+    { label: "Critical", value: "Critical" },
+  ]},
+  { name: "owner", label: "Owner", type: "text", required: true },
+  { name: "mitigation", label: "Mitigation", type: "text", required: true },
+  { name: "status", label: "Status", type: "select", required: true, options: [
+    { label: "Active", value: "Active" },
+    { label: "Monitoring", value: "Monitoring" },
+    { label: "Mitigating", value: "Mitigating" },
+  ]},
+]
+
+const resourceFormFields: EntityField[] = [
+  { name: "resource", label: "Resource Pool", type: "text", required: true },
+  { name: "department", label: "Department", type: "text", required: true },
+  { name: "totalFTE", label: "Total FTE", type: "number", required: true },
+  { name: "allocated", label: "Allocated", type: "number", required: true, step: 0.5 },
+  { name: "available", label: "Available", type: "number", required: true, step: 0.5 },
+  { name: "utilization", label: "Utilization (%)", type: "number", required: true },
+  { name: "topProject", label: "Top Project", type: "text", required: true },
+]
+
 export default function PlanningPage() {
   const [strategicGoals, setStrategicGoals] = useState(initialStrategicGoals)
   const [editingGoal, setEditingGoal] = useState<typeof initialStrategicGoals[0] | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "" })
   const [viewGoal, setViewGoal] = useState<typeof initialStrategicGoals[0] | null>(null)
+
+  const [budgets, setBudgets] = useState(departmentBudgets)
+  const [editingBudget, setEditingBudget] = useState<typeof departmentBudgets[0] | null>(null)
+  const [showBudgetForm, setShowBudgetForm] = useState(false)
+
+  const [workforce, setWorkforce] = useState(workforceData)
+  const [editingWorkforce, setEditingWorkforce] = useState<typeof workforceData[0] | null>(null)
+  const [showWorkforceForm, setShowWorkforceForm] = useState(false)
+
+  const [production, setProduction] = useState(productionOrders)
+  const [editingProduction, setEditingProduction] = useState<typeof productionOrders[0] | null>(null)
+  const [showProductionForm, setShowProductionForm] = useState(false)
+
+  const [sales, setSales] = useState(territoryPlans)
+  const [editingSales, setEditingSales] = useState<typeof territoryPlans[0] | null>(null)
+  const [showSalesForm, setShowSalesForm] = useState(false)
+
+  const [itData, setItData] = useState(itProjects)
+  const [editingIt, setEditingIt] = useState<typeof itProjects[0] | null>(null)
+  const [showItForm, setShowItForm] = useState(false)
+
+  const [risks, setRisks] = useState(enterpriseRisks)
+  const [editingRisk, setEditingRisk] = useState<typeof enterpriseRisks[0] | null>(null)
+  const [showRiskForm, setShowRiskForm] = useState(false)
+
+  const [resources, setResources] = useState(resourceAllocations)
+  const [editingResource, setEditingResource] = useState<typeof resourceAllocations[0] | null>(null)
+  const [showResourceForm, setShowResourceForm] = useState(false)
 
   return (
     <div className="space-y-6">
@@ -299,8 +442,13 @@ export default function PlanningPage() {
         <TabsContent value="financial">
           <Card>
             <CardHeader>
-              <CardTitle>Department Budgets FY2026</CardTitle>
-              <CardDescription>Allocated budgets, spending, and variance analysis by department</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Department Budgets FY2026</CardTitle>
+                  <CardDescription>Allocated budgets, spending, and variance analysis by department</CardDescription>
+                </div>
+                <Button onClick={() => { setEditingBudget(null); setShowBudgetForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Budget</Button>
+              </div>
             </CardHeader>
             <CardContent>
               <DataTable
@@ -316,8 +464,18 @@ export default function PlanningPage() {
                       {Math.abs(v)}%
                     </span>
                   )},
+                  { key: "_actions", label: "", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof departmentBudgets[0]
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingBudget(item); setShowBudgetForm(true); }}
+                        onDelete={() => setBudgets(prev => prev.filter(b => b.department !== item.department))}
+                        itemLabel={item.department}
+                      />
+                    )
+                  }},
                 ] as Column<Record<string, unknown>>[]}
-                data={departmentBudgets as unknown as Record<string, unknown>[]}
+                data={budgets as unknown as Record<string, unknown>[]}
                 exportable
                 exportFilename="budget-planning.csv"
                 emptyMessage="No budget data available."
@@ -329,8 +487,13 @@ export default function PlanningPage() {
         <TabsContent value="workforce">
           <Card>
             <CardHeader>
-              <CardTitle>Workforce Planning</CardTitle>
-              <CardDescription>Headcount, hiring pipeline, and attrition metrics by department</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Workforce Planning</CardTitle>
+                  <CardDescription>Headcount, hiring pipeline, and attrition metrics by department</CardDescription>
+                </div>
+                <Button onClick={() => { setEditingWorkforce(null); setShowWorkforceForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Workforce</Button>
+              </div>
             </CardHeader>
             <CardContent>
               <DataTable
@@ -346,8 +509,18 @@ export default function PlanningPage() {
                   )},
                   { key: "avgTenure", label: "Avg Tenure (yr)", className: "text-right" },
                   { key: "contractors", label: "Contractors", className: "text-right" },
+                  { key: "_actions", label: "", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof workforceData[0]
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingWorkforce(item); setShowWorkforceForm(true); }}
+                        onDelete={() => setWorkforce(prev => prev.filter(w => w.department !== item.department))}
+                        itemLabel={item.department}
+                      />
+                    )
+                  }},
                 ] as Column<Record<string, unknown>>[]}
-                data={workforceData as unknown as Record<string, unknown>[]}
+                data={workforce as unknown as Record<string, unknown>[]}
                 exportable
                 exportFilename="workforce-planning.csv"
                 emptyMessage="No workforce data available."
@@ -359,8 +532,13 @@ export default function PlanningPage() {
         <TabsContent value="production">
           <Card>
             <CardHeader>
-              <CardTitle>Production Planning</CardTitle>
-              <CardDescription>Active and scheduled production orders across manufacturing lines</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Production Planning</CardTitle>
+                  <CardDescription>Active and scheduled production orders across manufacturing lines</CardDescription>
+                </div>
+                <Button onClick={() => { setEditingProduction(null); setShowProductionForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Order</Button>
+              </div>
             </CardHeader>
             <CardContent>
               <DataTable
@@ -373,8 +551,18 @@ export default function PlanningPage() {
                   { key: "dueDate", label: "Due" },
                   { key: "status", label: "Status", render: (v: string) => <Badge variant={getStatusBadge(v)}>{v}</Badge> },
                   { key: "priority", label: "Priority", render: (v: string) => <Badge variant={getPriorityBadge(v)}>{v}</Badge> },
+                  { key: "_actions", label: "", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof productionOrders[0]
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingProduction(item); setShowProductionForm(true); }}
+                        onDelete={() => setProduction(prev => prev.filter(p => p.id !== item.id))}
+                        itemLabel={item.product}
+                      />
+                    )
+                  }},
                 ] as Column<Record<string, unknown>>[]}
-                data={productionOrders as unknown as Record<string, unknown>[]}
+                data={production as unknown as Record<string, unknown>[]}
                 exportable
                 exportFilename="production-planning.csv"
                 emptyMessage="No production orders found."
@@ -386,8 +574,13 @@ export default function PlanningPage() {
         <TabsContent value="sales">
           <Card>
             <CardHeader>
-              <CardTitle>Territory Sales Plans</CardTitle>
-              <CardDescription>Revenue targets, pipeline, and growth metrics by sales territory</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Territory Sales Plans</CardTitle>
+                  <CardDescription>Revenue targets, pipeline, and growth metrics by sales territory</CardDescription>
+                </div>
+                <Button onClick={() => { setEditingSales(null); setShowSalesForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Territory</Button>
+              </div>
             </CardHeader>
             <CardContent>
               <DataTable
@@ -403,8 +596,18 @@ export default function PlanningPage() {
                       <ArrowUpRight className="h-3.5 w-3.5" />{v}%
                     </span>
                   )},
+                  { key: "_actions", label: "", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof territoryPlans[0]
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingSales(item); setShowSalesForm(true); }}
+                        onDelete={() => setSales(prev => prev.filter(s => s.territory !== item.territory))}
+                        itemLabel={item.territory}
+                      />
+                    )
+                  }},
                 ] as Column<Record<string, unknown>>[]}
-                data={territoryPlans as unknown as Record<string, unknown>[]}
+                data={sales as unknown as Record<string, unknown>[]}
                 exportable
                 exportFilename="territory-plans.csv"
                 emptyMessage="No territory plans found."
@@ -416,8 +619,13 @@ export default function PlanningPage() {
         <TabsContent value="it">
           <Card>
             <CardHeader>
-              <CardTitle>IT Projects Roadmap</CardTitle>
-              <CardDescription>Technology initiatives, budget tracking, and delivery timelines</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>IT Projects Roadmap</CardTitle>
+                  <CardDescription>Technology initiatives, budget tracking, and delivery timelines</CardDescription>
+                </div>
+                <Button onClick={() => { setEditingIt(null); setShowItForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Project</Button>
+              </div>
             </CardHeader>
             <CardContent>
               <DataTable
@@ -438,8 +646,18 @@ export default function PlanningPage() {
                   )},
                   { key: "goLive", label: "Go-Live" },
                   { key: "risk", label: "Risk", render: (v: string) => <Badge variant={getPriorityBadge(v)}>{v}</Badge> },
+                  { key: "_actions", label: "", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof itProjects[0]
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingIt(item); setShowItForm(true); }}
+                        onDelete={() => setItData(prev => prev.filter(p => p.id !== item.id))}
+                        itemLabel={item.project}
+                      />
+                    )
+                  }},
                 ] as Column<Record<string, unknown>>[]}
-                data={itProjects as unknown as Record<string, unknown>[]}
+                data={itData as unknown as Record<string, unknown>[]}
                 exportable
                 exportFilename="it-projects.csv"
                 emptyMessage="No IT projects found."
@@ -451,8 +669,13 @@ export default function PlanningPage() {
         <TabsContent value="risk">
           <Card>
             <CardHeader>
-              <CardTitle>Enterprise Risk Register</CardTitle>
-              <CardDescription>Identified risks, mitigation strategies, and ownership tracking</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Enterprise Risk Register</CardTitle>
+                  <CardDescription>Identified risks, mitigation strategies, and ownership tracking</CardDescription>
+                </div>
+                <Button onClick={() => { setEditingRisk(null); setShowRiskForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Risk</Button>
+              </div>
             </CardHeader>
             <CardContent>
               <DataTable
@@ -465,8 +688,18 @@ export default function PlanningPage() {
                   { key: "owner", label: "Owner" },
                   { key: "mitigation", label: "Mitigation", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
                   { key: "status", label: "Status", render: (v: string) => <Badge variant={getStatusBadge(v)}>{v}</Badge> },
+                  { key: "_actions", label: "", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof enterpriseRisks[0]
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingRisk(item); setShowRiskForm(true); }}
+                        onDelete={() => setRisks(prev => prev.filter(r => r.id !== item.id))}
+                        itemLabel={item.risk}
+                      />
+                    )
+                  }},
                 ] as Column<Record<string, unknown>>[]}
-                data={enterpriseRisks as unknown as Record<string, unknown>[]}
+                data={risks as unknown as Record<string, unknown>[]}
                 exportable
                 exportFilename="enterprise-risks.csv"
                 emptyMessage="No enterprise risks found."
@@ -478,8 +711,13 @@ export default function PlanningPage() {
         <TabsContent value="resource">
           <Card>
             <CardHeader>
-              <CardTitle>Resource Allocation Matrix</CardTitle>
-              <CardDescription>FTE allocation, utilization rates, and availability across resource pools</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Resource Allocation Matrix</CardTitle>
+                  <CardDescription>FTE allocation, utilization rates, and availability across resource pools</CardDescription>
+                </div>
+                <Button onClick={() => { setEditingResource(null); setShowResourceForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Resource</Button>
+              </div>
             </CardHeader>
             <CardContent>
               <DataTable
@@ -503,8 +741,18 @@ export default function PlanningPage() {
                     </div>
                   )},
                   { key: "topProject", label: "Top Project", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
+                  { key: "_actions", label: "", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof resourceAllocations[0]
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingResource(item); setShowResourceForm(true); }}
+                        onDelete={() => setResources(prev => prev.filter(r => r.resource !== item.resource))}
+                        itemLabel={item.resource}
+                      />
+                    )
+                  }},
                 ] as Column<Record<string, unknown>>[]}
-                data={resourceAllocations as unknown as Record<string, unknown>[]}
+                data={resources as unknown as Record<string, unknown>[]}
                 exportable
                 exportFilename="resource-allocations.csv"
                 emptyMessage="No resource allocations found."

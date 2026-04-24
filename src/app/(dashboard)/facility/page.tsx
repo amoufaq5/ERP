@@ -599,7 +599,7 @@ export default function FacilityPage() {
                   <CardTitle>Visitor Log</CardTitle>
                   <CardDescription>Track visitor check-ins and check-outs across all facilities</CardDescription>
                 </div>
-                <Button size="sm" onClick={() => setShowVisitorModal(true)}><Plus className="mr-2 h-4 w-4" />Register Visitor</Button>
+                <Button size="sm" onClick={() => { setEditingVisitor(null); setShowVisitorModal(true); }}><Plus className="mr-2 h-4 w-4" />Register Visitor</Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -613,6 +613,16 @@ export default function FacilityPage() {
                   { key: "checkIn", label: "Check In" },
                   { key: "checkOut", label: "Check Out" },
                   { key: "status", label: "Status", render: (v) => statusBadge(v) },
+                  { key: "actions", label: "Actions", render: (_v, row) => {
+                    const visitor = row as unknown as typeof visitorList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingVisitor(visitor); setShowVisitorModal(true); }}
+                        onDelete={() => setVisitorList(prev => prev.filter(v => v.id !== visitor.id))}
+                        itemLabel={visitor.name}
+                      />
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
                 data={visitorList as unknown as Record<string, unknown>[]}
                 exportable exportFilename="facility.csv" emptyMessage="No visitors found."
@@ -630,7 +640,7 @@ export default function FacilityPage() {
                   <CardTitle>Facility Vendors</CardTitle>
                   <CardDescription>Contracted service providers and supplier management</CardDescription>
                 </div>
-                <Button size="sm" onClick={() => setShowVendorModal(true)}><Plus className="mr-2 h-4 w-4" />Add Vendor</Button>
+                <Button size="sm" onClick={() => { setEditingVendor(null); setShowVendorModal(true); }}><Plus className="mr-2 h-4 w-4" />Add Vendor</Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -657,6 +667,16 @@ export default function FacilityPage() {
                     );
                   }},
                   { key: "status", label: "Status", render: (v) => statusBadge(v) },
+                  { key: "actions", label: "Actions", render: (_v, row) => {
+                    const vendor = row as unknown as typeof vendorList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingVendor(vendor); setShowVendorModal(true); }}
+                        onDelete={() => setVendorList(prev => prev.filter(v => v.id !== vendor.id))}
+                        itemLabel={vendor.name}
+                      />
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
                 data={vendorList as unknown as Record<string, unknown>[]}
                 exportable exportFilename="facility.csv" emptyMessage="No vendors found."
@@ -666,6 +686,7 @@ export default function FacilityPage() {
         </TabsContent>
       </Tabs>
 
+      {/* ── Work Order Form ── */}
       <EntityFormModal
         open={showForm}
         onOpenChange={(v) => { setShowForm(v); if (!v) setEditingWo(null); }}
@@ -708,67 +729,277 @@ export default function FacilityPage() {
         }}
       />
 
+      {/* ── Building Form ── */}
+      <EntityFormModal
+        open={showBuildingForm}
+        onOpenChange={(v) => { setShowBuildingForm(v); if (!v) setEditingBuilding(null); }}
+        title={editingBuilding ? `Edit ${editingBuilding.name}` : "Add Building"}
+        fields={buildingFields}
+        initialData={editingBuilding ? {
+          name: editingBuilding.name,
+          address: editingBuilding.address,
+          type: editingBuilding.type,
+          area: editingBuilding.area,
+          floors: editingBuilding.floors,
+          occupancy: editingBuilding.occupancy,
+          built: editingBuilding.built,
+          tenants: editingBuilding.tenants,
+          status: editingBuilding.status,
+        } : undefined}
+        submitLabel={editingBuilding ? "Update" : "Add"}
+        onSubmit={(data) => {
+          if (editingBuilding) {
+            setBuildingList(prev => prev.map(b => b.id === editingBuilding.id ? {
+              ...b,
+              name: String(data.name),
+              address: String(data.address),
+              type: String(data.type),
+              area: String(data.area),
+              floors: Number(data.floors) || b.floors,
+              occupancy: Number(data.occupancy) || b.occupancy,
+              built: Number(data.built) || b.built,
+              tenants: Number(data.tenants) || b.tenants,
+              status: String(data.status) || b.status,
+            } : b));
+          } else {
+            setBuildingList(prev => [{
+              id: `BLD-${Date.now().toString(36)}`,
+              name: String(data.name),
+              address: String(data.address),
+              type: String(data.type) || "Office",
+              area: String(data.area),
+              floors: Number(data.floors) || 1,
+              occupancy: Number(data.occupancy) || 0,
+              built: Number(data.built) || new Date().getFullYear(),
+              tenants: Number(data.tenants) || 0,
+              status: String(data.status) || "Operational",
+            }, ...prev]);
+          }
+        }}
+      />
+
+      {/* ── Space Form ── */}
+      <EntityFormModal
+        open={showSpaceForm}
+        onOpenChange={(v) => { setShowSpaceForm(v); if (!v) setEditingSpace(null); }}
+        title={editingSpace ? `Edit ${editingSpace.name}` : "Add Space"}
+        fields={spaceFields}
+        initialData={editingSpace ? {
+          name: editingSpace.name,
+          building: editingSpace.building,
+          floor: editingSpace.floor,
+          type: editingSpace.type,
+          area: editingSpace.area,
+          capacity: editingSpace.capacity,
+          current: editingSpace.current,
+          status: editingSpace.status,
+        } : undefined}
+        submitLabel={editingSpace ? "Update" : "Add"}
+        onSubmit={(data) => {
+          if (editingSpace) {
+            setSpaceList(prev => prev.map(s => s.id === editingSpace.id ? {
+              ...s,
+              name: String(data.name),
+              building: String(data.building),
+              floor: Number(data.floor) || s.floor,
+              type: String(data.type),
+              area: String(data.area),
+              capacity: Number(data.capacity) || s.capacity,
+              current: Number(data.current) || s.current,
+              status: String(data.status) || s.status,
+            } : s));
+          } else {
+            setSpaceList(prev => [{
+              id: `SPC-${Date.now().toString(36)}`,
+              name: String(data.name),
+              building: String(data.building),
+              floor: Number(data.floor) || 1,
+              type: String(data.type) || "Office",
+              area: String(data.area),
+              capacity: Number(data.capacity) || 0,
+              current: Number(data.current) || 0,
+              status: String(data.status) || "Available",
+            }, ...prev]);
+          }
+        }}
+      />
+
+      {/* ── Asset Form ── */}
       <EntityFormModal
         open={showAssetModal}
-        onOpenChange={setShowAssetModal}
-        title="Register Asset"
+        onOpenChange={(v) => { setShowAssetModal(v); if (!v) setEditingAsset(null); }}
+        title={editingAsset ? `Edit ${editingAsset.name}` : "Register Asset"}
         fields={assetFields}
-        submitLabel="Register"
+        initialData={editingAsset ? {
+          name: editingAsset.name,
+          category: editingAsset.category,
+          building: editingAsset.building,
+          location: editingAsset.location,
+          installed: editingAsset.installed,
+          lastService: editingAsset.lastService,
+          condition: editingAsset.condition,
+          value: editingAsset.value,
+        } : undefined}
+        submitLabel={editingAsset ? "Update" : "Register"}
         onSubmit={(data) => {
-          const today = new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" });
-          setAssetList(prev => [{
-            id: `FA-${Date.now().toString(36)}`,
-            name: String(data.name),
-            category: String(data.type) || "Equipment",
-            building: "",
-            location: String(data.location),
-            installed: today,
-            lastService: today,
-            condition: String(data.status) || "Good",
-            value: "",
-          }, ...prev]);
+          if (editingAsset) {
+            setAssetList(prev => prev.map(a => a.id === editingAsset.id ? {
+              ...a,
+              name: String(data.name),
+              category: String(data.category) || a.category,
+              building: String(data.building),
+              location: String(data.location),
+              installed: String(data.installed) || a.installed,
+              lastService: String(data.lastService) || a.lastService,
+              condition: String(data.condition) || a.condition,
+              value: String(data.value) || a.value,
+            } : a));
+          } else {
+            const today = new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" });
+            setAssetList(prev => [{
+              id: `FA-${Date.now().toString(36)}`,
+              name: String(data.name),
+              category: String(data.category) || "HVAC",
+              building: String(data.building),
+              location: String(data.location),
+              installed: String(data.installed) || today,
+              lastService: String(data.lastService) || today,
+              condition: String(data.condition) || "Good",
+              value: String(data.value),
+            }, ...prev]);
+          }
         }}
       />
 
+      {/* ── Energy Form ── */}
+      <EntityFormModal
+        open={showEnergyForm}
+        onOpenChange={(v) => { setShowEnergyForm(v); if (!v) setEditingEnergy(null); }}
+        title={editingEnergy ? `Edit ${editingEnergy.building}` : "Add Energy Record"}
+        fields={energyFields}
+        initialData={editingEnergy ? {
+          building: editingEnergy.building,
+          electricity: editingEnergy.electricity,
+          gas: editingEnergy.gas,
+          water: editingEnergy.water,
+          total: editingEnergy.total,
+          change: editingEnergy.change,
+          rating: editingEnergy.rating,
+        } : undefined}
+        submitLabel={editingEnergy ? "Update" : "Add"}
+        onSubmit={(data) => {
+          if (editingEnergy) {
+            setEnergyList(prev => prev.map(e => e.building === editingEnergy.building ? {
+              ...e,
+              building: String(data.building),
+              electricity: String(data.electricity),
+              gas: String(data.gas),
+              water: String(data.water),
+              total: String(data.total),
+              change: Number(data.change) || 0,
+              rating: String(data.rating) || e.rating,
+            } : e));
+          } else {
+            setEnergyList(prev => [{
+              building: String(data.building),
+              electricity: String(data.electricity),
+              gas: String(data.gas),
+              water: String(data.water),
+              total: String(data.total),
+              change: Number(data.change) || 0,
+              rating: String(data.rating) || "B",
+            }, ...prev]);
+          }
+        }}
+      />
+
+      {/* ── Visitor Form ── */}
       <EntityFormModal
         open={showVisitorModal}
-        onOpenChange={setShowVisitorModal}
-        title="Register Visitor"
+        onOpenChange={(v) => { setShowVisitorModal(v); if (!v) setEditingVisitor(null); }}
+        title={editingVisitor ? `Edit ${editingVisitor.name}` : "Register Visitor"}
         fields={visitorFields}
-        submitLabel="Register"
+        initialData={editingVisitor ? {
+          name: editingVisitor.name,
+          company: editingVisitor.company,
+          host: editingVisitor.host,
+          purpose: editingVisitor.purpose,
+          building: editingVisitor.building,
+          checkIn: editingVisitor.checkIn,
+          status: editingVisitor.status,
+        } : undefined}
+        submitLabel={editingVisitor ? "Update" : "Register"}
         onSubmit={(data) => {
-          setVisitorList(prev => [{
-            id: `VIS-${Date.now().toString(36)}`,
-            name: String(data.name),
-            company: String(data.company),
-            host: String(data.host),
-            purpose: String(data.purpose),
-            checkIn: String(data.checkIn),
-            checkOut: "-",
-            building: "",
-            status: "Expected",
-          }, ...prev]);
+          if (editingVisitor) {
+            setVisitorList(prev => prev.map(v => v.id === editingVisitor.id ? {
+              ...v,
+              name: String(data.name),
+              company: String(data.company),
+              host: String(data.host),
+              purpose: String(data.purpose),
+              building: String(data.building) || v.building,
+              checkIn: String(data.checkIn) || v.checkIn,
+              status: String(data.status) || v.status,
+            } : v));
+          } else {
+            setVisitorList(prev => [{
+              id: `VIS-${Date.now().toString(36)}`,
+              name: String(data.name),
+              company: String(data.company),
+              host: String(data.host),
+              purpose: String(data.purpose),
+              checkIn: String(data.checkIn),
+              checkOut: "-",
+              building: String(data.building),
+              status: String(data.status) || "Expected",
+            }, ...prev]);
+          }
         }}
       />
 
+      {/* ── Vendor Form ── */}
       <EntityFormModal
         open={showVendorModal}
-        onOpenChange={setShowVendorModal}
-        title="Add Vendor"
+        onOpenChange={(v) => { setShowVendorModal(v); if (!v) setEditingVendor(null); }}
+        title={editingVendor ? `Edit ${editingVendor.name}` : "Add Vendor"}
         fields={vendorFields}
-        submitLabel="Add"
+        initialData={editingVendor ? {
+          name: editingVendor.name,
+          service: editingVendor.service,
+          contract: editingVendor.contract,
+          value: editingVendor.value,
+          rating: editingVendor.rating,
+          contact: editingVendor.contact,
+          phone: editingVendor.phone,
+          status: editingVendor.status,
+        } : undefined}
+        submitLabel={editingVendor ? "Update" : "Add"}
         onSubmit={(data) => {
-          setVendorList(prev => [{
-            id: `VND-${Date.now().toString(36)}`,
-            name: String(data.name),
-            service: String(data.specialty),
-            contract: "",
-            value: "",
-            rating: 0,
-            contact: String(data.contact),
-            phone: String(data.phone),
-            status: String(data.contractStatus) || "Active",
-          }, ...prev]);
+          if (editingVendor) {
+            setVendorList(prev => prev.map(v => v.id === editingVendor.id ? {
+              ...v,
+              name: String(data.name),
+              service: String(data.service),
+              contract: String(data.contract) || v.contract,
+              value: String(data.value) || v.value,
+              rating: Number(data.rating) || v.rating,
+              contact: String(data.contact),
+              phone: String(data.phone),
+              status: String(data.status) || v.status,
+            } : v));
+          } else {
+            setVendorList(prev => [{
+              id: `VND-${Date.now().toString(36)}`,
+              name: String(data.name),
+              service: String(data.service),
+              contract: String(data.contract) || "Annual",
+              value: String(data.value),
+              rating: Number(data.rating) || 0,
+              contact: String(data.contact),
+              phone: String(data.phone),
+              status: String(data.status) || "Active",
+            }, ...prev]);
+          }
         }}
       />
 
