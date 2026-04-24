@@ -523,6 +523,38 @@ export default function DataMigrationPage() {
           setModal(null);
         }}
       />
+
+      {/* Detail View Dialog */}
+      <Dialog open={!!viewItem} onOpenChange={(o) => !o && setViewItem(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewItem?.name}</DialogTitle>
+          </DialogHeader>
+          {viewItem?._kind === "job" && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Job ID</span><p className="font-medium">{viewItem.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Job Name</span><p className="font-medium">{viewItem.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Source</span><p className="font-medium">{viewItem.source}</p></div>
+              <div><span className="text-sm text-muted-foreground">Destination</span><p className="font-medium">{viewItem.destination}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium capitalize">{viewItem.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Progress</span><p className="font-medium">{viewItem.progress}%</p></div>
+              <div><span className="text-sm text-muted-foreground">Records Migrated</span><p className="font-medium">{Number(viewItem.recordsMigrated).toLocaleString()} / {Number(viewItem.recordsTotal).toLocaleString()}</p></div>
+              <div><span className="text-sm text-muted-foreground">Errors</span><p className="font-medium">{viewItem.errors}</p></div>
+              <div><span className="text-sm text-muted-foreground">Started At</span><p className="font-medium">{viewItem.startedAt}</p></div>
+              <div><span className="text-sm text-muted-foreground">Duration</span><p className="font-medium">{viewItem.duration}</p></div>
+            </div>
+          )}
+          {viewItem?._kind === "source" && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Source Name</span><p className="font-medium">{viewItem.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Connection Type</span><p className="font-medium">{viewItem.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium capitalize">{viewItem.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Record Count</span><p className="font-medium">{viewItem.recordCount > 0 ? Number(viewItem.recordCount).toLocaleString() : "—"}</p></div>
+              <div><span className="text-sm text-muted-foreground">Last Sync</span><p className="font-medium">{viewItem.lastSync}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
