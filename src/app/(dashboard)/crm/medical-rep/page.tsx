@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -36,6 +37,7 @@ import {
   type Doctor,
   type Visit,
   type MarketRequest,
+  type Territory,
 } from "@/lib/data-store";
 import { useCurrentUser } from "@/lib/user-context";
 
@@ -414,10 +416,14 @@ export default function MedicalRepPage() {
       </div>
 
       <Tabs defaultValue="doctors">
-        <TabsList className="grid w-full grid-cols-4 md:w-auto md:inline-flex">
+        <TabsList className="grid w-full grid-cols-5 md:w-auto md:inline-flex">
+          <TabsTrigger value="mylist">
+            <Target className="h-3.5 w-3.5 mr-1.5" />
+            My List
+          </TabsTrigger>
           <TabsTrigger value="doctors">
             <Stethoscope className="h-3.5 w-3.5 mr-1.5" />
-            My Doctors
+            All Doctors
           </TabsTrigger>
           <TabsTrigger value="visits">
             <MapPin className="h-3.5 w-3.5 mr-1.5" />
@@ -432,6 +438,17 @@ export default function MedicalRepPage() {
             My Requests
           </TabsTrigger>
         </TabsList>
+
+        {/* My Custom List tab */}
+        <TabsContent value="mylist" className="space-y-4">
+          <MyDoctorList
+            store={store}
+            user={user}
+            allDoctors={myDoctors}
+            onAddDoctor={() => setNewDoctorOpen(true)}
+            onViewDoctor={setViewDoctor}
+          />
+        </TabsContent>
 
         {/* Doctors tab */}
         <TabsContent value="doctors" className="space-y-3">
@@ -829,6 +846,285 @@ export default function MedicalRepPage() {
         submitLabel="Create"
         size="xl"
       />
+    </div>
+  );
+}
+
+/* ─── My Doctor List Component ─── */
+function MyDoctorList({
+  store,
+  user,
+  allDoctors,
+  onAddDoctor,
+  onViewDoctor,
+}: {
+  store: ReturnType<typeof useDataStore>;
+  user: { id: string; role: string };
+  allDoctors: Doctor[];
+  onAddDoctor: () => void;
+  onViewDoctor: (d: Doctor) => void;
+}) {
+  const [listSearch, setListSearch] = useState("");
+  const [selectedBrick, setSelectedBrick] = useState<string>("all");
+
+  const territories = store.territories;
+
+  const myBricks = useMemo(() => {
+    return territories.filter(
+      (t) => t.level === "brick" && t.assignedRepIds.includes(user.id)
+    );
+  }, [territories, user.id]);
+
+  const myDoctorsInList = useMemo(() => {
+    return allDoctors.filter((d) => d.assignedRepId === user.id);
+  }, [allDoctors, user.id]);
+
+  const filteredList = useMemo(() => {
+    return myDoctorsInList.filter((d) => {
+      if (selectedBrick !== "all" && d.brickId !== selectedBrick) return false;
+      if (listSearch) {
+        const q = listSearch.toLowerCase();
+        return (
+          d.name.toLowerCase().includes(q) ||
+          d.specialty.toLowerCase().includes(q) ||
+          d.hospital.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [myDoctorsInList, selectedBrick, listSearch]);
+
+  const unassignedDoctors = useMemo(() => {
+    const myBrickIds = new Set(myBricks.map((b) => b.id));
+    return store.doctors.filter(
+      (d) =>
+        d.assignedRepId !== user.id &&
+        d.brickId &&
+        myBrickIds.has(d.brickId)
+    );
+  }, [store.doctors, myBricks, user.id]);
+
+  function addToMyList(doctorId: string) {
+    store.update("doctors", doctorId, { assignedRepId: user.id });
+  }
+
+  function removeFromMyList(doctorId: string) {
+    store.update("doctors", doctorId, { assignedRepId: null });
+  }
+
+  function getBrickPath(brickId: string): string {
+    const parts: string[] = [];
+    let current = territories.find((t) => t.id === brickId);
+    while (current) {
+      parts.unshift(current.name);
+      current = current.parentId ? territories.find((t) => t.id === current!.parentId) : undefined;
+    }
+    return parts.join(" > ");
+  }
+
+  const classBreakdown = {
+    A: filteredList.filter((d) => d.classification === "A").length,
+    B: filteredList.filter((d) => d.classification === "B").length,
+    C: filteredList.filter((d) => d.classification === "C").length,
+    D: filteredList.filter((d) => d.classification === "D").length,
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Territory assignment banner */}
+      <Card className="border-blue-200 bg-blue-50/50">
+        <CardContent className="pt-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg shrink-0">
+              <MapPin className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-sm">My Territory Assignment</h3>
+              {myBricks.length === 0 ? (
+                <p className="text-xs text-muted-foreground mt-1">No bricks assigned yet. Contact your manager to assign territories.</p>
+              ) : (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {myBricks.map((brick) => (
+                    <Badge key={brick.id} variant="outline" className="text-xs bg-white">
+                      {getBrickPath(brick.id)}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-2xl font-bold text-blue-700">{myDoctorsInList.length}</p>
+              <p className="text-xs text-blue-600">Doctors in my list</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick stats */}
+      <div className="grid grid-cols-4 gap-3">
+        {(["A", "B", "C", "D"] as const).map((cls) => (
+          <Card key={cls}>
+            <CardContent className="pt-3 pb-3 text-center">
+              <Badge className={
+                cls === "A" ? "bg-green-100 text-green-800" :
+                cls === "B" ? "bg-blue-100 text-blue-800" :
+                cls === "C" ? "bg-amber-100 text-amber-800" :
+                "bg-gray-100 text-gray-800"
+              }>Class {cls}</Badge>
+              <p className="text-xl font-bold mt-1">{classBreakdown[cls]}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-3 items-center">
+        <Input
+          placeholder="Search my list..."
+          value={listSearch}
+          onChange={(e) => setListSearch(e.target.value)}
+          className="max-w-xs text-sm"
+        />
+        <select
+          className="rounded-md border px-3 py-2 text-sm"
+          value={selectedBrick}
+          onChange={(e) => setSelectedBrick(e.target.value)}
+        >
+          <option value="all">All Bricks</option>
+          {myBricks.map((b) => (
+            <option key={b.id} value={b.id}>{b.name} ({b.imsCode})</option>
+          ))}
+        </select>
+        <div className="ml-auto">
+          <Button size="sm" onClick={onAddDoctor}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Add Doctor
+          </Button>
+        </div>
+      </div>
+
+      {/* My Doctor List */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">My Doctor List ({filteredList.length})</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {filteredList.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              <Stethoscope className="h-10 w-10 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No doctors in your list yet.</p>
+              <p className="text-xs mt-1">Add doctors from unassigned list below or create a new doctor.</p>
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead><tr className="border-b bg-muted/50">
+                <th className="text-left p-2.5 font-medium">Doctor</th>
+                <th className="text-left p-2.5 font-medium">Brick</th>
+                <th className="text-left p-2.5 font-medium">Class</th>
+                <th className="text-left p-2.5 font-medium">Freq</th>
+                <th className="text-left p-2.5 font-medium">Last Visit</th>
+                <th className="text-right p-2.5 font-medium">Actions</th>
+              </tr></thead>
+              <tbody>
+                {filteredList.map((d) => {
+                  const brick = territories.find((t) => t.id === d.brickId);
+                  const daysSince = d.lastVisitAt
+                    ? Math.floor((Date.now() - new Date(d.lastVisitAt).getTime()) / 86400000)
+                    : null;
+                  return (
+                    <tr key={d.id} className="border-b hover:bg-muted/30">
+                      <td className="p-2.5">
+                        <p className="font-medium">{d.name}</p>
+                        <p className="text-xs text-muted-foreground">{d.specialty} · {d.hospital}</p>
+                      </td>
+                      <td className="p-2.5">
+                        {brick ? (
+                          <Badge variant="outline" className="text-[10px]">{brick.name}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="p-2.5">
+                        <Badge className={
+                          d.classification === "A" ? "bg-green-100 text-green-800" :
+                          d.classification === "B" ? "bg-blue-100 text-blue-800" :
+                          d.classification === "C" ? "bg-amber-100 text-amber-800" :
+                          "bg-gray-100 text-gray-800"
+                        }>{d.classification}</Badge>
+                      </td>
+                      <td className="p-2.5 text-xs">{d.visitFrequency}x/mo</td>
+                      <td className="p-2.5 text-xs">
+                        {daysSince !== null ? (
+                          <span className={daysSince > 14 ? "text-red-600 font-semibold" : "text-muted-foreground"}>
+                            {daysSince}d ago
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">Never</span>
+                        )}
+                      </td>
+                      <td className="p-2.5 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => onViewDoctor(d)}>View</Button>
+                          <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500" onClick={() => removeFromMyList(d.id)}>Remove</Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Available doctors in my territory not yet in my list */}
+      {unassignedDoctors.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-amber-700">
+              Available in My Territory ({unassignedDoctors.length})
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">Doctors in your assigned bricks not yet on your list. Click &ldquo;Add&rdquo; to claim.</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b bg-amber-50/50">
+                <th className="text-left p-2.5 font-medium">Doctor</th>
+                <th className="text-left p-2.5 font-medium">Brick</th>
+                <th className="text-left p-2.5 font-medium">Class</th>
+                <th className="text-right p-2.5 font-medium">Action</th>
+              </tr></thead>
+              <tbody>
+                {unassignedDoctors.map((d) => {
+                  const brick = territories.find((t) => t.id === d.brickId);
+                  return (
+                    <tr key={d.id} className="border-b hover:bg-muted/30">
+                      <td className="p-2.5">
+                        <p className="font-medium">{d.name}</p>
+                        <p className="text-xs text-muted-foreground">{d.specialty} · {d.hospital}</p>
+                      </td>
+                      <td className="p-2.5">
+                        {brick ? <Badge variant="outline" className="text-[10px]">{brick.name}</Badge> : "—"}
+                      </td>
+                      <td className="p-2.5">
+                        <Badge className={
+                          d.classification === "A" ? "bg-green-100 text-green-800" :
+                          d.classification === "B" ? "bg-blue-100 text-blue-800" :
+                          "bg-amber-100 text-amber-800"
+                        }>{d.classification}</Badge>
+                      </td>
+                      <td className="p-2.5 text-right">
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => addToMyList(d.id)}>
+                          <Plus className="h-3 w-3 mr-1" /> Add to My List
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

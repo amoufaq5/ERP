@@ -44,6 +44,19 @@ export interface Doctor {
   notes?: string;
   createdAt: string;
   buId?: string | null;          // which BU "owns" the doctor
+  brickId?: string | null;       // IMS-IQVIA brick assignment
+}
+
+// ─── IMS-IQVIA Territory Hierarchy ──────────────────────────────────────────
+export interface Territory {
+  id: string;
+  name: string;
+  nameAr: string;
+  level: "region" | "governorate" | "district" | "brick";
+  parentId: string | null;
+  imsCode: string;               // IMS-IQVIA code
+  assignedRepIds: string[];       // medical reps assigned to this territory
+  assignedBUIds: string[];        // business units active in this territory
 }
 
 export type VisitType = "SINGLE" | "DOUBLE";
@@ -355,6 +368,7 @@ export interface DataStoreState {
   businessUnits: BusinessUnit[];
   products: Product[];
   doctors: Doctor[];
+  territories: Territory[];
   visits: Visit[];
   tasks: Task[];
   marketRequests: MarketRequest[];
@@ -433,15 +447,71 @@ const SEED_PRODUCTS: Product[] = [
   { id: "p-prim-3", code: "PC-003", name: "Nervocalm", strength: "10mg", form: "Tablet", buId: "bu-primary", pricePerUnit: 18, therapeuticArea: "Anxiolytic", edaRegistration: "EDA/2023/0713" },
 ];
 
+const SEED_TERRITORIES: Territory[] = [
+  // ── Regions ──
+  { id: "reg-cairo", name: "Greater Cairo", nameAr: "القاهرة الكبرى", level: "region", parentId: null, imsCode: "EG-R01", assignedRepIds: [], assignedBUIds: ["bu-cardio", "bu-diabetes", "bu-primary"] },
+  { id: "reg-alex", name: "Alexandria & North Coast", nameAr: "الإسكندرية والساحل الشمالي", level: "region", parentId: null, imsCode: "EG-R02", assignedRepIds: [], assignedBUIds: ["bu-cardio", "bu-primary"] },
+  { id: "reg-delta", name: "Delta", nameAr: "الدلتا", level: "region", parentId: null, imsCode: "EG-R03", assignedRepIds: [], assignedBUIds: ["bu-primary"] },
+  { id: "reg-upper", name: "Upper Egypt", nameAr: "صعيد مصر", level: "region", parentId: null, imsCode: "EG-R04", assignedRepIds: [], assignedBUIds: ["bu-primary"] },
+  { id: "reg-canal", name: "Canal & Sinai", nameAr: "القناة وسيناء", level: "region", parentId: null, imsCode: "EG-R05", assignedRepIds: [], assignedBUIds: [] },
+
+  // ── Governorates under Greater Cairo ──
+  { id: "gov-cairo", name: "Cairo", nameAr: "القاهرة", level: "governorate", parentId: "reg-cairo", imsCode: "EG-G01", assignedRepIds: [], assignedBUIds: ["bu-cardio", "bu-diabetes", "bu-primary"] },
+  { id: "gov-giza", name: "Giza", nameAr: "الجيزة", level: "governorate", parentId: "reg-cairo", imsCode: "EG-G02", assignedRepIds: [], assignedBUIds: ["bu-cardio", "bu-diabetes"] },
+  { id: "gov-qalyub", name: "Qalyubia", nameAr: "القليوبية", level: "governorate", parentId: "reg-cairo", imsCode: "EG-G03", assignedRepIds: [], assignedBUIds: ["bu-primary"] },
+
+  // ── Governorates under Alexandria ──
+  { id: "gov-alex", name: "Alexandria", nameAr: "الإسكندرية", level: "governorate", parentId: "reg-alex", imsCode: "EG-G04", assignedRepIds: [], assignedBUIds: ["bu-cardio", "bu-primary"] },
+  { id: "gov-matrouh", name: "Matrouh", nameAr: "مطروح", level: "governorate", parentId: "reg-alex", imsCode: "EG-G05", assignedRepIds: [], assignedBUIds: [] },
+
+  // ── Governorates under Delta ──
+  { id: "gov-dakahlia", name: "Dakahlia", nameAr: "الدقهلية", level: "governorate", parentId: "reg-delta", imsCode: "EG-G06", assignedRepIds: [], assignedBUIds: ["bu-primary"] },
+  { id: "gov-sharqia", name: "Sharqia", nameAr: "الشرقية", level: "governorate", parentId: "reg-delta", imsCode: "EG-G07", assignedRepIds: [], assignedBUIds: ["bu-primary"] },
+  { id: "gov-gharbia", name: "Gharbia", nameAr: "الغربية", level: "governorate", parentId: "reg-delta", imsCode: "EG-G08", assignedRepIds: [], assignedBUIds: [] },
+
+  // ── Governorates under Upper Egypt ──
+  { id: "gov-assiut", name: "Assiut", nameAr: "أسيوط", level: "governorate", parentId: "reg-upper", imsCode: "EG-G09", assignedRepIds: [], assignedBUIds: ["bu-primary"] },
+  { id: "gov-minya", name: "Minya", nameAr: "المنيا", level: "governorate", parentId: "reg-upper", imsCode: "EG-G10", assignedRepIds: [], assignedBUIds: [] },
+
+  // ── Districts under Cairo ──
+  { id: "dist-heliopolis", name: "Heliopolis", nameAr: "مصر الجديدة", level: "district", parentId: "gov-cairo", imsCode: "EG-D01", assignedRepIds: ["u-rep-1"], assignedBUIds: ["bu-cardio", "bu-primary"] },
+  { id: "dist-nasr", name: "Nasr City", nameAr: "مدينة نصر", level: "district", parentId: "gov-cairo", imsCode: "EG-D02", assignedRepIds: ["u-rep-1"], assignedBUIds: ["bu-cardio", "bu-diabetes"] },
+  { id: "dist-maadi", name: "Maadi", nameAr: "المعادي", level: "district", parentId: "gov-cairo", imsCode: "EG-D03", assignedRepIds: [], assignedBUIds: ["bu-diabetes", "bu-primary"] },
+  { id: "dist-downtown", name: "Downtown Cairo", nameAr: "وسط البلد", level: "district", parentId: "gov-cairo", imsCode: "EG-D04", assignedRepIds: [], assignedBUIds: ["bu-cardio"] },
+  { id: "dist-shobra", name: "Shubra", nameAr: "شبرا", level: "district", parentId: "gov-cairo", imsCode: "EG-D05", assignedRepIds: [], assignedBUIds: ["bu-primary"] },
+
+  // ── Districts under Giza ──
+  { id: "dist-dokki", name: "Dokki", nameAr: "الدقي", level: "district", parentId: "gov-giza", imsCode: "EG-D06", assignedRepIds: ["u-rep-1"], assignedBUIds: ["bu-cardio", "bu-diabetes"] },
+  { id: "dist-october", name: "6th of October", nameAr: "السادس من أكتوبر", level: "district", parentId: "gov-giza", imsCode: "EG-D07", assignedRepIds: [], assignedBUIds: ["bu-primary"] },
+  { id: "dist-haram", name: "Haram", nameAr: "الهرم", level: "district", parentId: "gov-giza", imsCode: "EG-D08", assignedRepIds: [], assignedBUIds: ["bu-primary"] },
+
+  // ── Bricks under Heliopolis ──
+  { id: "brk-helio-1", name: "Heliopolis North", nameAr: "مصر الجديدة شمال", level: "brick", parentId: "dist-heliopolis", imsCode: "EG-B001", assignedRepIds: ["u-rep-1"], assignedBUIds: ["bu-cardio"] },
+  { id: "brk-helio-2", name: "Heliopolis South", nameAr: "مصر الجديدة جنوب", level: "brick", parentId: "dist-heliopolis", imsCode: "EG-B002", assignedRepIds: ["u-rep-1"], assignedBUIds: ["bu-primary"] },
+  { id: "brk-helio-3", name: "Korba", nameAr: "كوربة", level: "brick", parentId: "dist-heliopolis", imsCode: "EG-B003", assignedRepIds: ["u-rep-1"], assignedBUIds: ["bu-cardio", "bu-primary"] },
+
+  // ── Bricks under Nasr City ──
+  { id: "brk-nasr-1", name: "Nasr City 1st Zone", nameAr: "مدينة نصر الحي الأول", level: "brick", parentId: "dist-nasr", imsCode: "EG-B004", assignedRepIds: ["u-rep-1"], assignedBUIds: ["bu-diabetes"] },
+  { id: "brk-nasr-2", name: "Nasr City 2nd Zone", nameAr: "مدينة نصر الحي الثاني", level: "brick", parentId: "dist-nasr", imsCode: "EG-B005", assignedRepIds: [], assignedBUIds: ["bu-cardio"] },
+
+  // ── Bricks under Dokki ──
+  { id: "brk-dokki-1", name: "Dokki Central", nameAr: "الدقي وسط", level: "brick", parentId: "dist-dokki", imsCode: "EG-B006", assignedRepIds: ["u-rep-1"], assignedBUIds: ["bu-diabetes"] },
+  { id: "brk-dokki-2", name: "Mohandessin", nameAr: "المهندسين", level: "brick", parentId: "dist-dokki", imsCode: "EG-B007", assignedRepIds: [], assignedBUIds: ["bu-cardio", "bu-diabetes"] },
+
+  // ── Bricks under Maadi ──
+  { id: "brk-maadi-1", name: "Maadi Central", nameAr: "المعادي وسط", level: "brick", parentId: "dist-maadi", imsCode: "EG-B008", assignedRepIds: [], assignedBUIds: ["bu-diabetes", "bu-primary"] },
+  { id: "brk-maadi-2", name: "Maadi Degla", nameAr: "المعادي دجلة", level: "brick", parentId: "dist-maadi", imsCode: "EG-B009", assignedRepIds: [], assignedBUIds: ["bu-primary"] },
+];
+
 const SEED_DOCTORS: Doctor[] = [
-  { id: "dr-001", name: "Dr. Ahmed El-Gamal", specialty: "Cardiology", hospital: "Cleopatra Hospital", city: "Cairo", phone: "+20 100 111 2233", classification: "A", assignedRepId: "u-rep-1", visitFrequency: 4, lastVisitAt: daysAgo(3), createdAt: daysAgo(180), buId: "bu-cardio" },
-  { id: "dr-002", name: "Dr. Salma Ibrahim", specialty: "Endocrinology", hospital: "Dar Al Fouad", city: "Giza", phone: "+20 100 222 3344", classification: "A", assignedRepId: "u-rep-1", visitFrequency: 4, lastVisitAt: daysAgo(5), createdAt: daysAgo(200), buId: "bu-diabetes" },
-  { id: "dr-003", name: "Dr. Mahmoud Adel", specialty: "General Practice", hospital: "Private Clinic", city: "Cairo", phone: "+20 100 333 4455", classification: "B", assignedRepId: "u-rep-1", visitFrequency: 2, lastVisitAt: daysAgo(10), createdAt: daysAgo(150), buId: "bu-primary" },
-  { id: "dr-004", name: "Dr. Rania Farouk", specialty: "Pediatrics", hospital: "As-Salam Hospital", city: "Cairo", phone: "+20 100 444 5566", classification: "A", assignedRepId: "u-rep-1", visitFrequency: 4, lastVisitAt: daysAgo(2), createdAt: daysAgo(190), buId: "bu-primary" },
-  { id: "dr-005", name: "Dr. Khaled Samy", specialty: "Internal Medicine", hospital: "Ain Shams University", city: "Cairo", phone: "+20 100 555 6677", classification: "B", assignedRepId: "u-rep-1", visitFrequency: 2, lastVisitAt: daysAgo(14), createdAt: daysAgo(120), buId: "bu-cardio" },
-  { id: "dr-006", name: "Dr. Youssef Hamdi", specialty: "Cardiology", hospital: "Nasser Institute", city: "Cairo", phone: "+20 100 666 7788", classification: "B", assignedRepId: null, visitFrequency: 2, createdAt: daysAgo(90), buId: "bu-cardio" },
-  { id: "dr-007", name: "Dr. Maha Gabr", specialty: "Endocrinology", hospital: "Maadi Military Hospital", city: "Cairo", phone: "+20 100 777 8899", classification: "C", assignedRepId: null, visitFrequency: 1, createdAt: daysAgo(60), buId: "bu-diabetes" },
-  { id: "dr-008", name: "Dr. Tarek Shaker", specialty: "General Practice", hospital: "Family Clinic", city: "Giza", phone: "+20 100 888 9900", classification: "C", assignedRepId: null, visitFrequency: 1, createdAt: daysAgo(45), buId: "bu-primary" },
+  { id: "dr-001", name: "Dr. Ahmed El-Gamal", specialty: "Cardiology", hospital: "Cleopatra Hospital", city: "Cairo", phone: "+20 100 111 2233", classification: "A", assignedRepId: "u-rep-1", visitFrequency: 4, lastVisitAt: daysAgo(3), createdAt: daysAgo(180), buId: "bu-cardio", brickId: "brk-helio-1" },
+  { id: "dr-002", name: "Dr. Salma Ibrahim", specialty: "Endocrinology", hospital: "Dar Al Fouad", city: "Giza", phone: "+20 100 222 3344", classification: "A", assignedRepId: "u-rep-1", visitFrequency: 4, lastVisitAt: daysAgo(5), createdAt: daysAgo(200), buId: "bu-diabetes", brickId: "brk-dokki-1" },
+  { id: "dr-003", name: "Dr. Mahmoud Adel", specialty: "General Practice", hospital: "Private Clinic", city: "Cairo", phone: "+20 100 333 4455", classification: "B", assignedRepId: "u-rep-1", visitFrequency: 2, lastVisitAt: daysAgo(10), createdAt: daysAgo(150), buId: "bu-primary", brickId: "brk-helio-2" },
+  { id: "dr-004", name: "Dr. Rania Farouk", specialty: "Pediatrics", hospital: "As-Salam Hospital", city: "Cairo", phone: "+20 100 444 5566", classification: "A", assignedRepId: "u-rep-1", visitFrequency: 4, lastVisitAt: daysAgo(2), createdAt: daysAgo(190), buId: "bu-primary", brickId: "brk-nasr-1" },
+  { id: "dr-005", name: "Dr. Khaled Samy", specialty: "Internal Medicine", hospital: "Ain Shams University", city: "Cairo", phone: "+20 100 555 6677", classification: "B", assignedRepId: "u-rep-1", visitFrequency: 2, lastVisitAt: daysAgo(14), createdAt: daysAgo(120), buId: "bu-cardio", brickId: "brk-nasr-2" },
+  { id: "dr-006", name: "Dr. Youssef Hamdi", specialty: "Cardiology", hospital: "Nasser Institute", city: "Cairo", phone: "+20 100 666 7788", classification: "B", assignedRepId: null, visitFrequency: 2, createdAt: daysAgo(90), buId: "bu-cardio", brickId: "brk-helio-3" },
+  { id: "dr-007", name: "Dr. Maha Gabr", specialty: "Endocrinology", hospital: "Maadi Military Hospital", city: "Cairo", phone: "+20 100 777 8899", classification: "C", assignedRepId: null, visitFrequency: 1, createdAt: daysAgo(60), buId: "bu-diabetes", brickId: "brk-maadi-1" },
+  { id: "dr-008", name: "Dr. Tarek Shaker", specialty: "General Practice", hospital: "Family Clinic", city: "Giza", phone: "+20 100 888 9900", classification: "C", assignedRepId: null, visitFrequency: 1, createdAt: daysAgo(45), buId: "bu-primary", brickId: "brk-dokki-2" },
 ];
 
 const SEED_VISITS: Visit[] = [
@@ -691,6 +761,7 @@ export const SEED_DATA: DataStoreState = {
   businessUnits: SEED_BUS,
   products: SEED_PRODUCTS,
   doctors: SEED_DOCTORS,
+  territories: SEED_TERRITORIES,
   visits: SEED_VISITS,
   tasks: SEED_TASKS,
   marketRequests: SEED_MARKET_REQUESTS,

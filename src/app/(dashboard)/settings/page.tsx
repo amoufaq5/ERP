@@ -59,6 +59,7 @@ const ALL_ROUTES: { href: string; label: string; group: string }[] = [
   { group: "CRM", href: "/crm/district-manager", label: "District Manager" },
   { group: "CRM", href: "/crm/marketeer", label: "Marketeer" },
   { group: "CRM", href: "/crm/bum", label: "BUM Dashboard" },
+  { group: "CRM", href: "/crm/territories", label: "Territories (IMS)" },
   { group: "CRM", href: "/crm/doctors", label: "Doctor Directory" },
   { group: "CRM", href: "/crm/gps-tracking", label: "Visit Tracking" },
   { group: "CRM", href: "/crm/market-requests", label: "Market Requests" },

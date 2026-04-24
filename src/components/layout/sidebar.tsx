@@ -55,6 +55,7 @@ import {
   LifeBuoy,
   Heart,
   Sparkles,
+  Globe,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -146,6 +147,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "District Manager", labelKey: "sidebar.districtManager", href: "/crm/district-manager", icon: Users },
       { label: "Marketeer", labelKey: "sidebar.marketeer", href: "/crm/marketeer", icon: Target },
       { label: "BUM Dashboard", labelKey: "sidebar.bumDashboard", href: "/crm/bum", icon: Crown },
+      { label: "Territories (IMS)", labelKey: "sidebar.territories", href: "/crm/territories", icon: Globe },
       { label: "Doctor Directory", labelKey: "sidebar.doctorDirectory", href: "/crm/doctors", icon: Stethoscope },
       { label: "Visit Tracking", labelKey: "sidebar.visitTracking", href: "/crm/gps-tracking", icon: MapPin },
       { label: "Market Requests", labelKey: "sidebar.marketRequests", href: "/crm/market-requests", icon: ClipboardList },
