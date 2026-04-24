@@ -812,6 +812,135 @@ export default function PlanningPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ── Budget Form ── */}
+      <EntityFormModal
+        open={showBudgetForm}
+        onOpenChange={(open) => { if (!open) { setShowBudgetForm(false); setEditingBudget(null); } }}
+        title={editingBudget ? "Edit Budget" : "New Department Budget"}
+        fields={budgetFormFields}
+        initialData={editingBudget ? { department: editingBudget.department, allocated: editingBudget.allocated, spent: editingBudget.spent, committed: editingBudget.committed, remaining: editingBudget.remaining, variance: editingBudget.variance, fy: editingBudget.fy } : undefined}
+        onSubmit={(data) => {
+          if (editingBudget) {
+            setBudgets(prev => prev.map(b => b.department === editingBudget.department ? { department: data.department as string, allocated: data.allocated as number, spent: data.spent as number, committed: data.committed as number, remaining: data.remaining as number, variance: data.variance as number, fy: data.fy as string } : b))
+          } else {
+            setBudgets(prev => [{ department: data.department as string, allocated: data.allocated as number, spent: data.spent as number, committed: data.committed as number, remaining: data.remaining as number, variance: data.variance as number, fy: data.fy as string }, ...prev])
+          }
+          setShowBudgetForm(false)
+          setEditingBudget(null)
+        }}
+      />
+
+      {/* ── Workforce Form ── */}
+      <EntityFormModal
+        open={showWorkforceForm}
+        onOpenChange={(open) => { if (!open) { setShowWorkforceForm(false); setEditingWorkforce(null); } }}
+        title={editingWorkforce ? "Edit Workforce Plan" : "New Workforce Plan"}
+        fields={workforceFormFields}
+        initialData={editingWorkforce ? { department: editingWorkforce.department, current: editingWorkforce.current, planned: editingWorkforce.planned, openReqs: editingWorkforce.openReqs, attrition: editingWorkforce.attrition, avgTenure: editingWorkforce.avgTenure, contractors: editingWorkforce.contractors } : undefined}
+        onSubmit={(data) => {
+          if (editingWorkforce) {
+            setWorkforce(prev => prev.map(w => w.department === editingWorkforce.department ? { department: data.department as string, current: data.current as number, planned: data.planned as number, openReqs: data.openReqs as number, attrition: data.attrition as number, avgTenure: data.avgTenure as number, contractors: data.contractors as number } : w))
+          } else {
+            setWorkforce(prev => [{ department: data.department as string, current: data.current as number, planned: data.planned as number, openReqs: data.openReqs as number, attrition: data.attrition as number, avgTenure: data.avgTenure as number, contractors: data.contractors as number }, ...prev])
+          }
+          setShowWorkforceForm(false)
+          setEditingWorkforce(null)
+        }}
+      />
+
+      {/* ── Production Form ── */}
+      <EntityFormModal
+        open={showProductionForm}
+        onOpenChange={(open) => { if (!open) { setShowProductionForm(false); setEditingProduction(null); } }}
+        title={editingProduction ? "Edit Production Order" : "New Production Order"}
+        fields={productionFormFields}
+        initialData={editingProduction ? { product: editingProduction.product, quantity: editingProduction.quantity, line: editingProduction.line, startDate: editingProduction.startDate, dueDate: editingProduction.dueDate, status: editingProduction.status, priority: editingProduction.priority } : undefined}
+        onSubmit={(data) => {
+          if (editingProduction) {
+            setProduction(prev => prev.map(p => p.id === editingProduction.id ? { ...p, product: data.product as string, quantity: data.quantity as number, line: data.line as string, startDate: data.startDate as string, dueDate: data.dueDate as string, status: data.status as string, priority: data.priority as string } : p))
+          } else {
+            const id = `PO-${Date.now().toString(36)}`
+            setProduction(prev => [{ id, product: data.product as string, quantity: data.quantity as number, line: data.line as string, startDate: data.startDate as string, dueDate: data.dueDate as string, status: data.status as string, priority: data.priority as string }, ...prev])
+          }
+          setShowProductionForm(false)
+          setEditingProduction(null)
+        }}
+      />
+
+      {/* ── Sales Territory Form ── */}
+      <EntityFormModal
+        open={showSalesForm}
+        onOpenChange={(open) => { if (!open) { setShowSalesForm(false); setEditingSales(null); } }}
+        title={editingSales ? "Edit Territory Plan" : "New Territory Plan"}
+        fields={salesFormFields}
+        initialData={editingSales ? { territory: editingSales.territory, manager: editingSales.manager, targetRevenue: editingSales.targetRevenue, currentRevenue: editingSales.currentRevenue, accounts: editingSales.accounts, pipeline: editingSales.pipeline, winRate: editingSales.winRate, qoqGrowth: editingSales.qoqGrowth } : undefined}
+        onSubmit={(data) => {
+          if (editingSales) {
+            setSales(prev => prev.map(s => s.territory === editingSales.territory ? { territory: data.territory as string, manager: data.manager as string, targetRevenue: data.targetRevenue as number, currentRevenue: data.currentRevenue as number, accounts: data.accounts as number, pipeline: data.pipeline as number, winRate: data.winRate as number, qoqGrowth: data.qoqGrowth as number } : s))
+          } else {
+            setSales(prev => [{ territory: data.territory as string, manager: data.manager as string, targetRevenue: data.targetRevenue as number, currentRevenue: data.currentRevenue as number, accounts: data.accounts as number, pipeline: data.pipeline as number, winRate: data.winRate as number, qoqGrowth: data.qoqGrowth as number }, ...prev])
+          }
+          setShowSalesForm(false)
+          setEditingSales(null)
+        }}
+      />
+
+      {/* ── IT Project Form ── */}
+      <EntityFormModal
+        open={showItForm}
+        onOpenChange={(open) => { if (!open) { setShowItForm(false); setEditingIt(null); } }}
+        title={editingIt ? "Edit IT Project" : "New IT Project"}
+        fields={itFormFields}
+        initialData={editingIt ? { project: editingIt.project, lead: editingIt.lead, phase: editingIt.phase, budget: editingIt.budget, spent: editingIt.spent, completion: editingIt.completion, goLive: editingIt.goLive, risk: editingIt.risk } : undefined}
+        onSubmit={(data) => {
+          if (editingIt) {
+            setItData(prev => prev.map(p => p.id === editingIt.id ? { ...p, project: data.project as string, lead: data.lead as string, phase: data.phase as string, budget: data.budget as number, spent: data.spent as number, completion: data.completion as number, goLive: data.goLive as string, risk: data.risk as string } : p))
+          } else {
+            const id = `IT-${Date.now().toString(36)}`
+            setItData(prev => [{ id, project: data.project as string, lead: data.lead as string, phase: data.phase as string, budget: data.budget as number, spent: data.spent as number, completion: data.completion as number, goLive: data.goLive as string, risk: data.risk as string }, ...prev])
+          }
+          setShowItForm(false)
+          setEditingIt(null)
+        }}
+      />
+
+      {/* ── Risk Form ── */}
+      <EntityFormModal
+        open={showRiskForm}
+        onOpenChange={(open) => { if (!open) { setShowRiskForm(false); setEditingRisk(null); } }}
+        title={editingRisk ? "Edit Risk" : "New Enterprise Risk"}
+        fields={riskFormFields}
+        initialData={editingRisk ? { risk: editingRisk.risk, category: editingRisk.category, likelihood: editingRisk.likelihood, impact: editingRisk.impact, owner: editingRisk.owner, mitigation: editingRisk.mitigation, status: editingRisk.status } : undefined}
+        onSubmit={(data) => {
+          if (editingRisk) {
+            setRisks(prev => prev.map(r => r.id === editingRisk.id ? { ...r, risk: data.risk as string, category: data.category as string, likelihood: data.likelihood as string, impact: data.impact as string, owner: data.owner as string, mitigation: data.mitigation as string, status: data.status as string } : r))
+          } else {
+            const id = `ER-${Date.now().toString(36)}`
+            setRisks(prev => [{ id, risk: data.risk as string, category: data.category as string, likelihood: data.likelihood as string, impact: data.impact as string, owner: data.owner as string, mitigation: data.mitigation as string, status: data.status as string }, ...prev])
+          }
+          setShowRiskForm(false)
+          setEditingRisk(null)
+        }}
+      />
+
+      {/* ── Resource Form ── */}
+      <EntityFormModal
+        open={showResourceForm}
+        onOpenChange={(open) => { if (!open) { setShowResourceForm(false); setEditingResource(null); } }}
+        title={editingResource ? "Edit Resource Allocation" : "New Resource Allocation"}
+        fields={resourceFormFields}
+        initialData={editingResource ? { resource: editingResource.resource, department: editingResource.department, totalFTE: editingResource.totalFTE, allocated: editingResource.allocated, available: editingResource.available, utilization: editingResource.utilization, topProject: editingResource.topProject } : undefined}
+        onSubmit={(data) => {
+          if (editingResource) {
+            setResources(prev => prev.map(r => r.resource === editingResource.resource ? { resource: data.resource as string, department: data.department as string, totalFTE: data.totalFTE as number, allocated: data.allocated as number, available: data.available as number, utilization: data.utilization as number, topProject: data.topProject as string } : r))
+          } else {
+            setResources(prev => [{ resource: data.resource as string, department: data.department as string, totalFTE: data.totalFTE as number, allocated: data.allocated as number, available: data.available as number, utilization: data.utilization as number, topProject: data.topProject as string }, ...prev])
+          }
+          setShowResourceForm(false)
+          setEditingResource(null)
+        }}
+      />
     </div>
   )
 }

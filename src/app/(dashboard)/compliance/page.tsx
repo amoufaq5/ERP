@@ -184,8 +184,6 @@ const riskFields: EntityField[] = [
   { name: "nextReview", label: "Next Review", type: "text" },
 ];
 
-
-
 export default function CompliancePage() {
   const [showForm, setShowForm] = useState(false);
   const [editingReg, setEditingReg] = useState<typeof regulations[0] | null>(null);
