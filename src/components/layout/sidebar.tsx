@@ -31,6 +31,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Building,
   Building2,
   X,
@@ -56,6 +57,7 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
+import { useState } from "react";
 
 interface NavItem {
   label: string;
@@ -65,6 +67,8 @@ interface NavItem {
 
 interface NavSection {
   title: string;
+  icon?: LucideIcon;
+  hub?: string;
   items: NavItem[];
 }
 
@@ -78,24 +82,49 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: "ERP",
+    title: "Finance & Accounting",
+    icon: DollarSign,
+    hub: "/hubs/finance",
     items: [
+      { label: "Hub Overview", href: "/hubs/finance", icon: LayoutDashboard },
       { label: "Finance", href: "/erp/finance", icon: DollarSign },
       { label: "Accounting", href: "/erp/accounting", icon: Calculator },
-      { label: "Procurement", href: "/erp/procurement", icon: ShoppingCart },
-      { label: "Inventory", href: "/erp/inventory", icon: Package },
-      { label: "Projects", href: "/erp/projects", icon: FolderKanban },
-      { label: "HR & Payroll", href: "/erp/hr", icon: Users },
-      { label: "Assets", href: "/erp/assets", icon: Monitor },
-      { label: "Manufacturing", href: "/erp/manufacturing", icon: Factory },
-      { label: "Returns", href: "/erp/returns", icon: RotateCcw },
       { label: "Collections", href: "/erp/collections", icon: Banknote },
+      { label: "Returns", href: "/erp/returns", icon: RotateCcw },
       { label: "Partner Ledger", href: "/erp/partner-ledger", icon: Scale },
     ],
   },
   {
-    title: "CRM",
+    title: "HR & Talent",
+    icon: Users,
+    hub: "/hubs/hr",
     items: [
+      { label: "Hub Overview", href: "/hubs/hr", icon: LayoutDashboard },
+      { label: "HR & Payroll", href: "/erp/hr", icon: Users },
+      { label: "Jobs", href: "/ats/jobs", icon: Briefcase },
+      { label: "Candidates", href: "/ats/candidates", icon: UserSearch },
+      { label: "Interviews", href: "/ats/interviews", icon: CalendarCheck },
+      { label: "Onboarding", href: "/ats/onboarding", icon: Rocket },
+      { label: "Training", href: "/ats/training", icon: GraduationCap },
+    ],
+  },
+  {
+    title: "Supply Chain",
+    icon: Truck,
+    hub: "/hubs/supply-chain",
+    items: [
+      { label: "Hub Overview", href: "/hubs/supply-chain", icon: LayoutDashboard },
+      { label: "Supply Chain", href: "/supply-chain", icon: Truck },
+      { label: "Procurement", href: "/erp/procurement", icon: ShoppingCart },
+      { label: "Inventory", href: "/erp/inventory", icon: Package },
+    ],
+  },
+  {
+    title: "CRM Sales",
+    icon: TrendingUp,
+    hub: "/hubs/crm",
+    items: [
+      { label: "Hub Overview", href: "/hubs/crm", icon: LayoutDashboard },
       { label: "Accounts", href: "/crm/accounts", icon: Building2 },
       { label: "Contacts", href: "/crm/contacts", icon: Contact },
       { label: "Leads", href: "/crm/leads", icon: Sparkles },
@@ -103,6 +132,12 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Campaigns", href: "/crm/campaigns", icon: Megaphone },
       { label: "Tickets", href: "/crm/tickets", icon: LifeBuoy },
       { label: "Loyalty", href: "/crm/loyalty", icon: Heart },
+    ],
+  },
+  {
+    title: "Field Operations",
+    icon: MapPin,
+    items: [
       { label: "Business Units", href: "/crm/business-units", icon: Building },
       { label: "Medical Reps", href: "/crm/medical-rep", icon: UserCheck },
       { label: "District Manager", href: "/crm/district-manager", icon: Users },
@@ -115,35 +150,34 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: "ATS",
+    title: "Quality & Compliance",
+    icon: ShieldCheck,
+    hub: "/hubs/quality",
     items: [
-      { label: "Jobs", href: "/ats/jobs", icon: Briefcase },
-      { label: "Candidates", href: "/ats/candidates", icon: UserSearch },
-      { label: "Interviews", href: "/ats/interviews", icon: CalendarCheck },
-      { label: "Onboarding", href: "/ats/onboarding", icon: Rocket },
-      { label: "Training", href: "/ats/training", icon: GraduationCap },
-    ],
-  },
-  {
-    title: "Supply Chain",
-    items: [
-      { label: "Supply Chain", href: "/supply-chain", icon: Truck },
+      { label: "Hub Overview", href: "/hubs/quality", icon: LayoutDashboard },
       { label: "QA / QC", href: "/qaqc", icon: CheckSquare },
+      { label: "Safety", href: "/safety", icon: ShieldCheck },
+      { label: "Compliance", href: "/compliance", icon: Scale },
     ],
   },
   {
     title: "Operations",
+    icon: Factory,
     items: [
-      { label: "Safety", href: "/safety", icon: ShieldCheck },
-      { label: "Compliance", href: "/compliance", icon: Scale },
+      { label: "Projects", href: "/erp/projects", icon: FolderKanban },
+      { label: "Assets", href: "/erp/assets", icon: Monitor },
+      { label: "Manufacturing", href: "/erp/manufacturing", icon: Factory },
       { label: "Facility", href: "/facility", icon: Wrench },
       { label: "Planning", href: "/planning", icon: Target },
       { label: "Industry", href: "/industry", icon: Factory },
     ],
   },
   {
-    title: "System",
+    title: "Tools & Admin",
+    icon: Settings,
+    hub: "/hubs/tools",
     items: [
+      { label: "Hub Overview", href: "/hubs/tools", icon: LayoutDashboard },
       { label: "Spreadsheet", href: "/spreadsheet", icon: Table2 },
       { label: "Data Upload", href: "/data-upload", icon: Upload },
       { label: "Data Migration", href: "/data-migration", icon: Database },
@@ -179,7 +213,10 @@ export function Sidebar({
     return pathname === href || pathname.startsWith(href + "/");
   }
 
-  // Filter nav sections by current user's allowed routes
+  function sectionHasActive(section: NavSection): boolean {
+    return section.items.some((item) => isActive(item.href));
+  }
+
   const visibleSections: NavSection[] = NAV_SECTIONS
     .map((section) => ({
       ...section,
@@ -200,6 +237,7 @@ export function Sidebar({
           collapsed={collapsed}
           onCollapsedChange={onCollapsedChange}
           isActive={isActive}
+          sectionHasActive={sectionHasActive}
           sections={visibleSections}
         />
       </aside>
@@ -215,6 +253,7 @@ export function Sidebar({
           collapsed={false}
           onCollapsedChange={() => {}}
           isActive={isActive}
+          sectionHasActive={sectionHasActive}
           sections={visibleSections}
           onMobileClose={onMobileClose}
           isMobile
@@ -228,6 +267,7 @@ interface SidebarContentProps {
   collapsed: boolean;
   onCollapsedChange: (v: boolean) => void;
   isActive: (href: string) => boolean;
+  sectionHasActive: (section: NavSection) => boolean;
   sections: NavSection[];
   onMobileClose?: () => void;
   isMobile?: boolean;
@@ -237,10 +277,29 @@ function SidebarContent({
   collapsed,
   onCollapsedChange,
   isActive,
+  sectionHasActive,
   sections,
   onMobileClose,
   isMobile,
 }: SidebarContentProps) {
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+    sections.forEach((s) => {
+      if (sectionHasActive(s)) initial.add(s.title);
+    });
+    if (initial.size === 0) initial.add("Main");
+    return initial;
+  });
+
+  const toggleSection = (title: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(title)) next.delete(title);
+      else next.add(title);
+      return next;
+    });
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Logo */}
@@ -278,54 +337,84 @@ function SidebarContent({
 
       {/* Scrollable nav */}
       <nav className="flex-1 overflow-y-auto py-3 scrollbar-thin">
-        {sections.map((section) => (
-          <div key={section.title} className="mb-1">
-            {!collapsed && (
-              <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500 select-none">
-                {section.title}
-              </p>
-            )}
-            {collapsed && (
-              <div className="my-1 mx-3 border-t border-slate-800" />
-            )}
+        {sections.map((section) => {
+          const isExpanded = expandedSections.has(section.title);
+          const hasActive = sectionHasActive(section);
+          const isCollapsible = section.title !== "Main";
 
-            <ul>
-              {section.items.map((item) => {
-                const active = isActive(item.href);
-                const Icon = item.icon;
+          return (
+            <div key={section.title} className="mb-0.5">
+              {!collapsed && isCollapsible ? (
+                <button
+                  onClick={() => toggleSection(section.title)}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider select-none transition-colors",
+                    hasActive
+                      ? "text-blue-400"
+                      : "text-slate-500 hover:text-slate-300"
+                  )}
+                >
+                  <ChevronDown
+                    className={cn(
+                      "h-3 w-3 transition-transform duration-200",
+                      !isExpanded && "-rotate-90"
+                    )}
+                  />
+                  <span className="truncate">{section.title}</span>
+                  {section.hub && (
+                    <span className="ml-auto text-[9px] font-normal text-slate-600 tracking-normal normal-case">
+                      Hub
+                    </span>
+                  )}
+                </button>
+              ) : !collapsed ? (
+                <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500 select-none">
+                  {section.title}
+                </p>
+              ) : (
+                <div className="my-1 mx-3 border-t border-slate-800" />
+              )}
 
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      title={collapsed ? item.label : undefined}
-                      className={cn(
-                        "group flex items-center gap-3 mx-2 rounded-md text-sm font-medium transition-all duration-150",
-                        collapsed ? "justify-center px-0 py-2.5" : "px-3 py-2",
-                        active
-                          ? "bg-blue-600 text-white shadow-sm shadow-blue-900/40"
-                          : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
-                      )}
-                    >
-                      <Icon
-                        className={cn(
-                          "shrink-0 transition-colors",
-                          collapsed ? "h-5 w-5" : "h-4 w-4",
-                          active
-                            ? "text-white"
-                            : "text-slate-400 group-hover:text-slate-200"
-                        )}
-                      />
-                      {!collapsed && (
-                        <span className="truncate">{item.label}</span>
-                      )}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+              {(collapsed || !isCollapsible || isExpanded) && (
+                <ul>
+                  {section.items.map((item) => {
+                    const active = isActive(item.href);
+                    const Icon = item.icon;
+
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          title={collapsed ? item.label : undefined}
+                          className={cn(
+                            "group flex items-center gap-3 mx-2 rounded-md text-sm font-medium transition-all duration-150",
+                            collapsed ? "justify-center px-0 py-2.5" : "px-3 py-1.5",
+                            active
+                              ? "bg-blue-600 text-white shadow-sm shadow-blue-900/40"
+                              : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                          )}
+                        >
+                          <Icon
+                            className={cn(
+                              "shrink-0 transition-colors",
+                              collapsed ? "h-5 w-5" : "h-4 w-4",
+                              active
+                                ? "text-white"
+                                : "text-slate-400 group-hover:text-slate-200"
+                            )}
+                          />
+                          {!collapsed && (
+                            <span className="truncate">{item.label}</span>
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          );
+        })}
       </nav>
 
       {/* Collapse toggle (desktop only) */}

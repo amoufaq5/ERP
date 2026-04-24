@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ShieldAlert, Home, ArrowLeft } from "lucide-react";
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
@@ -16,7 +17,22 @@ const ALWAYS_ALLOWED = [
 
 export function AccessGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/";
+  const router = useRouter();
   const { user, canAccess } = useCurrentUser();
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+    setAuthChecked(true);
+  }, [router]);
+
+  if (!authChecked) {
+    return null;
+  }
 
   // Normalize: strip query strings and trailing slashes
   const path = pathname.split("?")[0].replace(/\/$/, "") || "/";
