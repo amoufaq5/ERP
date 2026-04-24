@@ -12,6 +12,7 @@ import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
 import StatusBadge from "@/components/shared/status-badge";
 import type { Column } from "@/components/shared/data-table";
+import { useDataStore } from "@/lib/data-store";
 
 interface Contact {
   id: string;
@@ -56,6 +57,7 @@ const FILTER_FIELDS = [
 ];
 
 export default function ContactsPage() {
+  const store = useDataStore();
   const [contacts, setContacts] = useState<Contact[]>(INITIAL_CONTACTS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "" });
   const [showModal, setShowModal] = useState(false);
@@ -199,6 +201,23 @@ export default function ContactsPage() {
                 <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={detailContact.status} /></p></div>
                 <div><span className="text-sm text-muted-foreground">Created</span><p className="font-medium">{detailContact.createdAt}</p></div>
               </div>
+              {/* Cross-module: ERP customer data */}
+              {(() => {
+                if (!detailContact.account) return null;
+                const matchedCustomer = store.customers.find(c => c.name === detailContact.account);
+                const relatedInvoices = matchedCustomer ? store.invoices.filter(i => i.customerId === matchedCustomer.id) : [];
+                return matchedCustomer ? (
+                  <div className="pt-3 border-t">
+                    <h4 className="text-sm font-semibold mb-2">ERP Customer Data — {matchedCustomer.name}</h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div><span className="text-muted-foreground">Outstanding</span><p className="font-medium">EGP {matchedCustomer.outstanding.toLocaleString()}</p></div>
+                      <div><span className="text-muted-foreground">Credit Limit</span><p className="font-medium">EGP {matchedCustomer.creditLimit.toLocaleString()}</p></div>
+                      <div><span className="text-muted-foreground">Invoices</span><p className="font-medium">{relatedInvoices.length} ({relatedInvoices.filter(i => i.status === "PAID").length} paid)</p></div>
+                      <div><span className="text-muted-foreground">Payment Terms</span><p className="font-medium">{matchedCustomer.paymentTerms}</p></div>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
             </div>
           )}
         </DialogContent>

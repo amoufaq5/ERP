@@ -528,7 +528,7 @@ export default function ProcurementPage() {
               items: String(data.items ?? po.items),
               qty: String(data.qty ?? po.qty),
               unitPrice: String(data.unitPrice ?? po.unitPrice),
-              total: String(data.total ? `$${Number(data.total).toLocaleString()}` : po.total),
+              total: String(data.total ? `EGP ${Number(data.total).toLocaleString()}` : po.total),
               expectedDate: String(data.expectedDate ?? po.expectedDate),
             } : po));
             setEditingPO(null);
@@ -540,7 +540,7 @@ export default function ProcurementPage() {
               items: String(data.items ?? ""),
               qty: String(data.qty ?? ""),
               unitPrice: String(data.unitPrice ?? ""),
-              total: data.total ? `$${Number(data.total).toLocaleString()}` : "EGP 0",
+              total: data.total ? `EGP ${Number(data.total).toLocaleString()}` : "EGP 0",
               orderDate: new Date().toISOString().split("T")[0],
               expectedDate: String(data.expectedDate ?? ""),
               status: "Pending Approval",

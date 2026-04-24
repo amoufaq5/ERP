@@ -235,7 +235,7 @@ function getDisplayValue(cell: CellData | undefined, data: SheetData): string {
     const result = evaluateFormula(cell.formula, data);
     const num = typeof result === "number" ? result : parseFloat(String(result));
     if (!isNaN(num)) {
-      if (cell.format === "currency") return `$${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      if (cell.format === "currency") return `EGP ${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       if (cell.format === "percent") return `${(num * 100).toFixed(1)}%`;
       if (cell.format === "number") return num.toLocaleString();
       if (Number.isInteger(num)) return String(num);
@@ -245,7 +245,7 @@ function getDisplayValue(cell: CellData | undefined, data: SheetData): string {
   }
   const num = parseFloat(cell.value);
   if (!isNaN(num) && cell.value.trim() !== "") {
-    if (cell.format === "currency") return `$${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (cell.format === "currency") return `EGP ${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     if (cell.format === "percent") return `${(num * 100).toFixed(1)}%`;
     if (cell.format === "number") return num.toLocaleString();
   }

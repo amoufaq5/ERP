@@ -12,6 +12,7 @@ import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
 import StatusBadge from "@/components/shared/status-badge";
 import type { Column } from "@/components/shared/data-table";
+import { useDataStore } from "@/lib/data-store";
 
 type Priority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "PENDING" | "RESOLVED" | "CLOSED";
@@ -86,6 +87,7 @@ function PriorityBadge({ priority }: { priority: Priority }) {
 }
 
 export default function TicketsPage() {
+  const store = useDataStore();
   const [tickets, setTickets] = useState<SupportTicket[]>(INITIAL_TICKETS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", priority: "" });
   const [showModal, setShowModal] = useState(false);
@@ -242,6 +244,23 @@ export default function TicketsPage() {
                     </div>
                   </div>
                 </div>
+                {/* Cross-module: ERP customer data */}
+                {(() => {
+                  const matchedCustomer = store.customers.find(c => c.name === detailTicket.account);
+                  const relatedInvoices = matchedCustomer ? store.invoices.filter(i => i.customerId === matchedCustomer.id) : [];
+                  const overdueInvoices = relatedInvoices.filter(i => i.status === "OVERDUE");
+                  return matchedCustomer ? (
+                    <div className="pt-3 border-t">
+                      <h4 className="text-sm font-semibold mb-2">ERP Customer Data — {matchedCustomer.name}</h4>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div><span className="text-muted-foreground">Customer Status</span><p className="font-medium">{matchedCustomer.status}</p></div>
+                        <div><span className="text-muted-foreground">Outstanding</span><p className="font-medium">EGP {matchedCustomer.outstanding.toLocaleString()}</p></div>
+                        <div><span className="text-muted-foreground">Invoices</span><p className="font-medium">{relatedInvoices.length} total ({overdueInvoices.length} overdue)</p></div>
+                        <div><span className="text-muted-foreground">Payment Terms</span><p className="font-medium">{matchedCustomer.paymentTerms}</p></div>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
               </div>
             );
           })()}

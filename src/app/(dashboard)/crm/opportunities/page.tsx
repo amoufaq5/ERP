@@ -11,6 +11,7 @@ import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
+import { useDataStore } from "@/lib/data-store";
 
 type Stage = "PROSPECTING" | "QUALIFICATION" | "PROPOSAL" | "NEGOTIATION" | "CLOSED_WON" | "CLOSED_LOST";
 
@@ -70,6 +71,7 @@ function StageBadge({ stage }: { stage: Stage }) {
 }
 
 export default function OpportunitiesPage() {
+  const store = useDataStore();
   const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES);
   const [view, setView] = useState<"kanban" | "table">("kanban");
   const [filters, setFilters] = useState<FilterState>({ _search: "", stage: "" });
@@ -291,6 +293,22 @@ export default function OpportunitiesPage() {
                     <div className="h-full rounded-full bg-blue-500" style={{ width: `${detailOpp.probability}%` }} />
                   </div>
                 </div>
+                {/* Cross-module: ERP customer data */}
+                {(() => {
+                  const matchedCustomer = store.customers.find(c => c.name === detailOpp.account);
+                  const relatedInvoices = matchedCustomer ? store.invoices.filter(i => i.customerId === matchedCustomer.id) : [];
+                  return matchedCustomer ? (
+                    <div className="pt-3 border-t">
+                      <h4 className="text-sm font-semibold mb-2">ERP Customer Data — {matchedCustomer.name}</h4>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div><span className="text-muted-foreground">Outstanding</span><p className="font-medium">EGP {matchedCustomer.outstanding.toLocaleString()}</p></div>
+                        <div><span className="text-muted-foreground">Credit Limit</span><p className="font-medium">EGP {matchedCustomer.creditLimit.toLocaleString()}</p></div>
+                        <div><span className="text-muted-foreground">Invoices</span><p className="font-medium">{relatedInvoices.length} ({relatedInvoices.filter(i => i.status === "PAID").length} paid)</p></div>
+                        <div><span className="text-muted-foreground">Payment Terms</span><p className="font-medium">{matchedCustomer.paymentTerms}</p></div>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
                 {/* Stage Progress Visualization */}
                 <div>
                   <h4 className="text-sm font-semibold mb-3">Stage Progress</h4>

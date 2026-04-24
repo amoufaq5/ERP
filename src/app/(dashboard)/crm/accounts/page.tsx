@@ -111,7 +111,7 @@ export default function AccountsPage() {
     { key: "type", label: "Type", render: (v) => <TypeBadge type={v as AccountType} /> },
     { key: "phone", label: "Phone" },
     { key: "city", label: "City" },
-    { key: "revenue", label: "Revenue", render: (v) => <span className="font-medium">${((v as number) / 1000000).toFixed(1)}M</span> },
+    { key: "revenue", label: "Revenue", render: (v) => <span className="font-medium">EGP {((v as number) / 1000000).toFixed(1)}M</span> },
     { key: "owner", label: "Owner" },
     { key: "status", label: "Status", render: (v) => <StatusBadge status={v as string} /> },
     { key: "createdAt", label: "Created" },
@@ -146,7 +146,7 @@ export default function AccountsPage() {
         <StatsCard title="Total Accounts" value={totalAccounts} subtitle="All account types" icon={<Building2 className="w-5 h-5" />} trend={{ value: 5, label: "vs last month" }} />
         <StatsCard title="Customers" value={customers} subtitle="Active paying customers" icon={<Users className="w-5 h-5" />} />
         <StatsCard title="Prospects" value={prospects} subtitle="In evaluation phase" icon={<TrendingUp className="w-5 h-5" />} />
-        <StatsCard title="Total Revenue" value={`$${(totalRevenue / 1000000).toFixed(0)}M`} subtitle="Customer accounts only" icon={<DollarSign className="w-5 h-5" />} trend={{ value: 9, label: "vs last year" }} />
+        <StatsCard title="Total Revenue" value={`EGP ${(totalRevenue / 1000000).toFixed(0)}M`} subtitle="Customer accounts only" icon={<DollarSign className="w-5 h-5" />} trend={{ value: 9, label: "vs last year" }} />
       </div>
 
       <div className="bg-card rounded-xl border border-border shadow-sm">
