@@ -32,7 +32,7 @@ const workflowFields: EntityField[] = [
 
 const initialWorkflows: Workflow[] = [
   { id: "1", name: "Auto-assign new leads", module: "CRM", trigger: "When a new lead is created", conditions: "Lead source is WEB or SOCIAL", actions: "Assign to next available sales rep", isActive: true, runCount: 342, lastRun: "5 min ago" },
-  { id: "2", name: "Invoice overdue reminder", module: "ERP", trigger: "When invoice is 7 days past due", conditions: "Invoice status is SENT and amount > $500", actions: "Send email reminder to customer", isActive: true, runCount: 156, lastRun: "2 hours ago" },
+  { id: "2", name: "Invoice overdue reminder", module: "ERP", trigger: "When invoice is 7 days past due", conditions: "Invoice status is SENT and amount > EGP 500", actions: "Send email reminder to customer", isActive: true, runCount: 156, lastRun: "2 hours ago" },
   { id: "3", name: "Ticket SLA escalation", module: "CRM", trigger: "When ticket SLA deadline approaches", conditions: "Priority is HIGH or CRITICAL, 2 hours before deadline", actions: "Escalate to manager, send notification", isActive: true, runCount: 89, lastRun: "1 hour ago" },
   { id: "4", name: "New hire onboarding tasks", module: "ATS", trigger: "When candidate status changes to HIRED", conditions: "All offer requirements met", actions: "Create onboarding checklist, assign IT setup tasks", isActive: true, runCount: 28, lastRun: "1 day ago" },
   { id: "5", name: "Low stock alert", module: "ERP", trigger: "When product quantity falls below reorder level", conditions: "Product status is ACTIVE", actions: "Send alert to procurement team, create draft PO", isActive: false, runCount: 412, lastRun: "3 days ago" },

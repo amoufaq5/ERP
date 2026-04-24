@@ -185,7 +185,7 @@ export default function PlanningPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Budget</p>
-                <p className="text-2xl font-bold">$18.95M</p>
+                <p className="text-2xl font-bold">EGP 18.95M</p>
               </div>
               <DollarSign className="h-8 w-8 text-muted-foreground" />
             </div>

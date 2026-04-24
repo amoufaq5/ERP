@@ -586,7 +586,7 @@ export default function SupplyChainPage() {
                 <CardTitle className="text-sm font-medium">Total Annual Spend</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">$15.0M</div>
+                <div className="text-2xl font-bold">EGP 15.0M</div>
                 <p className="text-xs text-muted-foreground mt-1">+3.2% vs. prior year</p>
               </CardContent>
             </Card>
@@ -595,7 +595,7 @@ export default function SupplyChainPage() {
                 <CardTitle className="text-sm font-medium">Cost Savings YTD</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">$1.24M</div>
+                <div className="text-2xl font-bold text-green-600">EGP 1.24M</div>
                 <p className="text-xs text-muted-foreground mt-1">8.3% savings rate achieved</p>
               </CardContent>
             </Card>

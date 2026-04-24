@@ -296,7 +296,7 @@ export default function MarketeerPage() {
 
         <TabsContent value="reports">
           <div className="grid gap-4 md:grid-cols-3">
-            <Card><CardHeader><CardTitle className="text-sm">YTD Sales</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">$4.2M</div><div className="text-xs text-green-600 mt-1">+14% vs LY</div></CardContent></Card>
+            <Card><CardHeader><CardTitle className="text-sm">YTD Sales</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">EGP 4.2M</div><div className="text-xs text-green-600 mt-1">+14% vs LY</div></CardContent></Card>
             <Card><CardHeader><CardTitle className="text-sm">Target Achievement</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">92%</div><div className="text-xs text-muted-foreground mt-1">YTD</div></CardContent></Card>
             <Card><CardHeader><CardTitle className="text-sm">Field Force ROI</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">3.8x</div><div className="text-xs text-green-600 mt-1">Above benchmark</div></CardContent></Card>
           </div>

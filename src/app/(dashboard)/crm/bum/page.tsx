@@ -315,7 +315,7 @@ export default function BUMPage() {
                   <div className="flex justify-between"><span className="text-muted-foreground">Avg Tenure</span><span className="font-bold">3.8 yrs</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Top Region</span><span className="font-bold text-green-600">North</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Bottom Region</span><span className="font-bold text-red-600">West</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">YTD Sales</span><span className="font-bold">$4.2M</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">YTD Sales</span><span className="font-bold">EGP 4.2M</span></div>
                 </div>
               </CardContent>
             </Card>
