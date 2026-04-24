@@ -23,11 +23,13 @@ import {
   Layers,
   Lock,
   Workflow,
+  Eye,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
@@ -202,6 +204,7 @@ export default function EcosystemPage() {
   const [mpFilters, setMpFilters] = useState<FilterState>({ _search: "", category: "" })
   const [tplFilters, setTplFilters] = useState<FilterState>({ _search: "", type: "" })
   const [mpApps, setMpApps] = useState(marketplaceApps)
+  const [viewItem, setViewItem] = useState<any>(null)
 
   const filteredApps = mpApps.filter((app) => {
     if (mpFilters.category && app.category !== mpFilters.category) return false;
@@ -376,12 +379,16 @@ export default function EcosystemPage() {
                   { key: "records", label: "Records" },
                   { key: "apiCalls", label: "API Calls" },
                   { key: "lastSync", label: "Last Sync" },
-                  { key: "actions", label: "Actions", render: () => (
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm"><RefreshCw className="h-3 w-3" /></Button>
-                      <Button variant="ghost" size="sm"><Settings className="h-3 w-3" /></Button>
-                    </div>
-                  )},
+                  { key: "actions", label: "Actions", render: (_v, row) => {
+                    const integration = row as unknown as typeof activeIntegrations[0];
+                    return (
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => setViewItem({ _kind: "integration", ...integration })}><Eye className="h-3 w-3" /></Button>
+                        <Button variant="ghost" size="sm"><RefreshCw className="h-3 w-3" /></Button>
+                        <Button variant="ghost" size="sm"><Settings className="h-3 w-3" /></Button>
+                      </div>
+                    );
+                  }},
                 ] as Column<Record<string, unknown>>[]}
                 data={activeIntegrations as unknown as Record<string, unknown>[]}
                 exportable exportFilename="ecosystem.csv" emptyMessage="No active integrations."
@@ -414,6 +421,7 @@ export default function EcosystemPage() {
                     const field = row as unknown as typeof customFields[0];
                     return (
                       <EditDeleteMenu
+                        onView={() => setViewItem({ _kind: "field", ...field })}
                         onEdit={() => setModal({ kind: "field", editing: field })}
                         onDelete={() => setCustomFields((prev) => prev.filter((f) => f.id !== field.id))}
                         itemLabel={field.name}
@@ -452,6 +460,7 @@ export default function EcosystemPage() {
                     const wf = row as unknown as typeof workflows[0];
                     return (
                       <EditDeleteMenu
+                        onView={() => setViewItem({ _kind: "workflow", ...wf })}
                         onEdit={() => setModal({ kind: "workflow", editing: wf })}
                         onDelete={() => setWorkflows((prev) => prev.filter((w) => w.id !== wf.id))}
                         itemLabel={wf.name}
@@ -611,6 +620,7 @@ export default function EcosystemPage() {
                     const role = row as unknown as typeof roles[0];
                     return role.editable ? (
                       <EditDeleteMenu
+                        onView={() => setViewItem({ _kind: "role", ...role })}
                         onEdit={() => setModal({ kind: "role", editing: role })}
                         onDelete={() => setRoles((prev) => prev.filter((r) => r.id !== role.id))}
                         itemLabel={role.name}
@@ -675,6 +685,54 @@ export default function EcosystemPage() {
           setModal(null);
         }}
       />
+
+      {/* Detail View Dialog */}
+      <Dialog open={!!viewItem} onOpenChange={(o) => !o && setViewItem(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewItem?.name}</DialogTitle>
+          </DialogHeader>
+          {viewItem?._kind === "field" && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Module</span><p className="font-medium">{viewItem.module}</p></div>
+              <div><span className="text-sm text-muted-foreground">Field Name</span><p className="font-medium">{viewItem.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Required</span><p className="font-medium">{viewItem.required ? "Yes" : "No"}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Options / Range</span><p className="font-medium">{viewItem.options || "—"}</p></div>
+            </div>
+          )}
+          {viewItem?._kind === "workflow" && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Workflow Name</span><p className="font-medium">{viewItem.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Trigger</span><p className="font-medium">{viewItem.trigger}</p></div>
+              <div><span className="text-sm text-muted-foreground">Actions</span><p className="font-medium">{viewItem.actions} steps</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Total Runs</span><p className="font-medium">{Number(viewItem.runs).toLocaleString()}</p></div>
+              <div><span className="text-sm text-muted-foreground">Last Run</span><p className="font-medium">{viewItem.lastRun}</p></div>
+            </div>
+          )}
+          {viewItem?._kind === "role" && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Role Name</span><p className="font-medium">{viewItem.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Users</span><p className="font-medium">{viewItem.users}</p></div>
+              <div><span className="text-sm text-muted-foreground">Permissions</span><p className="font-medium">{viewItem.permissions}</p></div>
+              <div><span className="text-sm text-muted-foreground">Editable</span><p className="font-medium">{viewItem.editable ? "Yes" : "No"}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewItem.description}</p></div>
+            </div>
+          )}
+          {viewItem?._kind === "integration" && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Service</span><p className="font-medium">{viewItem.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Health</span><p className="font-medium">{viewItem.health}</p></div>
+              <div><span className="text-sm text-muted-foreground">Direction</span><p className="font-medium">{viewItem.direction}</p></div>
+              <div><span className="text-sm text-muted-foreground">Records</span><p className="font-medium">{viewItem.records}</p></div>
+              <div><span className="text-sm text-muted-foreground">API Calls</span><p className="font-medium">{viewItem.apiCalls}</p></div>
+              <div><span className="text-sm text-muted-foreground">Last Sync</span><p className="font-medium">{viewItem.lastSync}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

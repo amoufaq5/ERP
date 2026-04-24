@@ -12,6 +12,7 @@ import type { Column } from "@/components/shared/data-table";
 import { downloadCSV } from "@/lib/download";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
+import { useDataStore } from "@/lib/data-store";
 
 type LeadStatus = "NEW" | "CONTACTED" | "QUALIFIED" | "PROPOSAL" | "NEGOTIATION" | "CLOSED_WON" | "CLOSED_LOST" | "NURTURING";
 type LeadSource = "WEBSITE" | "REFERRAL" | "COLD_CALL" | "EMAIL" | "SOCIAL_MEDIA" | "TRADE_SHOW" | "PARTNER";
@@ -116,6 +117,7 @@ function StatusBadge({ status }: { status: LeadStatus }) {
 }
 
 export default function LeadsPage() {
+  const store = useDataStore();
   const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", source: "" });
   const [showModal, setShowModal] = useState(false);
@@ -333,7 +335,7 @@ export default function LeadsPage() {
                 <div><span className="text-sm text-muted-foreground">Company</span><p className="font-medium">{detailLead.company || "—"}</p></div>
                 <div><span className="text-sm text-muted-foreground">Source</span><p className="font-medium">{detailLead.source.replace(/_/g, " ")}</p></div>
                 <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={detailLead.status} /></p></div>
-                <div><span className="text-sm text-muted-foreground">Estimated Value</span><p className="font-medium">${detailLead.value.toLocaleString()}</p></div>
+                <div><span className="text-sm text-muted-foreground">Estimated Value</span><p className="font-medium">EGP {detailLead.value.toLocaleString()}</p></div>
                 <div><span className="text-sm text-muted-foreground">Assigned To</span><p className="font-medium">{detailLead.assignedTo}</p></div>
                 <div><span className="text-sm text-muted-foreground">Created</span><p className="font-medium">{detailLead.createdAt}</p></div>
               </div>
@@ -347,6 +349,38 @@ export default function LeadsPage() {
                   <div className={`h-full rounded-full ${detailLead.score >= 80 ? "bg-green-500" : detailLead.score >= 60 ? "bg-yellow-500" : "bg-red-400"}`} style={{ width: `${detailLead.score}%` }} />
                 </div>
               </div>
+              {detailLead.status === "CLOSED_WON" && (
+                <div className="pt-2 border-t">
+                  <span className="text-sm text-muted-foreground">Cross-Module Actions</span>
+                  {store.customers.some(c => c.name === detailLead.company) ? (
+                    <p className="text-sm text-green-600 font-medium mt-1">Customer record exists for {detailLead.company}</p>
+                  ) : (
+                    <Button
+                      className="mt-2 w-full"
+                      onClick={() => {
+                        store.add("customers", {
+                          id: store.genId("cust"),
+                          code: `C-${String(store.customers.length + 1).padStart(3, "0")}`,
+                          name: detailLead.company || `${detailLead.firstName} ${detailLead.lastName}`,
+                          type: "Pharmacy Chain",
+                          email: detailLead.email,
+                          phone: "",
+                          address: "",
+                          creditLimit: detailLead.value,
+                          outstanding: 0,
+                          currency: "EGP",
+                          paymentTerms: "Net 30",
+                          status: "ACTIVE",
+                          createdAt: new Date().toISOString().split("T")[0],
+                        });
+                      }}
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      Create Customer Record
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

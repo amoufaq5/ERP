@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Calendar, Clock, CheckCircle, Star, Plus } from "lucide-react";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
@@ -11,6 +11,7 @@ import { EntityFormModal, type EntityField } from "@/components/shared/entity-fo
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
+import { useDataStore } from "@/lib/data-store";
 
 interface Interview {
   id: number;
@@ -68,34 +69,7 @@ function StarRating({ rating }: { rating: number | null }) {
   );
 }
 
-const INTERVIEW_FIELDS: EntityField[] = [
-  { name: "candidate", label: "Candidate", type: "text", placeholder: "Dr. Ahmed Mohamed", required: true },
-  { name: "job", label: "Position", type: "select", required: true, options: [
-    { label: "Medical Representative", value: "Medical Representative" },
-    { label: "District Sales Manager", value: "District Sales Manager" },
-    { label: "Quality Control Analyst", value: "Quality Control Analyst" },
-    { label: "Production Pharmacist", value: "Production Pharmacist" },
-    { label: "R&D Formulation Scientist", value: "R&D Formulation Scientist" },
-    { label: "Regulatory Affairs Specialist", value: "Regulatory Affairs Specialist" },
-    { label: "Pharmacovigilance Officer", value: "Pharmacovigilance Officer" },
-    { label: "Clinical Research Associate", value: "Clinical Research Associate" },
-  ]},
-  { name: "type", label: "Interview Type", type: "select", defaultValue: "TECHNICAL", options: [
-    { label: "Phone Screen", value: "PHONE_SCREEN" }, { label: "Technical", value: "TECHNICAL" },
-    { label: "Behavioral", value: "BEHAVIORAL" }, { label: "Panel", value: "PANEL" },
-    { label: "Field Assessment", value: "FIELD_ASSESSMENT" }, { label: "Practical Lab Test", value: "PRACTICAL_LAB" },
-    { label: "Case Study / PV", value: "CASE_STUDY" }, { label: "Plant Visit", value: "PLANT_VISIT" },
-  ]},
-  { name: "interviewer", label: "Interviewer", type: "text", placeholder: "Interviewer name" },
-  { name: "interviewerRole", label: "Interviewer Role", type: "text", placeholder: "e.g. QC Lab Manager", fullWidth: true },
-  { name: "date", label: "Date", type: "text", placeholder: "YYYY-MM-DD" },
-  { name: "time", label: "Time", type: "text", placeholder: "HH:MM" },
-  { name: "duration", label: "Duration (min)", type: "select", defaultValue: "60", options: [
-    { label: "30 minutes", value: "30" }, { label: "45 minutes", value: "45" },
-    { label: "60 minutes", value: "60" }, { label: "90 minutes", value: "90" },
-    { label: "120 minutes (Lab/Plant)", value: "120" },
-  ]},
-];
+// INTERVIEW_FIELDS is now computed inside the component to use store data
 
 const FILTER_FIELDS = [
   { key: "status", label: "Status", type: "select" as const, options: [
@@ -113,12 +87,33 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 const WEEK_DATES = ["2026-04-13", "2026-04-14", "2026-04-15", "2026-04-16", "2026-04-17"];
 
 export default function InterviewsPage() {
+  const store = useDataStore();
   const [interviews, setInterviews] = useState<Interview[]>(INITIAL_INTERVIEWS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", type: "" });
   const [view, setView] = useState<"table" | "calendar">("table");
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Interview | null>(null);
   const [detailInterview, setDetailInterview] = useState<Interview | null>(null);
+
+  const interviewFields: EntityField[] = useMemo(() => [
+    { name: "candidate", label: "Candidate", type: "select" as const, required: true, options: store.candidates.map(c => ({ label: c.name, value: c.name })) },
+    { name: "job", label: "Position", type: "select" as const, required: true, options: store.jobs.filter(j => j.status === "OPEN").map(j => ({ label: j.title, value: j.title })) },
+    { name: "type", label: "Interview Type", type: "select" as const, defaultValue: "TECHNICAL", options: [
+      { label: "Phone Screen", value: "PHONE_SCREEN" }, { label: "Technical", value: "TECHNICAL" },
+      { label: "Behavioral", value: "BEHAVIORAL" }, { label: "Panel", value: "PANEL" },
+      { label: "Field Assessment", value: "FIELD_ASSESSMENT" }, { label: "Practical Lab Test", value: "PRACTICAL_LAB" },
+      { label: "Case Study / PV", value: "CASE_STUDY" }, { label: "Plant Visit", value: "PLANT_VISIT" },
+    ]},
+    { name: "interviewer", label: "Interviewer", type: "text" as const, placeholder: "Interviewer name" },
+    { name: "interviewerRole", label: "Interviewer Role", type: "text" as const, placeholder: "e.g. QC Lab Manager", fullWidth: true },
+    { name: "date", label: "Date", type: "text" as const, placeholder: "YYYY-MM-DD" },
+    { name: "time", label: "Time", type: "text" as const, placeholder: "HH:MM" },
+    { name: "duration", label: "Duration (min)", type: "select" as const, defaultValue: "60", options: [
+      { label: "30 minutes", value: "30" }, { label: "45 minutes", value: "45" },
+      { label: "60 minutes", value: "60" }, { label: "90 minutes", value: "90" },
+      { label: "120 minutes (Lab/Plant)", value: "120" },
+    ]},
+  ], [store.candidates, store.jobs]);
 
   const filtered = interviews.filter((i) => {
     const q = (filters._search || "").toLowerCase();
@@ -299,7 +294,7 @@ export default function InterviewsPage() {
         open={showModal}
         onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null); } }}
         title={editing ? "Edit Interview" : "Schedule Pharma Interview"}
-        fields={INTERVIEW_FIELDS}
+        fields={interviewFields}
         initialData={editing ? { candidate: editing.candidate, job: editing.job, type: editing.type, interviewer: editing.interviewer, interviewerRole: editing.interviewerRole, date: editing.date, time: editing.time, duration: String(editing.duration) } : undefined}
         onSubmit={(data) => {
           if (editing) {
@@ -372,6 +367,23 @@ export default function InterviewsPage() {
                   <StarRating rating={detailInterview.rating} />
                 </div>
               </div>
+              {/* Cross-reference: Candidate status from ATS store */}
+              {(() => {
+                const storeCandidate = store.candidates.find(c => c.name === detailInterview.candidate);
+                if (!storeCandidate) return null;
+                return (
+                  <div className="rounded-lg bg-muted/50 border border-border p-3 space-y-1">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">ATS Candidate Record</span>
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="text-foreground font-medium">{storeCandidate.name}</span>
+                      <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-xs font-semibold">
+                        {storeCandidate.status}
+                      </span>
+                      <span className="text-muted-foreground">Applied for: {storeCandidate.appliedFor}</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </DialogContent>

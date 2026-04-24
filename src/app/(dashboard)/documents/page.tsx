@@ -4,6 +4,7 @@ import { useState } from "react"
 import { FileText, File, Upload, Plus, FolderOpen } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
@@ -61,6 +62,7 @@ export default function DocumentsPage() {
   const [editing, setEditing] = useState<Doc | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [filters, setFilters] = useState<FilterState>({ _search: "", type: "", module: "" })
+  const [viewItem, setViewItem] = useState<Doc | null>(null)
 
   const filtered = docs.filter((d) => {
     if (filters.type && d.type !== filters.type) return false
@@ -83,6 +85,7 @@ export default function DocumentsPage() {
     { key: "date", label: "Date" },
     { key: "actions", label: "", render: (_v, row) => (
       <EditDeleteMenu
+        onView={() => setViewItem(row as unknown as Doc)}
         onEdit={() => { setEditing(row as unknown as Doc); setShowModal(true) }}
         onDelete={() => setDocs(prev => prev.filter(x => x.id !== row.id))}
         itemLabel={String(row.name)}
@@ -149,6 +152,25 @@ export default function DocumentsPage() {
           setEditing(null)
         }}
       />
+
+      {/* Detail View Dialog */}
+      <Dialog open={!!viewItem} onOpenChange={(o) => !o && setViewItem(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewItem?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <div><span className="text-sm text-muted-foreground">Document Name</span><p className="font-medium">{viewItem?.name}</p></div>
+            <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem?.type}</p></div>
+            <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{viewItem?.category}</p></div>
+            <div><span className="text-sm text-muted-foreground">Module</span><p className="font-medium">{viewItem?.module}</p></div>
+            <div><span className="text-sm text-muted-foreground">Size</span><p className="font-medium">{viewItem?.size}</p></div>
+            <div><span className="text-sm text-muted-foreground">Uploaded By</span><p className="font-medium">{viewItem?.uploadedBy}</p></div>
+            <div><span className="text-sm text-muted-foreground">Version</span><p className="font-medium">v{viewItem?.version}</p></div>
+            <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewItem?.date}</p></div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

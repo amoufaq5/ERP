@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   UserPlus, CheckSquare, TrendingUp, BarChart2, Plus, ShieldCheck, FlaskConical, Pill,
 } from "lucide-react";
@@ -14,6 +14,7 @@ import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { Column } from "@/components/shared/data-table";
+import { useDataStore } from "@/lib/data-store";
 
 interface OnboardingEmployee {
   id: number;
@@ -94,14 +95,7 @@ const DEPARTMENT_ICONS: Record<string, typeof Pill> = {
   "Medical Affairs": ShieldCheck,
 };
 
-const TASK_FIELDS: EntityField[] = [
-  { name: "employee", label: "Employee", type: "select", required: true, options: INITIAL_EMPLOYEES.map((e) => ({ label: e.name, value: e.name })) },
-  { name: "task", label: "Task Description", type: "text", placeholder: "Describe the onboarding task", required: true, fullWidth: true },
-  { name: "category", label: "Category", type: "select", required: true, options: CATEGORIES.map((c) => ({ label: c.replace(/_/g, " "), value: c })) },
-  { name: "assignedTo", label: "Assigned To", type: "text", placeholder: "Person or team responsible" },
-  { name: "dueDate", label: "Due Date", type: "text", placeholder: "YYYY-MM-DD" },
-  { name: "status", label: "Status", type: "select", defaultValue: "PENDING", options: STATUSES.map((s) => ({ label: s.replace(/_/g, " "), value: s })) },
-];
+// TASK_FIELDS is now computed inside the component to use store data
 
 const FILTER_FIELDS = [
   { key: "status", label: "Status", type: "select" as const, options: STATUSES.map((s) => ({ label: s.replace(/_/g, " "), value: s })) },
@@ -111,12 +105,34 @@ const FILTER_FIELDS = [
 const taskStatusFlow: Record<string, OnboardingTask["status"]> = { PENDING: "IN_PROGRESS", IN_PROGRESS: "COMPLETED" };
 
 export default function OnboardingPage() {
+  const store = useDataStore();
   const [employees] = useState<OnboardingEmployee[]>(INITIAL_EMPLOYEES);
   const [tasks, setTasks] = useState<OnboardingTask[]>(INITIAL_TASKS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", category: "" });
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<OnboardingTask | null>(null);
   const [detailTask, setDetailTask] = useState<OnboardingTask | null>(null);
+
+  // Build employee options from local onboarding list + store candidates (hired status)
+  const employeeOptions = useMemo(() => {
+    const localNames = new Set(INITIAL_EMPLOYEES.map(e => e.name));
+    const storeNames = store.candidates
+      .filter(c => c.status === "HIRED" && !localNames.has(c.name))
+      .map(c => ({ label: c.name, value: c.name }));
+    return [
+      ...INITIAL_EMPLOYEES.map(e => ({ label: e.name, value: e.name })),
+      ...storeNames,
+    ];
+  }, [store.candidates]);
+
+  const taskFields: EntityField[] = useMemo(() => [
+    { name: "employee", label: "Employee", type: "select" as const, required: true, options: employeeOptions },
+    { name: "task", label: "Task Description", type: "text" as const, placeholder: "Describe the onboarding task", required: true, fullWidth: true },
+    { name: "category", label: "Category", type: "select" as const, required: true, options: CATEGORIES.map((c) => ({ label: c.replace(/_/g, " "), value: c })) },
+    { name: "assignedTo", label: "Assigned To", type: "text" as const, placeholder: "Person or team responsible" },
+    { name: "dueDate", label: "Due Date", type: "text" as const, placeholder: "YYYY-MM-DD" },
+    { name: "status", label: "Status", type: "select" as const, defaultValue: "PENDING", options: STATUSES.map((s) => ({ label: s.replace(/_/g, " "), value: s })) },
+  ], [employeeOptions]);
 
   const totalHires = employees.length;
   const inProgress = employees.filter((e) => e.progress < 100).length;
@@ -258,7 +274,7 @@ export default function OnboardingPage() {
         open={showModal}
         onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null); } }}
         title={editing ? "Edit Task" : "Add Onboarding Task"}
-        fields={TASK_FIELDS}
+        fields={taskFields}
         initialData={editing ? { employee: editing.employee, task: editing.task, category: editing.category, assignedTo: editing.assignedTo, dueDate: editing.dueDate, status: editing.status } : undefined}
         onSubmit={(data) => {
           if (editing) {
@@ -321,6 +337,26 @@ export default function OnboardingPage() {
                   <span className="text-sm text-muted-foreground">Task Description</span>
                   <p className="font-medium mt-1">{detailTask.task}</p>
                 </div>
+                {/* Cross-reference: HR module employee record */}
+                {(() => {
+                  const hrEmployee = store.employees.find(e => e.name === detailTask.employee);
+                  return (
+                    <div className="rounded-lg bg-muted/50 border border-border p-3 space-y-1">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">HR Module Record</span>
+                      {hrEmployee ? (
+                        <div className="flex items-center gap-3 text-sm">
+                          <span className="text-foreground font-medium">{hrEmployee.name}</span>
+                          <span className="inline-flex items-center rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 px-2.5 py-0.5 text-xs font-semibold">
+                            {hrEmployee.status}
+                          </span>
+                          <span className="text-muted-foreground">{hrEmployee.department} &middot; {hrEmployee.position}</span>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Not yet added to HR module</p>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}

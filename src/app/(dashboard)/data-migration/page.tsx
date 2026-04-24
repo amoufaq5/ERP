@@ -27,6 +27,7 @@ import {
   RotateCcw,
   Plus,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
@@ -179,6 +180,7 @@ export default function DataMigrationPage() {
   const [sources, setSources] = useState(dataSources);
   const [modal, setModal] = useState<ModalMode>(null);
   const [jobFilters, setJobFilters] = useState<FilterState>({ _search: "", status: "" });
+  const [viewItem, setViewItem] = useState<any>(null);
 
   const filteredJobs = jobs.filter((j) => {
     if (jobFilters.status && j.status !== jobFilters.status) return false;
@@ -375,6 +377,7 @@ export default function DataMigrationPage() {
                   const job = row as unknown as MigrationJob;
                   return (
                     <EditDeleteMenu
+                      onView={() => setViewItem({ _kind: "job", ...job })}
                       onEdit={() => setModal({ kind: "job", editing: job })}
                       onDelete={() => setJobs((prev) => prev.filter((j) => j.id !== job.id))}
                       itemLabel={job.name}
@@ -433,6 +436,7 @@ export default function DataMigrationPage() {
                         {source.status === "connected" ? "Connected" : "Disconnected"}
                       </Badge>
                       <EditDeleteMenu
+                        onView={() => setViewItem({ _kind: "source", ...source })}
                         onEdit={() => setModal({ kind: "source", editing: source })}
                         onDelete={() => setSources((prev) => prev.filter((s) => s.id !== source.id))}
                         itemLabel={source.name}

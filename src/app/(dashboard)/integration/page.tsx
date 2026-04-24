@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Activity, ArrowDownUp, CheckCircle2, Clock, Database, Link2, Plus, RefreshCw, Server, ShieldCheck, Wifi, WifiOff, XCircle, Zap } from "lucide-react";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
@@ -136,6 +137,7 @@ export default function IntegrationPage() {
   const [modal, setModal] = useState<ModalMode>(null);
   const [connFilters, setConnFilters] = useState<FilterState>({ _search: "", status: "" });
   const [flowFilters, setFlowFilters] = useState<FilterState>({ _search: "", status: "" });
+  const [viewItem, setViewItem] = useState<any>(null);
 
   const filteredConns = connections.filter((c) => {
     if (connFilters.status && c.status !== connFilters.status) return false;
@@ -232,6 +234,7 @@ export default function IntegrationPage() {
                   <div className="flex items-center gap-1">
                     {c.status === "connected" ? <Wifi className="h-4 w-4 text-green-500" /> : <WifiOff className="h-4 w-4 text-destructive" />}
                     <EditDeleteMenu
+                      onView={() => setViewItem({ _kind: "connection", ...c })}
                       onEdit={() => setModal({ kind: "connection", editing: c })}
                       onDelete={() => setConnections((prev) => prev.filter((x) => x.name !== c.name))}
                       itemLabel={c.name}
@@ -295,6 +298,7 @@ export default function IntegrationPage() {
                       const f = row as unknown as DataFlow;
                       return (
                         <EditDeleteMenu
+                          onView={() => setViewItem({ _kind: "flow", ...f })}
                           onEdit={() => setModal({ kind: "flow", editing: f })}
                           onDelete={() => setFlows((prev) => prev.filter((x) => x.id !== f.id))}
                           itemLabel={f.id}
@@ -382,6 +386,35 @@ export default function IntegrationPage() {
           setModal(null);
         }}
       />
+
+      {/* Detail View Dialog */}
+      <Dialog open={!!viewItem} onOpenChange={(o) => !o && setViewItem(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewItem?.name || viewItem?.id}</DialogTitle>
+          </DialogHeader>
+          {viewItem?._kind === "connection" && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Connection Name</span><p className="font-medium">{viewItem.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Latency</span><p className="font-medium">{viewItem.latency}</p></div>
+            </div>
+          )}
+          {viewItem?._kind === "flow" && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Flow ID</span><p className="font-medium">{viewItem.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Source</span><p className="font-medium">{viewItem.source}</p></div>
+              <div><span className="text-sm text-muted-foreground">Destination</span><p className="font-medium">{viewItem.dest}</p></div>
+              <div><span className="text-sm text-muted-foreground">Frequency</span><p className="font-medium">{viewItem.frequency}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Last Run</span><p className="font-medium">{viewItem.lastRun}</p></div>
+              <div><span className="text-sm text-muted-foreground">Records</span><p className="font-medium">{viewItem.records}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
