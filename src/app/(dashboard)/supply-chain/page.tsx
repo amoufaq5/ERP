@@ -522,14 +522,14 @@ export default function SupplyChainPage() {
                   { key: "spend", label: "Outstanding" },
                   { key: "status", label: "Status", render: (v: string) => supplierStatusBadge(v) },
                   { key: "risk", label: "Risk", render: (v: string) => riskBadge(v) },
-                  { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
-                    const s = row as unknown as typeof supplierList[0];
+                  { key: "actions", label: "", render: (_: unknown, row: Record<string, unknown>) => {
+                    const s = row as unknown as SupplierRow;
                     return (
                       <EditDeleteMenu
                         onView={() => setViewSupplier(s)}
                         canView
-                        onEdit={() => setModal({ type: "supplier", editing: s })}
-                        onDelete={() => setSupplierList(prev => prev.filter(x => x.id !== s.id))}
+                        onEdit={() => setViewSupplier(s)}
+                        onDelete={() => {}}
                         itemLabel={s.name}
                       />
                     );
@@ -610,7 +610,7 @@ export default function SupplyChainPage() {
           <Card>
             <CardHeader>
               <CardTitle>Inventory Levels</CardTitle>
-              <CardDescription>Current stock positions and reorder planning</CardDescription>
+              <CardDescription>Stock positions derived from the product catalog with reorder planning</CardDescription>
             </CardHeader>
             <CardContent>
               <DataTable
@@ -809,20 +809,20 @@ export default function SupplyChainPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Top Suppliers by Spend</CardTitle>
+                <CardTitle>Top Vendors by Outstanding</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {[...supplierList].sort((a: SupplierRow, b: SupplierRow) => parseFloat(b.spend.replace(/[EGPMK, ]/g, "")) - parseFloat(a.spend.replace(/[EGPMK, ]/g, ""))).slice(0, 5).map((s: SupplierRow, i: number) => (
-                    <div key={s.id} className="flex items-center justify-between border-b pb-2 last:border-0">
+                  {[...store.vendors].sort((a, b) => b.outstanding - a.outstanding).slice(0, 5).map((v, i) => (
+                    <div key={v.id} className="flex items-center justify-between border-b pb-2 last:border-0">
                       <div className="flex items-center gap-3">
                         <span className="text-muted-foreground text-sm w-5">{i + 1}.</span>
                         <div>
-                          <p className="font-medium text-sm">{s.name}</p>
-                          <p className="text-xs text-muted-foreground">{s.category}</p>
+                          <p className="font-medium text-sm">{v.name}</p>
+                          <p className="text-xs text-muted-foreground">{v.category}</p>
                         </div>
                       </div>
-                      <span className="font-medium text-sm">{s.spend}</span>
+                      <span className="font-medium text-sm">EGP {v.outstanding.toLocaleString()}</span>
                     </div>
                   ))}
                 </div>
@@ -1148,44 +1148,134 @@ export default function SupplyChainPage() {
 
       {/* ── Purchase Order Detail Dialog ── */}
       <Dialog open={!!viewPO} onOpenChange={(o) => !o && setViewPO(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Purchase Order {viewPO?.id}</DialogTitle>
           </DialogHeader>
-          {viewPO && (
-            <div className="grid grid-cols-2 gap-4 py-4">
-              <div><span className="text-sm text-muted-foreground">PO Number</span><p className="font-medium font-mono">{viewPO.id}</p></div>
-              <div><span className="text-sm text-muted-foreground">Supplier</span><p className="font-medium">{viewPO.supplier}</p></div>
-              <div><span className="text-sm text-muted-foreground">Items</span><p className="font-medium">{viewPO.items}</p></div>
-              <div><span className="text-sm text-muted-foreground">Total</span><p className="font-semibold text-lg">{viewPO.total}</p></div>
-              <div><span className="text-sm text-muted-foreground">Order Date</span><p className="font-medium">{viewPO.ordered}</p></div>
-              <div><span className="text-sm text-muted-foreground">ETA</span><p className="font-medium">{viewPO.eta}</p></div>
-              <div><span className="text-sm text-muted-foreground">Status</span><p>{poStatusBadge(viewPO.status)}</p></div>
-              <div><span className="text-sm text-muted-foreground">Priority</span><p><Badge variant={viewPO.priority === "High" ? "destructive" : viewPO.priority === "Medium" ? "secondary" : "outline"}>{viewPO.priority}</Badge></p></div>
-            </div>
-          )}
+          {viewPO && (() => {
+            const vendor = store.vendors.find(v => v.name === viewPO.supplier);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">PO Number</span><p className="font-medium font-mono">{viewPO.id}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Supplier</span><p className="font-medium">{viewPO.supplier}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Items</span><p className="font-medium">{viewPO.items}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Total</span><p className="font-semibold text-lg">{viewPO.total}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Order Date</span><p className="font-medium">{viewPO.ordered}</p></div>
+                  <div><span className="text-sm text-muted-foreground">ETA</span><p className="font-medium">{viewPO.eta}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p>{poStatusBadge(viewPO.status)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Priority</span><p><Badge variant={viewPO.priority === "High" ? "destructive" : viewPO.priority === "Medium" ? "secondary" : "outline"}>{viewPO.priority}</Badge></p></div>
+                </div>
+                {vendor && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Vendor Details (from store)</h4>
+                    <div className="border rounded-lg p-3 grid grid-cols-2 gap-3 text-sm">
+                      <div><span className="text-muted-foreground">Code</span><p className="font-mono font-medium">{vendor.code}</p></div>
+                      <div><span className="text-muted-foreground">Category</span><p className="font-medium">{vendor.category}</p></div>
+                      <div><span className="text-muted-foreground">GMP Certified</span><p><Badge variant={vendor.gmpCertified ? "default" : "secondary"}>{vendor.gmpCertified ? "Yes" : "No"}</Badge></p></div>
+                      <div><span className="text-muted-foreground">Payment Terms</span><p className="font-medium">{vendor.paymentTerms}</p></div>
+                      <div><span className="text-muted-foreground">Outstanding</span><p className="font-medium">EGP {vendor.outstanding.toLocaleString()}</p></div>
+                      <div><span className="text-muted-foreground">Contact</span><p className="font-medium">{vendor.email}</p></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
       {/* ── Supplier Detail Dialog ── */}
       <Dialog open={!!viewSupplier} onOpenChange={(o) => !o && setViewSupplier(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{viewSupplier?.name}</DialogTitle>
           </DialogHeader>
-          {viewSupplier && (
-            <div className="grid grid-cols-2 gap-4 py-4">
-              <div><span className="text-sm text-muted-foreground">Supplier ID</span><p className="font-medium font-mono">{viewSupplier.id}</p></div>
-              <div><span className="text-sm text-muted-foreground">Name</span><p className="font-medium">{viewSupplier.name}</p></div>
-              <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{viewSupplier.category}</p></div>
-              <div><span className="text-sm text-muted-foreground">Location</span><p className="font-medium">{viewSupplier.location}</p></div>
-              <div><span className="text-sm text-muted-foreground">Rating</span><p className={`font-medium ${viewSupplier.rating >= 4.5 ? "text-green-600" : "text-amber-600"}`}>{viewSupplier.rating}/5</p></div>
-              <div><span className="text-sm text-muted-foreground">On-Time Delivery</span><p className="font-medium">{viewSupplier.onTime}</p></div>
-              <div><span className="text-sm text-muted-foreground">Annual Spend</span><p className="font-medium">{viewSupplier.spend}</p></div>
-              <div><span className="text-sm text-muted-foreground">Status</span><p>{supplierStatusBadge(viewSupplier.status)}</p></div>
-              <div><span className="text-sm text-muted-foreground">Risk Level</span><p>{riskBadge(viewSupplier.risk)}</p></div>
-            </div>
-          )}
+          {viewSupplier && (() => {
+            const vendor = store.vendors.find(v => v.name === viewSupplier.name);
+            const supplierPOs = pos.filter(po => po.supplier === viewSupplier.name);
+            const relatedPayments = vendor ? store.payments.filter(p => p.vendorId === vendor.id) : [];
+            const supplierContracts = contractList.filter(c => c.supplier === viewSupplier.name);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Vendor Code</span><p className="font-medium font-mono">{viewSupplier.id}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Name</span><p className="font-medium">{viewSupplier.name}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{viewSupplier.category}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Location</span><p className="font-medium">{viewSupplier.location}</p></div>
+                  <div><span className="text-sm text-muted-foreground">GMP Certified</span><p><Badge variant={viewSupplier.gmpCertified ? "default" : "secondary"}>{viewSupplier.gmpCertified ? "Yes" : "No"}</Badge></p></div>
+                  <div><span className="text-sm text-muted-foreground">On-Time Delivery</span><p className="font-medium">{viewSupplier.onTime}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Outstanding</span><p className="font-medium">{viewSupplier.spend}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p>{supplierStatusBadge(viewSupplier.status)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Risk Level</span><p>{riskBadge(viewSupplier.risk)}</p></div>
+                  {vendor && (
+                    <>
+                      <div><span className="text-sm text-muted-foreground">Payment Terms</span><p className="font-medium">{vendor.paymentTerms}</p></div>
+                      <div><span className="text-sm text-muted-foreground">Phone</span><p className="font-medium">{vendor.phone}</p></div>
+                      <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{vendor.email}</p></div>
+                    </>
+                  )}
+                </div>
+                {supplierPOs.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Purchase Orders ({supplierPOs.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {supplierPOs.map((po) => (
+                        <div key={po.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className="font-mono text-xs font-medium">{po.id}</span>
+                            <span className="text-muted-foreground ml-2">{po.items} items</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{po.total}</span>
+                            {poStatusBadge(po.status)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {relatedPayments.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Payments from Store ({relatedPayments.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {relatedPayments.map((p) => (
+                        <div key={p.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className="font-mono text-xs font-medium">{p.reference}</span>
+                            <span className="text-muted-foreground ml-2">{p.method}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">EGP {p.amount.toLocaleString()}</span>
+                            <span className="text-xs text-muted-foreground">{p.date.split("T")[0]}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {supplierContracts.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Active Contracts ({supplierContracts.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {supplierContracts.map((c) => (
+                        <div key={c.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className="font-mono text-xs font-medium">{c.id}</span>
+                            <span className="text-muted-foreground ml-2">{c.type}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{c.value}</span>
+                            {contractStatusBadge(c.status)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
