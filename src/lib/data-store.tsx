@@ -29,22 +29,77 @@ export interface Product {
   edaRegistration?: string;
 }
 
+// ─── IMS Standard Specialties ────────────────────────────────────────────────
+export const IMS_SPECIALTIES = [
+  "General Practice", "Internal Medicine", "Cardiology", "Endocrinology",
+  "Gastroenterology", "Pulmonology", "Nephrology", "Neurology",
+  "Rheumatology", "Dermatology", "Pediatrics", "Obstetrics & Gynecology",
+  "Orthopedics", "Urology", "Oncology", "Hematology",
+  "Ophthalmology", "ENT", "Psychiatry", "Anesthesiology",
+  "General Surgery", "Cardiothoracic Surgery", "Neurosurgery", "Plastic Surgery",
+  "Emergency Medicine", "Family Medicine", "Geriatrics", "Infectious Disease",
+  "Clinical Pathology", "Radiology", "Physical Medicine", "Dentistry",
+] as const;
+
+export type IMSSpecialty = typeof IMS_SPECIALTIES[number];
+
+// ─── Buying Ladder (doctor adoption stage) ──────────────────────────────────
+export const BUYING_LADDER_STAGES = [
+  "Unaware",         // never heard of the product
+  "Aware",           // knows of the product
+  "Trial",           // prescribed once or twice
+  "Regular",         // prescribes regularly
+  "Champion",        // top prescriber / advocate
+] as const;
+
+export type BuyingLadderStage = typeof BUYING_LADDER_STAGES[number];
+
+// ─── AM Account (hospitals, pharmacies, polyclinics, insurance) ─────────────
+export type AMAccountType = "Hospital" | "Polyclinic" | "Pharmacy" | "Insurance Company";
+
+export interface AMAccount {
+  id: string;
+  name: string;
+  type: AMAccountType;
+  address: string;
+  city: string;
+  phone: string;
+  email?: string;
+  lat: number;
+  lng: number;
+  brickId?: string | null;
+  assignedRepId: string | null;
+  buId?: string | null;
+  contactPerson?: string;
+  notes?: string;
+  status: "Active" | "Inactive";
+  createdAt: string;
+}
+
 export interface Doctor {
   id: string;
   name: string;
-  specialty: string;
+  specialty: IMSSpecialty | string;
   hospital: string;
   city: string;
   phone: string;
   email?: string;
   classification: "A" | "B" | "C" | "D";
+  potentialRevenue?: number;       // estimated monthly Rx value in EGP
+  areaWeight?: number;             // 1-10 scale of importance in the area
+  isKOL: boolean;                  // Key Opinion Leader / HOT list
+  buyingLadderStage: BuyingLadderStage;
   assignedRepId: string | null;
-  visitFrequency: number;       // required visits per month
+  visitFrequency: number;          // required visits per month
   lastVisitAt?: string;
   notes?: string;
   createdAt: string;
-  buId?: string | null;          // which BU "owns" the doctor
-  brickId?: string | null;       // IMS-IQVIA brick assignment
+  buId?: string | null;
+  brickId?: string | null;
+  lat?: number;
+  lng?: number;
+  linkedPharmacyIds: string[];     // 2-3 pharmacy AMAccounts this doctor prescribes to
+  linkedAccountIds?: string[];     // hospital/polyclinic where doctor works
 }
 
 // ─── IMS-IQVIA Territory Hierarchy ──────────────────────────────────────────
@@ -59,19 +114,50 @@ export interface Territory {
   assignedBUIds: string[];        // business units active in this territory
 }
 
+// ─── Starting Points ────────────────────────────────────────────────────────
+export type StartingPointType = "AM" | "PM" | "OFFICE";
+
+export interface StartingPoint {
+  id: string;
+  userId: string;
+  type: StartingPointType;
+  label: string;
+  address: string;
+  lat: number;
+  lng: number;
+}
+
+// ─── Visit ──────────────────────────────────────────────────────────────────
 export type VisitType = "SINGLE" | "DOUBLE";
 export type VisitStatus = "LOGGED" | "APPROVED" | "REJECTED";
+
+export interface SampleGiven {
+  productId: string;
+  quantity: number;
+}
+
+export interface ActivityRequest {
+  id: string;
+  type: RequestType;
+  description: string;
+  status: "PENDING" | "COMPLETED";
+}
 
 export interface Visit {
   id: string;
   repId: string;
   doctorId: string;
+  amAccountId?: string;
   dateTime: string;
   type: VisitType;
-  partnerId?: string;       // when DOUBLE, the senior who joined
+  partnerId?: string;
   durationMin: number;
   productIds: string[];
+  samplesGiven: SampleGiven[];
   samplesDistributed: number;
+  buyingLadderBefore?: BuyingLadderStage;
+  buyingLadderAfter?: BuyingLadderStage;
+  activityRequests: ActivityRequest[];
   notes: string;
   feedback?: string;
   gpsVerified: boolean;
@@ -79,6 +165,42 @@ export interface Visit {
   lng?: number;
   status: VisitStatus;
   buId?: string | null;
+  planId?: string;
+  session: "AM" | "PM";
+}
+
+// ─── Weekly Plan & Daily Plan ───────────────────────────────────────────────
+export type PlanStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
+
+export interface PlannedVisit {
+  doctorId?: string;
+  amAccountId?: string;
+  timeSlot: string;
+  session: "AM" | "PM";
+  visitType: VisitType;
+  partnerId?: string;
+  notes?: string;
+}
+
+export interface DailyPlan {
+  date: string;
+  startingPointAM?: string;
+  startingPointPM?: string;
+  visits: PlannedVisit[];
+}
+
+export interface WeeklyPlan {
+  id: string;
+  repId: string;
+  weekStartDate: string;
+  days: DailyPlan[];
+  status: PlanStatus;
+  submittedAt?: string;
+  approvedById?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
+  notes?: string;
+  createdAt: string;
 }
 
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "BLOCKED";
@@ -369,7 +491,10 @@ export interface DataStoreState {
   products: Product[];
   doctors: Doctor[];
   territories: Territory[];
+  amAccounts: AMAccount[];
+  startingPoints: StartingPoint[];
   visits: Visit[];
+  weeklyPlans: WeeklyPlan[];
   tasks: Task[];
   marketRequests: MarketRequest[];
   customers: Customer[];
@@ -503,21 +628,77 @@ const SEED_TERRITORIES: Territory[] = [
   { id: "brk-maadi-2", name: "Maadi Degla", nameAr: "المعادي دجلة", level: "brick", parentId: "dist-maadi", imsCode: "EG-B009", assignedRepIds: [], assignedBUIds: ["bu-primary"] },
 ];
 
+const SEED_AM_ACCOUNTS: AMAccount[] = [
+  // ── Hospitals ──
+  { id: "am-hosp-001", name: "Cleopatra Hospital", type: "Hospital", address: "El-Nozha, Heliopolis", city: "Cairo", phone: "+20 2 2514 4545", lat: 30.0912, lng: 31.3425, assignedRepId: "u-rep-1", buId: "bu-cardio", contactPerson: "Dr. Hany Aziz", status: "Active", createdAt: daysAgo(365) },
+  { id: "am-hosp-002", name: "Dar Al Fouad Hospital", type: "Hospital", address: "26th July Corridor, 6th October", city: "Giza", phone: "+20 2 3835 4000", lat: 30.0210, lng: 31.0135, assignedRepId: "u-rep-1", buId: "bu-diabetes", contactPerson: "Dr. Sameh Rizk", status: "Active", createdAt: daysAgo(300) },
+  { id: "am-hosp-003", name: "As-Salam International Hospital", type: "Hospital", address: "Corniche El Nil, Maadi", city: "Cairo", phone: "+20 2 2524 0250", lat: 29.9672, lng: 31.2390, assignedRepId: "u-rep-1", buId: "bu-primary", contactPerson: "Dr. Nadia Kamel", status: "Active", createdAt: daysAgo(280) },
+  { id: "am-hosp-004", name: "Ain Shams University Hospital", type: "Hospital", address: "Ramsis St, Abbassia", city: "Cairo", phone: "+20 2 2685 6128", lat: 30.0761, lng: 31.2832, assignedRepId: "u-rep-1", buId: "bu-cardio", contactPerson: "Prof. Ashraf Nour", status: "Active", createdAt: daysAgo(400) },
+  // ── Polyclinics ──
+  { id: "am-poly-001", name: "Heliopolis Medical Center", type: "Polyclinic", address: "El-Hegaz St, Heliopolis", city: "Cairo", phone: "+20 2 2290 3344", lat: 30.0889, lng: 31.3312, assignedRepId: "u-rep-1", buId: "bu-primary", contactPerson: "Dr. Fady Youssef", status: "Active", createdAt: daysAgo(200) },
+  { id: "am-poly-002", name: "Nasr City Specialist Clinic", type: "Polyclinic", address: "Mostafa El-Nahhas St", city: "Cairo", phone: "+20 2 2271 5566", lat: 30.0550, lng: 31.3450, assignedRepId: "u-rep-1", buId: "bu-cardio", contactPerson: "Dr. Rana Ismail", status: "Active", createdAt: daysAgo(180) },
+  { id: "am-poly-003", name: "Dokki Medical Hub", type: "Polyclinic", address: "Tahrir St, Dokki", city: "Giza", phone: "+20 2 3762 1100", lat: 30.0380, lng: 31.2089, assignedRepId: "u-rep-1", buId: "bu-diabetes", contactPerson: "Dr. Wael Abbas", status: "Active", createdAt: daysAgo(160) },
+  // ── Pharmacies ──
+  { id: "am-ph-001", name: "El-Ezaby Pharmacy - Heliopolis", type: "Pharmacy", address: "El-Merghany St, Heliopolis", city: "Cairo", phone: "+20 2 2418 0880", lat: 30.0855, lng: 31.3255, assignedRepId: "u-rep-1", buId: null, contactPerson: "Pharm. Tamer Said", status: "Active", createdAt: daysAgo(500) },
+  { id: "am-ph-002", name: "Seif Pharmacy - Nasr City", type: "Pharmacy", address: "Abbas El-Akkad St", city: "Cairo", phone: "+20 2 2274 1122", lat: 30.0630, lng: 31.3400, assignedRepId: "u-rep-1", buId: null, contactPerson: "Pharm. Mariam Fouad", status: "Active", createdAt: daysAgo(480) },
+  { id: "am-ph-003", name: "Roshdy Pharmacy", type: "Pharmacy", address: "Nozha St, Heliopolis", city: "Cairo", phone: "+20 2 2638 0055", lat: 30.0920, lng: 31.3480, assignedRepId: "u-rep-1", buId: null, contactPerson: "Pharm. Ahmed Roshdy", status: "Active", createdAt: daysAgo(450) },
+  { id: "am-ph-004", name: "El-Ezaby Pharmacy - Dokki", type: "Pharmacy", address: "Dokki Square", city: "Giza", phone: "+20 2 3748 2200", lat: 30.0385, lng: 31.2100, assignedRepId: "u-rep-1", buId: null, contactPerson: "Pharm. Noha Khalil", status: "Active", createdAt: daysAgo(420) },
+  { id: "am-ph-005", name: "Misr Pharmacy - Mohandessin", type: "Pharmacy", address: "Gameat El-Dowal St", city: "Giza", phone: "+20 2 3749 5500", lat: 30.0505, lng: 31.2010, assignedRepId: "u-rep-1", buId: null, contactPerson: "Pharm. Hassan Adly", status: "Active", createdAt: daysAgo(400) },
+  { id: "am-ph-006", name: "Care Pharmacy - Korba", type: "Pharmacy", address: "Baghdad St, Korba", city: "Cairo", phone: "+20 2 2415 7700", lat: 30.0870, lng: 31.3110, assignedRepId: "u-rep-1", buId: null, contactPerson: "Pharm. Dina Samir", status: "Active", createdAt: daysAgo(350) },
+  { id: "am-ph-007", name: "Seif Pharmacy - Maadi", type: "Pharmacy", address: "Road 9, Maadi", city: "Cairo", phone: "+20 2 2359 0088", lat: 29.9600, lng: 31.2555, assignedRepId: "u-rep-1", buId: null, contactPerson: "Pharm. Sherif Nabil", status: "Active", createdAt: daysAgo(380) },
+  { id: "am-ph-008", name: "Al-Amal Pharmacy - Maadi", type: "Pharmacy", address: "Laselky St, Maadi", city: "Cairo", phone: "+20 2 2380 1122", lat: 29.9580, lng: 31.2540, assignedRepId: null, buId: null, contactPerson: "Pharm. Mona Adel", status: "Active", createdAt: daysAgo(300) },
+  // ── Insurance Companies ──
+  { id: "am-ins-001", name: "MetLife Egypt", type: "Insurance Company", address: "Nile City Towers, Corniche", city: "Cairo", phone: "+20 2 2461 9999", lat: 30.0659, lng: 31.2272, assignedRepId: null, buId: null, contactPerson: "Mr. Ehab Fathy", status: "Active", createdAt: daysAgo(500) },
+  { id: "am-ins-002", name: "AXA Egypt", type: "Insurance Company", address: "Smart Village, 6th October", city: "Giza", phone: "+20 2 3537 4000", lat: 30.0718, lng: 31.0190, assignedRepId: null, buId: null, contactPerson: "Ms. Heba Mounir", status: "Active", createdAt: daysAgo(450) },
+];
+
+const SEED_STARTING_POINTS: StartingPoint[] = [
+  { id: "sp-001", userId: "u-rep-1", type: "AM", label: "Home (Nasr City)", address: "Nasr City, Cairo", lat: 30.0511, lng: 31.3656 },
+  { id: "sp-002", userId: "u-rep-1", type: "PM", label: "Heliopolis Hub", address: "El-Merghany St, Heliopolis", lat: 30.0876, lng: 31.3277 },
+  { id: "sp-003", userId: "u-dm-1", type: "AM", label: "Office - Downtown", address: "Talaat Harb St, Downtown Cairo", lat: 30.0444, lng: 31.2357 },
+  { id: "sp-004", userId: "u-dm-1", type: "PM", label: "Home (Maadi)", address: "Road 233, Maadi", lat: 29.9614, lng: 31.2578 },
+  { id: "sp-005", userId: "u-dm-1", type: "OFFICE", label: "Cairo HQ", address: "Smart Village, 6th October", lat: 30.0718, lng: 31.0190 },
+];
+
+const SEED_WEEKLY_PLANS: WeeklyPlan[] = [
+  {
+    id: "wp-001", repId: "u-rep-1", weekStartDate: daysAgo(7),
+    days: [
+      { date: daysAgo(7), startingPointAM: "sp-001", startingPointPM: "sp-002", visits: [
+        { amAccountId: "am-hosp-001", timeSlot: "09:00", session: "AM", visitType: "SINGLE" },
+        { amAccountId: "am-poly-001", timeSlot: "10:30", session: "AM", visitType: "SINGLE" },
+        { doctorId: "dr-001", timeSlot: "14:00", session: "PM", visitType: "SINGLE" },
+        { doctorId: "dr-003", timeSlot: "15:30", session: "PM", visitType: "SINGLE" },
+      ]},
+      { date: daysAgo(6), startingPointAM: "sp-001", startingPointPM: "sp-002", visits: [
+        { amAccountId: "am-hosp-004", timeSlot: "09:00", session: "AM", visitType: "SINGLE" },
+        { doctorId: "dr-005", timeSlot: "14:00", session: "PM", visitType: "SINGLE" },
+        { doctorId: "dr-004", timeSlot: "15:30", session: "PM", visitType: "SINGLE" },
+      ]},
+      { date: daysAgo(5), startingPointAM: "sp-001", startingPointPM: "sp-002", visits: [
+        { amAccountId: "am-hosp-002", timeSlot: "09:00", session: "AM", visitType: "DOUBLE", partnerId: "u-dm-1" },
+        { doctorId: "dr-002", timeSlot: "14:00", session: "PM", visitType: "DOUBLE", partnerId: "u-dm-1" },
+      ]},
+    ],
+    status: "APPROVED", submittedAt: daysAgo(10), approvedById: "u-dm-1", approvedAt: daysAgo(9), createdAt: daysAgo(10),
+  },
+];
+
 const SEED_DOCTORS: Doctor[] = [
-  { id: "dr-001", name: "Dr. Ahmed El-Gamal", specialty: "Cardiology", hospital: "Cleopatra Hospital", city: "Cairo", phone: "+20 100 111 2233", classification: "A", assignedRepId: "u-rep-1", visitFrequency: 4, lastVisitAt: daysAgo(3), createdAt: daysAgo(180), buId: "bu-cardio", brickId: "brk-helio-1" },
-  { id: "dr-002", name: "Dr. Salma Ibrahim", specialty: "Endocrinology", hospital: "Dar Al Fouad", city: "Giza", phone: "+20 100 222 3344", classification: "A", assignedRepId: "u-rep-1", visitFrequency: 4, lastVisitAt: daysAgo(5), createdAt: daysAgo(200), buId: "bu-diabetes", brickId: "brk-dokki-1" },
-  { id: "dr-003", name: "Dr. Mahmoud Adel", specialty: "General Practice", hospital: "Private Clinic", city: "Cairo", phone: "+20 100 333 4455", classification: "B", assignedRepId: "u-rep-1", visitFrequency: 2, lastVisitAt: daysAgo(10), createdAt: daysAgo(150), buId: "bu-primary", brickId: "brk-helio-2" },
-  { id: "dr-004", name: "Dr. Rania Farouk", specialty: "Pediatrics", hospital: "As-Salam Hospital", city: "Cairo", phone: "+20 100 444 5566", classification: "A", assignedRepId: "u-rep-1", visitFrequency: 4, lastVisitAt: daysAgo(2), createdAt: daysAgo(190), buId: "bu-primary", brickId: "brk-nasr-1" },
-  { id: "dr-005", name: "Dr. Khaled Samy", specialty: "Internal Medicine", hospital: "Ain Shams University", city: "Cairo", phone: "+20 100 555 6677", classification: "B", assignedRepId: "u-rep-1", visitFrequency: 2, lastVisitAt: daysAgo(14), createdAt: daysAgo(120), buId: "bu-cardio", brickId: "brk-nasr-2" },
-  { id: "dr-006", name: "Dr. Youssef Hamdi", specialty: "Cardiology", hospital: "Nasser Institute", city: "Cairo", phone: "+20 100 666 7788", classification: "B", assignedRepId: null, visitFrequency: 2, createdAt: daysAgo(90), buId: "bu-cardio", brickId: "brk-helio-3" },
-  { id: "dr-007", name: "Dr. Maha Gabr", specialty: "Endocrinology", hospital: "Maadi Military Hospital", city: "Cairo", phone: "+20 100 777 8899", classification: "C", assignedRepId: null, visitFrequency: 1, createdAt: daysAgo(60), buId: "bu-diabetes", brickId: "brk-maadi-1" },
-  { id: "dr-008", name: "Dr. Tarek Shaker", specialty: "General Practice", hospital: "Family Clinic", city: "Giza", phone: "+20 100 888 9900", classification: "C", assignedRepId: null, visitFrequency: 1, createdAt: daysAgo(45), buId: "bu-primary", brickId: "brk-dokki-2" },
+  { id: "dr-001", name: "Dr. Ahmed El-Gamal", specialty: "Cardiology", hospital: "Cleopatra Hospital", city: "Cairo", phone: "+20 100 111 2233", classification: "A", potentialRevenue: 85000, areaWeight: 9, isKOL: true, buyingLadderStage: "Champion", assignedRepId: "u-rep-1", visitFrequency: 4, lastVisitAt: daysAgo(3), createdAt: daysAgo(180), buId: "bu-cardio", brickId: "brk-helio-1", lat: 30.0912, lng: 31.3425, linkedPharmacyIds: ["am-ph-001", "am-ph-002", "am-ph-003"] },
+  { id: "dr-002", name: "Dr. Salma Ibrahim", specialty: "Endocrinology", hospital: "Dar Al Fouad", city: "Giza", phone: "+20 100 222 3344", classification: "A", potentialRevenue: 72000, areaWeight: 8, isKOL: true, buyingLadderStage: "Regular", assignedRepId: "u-rep-1", visitFrequency: 4, lastVisitAt: daysAgo(5), createdAt: daysAgo(200), buId: "bu-diabetes", brickId: "brk-dokki-1", lat: 30.0380, lng: 31.2089, linkedPharmacyIds: ["am-ph-004", "am-ph-005"] },
+  { id: "dr-003", name: "Dr. Mahmoud Adel", specialty: "General Practice", hospital: "Private Clinic", city: "Cairo", phone: "+20 100 333 4455", classification: "B", potentialRevenue: 35000, areaWeight: 5, isKOL: false, buyingLadderStage: "Trial", assignedRepId: "u-rep-1", visitFrequency: 2, lastVisitAt: daysAgo(10), createdAt: daysAgo(150), buId: "bu-primary", brickId: "brk-helio-2", lat: 30.0876, lng: 31.3277, linkedPharmacyIds: ["am-ph-001", "am-ph-006"] },
+  { id: "dr-004", name: "Dr. Rania Farouk", specialty: "Pediatrics", hospital: "As-Salam Hospital", city: "Cairo", phone: "+20 100 444 5566", classification: "A", potentialRevenue: 62000, areaWeight: 7, isKOL: false, buyingLadderStage: "Regular", assignedRepId: "u-rep-1", visitFrequency: 4, lastVisitAt: daysAgo(2), createdAt: daysAgo(190), buId: "bu-primary", brickId: "brk-nasr-1", lat: 30.0626, lng: 31.3410, linkedPharmacyIds: ["am-ph-007", "am-ph-002"] },
+  { id: "dr-005", name: "Dr. Khaled Samy", specialty: "Internal Medicine", hospital: "Ain Shams University", city: "Cairo", phone: "+20 100 555 6677", classification: "B", potentialRevenue: 40000, areaWeight: 6, isKOL: false, buyingLadderStage: "Aware", assignedRepId: "u-rep-1", visitFrequency: 2, lastVisitAt: daysAgo(14), createdAt: daysAgo(120), buId: "bu-cardio", brickId: "brk-nasr-2", lat: 30.0761, lng: 31.2832, linkedPharmacyIds: ["am-ph-007", "am-ph-003"] },
+  { id: "dr-006", name: "Dr. Youssef Hamdi", specialty: "Cardiology", hospital: "Nasser Institute", city: "Cairo", phone: "+20 100 666 7788", classification: "B", potentialRevenue: 45000, areaWeight: 6, isKOL: true, buyingLadderStage: "Regular", assignedRepId: null, visitFrequency: 2, createdAt: daysAgo(90), buId: "bu-cardio", brickId: "brk-helio-3", lat: 30.0872, lng: 31.3040, linkedPharmacyIds: ["am-ph-001", "am-ph-006"] },
+  { id: "dr-007", name: "Dr. Maha Gabr", specialty: "Endocrinology", hospital: "Maadi Military Hospital", city: "Cairo", phone: "+20 100 777 8899", classification: "C", potentialRevenue: 18000, areaWeight: 3, isKOL: false, buyingLadderStage: "Unaware", assignedRepId: null, visitFrequency: 1, createdAt: daysAgo(60), buId: "bu-diabetes", brickId: "brk-maadi-1", lat: 29.9614, lng: 31.2578, linkedPharmacyIds: ["am-ph-008"] },
+  { id: "dr-008", name: "Dr. Tarek Shaker", specialty: "General Practice", hospital: "Family Clinic", city: "Giza", phone: "+20 100 888 9900", classification: "C", potentialRevenue: 15000, areaWeight: 3, isKOL: false, buyingLadderStage: "Aware", assignedRepId: null, visitFrequency: 1, createdAt: daysAgo(45), buId: "bu-primary", brickId: "brk-dokki-2", lat: 30.0444, lng: 31.2119, linkedPharmacyIds: ["am-ph-004", "am-ph-005"] },
 ];
 
 const SEED_VISITS: Visit[] = [
-  { id: "v-001", repId: "u-rep-1", doctorId: "dr-001", dateTime: daysAgo(3), type: "SINGLE", durationMin: 25, productIds: ["p-cardio-1", "p-cardio-2"], samplesDistributed: 4, notes: "Good reception. Asked about cardio bundle.", gpsVerified: true, lat: 30.0988, lng: 31.3413, status: "APPROVED", buId: "bu-cardio" },
-  { id: "v-002", repId: "u-rep-1", doctorId: "dr-002", dateTime: daysAgo(5), type: "DOUBLE", partnerId: "u-dm-1", durationMin: 40, productIds: ["p-diab-1", "p-diab-2"], samplesDistributed: 6, notes: "Joint visit with DM. Prescribed Diabetex for 3 patients.", gpsVerified: true, lat: 29.9627, lng: 30.9373, status: "APPROVED", buId: "bu-diabetes" },
-  { id: "v-003", repId: "u-rep-1", doctorId: "dr-004", dateTime: daysAgo(2), type: "SINGLE", durationMin: 20, productIds: ["p-prim-2"], samplesDistributed: 8, notes: "New pediatric patient intake is high.", gpsVerified: true, lat: 30.0444, lng: 31.2357, status: "APPROVED", buId: "bu-primary" },
+  { id: "v-001", repId: "u-rep-1", doctorId: "dr-001", dateTime: daysAgo(3), type: "SINGLE", durationMin: 25, productIds: ["p-cardio-1", "p-cardio-2"], samplesGiven: [{ productId: "p-cardio-1", quantity: 3 }, { productId: "p-cardio-2", quantity: 1 }], samplesDistributed: 4, buyingLadderBefore: "Regular", buyingLadderAfter: "Champion", activityRequests: [], notes: "Good reception. Asked about cardio bundle.", gpsVerified: true, lat: 30.0988, lng: 31.3413, status: "APPROVED", buId: "bu-cardio", session: "PM" },
+  { id: "v-002", repId: "u-rep-1", doctorId: "dr-002", dateTime: daysAgo(5), type: "DOUBLE", partnerId: "u-dm-1", durationMin: 40, productIds: ["p-diab-1", "p-diab-2"], samplesGiven: [{ productId: "p-diab-1", quantity: 4 }, { productId: "p-diab-2", quantity: 2 }], samplesDistributed: 6, buyingLadderBefore: "Trial", buyingLadderAfter: "Regular", activityRequests: [{ id: "ar-001", type: "LITERATURE", description: "Clinical studies for Diabetex XR", status: "COMPLETED" }], notes: "Joint visit with DM. Prescribed Diabetex for 3 patients.", gpsVerified: true, lat: 29.9627, lng: 30.9373, status: "APPROVED", buId: "bu-diabetes", session: "PM" },
+  { id: "v-003", repId: "u-rep-1", doctorId: "dr-004", dateTime: daysAgo(2), type: "SINGLE", durationMin: 20, productIds: ["p-prim-2"], samplesGiven: [{ productId: "p-prim-2", quantity: 8 }], samplesDistributed: 8, buyingLadderBefore: "Regular", buyingLadderAfter: "Regular", activityRequests: [{ id: "ar-002", type: "SAMPLE", description: "Need more Paraflu Junior samples", status: "PENDING" }], notes: "New pediatric patient intake is high.", gpsVerified: true, lat: 30.0444, lng: 31.2357, status: "APPROVED", buId: "bu-primary", session: "PM" },
 ];
 
 const SEED_TASKS: Task[] = [
@@ -762,7 +943,10 @@ export const SEED_DATA: DataStoreState = {
   products: SEED_PRODUCTS,
   doctors: SEED_DOCTORS,
   territories: SEED_TERRITORIES,
+  amAccounts: SEED_AM_ACCOUNTS,
+  startingPoints: SEED_STARTING_POINTS,
   visits: SEED_VISITS,
+  weeklyPlans: SEED_WEEKLY_PLANS,
   tasks: SEED_TASKS,
   marketRequests: SEED_MARKET_REQUESTS,
   customers: SEED_CUSTOMERS,

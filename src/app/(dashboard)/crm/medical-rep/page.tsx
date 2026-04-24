@@ -38,6 +38,10 @@ import {
   type Visit,
   type MarketRequest,
   type Territory,
+  type SampleGiven,
+  type ActivityRequest,
+  IMS_SPECIALTIES,
+  BUYING_LADDER_STAGES,
 } from "@/lib/data-store";
 import { useCurrentUser } from "@/lib/user-context";
 
@@ -129,24 +133,55 @@ export default function MedicalRepPage() {
     .filter((u) => u.role === "MEDICAL_REP")
     .map((u) => ({ label: `${u.name} — ${u.territory ?? ""}`, value: u.id }));
 
+  const pharmacyOptions = store.amAccounts
+    .filter((a) => a.type === "Pharmacy")
+    .map((a) => ({ label: `${a.name} — ${a.city}`, value: a.id }));
+  const accountOptions = store.amAccounts
+    .filter((a) => a.type === "Hospital" || a.type === "Polyclinic")
+    .map((a) => ({ label: `${a.name} (${a.type})`, value: a.id }));
+  const brickOptions = store.territories
+    .filter((t) => t.level === "brick")
+    .map((b) => ({ label: `${b.name} (${b.imsCode})`, value: b.id }));
+
   const doctorFields: EntityField[] = [
     { name: "name", label: "Doctor Name", type: "text", required: true, placeholder: "Dr. ..." },
-    { name: "specialty", label: "Specialty", type: "text", required: true },
+    {
+      name: "specialty",
+      label: "Specialty (IMS-IQVIA)",
+      type: "select",
+      required: true,
+      options: IMS_SPECIALTIES.map((s) => ({ label: s, value: s })),
+    },
     { name: "hospital", label: "Hospital / Clinic", type: "text", required: true },
     { name: "city", label: "City", type: "text", required: true },
     { name: "phone", label: "Phone", type: "tel", required: true },
     { name: "email", label: "Email", type: "email" },
     {
       name: "classification",
-      label: "Classification",
+      label: "Classification (revenue + area)",
       type: "select",
       required: true,
       options: [
-        { label: "A - High value", value: "A" },
+        { label: "A - High value KOL", value: "A" },
         { label: "B - Medium value", value: "B" },
         { label: "C - Low value", value: "C" },
         { label: "D - Occasional", value: "D" },
       ],
+    },
+    { name: "potentialRevenue", label: "Monthly Potential Revenue (EGP)", type: "number", defaultValue: 0 },
+    { name: "areaWeight", label: "Area Weight (1-10)", type: "number", defaultValue: 5 },
+    {
+      name: "isKOL",
+      label: "Key Opinion Leader (HOT list)",
+      type: "checkbox",
+      placeholder: "Mark as KOL",
+    },
+    {
+      name: "buyingLadderStage",
+      label: "Buying Ladder Stage",
+      type: "select",
+      options: BUYING_LADDER_STAGES.map((s) => ({ label: s, value: s })),
+      defaultValue: "Aware",
     },
     {
       name: "visitFrequency",
@@ -155,6 +190,27 @@ export default function MedicalRepPage() {
       required: true,
       defaultValue: 2,
     },
+    {
+      name: "linkedPharmacyIds",
+      label: "Linked Pharmacies (2-3 recommended)",
+      type: "multiselect",
+      options: pharmacyOptions,
+      helperText: "Pharmacies where this doctor's prescriptions are typically filled.",
+    },
+    {
+      name: "linkedAccountIds",
+      label: "Hospital / Polyclinic Affiliations",
+      type: "multiselect",
+      options: accountOptions,
+    },
+    {
+      name: "brickId",
+      label: "IMS Brick (Territory)",
+      type: "select",
+      options: brickOptions,
+    },
+    { name: "lat", label: "GPS Latitude", type: "number", placeholder: "30.0444" },
+    { name: "lng", label: "GPS Longitude", type: "number", placeholder: "31.2357" },
     {
       name: "assignedRepId",
       label: "Assigned Rep",
@@ -187,10 +243,20 @@ export default function MedicalRepPage() {
 
   const visitFields: EntityField[] = [
     {
-      name: "doctorId",
-      label: "Doctor",
+      name: "session",
+      label: "Session",
       type: "select",
       required: true,
+      defaultValue: "PM",
+      options: [
+        { label: "AM (Institutions)", value: "AM" },
+        { label: "PM (Doctors)", value: "PM" },
+      ],
+    },
+    {
+      name: "doctorId",
+      label: "Doctor (for PM visits)",
+      type: "select",
       options: doctorVisitOptions,
     },
     {
@@ -225,7 +291,19 @@ export default function MedicalRepPage() {
       type: "multiselect",
       options: productOptions,
     },
-    { name: "samplesDistributed", label: "Samples Distributed", type: "number", defaultValue: 0 },
+    { name: "samplesDistributed", label: "Total Samples Distributed", type: "number", defaultValue: 0 },
+    {
+      name: "buyingLadderBefore",
+      label: "Buying Ladder — Before Visit",
+      type: "select",
+      options: BUYING_LADDER_STAGES.map((s) => ({ label: s, value: s })),
+    },
+    {
+      name: "buyingLadderAfter",
+      label: "Buying Ladder — After Visit",
+      type: "select",
+      options: BUYING_LADDER_STAGES.map((s) => ({ label: s, value: s })),
+    },
     {
       name: "gpsVerified",
       label: "GPS Verified",
@@ -257,11 +335,16 @@ export default function MedicalRepPage() {
       partnerId: data.partnerId ? String(data.partnerId) : undefined,
       durationMin: Number(data.durationMin),
       productIds: (data.productIds as string[]) ?? [],
+      samplesGiven: (data.samplesGiven as unknown as SampleGiven[]) ?? [],
       samplesDistributed: Number(data.samplesDistributed ?? 0),
+      activityRequests: (data.activityRequests as unknown as ActivityRequest[]) ?? [],
+      buyingLadderBefore: data.buyingLadderBefore as Visit["buyingLadderBefore"],
+      buyingLadderAfter: data.buyingLadderAfter as Visit["buyingLadderAfter"],
       notes: String(data.notes ?? ""),
       feedback: data.feedback ? String(data.feedback) : undefined,
       gpsVerified: !!data.gpsVerified,
       status: "LOGGED" as const,
+      session: (data.session as "AM" | "PM") ?? "PM",
       buId: store.doctors.find((d) => d.id === String(data.doctorId))?.buId ?? null,
     };
 
@@ -299,6 +382,15 @@ export default function MedicalRepPage() {
       phone: String(data.phone),
       email: data.email ? String(data.email) : undefined,
       classification: data.classification as "A" | "B" | "C" | "D",
+      potentialRevenue: data.potentialRevenue ? Number(data.potentialRevenue) : undefined,
+      areaWeight: data.areaWeight ? Number(data.areaWeight) : undefined,
+      isKOL: !!data.isKOL,
+      buyingLadderStage: (data.buyingLadderStage as Doctor["buyingLadderStage"]) ?? "Aware",
+      linkedPharmacyIds: (data.linkedPharmacyIds as string[]) ?? [],
+      linkedAccountIds: (data.linkedAccountIds as string[]) ?? [],
+      brickId: data.brickId ? String(data.brickId) : null,
+      lat: data.lat ? Number(data.lat) : undefined,
+      lng: data.lng ? Number(data.lng) : undefined,
       visitFrequency: Number(data.visitFrequency),
       assignedRepId: data.assignedRepId ? String(data.assignedRepId) : null,
       buId: data.buId ? String(data.buId) : null,
@@ -337,6 +429,9 @@ export default function MedicalRepPage() {
         phone: payload.phone!,
         classification: payload.classification!,
         visitFrequency: payload.visitFrequency!,
+        isKOL: payload.isKOL ?? false,
+        buyingLadderStage: payload.buyingLadderStage ?? "Unaware",
+        linkedPharmacyIds: payload.linkedPharmacyIds ?? [],
         createdAt: new Date().toISOString(),
       };
       store.add("doctors", newDoctor);
@@ -415,11 +510,23 @@ export default function MedicalRepPage() {
         />
       </div>
 
-      <Tabs defaultValue="doctors">
-        <TabsList className="grid w-full grid-cols-5 md:w-auto md:inline-flex">
+      <Tabs defaultValue="kpi">
+        <TabsList className="grid w-full grid-cols-8 md:w-auto md:inline-flex">
+          <TabsTrigger value="kpi">
+            <Activity className="h-3.5 w-3.5 mr-1.5" />
+            KPIs
+          </TabsTrigger>
           <TabsTrigger value="mylist">
             <Target className="h-3.5 w-3.5 mr-1.5" />
-            My List
+            My List (PM)
+          </TabsTrigger>
+          <TabsTrigger value="amlist">
+            <Stethoscope className="h-3.5 w-3.5 mr-1.5" />
+            AM Accounts
+          </TabsTrigger>
+          <TabsTrigger value="kol">
+            <Target className="h-3.5 w-3.5 mr-1.5 text-amber-600" />
+            KOL / HOT
           </TabsTrigger>
           <TabsTrigger value="doctors">
             <Stethoscope className="h-3.5 w-3.5 mr-1.5" />
@@ -435,11 +542,21 @@ export default function MedicalRepPage() {
           </TabsTrigger>
           <TabsTrigger value="requests">
             <UserCheck className="h-3.5 w-3.5 mr-1.5" />
-            My Requests
+            Requests
           </TabsTrigger>
         </TabsList>
 
-        {/* My Custom List tab */}
+        {/* KPI Dashboard tab */}
+        <TabsContent value="kpi" className="space-y-4">
+          <KPIDashboard
+            store={store}
+            userId={user.id}
+            allDoctors={myDoctors}
+            allVisits={myVisits}
+          />
+        </TabsContent>
+
+        {/* My Custom List tab (PM = doctors) */}
         <TabsContent value="mylist" className="space-y-4">
           <MyDoctorList
             store={store}
@@ -448,6 +565,16 @@ export default function MedicalRepPage() {
             onAddDoctor={() => setNewDoctorOpen(true)}
             onViewDoctor={setViewDoctor}
           />
+        </TabsContent>
+
+        {/* AM Accounts tab (hospitals/polyclinics/pharmacies/insurance) */}
+        <TabsContent value="amlist" className="space-y-4">
+          <AMAccountsTab store={store} userId={user.id} userRole={user.role} />
+        </TabsContent>
+
+        {/* KOL / HOT list */}
+        <TabsContent value="kol" className="space-y-4">
+          <KOLList allDoctors={myDoctors} territories={store.territories} onViewDoctor={setViewDoctor} />
         </TabsContent>
 
         {/* Doctors tab */}
@@ -749,19 +876,45 @@ export default function MedicalRepPage() {
             <DialogTitle>{viewDoctor?.name}</DialogTitle>
           </DialogHeader>
           {viewDoctor && (
-            <div className="grid grid-cols-2 gap-4 py-4">
-              <div><span className="text-sm text-muted-foreground">Name</span><p className="font-medium">{viewDoctor.name}</p></div>
-              <div><span className="text-sm text-muted-foreground">Specialty</span><p className="font-medium">{viewDoctor.specialty}</p></div>
-              <div><span className="text-sm text-muted-foreground">Hospital</span><p className="font-medium">{viewDoctor.hospital}</p></div>
-              <div><span className="text-sm text-muted-foreground">City</span><p className="font-medium">{viewDoctor.city}</p></div>
-              <div><span className="text-sm text-muted-foreground">Phone</span><p className="font-medium">{viewDoctor.phone}</p></div>
-              <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{viewDoctor.email || "—"}</p></div>
-              <div><span className="text-sm text-muted-foreground">Classification</span><p className="font-medium">{viewDoctor.classification}</p></div>
-              <div><span className="text-sm text-muted-foreground">Visit Frequency</span><p className="font-medium">{viewDoctor.visitFrequency} / month</p></div>
-              <div><span className="text-sm text-muted-foreground">Assigned Rep</span><p className="font-medium">{viewDoctor.assignedRepId ? allUsers.find(u => u.id === viewDoctor.assignedRepId)?.name ?? "—" : "—"}</p></div>
-              <div><span className="text-sm text-muted-foreground">Last Visit</span><p className="font-medium">{viewDoctor.lastVisitAt ? new Date(viewDoctor.lastVisitAt).toLocaleDateString() : "Never"}</p></div>
+            <div className="space-y-4 py-4">
+              {viewDoctor.isKOL && (
+                <Badge className="bg-amber-100 text-amber-800 border-amber-300">KOL — HOT LIST</Badge>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div><span className="text-sm text-muted-foreground">Specialty</span><p className="font-medium">{viewDoctor.specialty}</p></div>
+                <div><span className="text-sm text-muted-foreground">Hospital</span><p className="font-medium">{viewDoctor.hospital}</p></div>
+                <div><span className="text-sm text-muted-foreground">City</span><p className="font-medium">{viewDoctor.city}</p></div>
+                <div><span className="text-sm text-muted-foreground">Phone</span><p className="font-medium">{viewDoctor.phone}</p></div>
+                <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{viewDoctor.email || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Classification</span><p className="font-medium">{viewDoctor.classification}</p></div>
+                <div><span className="text-sm text-muted-foreground">Potential Revenue</span><p className="font-medium">{viewDoctor.potentialRevenue ? `EGP ${viewDoctor.potentialRevenue.toLocaleString()}/mo` : "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Area Weight</span><p className="font-medium">{viewDoctor.areaWeight ?? "—"} / 10</p></div>
+                <div><span className="text-sm text-muted-foreground">Buying Ladder</span><p className="font-medium">
+                  <Badge variant={
+                    viewDoctor.buyingLadderStage === "Champion" ? "success" :
+                    viewDoctor.buyingLadderStage === "Regular" ? "default" :
+                    viewDoctor.buyingLadderStage === "Trial" ? "warning" : "secondary"
+                  }>{viewDoctor.buyingLadderStage}</Badge>
+                </p></div>
+                <div><span className="text-sm text-muted-foreground">Visit Frequency</span><p className="font-medium">{viewDoctor.visitFrequency} / month</p></div>
+                <div><span className="text-sm text-muted-foreground">Assigned Rep</span><p className="font-medium">{viewDoctor.assignedRepId ? allUsers.find(u => u.id === viewDoctor.assignedRepId)?.name ?? "—" : "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Last Visit</span><p className="font-medium">{viewDoctor.lastVisitAt ? new Date(viewDoctor.lastVisitAt).toLocaleDateString() : "Never"}</p></div>
+              </div>
+              {viewDoctor.linkedPharmacyIds && viewDoctor.linkedPharmacyIds.length > 0 && (
+                <div>
+                  <span className="text-sm text-muted-foreground">Linked Pharmacies</span>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {viewDoctor.linkedPharmacyIds.map((pid) => {
+                      const ph = store.amAccounts.find((a) => a.id === pid);
+                      return ph ? (
+                        <Badge key={pid} variant="outline" className="text-xs">{ph.name}</Badge>
+                      ) : null;
+                    })}
+                  </div>
+                </div>
+              )}
               {viewDoctor.notes && (
-                <div className="col-span-2"><span className="text-sm text-muted-foreground">Notes</span><p className="font-medium">{viewDoctor.notes}</p></div>
+                <div><span className="text-sm text-muted-foreground">Notes</span><p className="font-medium">{viewDoctor.notes}</p></div>
               )}
             </div>
           )}
@@ -777,6 +930,7 @@ export default function MedicalRepPage() {
         initialData={
           editingVisit
             ? {
+                session: editingVisit.session,
                 doctorId: editingVisit.doctorId,
                 dateTime: editingVisit.dateTime.slice(0, 16),
                 type: editingVisit.type,
@@ -784,6 +938,8 @@ export default function MedicalRepPage() {
                 durationMin: editingVisit.durationMin,
                 productIds: editingVisit.productIds,
                 samplesDistributed: editingVisit.samplesDistributed,
+                buyingLadderBefore: editingVisit.buyingLadderBefore ?? "",
+                buyingLadderAfter: editingVisit.buyingLadderAfter ?? "",
                 gpsVerified: editingVisit.gpsVerified,
                 notes: editingVisit.notes,
                 feedback: editingVisit.feedback ?? "",
@@ -824,6 +980,15 @@ export default function MedicalRepPage() {
                 phone: doctorBeingEdited.phone,
                 email: doctorBeingEdited.email ?? "",
                 classification: doctorBeingEdited.classification,
+                potentialRevenue: doctorBeingEdited.potentialRevenue ?? 0,
+                areaWeight: doctorBeingEdited.areaWeight ?? 5,
+                isKOL: doctorBeingEdited.isKOL,
+                buyingLadderStage: doctorBeingEdited.buyingLadderStage,
+                linkedPharmacyIds: doctorBeingEdited.linkedPharmacyIds ?? [],
+                linkedAccountIds: doctorBeingEdited.linkedAccountIds ?? [],
+                brickId: doctorBeingEdited.brickId ?? "",
+                lat: doctorBeingEdited.lat ?? 0,
+                lng: doctorBeingEdited.lng ?? 0,
                 visitFrequency: doctorBeingEdited.visitFrequency,
                 assignedRepId: doctorBeingEdited.assignedRepId ?? "",
                 buId: doctorBeingEdited.buId ?? "",
@@ -1125,6 +1290,465 @@ function MyDoctorList({
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+/* ─── AM Accounts Tab Component ─── */
+function AMAccountsTab({
+  store,
+  userId,
+  userRole,
+}: {
+  store: ReturnType<typeof useDataStore>;
+  userId: string;
+  userRole: string;
+}) {
+  const [filterType, setFilterType] = useState<string>("all");
+  const [search, setSearch] = useState("");
+
+  const myAccounts = useMemo(() => {
+    if (userRole === "ADMIN" || userRole === "BUM" || userRole === "MARKETEER") {
+      return store.amAccounts;
+    }
+    return store.amAccounts.filter((a) => a.assignedRepId === userId);
+  }, [store.amAccounts, userId, userRole]);
+
+  const filtered = useMemo(() => {
+    return myAccounts.filter((a) => {
+      if (filterType !== "all" && a.type !== filterType) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        return a.name.toLowerCase().includes(q) || a.address.toLowerCase().includes(q) || a.city.toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [myAccounts, filterType, search]);
+
+  const counts = {
+    Hospital: myAccounts.filter((a) => a.type === "Hospital").length,
+    Polyclinic: myAccounts.filter((a) => a.type === "Polyclinic").length,
+    Pharmacy: myAccounts.filter((a) => a.type === "Pharmacy").length,
+    Insurance: myAccounts.filter((a) => a.type === "Insurance Company").length,
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-emerald-200 bg-emerald-50/50">
+        <CardContent className="pt-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-emerald-100 rounded-lg shrink-0">
+              <Stethoscope className="h-5 w-5 text-emerald-700" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-sm">AM Customer List — Institutional Accounts</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Morning visits cover hospitals, polyclinics, pharmacies, and insurance companies. Every account has a verified GPS location.
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-2xl font-bold text-emerald-700">{myAccounts.length}</p>
+              <p className="text-xs text-emerald-700">AM accounts</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-4 gap-3">
+        <Card><CardContent className="pt-3 pb-3 text-center">
+          <Badge className="bg-blue-100 text-blue-800">Hospitals</Badge>
+          <p className="text-xl font-bold mt-1">{counts.Hospital}</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-3 pb-3 text-center">
+          <Badge className="bg-cyan-100 text-cyan-800">Polyclinics</Badge>
+          <p className="text-xl font-bold mt-1">{counts.Polyclinic}</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-3 pb-3 text-center">
+          <Badge className="bg-emerald-100 text-emerald-800">Pharmacies</Badge>
+          <p className="text-xl font-bold mt-1">{counts.Pharmacy}</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-3 pb-3 text-center">
+          <Badge className="bg-violet-100 text-violet-800">Insurance</Badge>
+          <p className="text-xl font-bold mt-1">{counts.Insurance}</p>
+        </CardContent></Card>
+      </div>
+
+      <div className="flex gap-3 items-center">
+        <Input
+          placeholder="Search accounts..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs text-sm"
+        />
+        <select
+          className="rounded-md border px-3 py-2 text-sm"
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+        >
+          <option value="all">All Types</option>
+          <option value="Hospital">Hospital</option>
+          <option value="Polyclinic">Polyclinic</option>
+          <option value="Pharmacy">Pharmacy</option>
+          <option value="Insurance Company">Insurance Company</option>
+        </select>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          {filtered.length === 0 ? (
+            <p className="p-6 text-center text-sm text-muted-foreground">No AM accounts match your filters.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead><tr className="border-b bg-muted/50">
+                <th className="text-left p-2.5 font-medium">Name</th>
+                <th className="text-left p-2.5 font-medium">Type</th>
+                <th className="text-left p-2.5 font-medium">Location</th>
+                <th className="text-left p-2.5 font-medium">Contact</th>
+                <th className="text-left p-2.5 font-medium">GPS</th>
+                <th className="text-left p-2.5 font-medium">Status</th>
+              </tr></thead>
+              <tbody>
+                {filtered.map((a) => (
+                  <tr key={a.id} className="border-b hover:bg-muted/30">
+                    <td className="p-2.5">
+                      <p className="font-medium">{a.name}</p>
+                      {a.contactPerson && <p className="text-xs text-muted-foreground">{a.contactPerson}</p>}
+                    </td>
+                    <td className="p-2.5">
+                      <Badge variant="outline" className="text-[10px]">{a.type}</Badge>
+                    </td>
+                    <td className="p-2.5 text-xs">
+                      <p>{a.address}</p>
+                      <p className="text-muted-foreground">{a.city}</p>
+                    </td>
+                    <td className="p-2.5 text-xs">{a.phone}</td>
+                    <td className="p-2.5 text-xs">
+                      <a
+                        href={`https://maps.google.com/?q=${a.lat},${a.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                      >
+                        <MapPin className="h-3 w-3" />
+                        {a.lat.toFixed(4)}, {a.lng.toFixed(4)}
+                      </a>
+                    </td>
+                    <td className="p-2.5">
+                      <Badge variant={a.status === "Active" ? "success" : "secondary"} className="text-[10px]">
+                        {a.status}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ─── KOL / HOT List Component ─── */
+function KOLList({
+  allDoctors,
+  territories,
+  onViewDoctor,
+}: {
+  allDoctors: Doctor[];
+  territories: Territory[];
+  onViewDoctor: (d: Doctor) => void;
+}) {
+  const kols = useMemo(() => allDoctors.filter((d) => d.isKOL), [allDoctors]);
+  const totalRevenue = kols.reduce((sum, d) => sum + (d.potentialRevenue ?? 0), 0);
+  const sortedKols = [...kols].sort(
+    (a, b) => (b.potentialRevenue ?? 0) - (a.potentialRevenue ?? 0)
+  );
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-amber-200 bg-amber-50/50">
+        <CardContent className="pt-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-amber-100 rounded-lg shrink-0">
+              <Target className="h-5 w-5 text-amber-700" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-sm">Key Opinion Leaders — HOT LIST</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Top-priority doctors in your scope. Score = potential revenue × area weight. Visit at minimum frequency.
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-2xl font-bold text-amber-700">{kols.length}</p>
+              <p className="text-xs text-amber-700">KOLs · EGP {totalRevenue.toLocaleString()}/mo</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-0">
+          {sortedKols.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              <Target className="h-10 w-10 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No KOLs in your scope.</p>
+              <p className="text-xs mt-1">Mark doctors as KOL when adding/editing them to populate this list.</p>
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead><tr className="border-b bg-muted/50">
+                <th className="text-left p-2.5 font-medium">Doctor</th>
+                <th className="text-left p-2.5 font-medium">Specialty</th>
+                <th className="text-left p-2.5 font-medium">Class</th>
+                <th className="text-left p-2.5 font-medium">Revenue</th>
+                <th className="text-left p-2.5 font-medium">Weight</th>
+                <th className="text-left p-2.5 font-medium">Buying Stage</th>
+                <th className="text-left p-2.5 font-medium">Last Visit</th>
+                <th className="text-right p-2.5 font-medium">Actions</th>
+              </tr></thead>
+              <tbody>
+                {sortedKols.map((d) => {
+                  const brick = territories.find((t) => t.id === d.brickId);
+                  const daysSince = d.lastVisitAt
+                    ? Math.floor((Date.now() - new Date(d.lastVisitAt).getTime()) / 86400000)
+                    : null;
+                  return (
+                    <tr key={d.id} className="border-b hover:bg-muted/30">
+                      <td className="p-2.5">
+                        <div className="flex items-center gap-2">
+                          <Target className="h-3 w-3 text-amber-600 shrink-0" />
+                          <div>
+                            <p className="font-medium">{d.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {d.hospital}{brick ? ` · ${brick.name}` : ""}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-2.5 text-xs">{d.specialty}</td>
+                      <td className="p-2.5">
+                        <Badge className={
+                          d.classification === "A" ? "bg-green-100 text-green-800" :
+                          d.classification === "B" ? "bg-blue-100 text-blue-800" :
+                          d.classification === "C" ? "bg-amber-100 text-amber-800" :
+                          "bg-gray-100 text-gray-800"
+                        }>{d.classification}</Badge>
+                      </td>
+                      <td className="p-2.5 text-xs font-medium">
+                        {d.potentialRevenue ? `EGP ${d.potentialRevenue.toLocaleString()}` : "—"}
+                      </td>
+                      <td className="p-2.5 text-xs">{d.areaWeight ?? "—"}/10</td>
+                      <td className="p-2.5">
+                        <Badge variant={
+                          d.buyingLadderStage === "Champion" ? "success" :
+                          d.buyingLadderStage === "Regular" ? "default" :
+                          d.buyingLadderStage === "Trial" ? "warning" : "secondary"
+                        } className="text-[10px]">{d.buyingLadderStage}</Badge>
+                      </td>
+                      <td className="p-2.5 text-xs">
+                        {daysSince !== null ? (
+                          <span className={daysSince > 14 ? "text-red-600 font-semibold" : "text-muted-foreground"}>
+                            {daysSince}d ago
+                          </span>
+                        ) : (
+                          <span className="text-red-600 font-semibold">Never</span>
+                        )}
+                      </td>
+                      <td className="p-2.5 text-right">
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => onViewDoctor(d)}>
+                          View
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ─── KPI Dashboard Component ─── */
+function KPIDashboard({
+  store,
+  userId,
+  allDoctors,
+  allVisits,
+}: {
+  store: ReturnType<typeof useDataStore>;
+  userId: string;
+  allDoctors: Doctor[];
+  allVisits: Visit[];
+}) {
+  const period = new Date().toISOString().slice(0, 7); // YYYY-MM
+
+  const myKpis = useMemo(
+    () => store.kpis.filter((k) => k.userId === userId && k.period === period),
+    [store.kpis, userId, period]
+  );
+
+  // Auto-derived KPIs based on data
+  const requiredVisits = allDoctors.reduce((sum, d) => sum + d.visitFrequency, 0);
+  const monthVisits = allVisits.filter((v) => {
+    const vd = new Date(v.dateTime);
+    return vd.getMonth() === new Date().getMonth() && vd.getFullYear() === new Date().getFullYear();
+  });
+  const achievedVisits = monthVisits.length;
+
+  const coveredDoctors = new Set(monthVisits.map((v) => v.doctorId)).size;
+  const totalDoctors = allDoctors.length;
+  const coveragePct = totalDoctors > 0 ? Math.round((coveredDoctors / totalDoctors) * 100) : 0;
+
+  const kolDoctors = allDoctors.filter((d) => d.isKOL);
+  const kolVisits = monthVisits.filter((v) => kolDoctors.some((d) => d.id === v.doctorId));
+  const kolRequired = kolDoctors.reduce((sum, d) => sum + d.visitFrequency, 0);
+  const kolPct = kolRequired > 0 ? Math.round((kolVisits.length / kolRequired) * 100) : 0;
+
+  const championDoctors = allDoctors.filter((d) => d.buyingLadderStage === "Champion").length;
+  const regularDoctors = allDoctors.filter((d) => d.buyingLadderStage === "Regular").length;
+  const trialDoctors = allDoctors.filter((d) => d.buyingLadderStage === "Trial").length;
+  const awareDoctors = allDoctors.filter((d) => d.buyingLadderStage === "Aware").length;
+  const unawareDoctors = allDoctors.filter((d) => d.buyingLadderStage === "Unaware").length;
+
+  const autoKpis = [
+    { metric: "Total Visits", target: requiredVisits, actual: achievedVisits, color: "blue" },
+    { metric: "Doctor Coverage %", target: 90, actual: coveragePct, color: "purple", unit: "%" },
+    { metric: "KOL Visits", target: kolRequired, actual: kolVisits.length, color: "amber" },
+    { metric: "KOL Coverage %", target: 100, actual: kolPct, color: "amber", unit: "%" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-blue-200 bg-blue-50/50">
+        <CardContent className="pt-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg shrink-0">
+              <Activity className="h-5 w-5 text-blue-700" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-sm">KPI Dashboard — {period}</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Required targets vs achieved performance for the current month. Auto-calculated from visit logs and assigned doctors.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Auto KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        {autoKpis.map((k) => {
+          const pct = k.target > 0 ? Math.round((k.actual / k.target) * 100) : 0;
+          const color = pct >= 100 ? "emerald" : pct >= 75 ? "blue" : pct >= 50 ? "amber" : "red";
+          return (
+            <Card key={k.metric}>
+              <CardContent className="pt-4">
+                <p className="text-xs text-muted-foreground">{k.metric}</p>
+                <div className="flex items-baseline gap-1 mt-1">
+                  <span className="text-2xl font-bold">{k.actual}{k.unit ?? ""}</span>
+                  <span className="text-sm text-muted-foreground">/ {k.target}{k.unit ?? ""}</span>
+                </div>
+                <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${
+                      color === "emerald" ? "bg-emerald-500" :
+                      color === "blue" ? "bg-blue-500" :
+                      color === "amber" ? "bg-amber-500" :
+                      "bg-red-500"
+                    }`}
+                    style={{ width: `${Math.min(pct, 100)}%` }}
+                  />
+                </div>
+                <p className={`text-xs mt-1 font-medium ${
+                  color === "emerald" ? "text-emerald-700" :
+                  color === "blue" ? "text-blue-700" :
+                  color === "amber" ? "text-amber-700" :
+                  "text-red-700"
+                }`}>{pct}% of target</p>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Manager-set KPIs */}
+      {myKpis.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Manager-Set KPIs</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            {myKpis.map((k) => {
+              const pct = k.target > 0 ? Math.round((k.actual / k.target) * 100) : 0;
+              const color = pct >= 100 ? "emerald" : pct >= 75 ? "blue" : pct >= 50 ? "amber" : "red";
+              return (
+                <div key={k.id}>
+                  <div className="flex justify-between items-baseline mb-1">
+                    <span className="text-sm font-medium">{k.metric}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {k.actual} / {k.target}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${
+                        color === "emerald" ? "bg-emerald-500" :
+                        color === "blue" ? "bg-blue-500" :
+                        color === "amber" ? "bg-amber-500" :
+                        "bg-red-500"
+                      }`}
+                      style={{ width: `${Math.min(pct, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Buying Ladder Funnel */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Buying Ladder Distribution</CardTitle>
+          <p className="text-xs text-muted-foreground">Track doctor adoption progress across your portfolio</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-5 gap-2">
+            {[
+              { stage: "Unaware", count: unawareDoctors, color: "bg-slate-300" },
+              { stage: "Aware", count: awareDoctors, color: "bg-blue-300" },
+              { stage: "Trial", count: trialDoctors, color: "bg-amber-400" },
+              { stage: "Regular", count: regularDoctors, color: "bg-emerald-400" },
+              { stage: "Champion", count: championDoctors, color: "bg-emerald-600" },
+            ].map((s) => {
+              const max = Math.max(unawareDoctors, awareDoctors, trialDoctors, regularDoctors, championDoctors, 1);
+              const height = Math.round((s.count / max) * 100);
+              return (
+                <div key={s.stage} className="text-center">
+                  <div className="h-32 flex items-end justify-center mb-1">
+                    <div
+                      className={`w-full ${s.color} rounded-t flex items-end justify-center pb-1 transition-all`}
+                      style={{ height: `${Math.max(height, 5)}%` }}
+                    >
+                      <span className="text-white text-xs font-bold">{s.count}</span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-medium">{s.stage}</p>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-3 pt-3 border-t flex justify-between text-xs">
+            <span className="text-muted-foreground">Total doctors: {totalDoctors}</span>
+            <span className="text-emerald-700 font-medium">
+              {championDoctors + regularDoctors} adopters ({totalDoctors > 0 ? Math.round(((championDoctors + regularDoctors) / totalDoctors) * 100) : 0}%)
+            </span>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

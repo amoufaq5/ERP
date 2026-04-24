@@ -161,6 +161,9 @@ export default function DoctorsPage() {
         classification: payload.classification!,
         visitFrequency: payload.visitFrequency!,
         assignedRepId: payload.assignedRepId ?? null,
+        isKOL: payload.isKOL ?? false,
+        buyingLadderStage: payload.buyingLadderStage ?? "Unaware",
+        linkedPharmacyIds: payload.linkedPharmacyIds ?? [],
         createdAt: new Date().toISOString(),
       });
     }
