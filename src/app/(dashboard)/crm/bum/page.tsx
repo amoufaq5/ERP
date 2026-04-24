@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Crown, Users, DollarSign, TrendingUp, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
@@ -94,6 +95,8 @@ export default function BUMPage() {
   const [showVisit, setShowVisit] = useState(false);
   const [approvalFilters, setApprovalFilters] = useState<FilterState>({ _search: "", decision: "" });
   const [visitFilters, setVisitFilters] = useState<FilterState>({ _search: "", region: "" });
+  const [viewApproval, setViewApproval] = useState<(typeof STRATEGIC_APPROVALS)[0] | null>(null);
+  const [viewVisit, setViewVisit] = useState<(typeof FIELD_VISITS)[0] | null>(null);
 
   const filteredApprovals = approvals.filter((a) => {
     if (approvalFilters.decision && a.decision !== approvalFilters.decision) return false;
@@ -222,6 +225,7 @@ export default function BUMPage() {
                     const a = row as unknown as (typeof STRATEGIC_APPROVALS)[0];
                     return (
                       <EditDeleteMenu
+                        onView={() => setViewApproval(a)}
                         onDelete={() => setApprovals(prev => prev.filter(x => x.id !== a.id))}
                         itemLabel={a.id}
                         canEdit={false}
@@ -271,6 +275,7 @@ export default function BUMPage() {
                     const v = row as unknown as (typeof FIELD_VISITS)[0];
                     return (
                       <EditDeleteMenu
+                        onView={() => setViewVisit(v)}
                         onEdit={() => { setEditingVisit(v); setShowVisit(true); }}
                         onDelete={() => setVisits(prev => prev.filter(x => x.id !== v.id))}
                         itemLabel={v.id}
@@ -322,6 +327,48 @@ export default function BUMPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Strategic Approval Detail Dialog */}
+      <Dialog open={!!viewApproval} onOpenChange={(open) => { if (!open) setViewApproval(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewApproval?.id} — {viewApproval?.type}</DialogTitle>
+          </DialogHeader>
+          {viewApproval && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Request ID</span><p className="font-medium">{viewApproval.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">From</span><p className="font-medium">{viewApproval.from}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewApproval.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Value</span><p className="font-medium">{viewApproval.value}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewApproval.description}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Justification</span><p className="font-medium">{viewApproval.justification}</p></div>
+              <div><span className="text-sm text-muted-foreground">Decision</span><p className="font-medium">{viewApproval.decision}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewApproval.date}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Field Visit Detail Dialog */}
+      <Dialog open={!!viewVisit} onOpenChange={(open) => { if (!open) setViewVisit(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewVisit?.id} — {viewVisit?.doctor}</DialogTitle>
+          </DialogHeader>
+          {viewVisit && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Visit ID</span><p className="font-medium">{viewVisit.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Region</span><p className="font-medium">{viewVisit.region}</p></div>
+              <div><span className="text-sm text-muted-foreground">Accompanied</span><p className="font-medium">{viewVisit.accompanied}</p></div>
+              <div><span className="text-sm text-muted-foreground">Doctor/KOL</span><p className="font-medium">{viewVisit.doctor}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewVisit.date}</p></div>
+              <div><span className="text-sm text-muted-foreground">Purpose</span><p className="font-medium">{viewVisit.purpose}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Notes</span><p className="font-medium">{viewVisit.notes}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Action Items</span><p className="font-medium">{viewVisit.actions}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <EntityFormModal
         open={showVisit}

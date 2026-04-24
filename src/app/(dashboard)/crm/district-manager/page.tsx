@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -43,6 +44,7 @@ export default function DistrictManagerPage() {
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
+  const [viewRep, setViewRep] = useState<any>(null);
 
   // My reps (team)
   const myReps = useMemo(() => {
@@ -193,6 +195,23 @@ export default function DistrictManagerPage() {
                   );
                 },
               },
+              {
+                key: "_actions",
+                label: "",
+                className: "text-right",
+                render: (_v: unknown, row: unknown) => {
+                  const r = row as (typeof repStats)[number];
+                  return (
+                    <EditDeleteMenu
+                      onView={() => setViewRep(r)}
+                      canEdit={false}
+                      canDelete={false}
+                      itemLabel={r.name}
+                      compact
+                    />
+                  );
+                },
+              },
             ] as Column<Record<string, unknown>>[]}
             data={repStats as unknown as Record<string, unknown>[]}
             exportable exportFilename="crm-district-manager.csv" emptyMessage="No reps in your team."
@@ -339,6 +358,26 @@ export default function DistrictManagerPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Rep Detail Dialog */}
+      <Dialog open={!!viewRep} onOpenChange={(open) => { if (!open) setViewRep(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewRep?.name}</DialogTitle>
+          </DialogHeader>
+          {viewRep && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Name</span><p className="font-medium">{viewRep.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{viewRep.email}</p></div>
+              <div><span className="text-sm text-muted-foreground">Territory</span><p className="font-medium">{viewRep.territory ?? "—"}</p></div>
+              <div><span className="text-sm text-muted-foreground">Doctors</span><p className="font-medium">{viewRep.doctorCount}</p></div>
+              <div><span className="text-sm text-muted-foreground">Total Visits</span><p className="font-medium">{viewRep.totalVisits}</p></div>
+              <div><span className="text-sm text-muted-foreground">Approved Visits</span><p className="font-medium">{viewRep.approvedVisits}</p></div>
+              <div><span className="text-sm text-muted-foreground">Compliance</span><p className="font-medium">{viewRep.compliance}%</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

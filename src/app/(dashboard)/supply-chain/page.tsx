@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Package, Truck, Factory, Search, Plus, Download, Filter,
@@ -212,6 +213,8 @@ export default function SupplyChainPage() {
   const [contractList, setContractList] = useState(contracts);
   const [poFilters, setPoFilters] = useState<FilterState>({});
   const [supFilters, setSupFilters] = useState<FilterState>({});
+  const [viewPO, setViewPO] = useState<typeof purchaseOrders[0] | null>(null);
+  const [viewSupplier, setViewSupplier] = useState<typeof suppliers[0] | null>(null);
 
   return (
     <div className="space-y-6 p-6">
@@ -341,6 +344,8 @@ export default function SupplyChainPage() {
                     const nextStatus = statusFlow[po.status];
                     return (
                       <EditDeleteMenu
+                        onView={() => setViewPO(po)}
+                        canView
                         onEdit={() => setModal({ type: "po", editing: po })}
                         onDelete={() => setPos(prev => prev.filter(p => p.id !== po.id))}
                         itemLabel={po.id}
@@ -401,6 +406,8 @@ export default function SupplyChainPage() {
                     const s = row as unknown as typeof supplierList[0];
                     return (
                       <EditDeleteMenu
+                        onView={() => setViewSupplier(s)}
+                        canView
                         onEdit={() => setModal({ type: "supplier", editing: s })}
                         onDelete={() => setSupplierList(prev => prev.filter(x => x.id !== s.id))}
                         itemLabel={s.name}
@@ -808,6 +815,49 @@ export default function SupplyChainPage() {
           }}
         />
       )}
+
+      {/* ── Purchase Order Detail Dialog ── */}
+      <Dialog open={!!viewPO} onOpenChange={(o) => !o && setViewPO(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Purchase Order {viewPO?.id}</DialogTitle>
+          </DialogHeader>
+          {viewPO && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">PO Number</span><p className="font-medium font-mono">{viewPO.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Supplier</span><p className="font-medium">{viewPO.supplier}</p></div>
+              <div><span className="text-sm text-muted-foreground">Items</span><p className="font-medium">{viewPO.items}</p></div>
+              <div><span className="text-sm text-muted-foreground">Total</span><p className="font-semibold text-lg">{viewPO.total}</p></div>
+              <div><span className="text-sm text-muted-foreground">Order Date</span><p className="font-medium">{viewPO.ordered}</p></div>
+              <div><span className="text-sm text-muted-foreground">ETA</span><p className="font-medium">{viewPO.eta}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p>{poStatusBadge(viewPO.status)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Priority</span><p><Badge variant={viewPO.priority === "High" ? "destructive" : viewPO.priority === "Medium" ? "secondary" : "outline"}>{viewPO.priority}</Badge></p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Supplier Detail Dialog ── */}
+      <Dialog open={!!viewSupplier} onOpenChange={(o) => !o && setViewSupplier(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewSupplier?.name}</DialogTitle>
+          </DialogHeader>
+          {viewSupplier && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Supplier ID</span><p className="font-medium font-mono">{viewSupplier.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Name</span><p className="font-medium">{viewSupplier.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{viewSupplier.category}</p></div>
+              <div><span className="text-sm text-muted-foreground">Location</span><p className="font-medium">{viewSupplier.location}</p></div>
+              <div><span className="text-sm text-muted-foreground">Rating</span><p className={`font-medium ${viewSupplier.rating >= 4.5 ? "text-green-600" : "text-amber-600"}`}>{viewSupplier.rating}/5</p></div>
+              <div><span className="text-sm text-muted-foreground">On-Time Delivery</span><p className="font-medium">{viewSupplier.onTime}</p></div>
+              <div><span className="text-sm text-muted-foreground">Annual Spend</span><p className="font-medium">{viewSupplier.spend}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p>{supplierStatusBadge(viewSupplier.status)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Risk Level</span><p>{riskBadge(viewSupplier.risk)}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

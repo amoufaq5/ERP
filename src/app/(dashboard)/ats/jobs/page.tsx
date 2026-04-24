@@ -11,34 +11,7 @@ import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
-
-interface Job {
-  id: number;
-  title: string;
-  department: string;
-  location: string;
-  type: string;
-  status: string;
-  applications: number;
-  postedDate: string;
-  closingDate: string;
-  description: string;
-  salaryRange: string;
-  requirements: string;
-}
-
-const initialJobs: Job[] = [
-  { id: 1, title: "Medical Representative", department: "Sales & Marketing", location: "Cairo, Egypt", type: "FULL_TIME", status: "OPEN", applications: 45, postedDate: "2026-03-01", closingDate: "2026-04-15", description: "Promote pharmaceutical products to healthcare professionals in assigned territory.", salaryRange: "EGP 18,000 - EGP 24,000/yr", requirements: "BSc Pharmacy/Science, 1-3 yrs pharma sales" },
-  { id: 2, title: "District Sales Manager", department: "Sales & Marketing", location: "Alexandria, Egypt", type: "FULL_TIME", status: "OPEN", applications: 18, postedDate: "2026-03-05", closingDate: "2026-04-20", description: "Lead and manage a team of medical representatives across the district.", salaryRange: "EGP 30,000 - EGP 42,000/yr", requirements: "BSc Pharmacy, 5+ yrs pharma sales, 2+ yrs management" },
-  { id: 3, title: "Quality Control Analyst", department: "Quality Assurance", location: "10th of Ramadan, Egypt", type: "FULL_TIME", status: "OPEN", applications: 32, postedDate: "2026-03-08", closingDate: "2026-04-10", description: "Perform analytical testing of raw materials, intermediates, and finished products per pharmacopoeial methods.", salaryRange: "EGP 15,000 - EGP 22,000/yr", requirements: "BSc Pharmacy/Chemistry, HPLC/GC experience" },
-  { id: 4, title: "Regulatory Affairs Specialist", department: "Regulatory Affairs", location: "Cairo, Egypt", type: "FULL_TIME", status: "OPEN", applications: 14, postedDate: "2026-03-10", closingDate: "2026-04-25", description: "Prepare and submit drug registration dossiers to EDA and other regulatory authorities.", salaryRange: "EGP 25,000 - EGP 35,000/yr", requirements: "BSc Pharmacy, 3+ yrs regulatory affairs, CTD knowledge" },
-  { id: 5, title: "Production Pharmacist", department: "Manufacturing", location: "10th of Ramadan, Egypt", type: "FULL_TIME", status: "OPEN", applications: 22, postedDate: "2026-03-12", closingDate: "2026-04-18", description: "Supervise pharmaceutical manufacturing operations including tablets, capsules, and liquid dosage forms.", salaryRange: "EGP 20,000 - EGP 28,000/yr", requirements: "BSc Pharmacy, GMP knowledge, 2+ yrs manufacturing" },
-  { id: 6, title: "Pharmacovigilance Officer", department: "Medical Affairs", location: "Cairo, Egypt", type: "FULL_TIME", status: "OPEN", applications: 8, postedDate: "2026-03-15", closingDate: "2026-04-30", description: "Monitor and report adverse drug reactions, manage safety database, and ensure compliance with pharmacovigilance regulations.", salaryRange: "EGP 22,000 - EGP 32,000/yr", requirements: "BSc Pharmacy/Medicine, PV experience preferred" },
-  { id: 7, title: "Supply Chain Manager", department: "Supply Chain", location: "Cairo, Egypt", type: "FULL_TIME", status: "PAUSED", applications: 12, postedDate: "2026-02-20", closingDate: "2026-03-31", description: "Manage end-to-end pharmaceutical supply chain including cold chain logistics.", salaryRange: "EGP 35,000 - EGP 48,000/yr", requirements: "BSc + MBA, 7+ yrs supply chain, pharma industry" },
-  { id: 8, title: "R&D Formulation Scientist", department: "Research & Development", location: "6th October, Egypt", type: "FULL_TIME", status: "OPEN", applications: 16, postedDate: "2026-03-18", closingDate: "2026-05-01", description: "Develop and optimize pharmaceutical formulations for generic and branded products.", salaryRange: "EGP 28,000 - EGP 40,000/yr", requirements: "MSc/PhD Pharmaceutics, formulation development" },
-  { id: 9, title: "Clinical Research Associate", department: "Medical Affairs", location: "Cairo, Egypt", type: "CONTRACT", status: "OPEN", applications: 11, postedDate: "2026-03-20", closingDate: "2026-04-28", description: "Monitor clinical trials, ensure GCP compliance, and manage site relationships.", salaryRange: "EGP 30,000 - EGP 38,000/yr", requirements: "BSc Pharmacy/Medicine, GCP certified, CRA experience" },
-  { id: 10, title: "Warehouse Supervisor (Pharma)", department: "Logistics", location: "10th of Ramadan, Egypt", type: "FULL_TIME", status: "CLOSED", applications: 28, postedDate: "2026-02-01", closingDate: "2026-03-01", description: "Manage pharmaceutical warehouse operations including GDP compliance and temperature monitoring.", salaryRange: "EGP 14,000 - EGP 18,000/yr", requirements: "BSc, GDP knowledge, warehouse management" },
-];
+import { useDataStore, type Job } from "@/lib/data-store";
 
 const statusColors: Record<string, string> = {
   OPEN: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
@@ -82,7 +55,8 @@ const FILTER_FIELDS = [
 ];
 
 export default function JobsPage() {
-  const [jobs, setJobs] = useState<Job[]>(initialJobs);
+  const store = useDataStore();
+  const jobs = store.jobs;
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", department: "" });
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Job | null>(null);
@@ -118,13 +92,13 @@ export default function JobsPage() {
         return (
           <EditDeleteMenu
             onEdit={() => { setEditing(row); setShowModal(true); }}
-            onDelete={() => setJobs((prev) => prev.filter((j) => j.id !== row.id))}
+            onDelete={() => store.remove("jobs", row.id)}
             onView={() => setDetailJob(row)}
             canView
             itemLabel={row.title}
             extraItems={[
-              ...(next ? [{ label: `Set ${next}`, onClick: () => setJobs((prev) => prev.map((j) => j.id === row.id ? { ...j, status: next } : j)) }] : []),
-              ...(row.status !== "CLOSED" ? [{ label: "Close Position", onClick: () => setJobs((prev) => prev.map((j) => j.id === row.id ? { ...j, status: "CLOSED" } : j)) }] : []),
+              ...(next ? [{ label: `Set ${next}`, onClick: () => store.update("jobs", row.id, { status: next }) }] : []),
+              ...(row.status !== "CLOSED" ? [{ label: "Close Position", onClick: () => store.update("jobs", row.id, { status: "CLOSED" }) }] : []),
             ]}
           />
         );
@@ -172,19 +146,18 @@ export default function JobsPage() {
         initialData={editing ? { title: editing.title, department: editing.department, location: editing.location, type: editing.type, salaryRange: editing.salaryRange, requirements: editing.requirements, description: editing.description } : undefined}
         onSubmit={(data) => {
           if (editing) {
-            setJobs((prev) => prev.map((j) => j.id === editing.id ? {
-              ...j,
+            store.update("jobs", editing.id, {
               title: data.title as string,
-              department: (data.department as string) || j.department,
-              location: (data.location as string) || j.location,
-              type: (data.type as string) || j.type,
-              salaryRange: (data.salaryRange as string) || j.salaryRange,
-              requirements: (data.requirements as string) || j.requirements,
-              description: (data.description as string) || j.description,
-            } : j));
+              department: (data.department as string) || editing.department,
+              location: (data.location as string) || editing.location,
+              type: (data.type as string) || editing.type,
+              salaryRange: (data.salaryRange as string) || editing.salaryRange,
+              requirements: (data.requirements as string) || editing.requirements,
+              description: (data.description as string) || editing.description,
+            });
           } else {
-            const job: Job = {
-              id: Date.now(),
+            store.add("jobs", {
+              id: store.genId("job"),
               title: data.title as string,
               department: (data.department as string) || "",
               location: (data.location as string) || "",
@@ -196,8 +169,7 @@ export default function JobsPage() {
               description: (data.description as string) || "",
               salaryRange: (data.salaryRange as string) || "",
               requirements: (data.requirements as string) || "",
-            };
-            setJobs((prev) => [job, ...prev]);
+            });
           }
           setShowModal(false);
           setEditing(null);

@@ -5,6 +5,7 @@ import { Gift, Users, Star, RefreshCw, Plus, ToggleLeft, ToggleRight } from "luc
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
@@ -116,6 +117,7 @@ export default function LoyaltyPage() {
   const [txnFilters, setTxnFilters] = useState<FilterState>({ _search: "" });
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState<LoyaltyMember | null>(null);
+  const [viewMember, setViewMember] = useState<LoyaltyMember | null>(null);
 
   const totalPoints = members.reduce((s, m) => s + m.points, 0);
   const totalRedemptions = TRANSACTIONS.filter((t) => t.type === "REDEEM").length;
@@ -216,6 +218,7 @@ export default function LoyaltyPage() {
                   const next = tierFlow[member.tier];
                   return (
                     <EditDeleteMenu
+                      onView={() => setViewMember(member)}
                       onEdit={() => { setEditingMember(member); setShowModal(true); }}
                       onDelete={() => setMembers((prev) => prev.filter((m) => m.id !== member.id))}
                       itemLabel={member.name}
@@ -264,6 +267,26 @@ export default function LoyaltyPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Member Detail Dialog */}
+      <Dialog open={!!viewMember} onOpenChange={(open) => { if (!open) setViewMember(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewMember?.name}</DialogTitle>
+          </DialogHeader>
+          {viewMember && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Member ID</span><p className="font-medium">{viewMember.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Name</span><p className="font-medium">{viewMember.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Account</span><p className="font-medium">{viewMember.account}</p></div>
+              <div><span className="text-sm text-muted-foreground">Program</span><p className="font-medium">{viewMember.program}</p></div>
+              <div><span className="text-sm text-muted-foreground">Points</span><p className="font-medium">{viewMember.points.toLocaleString()}</p></div>
+              <div><span className="text-sm text-muted-foreground">Tier</span><p className="font-medium">{viewMember.tier}</p></div>
+              <div><span className="text-sm text-muted-foreground">Join Date</span><p className="font-medium">{viewMember.joinDate}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <EntityFormModal
         open={showModal}

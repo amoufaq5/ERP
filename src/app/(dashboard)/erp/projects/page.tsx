@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Column } from "@/components/shared/data-table";
+import { useDataStore, type Project, type ProjectTask } from "@/lib/data-store";
 import {
   FolderKanban,
   CheckSquare,
@@ -23,50 +24,7 @@ import {
   Eye,
 } from "lucide-react";
 
-type Project = {
-  id: string;
-  name: string;
-  client: string;
-  manager: string;
-  startDate: string;
-  endDate: string;
-  budget: number;
-  spent: number;
-  progress: number;
-  status: string;
-  description: string;
-};
-
-type Task = {
-  id: string;
-  title: string;
-  project: string;
-  assignee: string;
-  dueDate: string;
-  priority: string;
-  hours: number;
-  status: string;
-};
-
 const fmt = (n: number) => "EGP " + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-
-const initialProjects: Project[] = [
-  { id: "1", name: "ERP System Rollout", client: "Acme Corp", manager: "Sarah Johnson", startDate: "2026-01-15", endDate: "2026-07-31", budget: 180000, spent: 92000, progress: 52, status: "In Progress", description: "Full ERP system implementation including finance, HR, and inventory modules." },
-  { id: "2", name: "Website Redesign", client: "Globex Inc", manager: "Michael Torres", startDate: "2026-02-01", endDate: "2026-04-30", budget: 45000, spent: 38500, progress: 85, status: "In Progress", description: "Complete overhaul of the corporate website with new branding and CMS." },
-  { id: "3", name: "Mobile App v2.0", client: "Internal", manager: "Emily Chen", startDate: "2026-03-01", endDate: "2026-09-30", budget: 120000, spent: 18000, progress: 15, status: "In Progress", description: "Major version release of the mobile application with offline support." },
-  { id: "4", name: "Data Warehouse Migration", client: "Initech LLC", manager: "David Kim", startDate: "2025-10-01", endDate: "2026-01-31", budget: 95000, spent: 97200, progress: 100, status: "Completed", description: "Migration of legacy data warehouse to cloud-based solution." },
-];
-
-const initialTasks: Task[] = [
-  { id: "1", title: "Design system architecture", project: "ERP System Rollout", assignee: "Sarah Johnson", dueDate: "2026-04-05", priority: "High", hours: 16, status: "Completed" },
-  { id: "2", title: "Implement finance module API", project: "ERP System Rollout", assignee: "James Park", dueDate: "2026-04-20", priority: "High", hours: 40, status: "In Progress" },
-  { id: "3", title: "UI mockups — homepage", project: "Website Redesign", assignee: "Anna White", dueDate: "2026-04-10", priority: "Medium", hours: 12, status: "Review" },
-  { id: "4", title: "Migrate product pages", project: "Website Redesign", assignee: "Michael Torres", dueDate: "2026-04-18", priority: "High", hours: 20, status: "In Progress" },
-  { id: "5", title: "Offline sync architecture", project: "Mobile App v2.0", assignee: "Emily Chen", dueDate: "2026-05-01", priority: "High", hours: 32, status: "Todo" },
-  { id: "6", title: "Push notification service", project: "Mobile App v2.0", assignee: "Carlos Rivera", dueDate: "2026-05-15", priority: "Medium", hours: 24, status: "Todo" },
-  { id: "7", title: "ETL pipeline testing", project: "Data Warehouse Migration", assignee: "David Kim", dueDate: "2026-01-20", priority: "High", hours: 28, status: "Completed" },
-  { id: "8", title: "User acceptance testing", project: "ERP System Rollout", assignee: "Lisa Morgan", dueDate: "2026-04-28", priority: "Medium", hours: 20, status: "On Hold" },
-];
 
 const priorityColors: Record<string, string> = {
   High: "text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400",
@@ -102,14 +60,15 @@ const projectFlow: Record<string, string> = { "In Progress": "On Hold", "On Hold
 const taskFlow: Record<string, string> = { Todo: "In Progress", "In Progress": "Review", Review: "Completed" };
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const store = useDataStore();
+  const projects = store.projects;
+  const tasks = store.projectTasks;
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", priority: "" });
 
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<ProjectTask | null>(null);
   const [detailProject, setDetailProject] = useState<Project | null>(null);
 
   const activeProjects = projects.filter((p) => p.status === "In Progress").length;
@@ -168,12 +127,12 @@ export default function ProjectsPage() {
         return (
           <EditDeleteMenu
             onEdit={() => { setEditingTask(t); setShowTaskModal(true); }}
-            onDelete={() => setTasks((prev) => prev.filter((x) => x.id !== t.id))}
+            onDelete={() => store.remove("projectTasks", t.id)}
             itemLabel={t.title}
             extraItems={[
-              ...(next ? [{ label: `Move to ${next}`, onClick: () => setTasks((prev) => prev.map((x) => x.id === t.id ? { ...x, status: next } : x)) }] : []),
-              ...(t.status !== "On Hold" && t.status !== "Completed" ? [{ label: "Put On Hold", onClick: () => setTasks((prev) => prev.map((x) => x.id === t.id ? { ...x, status: "On Hold" } : x)) }] : []),
-              ...(t.status === "On Hold" ? [{ label: "Resume", onClick: () => setTasks((prev) => prev.map((x) => x.id === t.id ? { ...x, status: "In Progress" } : x)) }] : []),
+              ...(next ? [{ label: `Move to ${next}`, onClick: () => store.update("projectTasks", t.id, { status: next }) }] : []),
+              ...(t.status !== "On Hold" && t.status !== "Completed" ? [{ label: "Put On Hold", onClick: () => store.update("projectTasks", t.id, { status: "On Hold" }) }] : []),
+              ...(t.status === "On Hold" ? [{ label: "Resume", onClick: () => store.update("projectTasks", t.id, { status: "In Progress" }) }] : []),
             ]}
           />
         );
@@ -219,13 +178,13 @@ export default function ProjectsPage() {
                     <StatusBadge status={p.status} />
                     <EditDeleteMenu
                       onEdit={() => { setEditingProject(p); setShowProjectModal(true); }}
-                      onDelete={() => setProjects((prev) => prev.filter((x) => x.id !== p.id))}
+                      onDelete={() => store.remove("projects", p.id)}
                       onView={() => setDetailProject(p)}
                       canView
                       itemLabel={p.name}
                       extraItems={[
-                        ...(next ? [{ label: `Set ${next}`, onClick: () => setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, status: next } : x)) }] : []),
-                        ...(p.status === "In Progress" ? [{ label: "Mark Completed", onClick: () => setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, status: "Completed", progress: 100 } : x)) }] : []),
+                        ...(next ? [{ label: `Set ${next}`, onClick: () => store.update("projects", p.id, { status: next }) }] : []),
+                        ...(p.status === "In Progress" ? [{ label: "Mark Completed", onClick: () => store.update("projects", p.id, { status: "Completed", progress: 100 }) }] : []),
                       ]}
                     />
                   </div>
@@ -288,20 +247,19 @@ export default function ProjectsPage() {
         initialData={editingProject ? { name: editingProject.name, client: editingProject.client, manager: editingProject.manager, startDate: editingProject.startDate, endDate: editingProject.endDate, budget: editingProject.budget, description: editingProject.description, status: editingProject.status } : undefined}
         onSubmit={(data) => {
           if (editingProject) {
-            setProjects((prev) => prev.map((p) => p.id === editingProject.id ? {
-              ...p,
-              name: (data.name as string) || p.name,
-              client: (data.client as string) || p.client,
-              manager: (data.manager as string) || p.manager,
-              startDate: (data.startDate as string) || p.startDate,
-              endDate: (data.endDate as string) || p.endDate,
-              budget: (data.budget as number) || p.budget,
-              description: (data.description as string) || p.description,
-              status: (data.status as string) || p.status,
-            } : p));
+            store.update("projects", editingProject.id, {
+              name: (data.name as string) || editingProject.name,
+              client: (data.client as string) || editingProject.client,
+              manager: (data.manager as string) || editingProject.manager,
+              startDate: (data.startDate as string) || editingProject.startDate,
+              endDate: (data.endDate as string) || editingProject.endDate,
+              budget: (data.budget as number) || editingProject.budget,
+              description: (data.description as string) || editingProject.description,
+              status: (data.status as string) || editingProject.status,
+            });
           } else {
-            const proj: Project = {
-              id: String(Date.now()),
+            store.add("projects", {
+              id: store.genId("proj"),
               name: data.name as string,
               client: (data.client as string) || "Internal",
               manager: (data.manager as string) || "Unassigned",
@@ -312,8 +270,7 @@ export default function ProjectsPage() {
               progress: 0,
               status: (data.status as string) || "In Progress",
               description: (data.description as string) || "",
-            };
-            setProjects((prev) => [proj, ...prev]);
+            });
           }
           setShowProjectModal(false);
           setEditingProject(null);
@@ -328,19 +285,18 @@ export default function ProjectsPage() {
         initialData={editingTask ? { title: editingTask.title, project: editingTask.project, assignee: editingTask.assignee, dueDate: editingTask.dueDate, hours: editingTask.hours, priority: editingTask.priority, status: editingTask.status } : undefined}
         onSubmit={(data) => {
           if (editingTask) {
-            setTasks((prev) => prev.map((t) => t.id === editingTask.id ? {
-              ...t,
-              title: (data.title as string) || t.title,
-              project: (data.project as string) || t.project,
-              assignee: (data.assignee as string) || t.assignee,
-              dueDate: (data.dueDate as string) || t.dueDate,
-              hours: (data.hours as number) ?? t.hours,
-              priority: (data.priority as string) || t.priority,
-              status: (data.status as string) || t.status,
-            } : t));
+            store.update("projectTasks", editingTask.id, {
+              title: (data.title as string) || editingTask.title,
+              project: (data.project as string) || editingTask.project,
+              assignee: (data.assignee as string) || editingTask.assignee,
+              dueDate: (data.dueDate as string) || editingTask.dueDate,
+              hours: (data.hours as number) ?? editingTask.hours,
+              priority: (data.priority as string) || editingTask.priority,
+              status: (data.status as string) || editingTask.status,
+            });
           } else {
-            const task: Task = {
-              id: String(Date.now()),
+            store.add("projectTasks", {
+              id: store.genId("ptask"),
               title: data.title as string,
               project: data.project as string,
               assignee: (data.assignee as string) || "Unassigned",
@@ -348,8 +304,7 @@ export default function ProjectsPage() {
               priority: (data.priority as string) || "Medium",
               hours: (data.hours as number) || 0,
               status: (data.status as string) || "Todo",
-            };
-            setTasks((prev) => [task, ...prev]);
+            });
           }
           setShowTaskModal(false);
           setEditingTask(null);

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
@@ -218,6 +219,10 @@ export default function QAQCPage() {
   const [showCapaForm, setShowCapaForm] = useState(false);
   const [capaFilters, setCapaFilters] = useState<FilterState>({});
 
+  // Detail view state
+  const [viewItem, setViewItem] = useState<any>(null);
+  const [viewType, setViewType] = useState<"inspection" | "ncr" | "capa" | null>(null);
+
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Header */}
@@ -305,6 +310,7 @@ export default function QAQCPage() {
                     const ins = row as unknown as typeof inspections[0];
                     return (
                       <EditDeleteMenu
+                        onView={() => { setViewItem(ins); setViewType("inspection"); }}
                         onEdit={() => { setEditingInspection(ins); setShowInspectionForm(true); }}
                         onDelete={() => setInspections(prev => prev.filter(x => x.id !== ins.id))}
                         itemLabel={ins.id}
@@ -365,6 +371,7 @@ export default function QAQCPage() {
                     const next = flow[n.status];
                     return (
                       <EditDeleteMenu
+                        onView={() => { setViewItem(n); setViewType("ncr"); }}
                         onEdit={() => { setEditingNcr(n); setShowForm(true); }}
                         onDelete={() => setNcrs(prev => prev.filter(x => x.id !== n.id))}
                         itemLabel={n.id}
@@ -424,6 +431,7 @@ export default function QAQCPage() {
                     const c = row as unknown as typeof capaItems[0];
                     return (
                       <EditDeleteMenu
+                        onView={() => { setViewItem(c); setViewType("capa"); }}
                         onEdit={() => { setEditingCapa(c); setShowCapaForm(true); }}
                         onDelete={() => setCapaItems(prev => prev.filter(x => x.id !== c.id))}
                         itemLabel={c.id}
@@ -570,6 +578,50 @@ export default function QAQCPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!viewItem} onOpenChange={(o) => { if (!o) { setViewItem(null); setViewType(null); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewItem?.id} {viewItem?.product ? `- ${viewItem.product}` : ""}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            {viewType === "inspection" && (<>
+              <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem?.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Product</span><p className="font-medium">{viewItem?.product}</p></div>
+              <div><span className="text-sm text-muted-foreground">Lot</span><p className="font-medium">{viewItem?.lot}</p></div>
+              <div><span className="text-sm text-muted-foreground">Inspector</span><p className="font-medium">{viewItem?.inspector}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewItem?.date}</p></div>
+              <div><span className="text-sm text-muted-foreground">Sample Size</span><p className="font-medium">{viewItem?.sampleSize}</p></div>
+              <div><span className="text-sm text-muted-foreground">Defects</span><p className="font-medium">{viewItem?.defects}</p></div>
+              <div><span className="text-sm text-muted-foreground">Result</span><p className="font-medium">{viewItem?.result}</p></div>
+              <div><span className="text-sm text-muted-foreground">AQL</span><p className="font-medium">{viewItem?.aql}</p></div>
+            </>)}
+            {viewType === "ncr" && (<>
+              <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewItem?.date}</p></div>
+              <div><span className="text-sm text-muted-foreground">Product</span><p className="font-medium">{viewItem?.product}</p></div>
+              <div><span className="text-sm text-muted-foreground">Source</span><p className="font-medium">{viewItem?.source}</p></div>
+              <div><span className="text-sm text-muted-foreground">Severity</span><p className="font-medium">{viewItem?.severity}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Owner</span><p className="font-medium">{viewItem?.owner}</p></div>
+              <div><span className="text-sm text-muted-foreground">Cost</span><p className="font-medium">{viewItem?.cost}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewItem?.desc}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Root Cause</span><p className="font-medium">{viewItem?.rootCause}</p></div>
+            </>)}
+            {viewType === "capa" && (<>
+              <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem?.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Source NCR</span><p className="font-medium">{viewItem?.sourceNcr}</p></div>
+              <div><span className="text-sm text-muted-foreground">Due Date</span><p className="font-medium">{viewItem?.due}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Effectiveness</span><p className="font-medium">{viewItem?.effectiveness}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewItem?.desc}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Method</span><p className="font-medium">{viewItem?.method}</p></div>
+            </>)}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <EntityFormModal
         open={showForm}

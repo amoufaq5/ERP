@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
@@ -53,6 +54,7 @@ export default function MedicalRepPage() {
   const [doctorBeingEdited, setDoctorBeingEdited] = useState<Doctor | null>(null);
 
   const [newDoctorOpen, setNewDoctorOpen] = useState(false);
+  const [viewDoctor, setViewDoctor] = useState<Doctor | null>(null);
 
   // ─── Scoping ───────────────────────────────────────────────────────────
   const repsUnderMe = getReportsOf(user.id).map((u) => u.id);
@@ -491,6 +493,7 @@ export default function MedicalRepPage() {
                     const d = row as unknown as Doctor;
                     return (
                       <EditDeleteMenu
+                        onView={() => setViewDoctor(d)}
                         onEdit={() => handleEditDoctor(d)}
                         onDelete={canDirectlyEditDoctor ? () => handleDeleteDoctor(d) : undefined}
                         canDelete={canDirectlyEditDoctor}
@@ -721,6 +724,32 @@ export default function MedicalRepPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Doctor Detail Dialog */}
+      <Dialog open={!!viewDoctor} onOpenChange={(open) => { if (!open) setViewDoctor(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewDoctor?.name}</DialogTitle>
+          </DialogHeader>
+          {viewDoctor && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Name</span><p className="font-medium">{viewDoctor.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Specialty</span><p className="font-medium">{viewDoctor.specialty}</p></div>
+              <div><span className="text-sm text-muted-foreground">Hospital</span><p className="font-medium">{viewDoctor.hospital}</p></div>
+              <div><span className="text-sm text-muted-foreground">City</span><p className="font-medium">{viewDoctor.city}</p></div>
+              <div><span className="text-sm text-muted-foreground">Phone</span><p className="font-medium">{viewDoctor.phone}</p></div>
+              <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{viewDoctor.email || "—"}</p></div>
+              <div><span className="text-sm text-muted-foreground">Classification</span><p className="font-medium">{viewDoctor.classification}</p></div>
+              <div><span className="text-sm text-muted-foreground">Visit Frequency</span><p className="font-medium">{viewDoctor.visitFrequency} / month</p></div>
+              <div><span className="text-sm text-muted-foreground">Assigned Rep</span><p className="font-medium">{viewDoctor.assignedRepId ? allUsers.find(u => u.id === viewDoctor.assignedRepId)?.name ?? "—" : "—"}</p></div>
+              <div><span className="text-sm text-muted-foreground">Last Visit</span><p className="font-medium">{viewDoctor.lastVisitAt ? new Date(viewDoctor.lastVisitAt).toLocaleDateString() : "Never"}</p></div>
+              {viewDoctor.notes && (
+                <div className="col-span-2"><span className="text-sm text-muted-foreground">Notes</span><p className="font-medium">{viewDoctor.notes}</p></div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <EntityFormModal
         open={visitFormOpen}

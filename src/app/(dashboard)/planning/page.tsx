@@ -19,6 +19,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
@@ -156,6 +157,7 @@ export default function PlanningPage() {
   const [editingGoal, setEditingGoal] = useState<typeof initialStrategicGoals[0] | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "" })
+  const [viewGoal, setViewGoal] = useState<typeof initialStrategicGoals[0] | null>(null)
 
   return (
     <div className="space-y-6">
@@ -281,6 +283,8 @@ export default function PlanningPage() {
                       </div>
                     </div>
                     <EditDeleteMenu
+                      onView={() => setViewGoal(goal)}
+                      canView
                       onEdit={() => { setEditingGoal(goal); setShowForm(true); }}
                       onDelete={() => setStrategicGoals(prev => prev.filter(g => g.id !== goal.id))}
                       itemLabel={goal.goal}
@@ -463,7 +467,8 @@ export default function PlanningPage() {
                   { key: "status", label: "Status", render: (v: string) => <Badge variant={getStatusBadge(v)}>{v}</Badge> },
                 ] as Column<Record<string, unknown>>[]}
                 data={enterpriseRisks as unknown as Record<string, unknown>[]}
-                
+                exportable
+                exportFilename="enterprise-risks.csv"
                 emptyMessage="No enterprise risks found."
               />
             </CardContent>
@@ -500,7 +505,8 @@ export default function PlanningPage() {
                   { key: "topProject", label: "Top Project", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
                 ] as Column<Record<string, unknown>>[]}
                 data={resourceAllocations as unknown as Record<string, unknown>[]}
-                
+                exportable
+                exportFilename="resource-allocations.csv"
                 emptyMessage="No resource allocations found."
               />
             </CardContent>
@@ -525,6 +531,39 @@ export default function PlanningPage() {
           setEditingGoal(null);
         }}
       />
+
+      {/* ── Strategic Goal Detail Dialog ── */}
+      <Dialog open={!!viewGoal} onOpenChange={(o) => !o && setViewGoal(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewGoal?.goal}</DialogTitle>
+          </DialogHeader>
+          {viewGoal && (
+            <div className="space-y-5 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium font-mono">{viewGoal.id}</p></div>
+                <div><span className="text-sm text-muted-foreground">Status</span><p><Badge variant={getStatusBadge(viewGoal.status)}>{viewGoal.status}</Badge></p></div>
+                <div><span className="text-sm text-muted-foreground">Owner</span><p className="font-medium">{viewGoal.owner}</p></div>
+                <div><span className="text-sm text-muted-foreground">Department</span><p className="font-medium">{viewGoal.department}</p></div>
+                <div><span className="text-sm text-muted-foreground">Target</span><p className="font-medium">{viewGoal.target}</p></div>
+                <div><span className="text-sm text-muted-foreground">Deadline</span><p className="font-medium">{viewGoal.deadline}</p></div>
+              </div>
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-muted-foreground">Progress</span>
+                  <span className="font-medium">{viewGoal.progress}%</span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-3">
+                  <div
+                    className={`h-3 rounded-full ${viewGoal.progress >= 75 ? "bg-green-500" : viewGoal.progress >= 50 ? "bg-blue-500" : viewGoal.progress >= 25 ? "bg-yellow-500" : "bg-red-500"}`}
+                    style={{ width: `${viewGoal.progress}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

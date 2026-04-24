@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Users, Target, DollarSign, MapPin, Plus, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
@@ -79,6 +80,8 @@ export default function MarketeerPage() {
   const [showVisit, setShowVisit] = useState(false);
   const [approvalFilters, setApprovalFilters] = useState<FilterState>({ _search: "", decision: "" });
   const [visitFilters, setVisitFilters] = useState<FilterState>({ _search: "", purpose: "" });
+  const [viewEscalated, setViewEscalated] = useState<(typeof ESCALATED)[0] | null>(null);
+  const [viewVisit, setViewVisit] = useState<(typeof DOUBLE_VISITS)[0] | null>(null);
 
   const filteredEscalated = escalated.filter((e) => {
     if (approvalFilters.decision && e.decision !== approvalFilters.decision) return false;
@@ -203,6 +206,7 @@ export default function MarketeerPage() {
                     const e = row as unknown as (typeof ESCALATED)[0];
                     return (
                       <EditDeleteMenu
+                        onView={() => setViewEscalated(e)}
                         onDelete={() => setEscalated(prev => prev.filter(x => x.id !== e.id))}
                         itemLabel={e.id}
                         canEdit={false}
@@ -255,6 +259,7 @@ export default function MarketeerPage() {
                     const v = row as unknown as (typeof DOUBLE_VISITS)[0];
                     return (
                       <EditDeleteMenu
+                        onView={() => setViewVisit(v)}
                         onEdit={() => { setEditing(v); setShowVisit(true); }}
                         onDelete={() => setDoubleVisits(prev => prev.filter(x => x.id !== v.id))}
                         itemLabel={v.id}
@@ -320,6 +325,49 @@ export default function MarketeerPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Escalated Request Detail Dialog */}
+      <Dialog open={!!viewEscalated} onOpenChange={(open) => { if (!open) setViewEscalated(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewEscalated?.id} — {viewEscalated?.type}</DialogTitle>
+          </DialogHeader>
+          {viewEscalated && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Request ID</span><p className="font-medium">{viewEscalated.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">From DM</span><p className="font-medium">{viewEscalated.from}</p></div>
+              <div><span className="text-sm text-muted-foreground">Rep</span><p className="font-medium">{viewEscalated.rep}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewEscalated.type}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewEscalated.description}</p></div>
+              <div><span className="text-sm text-muted-foreground">Cost</span><p className="font-medium">{viewEscalated.cost}</p></div>
+              <div><span className="text-sm text-muted-foreground">DM Recommendation</span><p className="font-medium">{viewEscalated.recommendation}</p></div>
+              <div><span className="text-sm text-muted-foreground">Decision</span><p className="font-medium">{viewEscalated.decision}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewEscalated.date}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Double Visit Detail Dialog */}
+      <Dialog open={!!viewVisit} onOpenChange={(open) => { if (!open) setViewVisit(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewVisit?.id} — {viewVisit?.doctor}</DialogTitle>
+          </DialogHeader>
+          {viewVisit && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Visit ID</span><p className="font-medium">{viewVisit.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Accompanied</span><p className="font-medium">{viewVisit.accompanied}</p></div>
+              <div><span className="text-sm text-muted-foreground">Doctor</span><p className="font-medium">{viewVisit.doctor}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewVisit.date}</p></div>
+              <div><span className="text-sm text-muted-foreground">Purpose</span><p className="font-medium">{viewVisit.purpose}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewVisit.status}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Observations</span><p className="font-medium">{viewVisit.observations}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Follow-up Actions</span><p className="font-medium">{viewVisit.followUp}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <EntityFormModal
         open={showVisit}

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ShieldCheck, AlertTriangle, FileText, ClipboardList, GraduationCap,
@@ -185,6 +186,8 @@ export default function SafetyPage() {
   const [permitList, setPermitList] = useState(permits);
   const [showPermitForm, setShowPermitForm] = useState(false);
   const [editingPermit, setEditingPermit] = useState<typeof permits[0] | null>(null);
+  const [viewItem, setViewItem] = useState<any>(null);
+  const [viewType, setViewType] = useState<"incident" | "risk" | "inspection" | "permit" | null>(null);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -298,6 +301,7 @@ export default function SafetyPage() {
                   const next = flow[inc.status];
                   return (
                     <EditDeleteMenu
+                      onView={() => { setViewItem(inc); setViewType("incident"); }}
                       onEdit={() => { setEditingIncident(inc); setShowIncidentForm(true); }}
                       onDelete={() => setIncidentList(prev => prev.filter(x => x.id !== inc.id))}
                       itemLabel={inc.id}
@@ -341,6 +345,7 @@ export default function SafetyPage() {
                   const r = row as unknown as typeof riskList[0];
                   return (
                     <EditDeleteMenu
+                      onView={() => { setViewItem(r); setViewType("risk"); }}
                       onEdit={() => { setEditingRisk(r); setShowRiskForm(true); }}
                       onDelete={() => setRiskList(prev => prev.filter(x => x.id !== r.id))}
                       itemLabel={r.id}
@@ -374,6 +379,7 @@ export default function SafetyPage() {
                   const ins = row as unknown as typeof inspectionList[0];
                   return (
                     <EditDeleteMenu
+                      onView={() => { setViewItem(ins); setViewType("inspection"); }}
                       onEdit={() => { setEditingInspection(ins); setShowInspectionForm(true); }}
                       onDelete={() => setInspectionList(prev => prev.filter(x => x.id !== ins.id))}
                       itemLabel={ins.id}
@@ -437,6 +443,7 @@ export default function SafetyPage() {
                   const next = flow[p.status];
                   return (
                     <EditDeleteMenu
+                      onView={() => { setViewItem(p); setViewType("permit"); }}
                       onEdit={() => { setEditingPermit(p); setShowPermitForm(true); }}
                       onDelete={() => setPermitList(prev => prev.filter(x => x.id !== p.id))}
                       itemLabel={p.id}
@@ -511,6 +518,58 @@ export default function SafetyPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!viewItem} onOpenChange={(o) => { if (!o) { setViewItem(null); setViewType(null); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewItem?.id} {viewItem?.type ? `- ${viewItem.type}` : ""}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            {viewType === "incident" && (<>
+              <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewItem?.date}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem?.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Location</span><p className="font-medium">{viewItem?.location}</p></div>
+              <div><span className="text-sm text-muted-foreground">Severity</span><p className="font-medium">{viewItem?.severity}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Assigned To</span><p className="font-medium">{viewItem?.assignee}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewItem?.desc}</p></div>
+            </>)}
+            {viewType === "risk" && (<>
+              <div><span className="text-sm text-muted-foreground">Risk ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{viewItem?.category}</p></div>
+              <div><span className="text-sm text-muted-foreground">Likelihood</span><p className="font-medium">{viewItem?.likelihood}</p></div>
+              <div><span className="text-sm text-muted-foreground">Impact</span><p className="font-medium">{viewItem?.impact}</p></div>
+              <div><span className="text-sm text-muted-foreground">Risk Score</span><p className="font-medium">{viewItem?.likelihood * viewItem?.impact}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Owner</span><p className="font-medium">{viewItem?.owner}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewItem?.desc}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Mitigation</span><p className="font-medium">{viewItem?.mitigation}</p></div>
+            </>)}
+            {viewType === "inspection" && (<>
+              <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem?.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Area</span><p className="font-medium">{viewItem?.area}</p></div>
+              <div><span className="text-sm text-muted-foreground">Inspector</span><p className="font-medium">{viewItem?.inspector}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewItem?.date}</p></div>
+              <div><span className="text-sm text-muted-foreground">Findings</span><p className="font-medium">{viewItem?.findings}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Follow-up Actions</span><p className="font-medium">{viewItem?.followUp}</p></div>
+            </>)}
+            {viewType === "permit" && (<>
+              <div><span className="text-sm text-muted-foreground">Permit ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem?.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Location</span><p className="font-medium">{viewItem?.location}</p></div>
+              <div><span className="text-sm text-muted-foreground">Requestor</span><p className="font-medium">{viewItem?.requestor}</p></div>
+              <div><span className="text-sm text-muted-foreground">Approver</span><p className="font-medium">{viewItem?.approver}</p></div>
+              <div><span className="text-sm text-muted-foreground">Valid From</span><p className="font-medium">{viewItem?.validFrom}</p></div>
+              <div><span className="text-sm text-muted-foreground">Valid To</span><p className="font-medium">{viewItem?.validTo}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Conditions</span><p className="font-medium">{viewItem?.conditions}</p></div>
+            </>)}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <EntityFormModal
         open={showIncidentForm}

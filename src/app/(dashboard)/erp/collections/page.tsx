@@ -28,6 +28,7 @@ import {
   type EntityField,
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useDataStore, type Cheque, type Invoice } from "@/lib/data-store";
 
 /* ─── Payment type ─── */
@@ -86,6 +87,9 @@ export default function CollectionsPage() {
   const [editingCheque, setEditingCheque] = useState<Cheque | null>(null);
   const [routeFormOpen, setRouteFormOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<CollectionRoute | null>(null);
+  const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
+  const [viewPayment, setViewPayment] = useState<Payment | null>(null);
+  const [viewCheque, setViewCheque] = useState<Cheque | null>(null);
 
   let _nextId = Date.now();
   const genId = (p: string) => `${p}-${(_nextId++).toString(36).slice(-6)}`;
@@ -383,6 +387,8 @@ export default function CollectionsPage() {
                     const inv = row as unknown as Invoice;
                     return (
                       <EditDeleteMenu
+                        onView={() => setViewInvoice(inv)}
+                        canView
                         onEdit={() => {
                           store.update("invoices", inv.id, { status: inv.status === "SENT" ? "PARTIAL" : inv.status });
                         }}
@@ -438,6 +444,8 @@ export default function CollectionsPage() {
                     const p = row as unknown as Payment;
                     return (
                       <EditDeleteMenu
+                        onView={() => setViewPayment(p)}
+                        canView
                         onEdit={() => handleEditPayment(p)}
                         onDelete={() => handleDeletePayment(p)}
                         itemLabel={`Payment ${p.reference}`}
@@ -530,6 +538,8 @@ export default function CollectionsPage() {
                     const c = row as unknown as Cheque;
                     return (
                       <EditDeleteMenu
+                        onView={() => setViewCheque(c)}
+                        canView
                         onEdit={() => handleEditCheque(c)}
                         onDelete={() => handleDeleteCheque(c)}
                         itemLabel={c.number}
@@ -678,6 +688,77 @@ export default function CollectionsPage() {
         submitLabel={editingRoute ? "Save" : "Create"}
         size="md"
       />
+
+      {/* ── Invoice Detail Dialog ── */}
+      <Dialog open={!!viewInvoice} onOpenChange={(o) => !o && setViewInvoice(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Invoice {viewInvoice?.number}</DialogTitle>
+          </DialogHeader>
+          {viewInvoice && (() => {
+            const cust = customers.find((c) => c.id === viewInvoice.customerId);
+            const overdue = new Date(viewInvoice.dueDate) < new Date() && viewInvoice.status !== "PAID";
+            return (
+              <div className="grid grid-cols-2 gap-4 py-4">
+                <div><span className="text-sm text-muted-foreground">Invoice Number</span><p className="font-medium font-mono">{viewInvoice.number}</p></div>
+                <div><span className="text-sm text-muted-foreground">Customer</span><p className="font-medium">{cust?.name || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Customer Type</span><p className="font-medium">{cust?.type || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Status</span><p><Badge variant={overdue ? "destructive" : "secondary"}>{overdue && viewInvoice.status !== "OVERDUE" ? "OVERDUE" : viewInvoice.status}</Badge></p></div>
+                <div><span className="text-sm text-muted-foreground">Due Date</span><p className="font-medium">{new Date(viewInvoice.dueDate).toLocaleDateString()}</p></div>
+                <div><span className="text-sm text-muted-foreground">Invoice Date</span><p className="font-medium">{new Date(viewInvoice.date).toLocaleDateString()}</p></div>
+                <div><span className="text-sm text-muted-foreground">Subtotal</span><p className="font-medium">{fmt(viewInvoice.subtotal)}</p></div>
+                <div><span className="text-sm text-muted-foreground">Tax</span><p className="font-medium">{fmt(viewInvoice.tax)}</p></div>
+                <div><span className="text-sm text-muted-foreground">Total</span><p className="font-semibold text-lg">{fmt(viewInvoice.total)}</p></div>
+                <div><span className="text-sm text-muted-foreground">Currency</span><p className="font-medium">{viewInvoice.currency}</p></div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Payment Detail Dialog ── */}
+      <Dialog open={!!viewPayment} onOpenChange={(o) => !o && setViewPayment(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Payment {viewPayment?.reference}</DialogTitle>
+          </DialogHeader>
+          {viewPayment && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Reference</span><p className="font-medium font-mono">{viewPayment.reference}</p></div>
+              <div><span className="text-sm text-muted-foreground">Customer</span><p className="font-medium">{viewPayment.customerName}</p></div>
+              <div><span className="text-sm text-muted-foreground">Amount</span><p className="font-semibold text-lg text-green-600">{fmt(viewPayment.amount)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Method</span><p className="font-medium">{viewPayment.method}</p></div>
+              <div><span className="text-sm text-muted-foreground">Collector</span><p className="font-medium">{viewPayment.collector}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewPayment.date}</p></div>
+              <div><span className="text-sm text-muted-foreground">Verified</span><p className="font-medium">{viewPayment.verified ? "Yes" : "No"}</p></div>
+              <div><span className="text-sm text-muted-foreground">Invoice ID</span><p className="font-medium font-mono">{viewPayment.invoiceId}</p></div>
+              {viewPayment.notes && <div className="col-span-2"><span className="text-sm text-muted-foreground">Notes</span><p className="font-medium">{viewPayment.notes}</p></div>}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Cheque Detail Dialog ── */}
+      <Dialog open={!!viewCheque} onOpenChange={(o) => !o && setViewCheque(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Cheque {viewCheque?.number}</DialogTitle>
+          </DialogHeader>
+          {viewCheque && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Cheque Number</span><p className="font-medium font-mono">{viewCheque.number}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewCheque.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Party</span><p className="font-medium">{viewCheque.partyName}</p></div>
+              <div><span className="text-sm text-muted-foreground">Bank</span><p className="font-medium">{viewCheque.bankName}</p></div>
+              <div><span className="text-sm text-muted-foreground">Amount</span><p className="font-semibold text-lg">{fmt(viewCheque.amount)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Currency</span><p className="font-medium">{viewCheque.currency}</p></div>
+              <div><span className="text-sm text-muted-foreground">Issue Date</span><p className="font-medium">{new Date(viewCheque.issueDate).toLocaleDateString()}</p></div>
+              <div><span className="text-sm text-muted-foreground">Due Date</span><p className="font-medium">{new Date(viewCheque.dueDate).toLocaleDateString()}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${chequeStatusColor[viewCheque.status]}`}>{viewCheque.status}</span></p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

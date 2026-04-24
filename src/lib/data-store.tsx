@@ -295,6 +295,60 @@ export interface Employee {
   phone: string;
 }
 
+export interface Job {
+  id: string;
+  title: string;
+  department: string;
+  location: string;
+  type: string;
+  status: string;
+  applications: number;
+  postedDate: string;
+  closingDate: string;
+  description: string;
+  salaryRange: string;
+  requirements: string;
+}
+
+export interface Candidate {
+  id: string;
+  name: string;
+  email: string;
+  degree: string;
+  currentCompany: string;
+  appliedFor: string;
+  experience: string;
+  source: string;
+  status: string;
+  rating: number;
+  appliedDate: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  client: string;
+  manager: string;
+  startDate: string;
+  endDate: string;
+  budget: number;
+  spent: number;
+  progress: number;
+  status: string;
+  description: string;
+}
+
+export interface ProjectTask {
+  id: string;
+  title: string;
+  project: string;
+  assignee: string;
+  dueDate: string;
+  priority: string;
+  hours: number;
+  status: string;
+}
+
 // ─── Store shape ─────────────────────────────────────────────────────────────
 
 export interface DataStoreState {
@@ -317,6 +371,10 @@ export interface DataStoreState {
   costCenters: CostCenter[];
   budgets: Budget[];
   employees: Employee[];
+  jobs: Job[];
+  candidates: Candidate[];
+  projects: Project[];
+  projectTasks: ProjectTask[];
   nextInvoiceSeq: number;
   nextJournalSeq: number;
 }
@@ -593,6 +651,42 @@ const SEED_EMPLOYEES: Employee[] = [
   { id: "emp-8", employeeId: "EMP-008", name: "Jennifer Taylor", email: "j.taylor@company.com", phone: "(555) 100-1008", department: "Finance", position: "Controller", hireDate: "2020-09-14", salary: 110000, status: "ACTIVE", manager: "—" },
 ];
 
+const SEED_JOBS: Job[] = [
+  { id: "job-1", title: "Medical Representative", department: "Sales & Marketing", location: "Cairo, Egypt", type: "FULL_TIME", status: "OPEN", applications: 45, postedDate: "2026-03-01", closingDate: "2026-04-15", description: "Promote pharmaceutical products to healthcare professionals in assigned territory.", salaryRange: "EGP 18,000 - EGP 24,000/yr", requirements: "BSc Pharmacy/Science, 1-3 yrs pharma sales" },
+  { id: "job-2", title: "District Sales Manager", department: "Sales & Marketing", location: "Alexandria, Egypt", type: "FULL_TIME", status: "OPEN", applications: 18, postedDate: "2026-03-05", closingDate: "2026-04-20", description: "Lead and manage a team of medical representatives across the district.", salaryRange: "EGP 30,000 - EGP 42,000/yr", requirements: "BSc Pharmacy, 5+ yrs pharma sales, 2+ yrs management" },
+  { id: "job-3", title: "Quality Control Analyst", department: "Quality Assurance", location: "10th of Ramadan, Egypt", type: "FULL_TIME", status: "OPEN", applications: 32, postedDate: "2026-03-08", closingDate: "2026-04-10", description: "Perform analytical testing of raw materials, intermediates, and finished products.", salaryRange: "EGP 15,000 - EGP 22,000/yr", requirements: "BSc Pharmacy/Chemistry, HPLC/GC experience" },
+  { id: "job-4", title: "Regulatory Affairs Specialist", department: "Regulatory Affairs", location: "Cairo, Egypt", type: "FULL_TIME", status: "OPEN", applications: 14, postedDate: "2026-03-10", closingDate: "2026-04-25", description: "Prepare and submit drug registration dossiers to EDA and other regulatory authorities.", salaryRange: "EGP 25,000 - EGP 35,000/yr", requirements: "BSc Pharmacy, 3+ yrs regulatory affairs, CTD knowledge" },
+  { id: "job-5", title: "Production Pharmacist", department: "Manufacturing", location: "10th of Ramadan, Egypt", type: "FULL_TIME", status: "OPEN", applications: 22, postedDate: "2026-03-12", closingDate: "2026-04-18", description: "Supervise pharmaceutical manufacturing operations.", salaryRange: "EGP 20,000 - EGP 28,000/yr", requirements: "BSc Pharmacy, GMP knowledge, 2+ yrs manufacturing" },
+  { id: "job-6", title: "R&D Formulation Scientist", department: "Research & Development", location: "6th October, Egypt", type: "FULL_TIME", status: "OPEN", applications: 16, postedDate: "2026-03-18", closingDate: "2026-05-01", description: "Develop and optimize pharmaceutical formulations for generic and branded products.", salaryRange: "EGP 28,000 - EGP 40,000/yr", requirements: "MSc/PhD Pharmaceutics, formulation development" },
+];
+
+const SEED_CANDIDATES: Candidate[] = [
+  { id: "cand-1", name: "Dr. Amira Hassan", email: "amira.h@email.com", degree: "BSc Pharmacy, Ain Shams", currentCompany: "Hikma Pharmaceuticals", appliedFor: "District Sales Manager", experience: "6 yrs pharma sales", source: "LinkedIn", status: "INTERVIEW", rating: 5, appliedDate: "2026-03-01" },
+  { id: "cand-2", name: "Mohamed El-Sayed", email: "mohamed.e@email.com", degree: "BSc Pharmacy, Cairo Univ", currentCompany: "EIPICO", appliedFor: "Medical Representative", experience: "2 yrs pharma sales", source: "Referral", status: "SCREENING", rating: 4, appliedDate: "2026-03-05" },
+  { id: "cand-3", name: "Dr. Fatima Khaled", email: "fatima.k@email.com", degree: "MSc Analytical Chemistry", currentCompany: "Pharco Pharmaceuticals", appliedFor: "Quality Control Analyst", experience: "4 yrs QC lab", source: "Company Site", status: "OFFER", rating: 5, appliedDate: "2026-03-02" },
+  { id: "cand-4", name: "Ahmed Mansour", email: "ahmed.m@email.com", degree: "BSc Pharmacy, Alex Univ", currentCompany: "Novartis Egypt", appliedFor: "Regulatory Affairs Specialist", experience: "5 yrs regulatory", source: "LinkedIn", status: "INTERVIEW", rating: 4, appliedDate: "2026-03-08" },
+  { id: "cand-5", name: "Sara Ibrahim", email: "sara.i@email.com", degree: "BSc Pharmacy, Tanta Univ", currentCompany: "Fresh Graduate", appliedFor: "Medical Representative", experience: "Internship only", source: "University Career Fair", status: "APPLIED", rating: 3, appliedDate: "2026-03-10" },
+  { id: "cand-6", name: "Dr. Khaled Nabil", email: "khaled.n@email.com", degree: "PhD Pharmaceutics", currentCompany: "GSK Egypt", appliedFor: "R&D Formulation Scientist", experience: "8 yrs R&D", source: "LinkedIn", status: "INTERVIEW", rating: 5, appliedDate: "2026-03-09" },
+];
+
+const SEED_PROJECTS: Project[] = [
+  { id: "proj-1", name: "ERP System Rollout", client: "Acme Corp", manager: "Sarah Johnson", startDate: "2026-01-15", endDate: "2026-07-31", budget: 180000, spent: 92000, progress: 52, status: "In Progress", description: "Full ERP system implementation including finance, HR, and inventory modules." },
+  { id: "proj-2", name: "Website Redesign", client: "Globex Inc", manager: "Michael Torres", startDate: "2026-02-01", endDate: "2026-04-30", budget: 45000, spent: 38500, progress: 85, status: "In Progress", description: "Complete overhaul of the corporate website with new branding and CMS." },
+  { id: "proj-3", name: "Mobile App v2.0", client: "Internal", manager: "Emily Chen", startDate: "2026-03-01", endDate: "2026-09-30", budget: 120000, spent: 18000, progress: 15, status: "In Progress", description: "Major version release of the mobile application with offline support." },
+  { id: "proj-4", name: "Data Warehouse Migration", client: "Initech LLC", manager: "David Kim", startDate: "2025-10-01", endDate: "2026-01-31", budget: 95000, spent: 97200, progress: 100, status: "Completed", description: "Migration of legacy data warehouse to cloud-based solution." },
+];
+
+const SEED_PROJECT_TASKS: ProjectTask[] = [
+  { id: "ptask-1", title: "Design system architecture", project: "ERP System Rollout", assignee: "Sarah Johnson", dueDate: "2026-04-05", priority: "High", hours: 16, status: "Completed" },
+  { id: "ptask-2", title: "Implement finance module API", project: "ERP System Rollout", assignee: "James Park", dueDate: "2026-04-20", priority: "High", hours: 40, status: "In Progress" },
+  { id: "ptask-3", title: "UI mockups — homepage", project: "Website Redesign", assignee: "Anna White", dueDate: "2026-04-10", priority: "Medium", hours: 12, status: "Review" },
+  { id: "ptask-4", title: "Migrate product pages", project: "Website Redesign", assignee: "Michael Torres", dueDate: "2026-04-18", priority: "High", hours: 20, status: "In Progress" },
+  { id: "ptask-5", title: "Offline sync architecture", project: "Mobile App v2.0", assignee: "Emily Chen", dueDate: "2026-05-01", priority: "High", hours: 32, status: "Todo" },
+  { id: "ptask-6", title: "Push notification service", project: "Mobile App v2.0", assignee: "Carlos Rivera", dueDate: "2026-05-15", priority: "Medium", hours: 24, status: "Todo" },
+  { id: "ptask-7", title: "ETL pipeline testing", project: "Data Warehouse Migration", assignee: "David Kim", dueDate: "2026-01-20", priority: "High", hours: 28, status: "Completed" },
+  { id: "ptask-8", title: "User acceptance testing", project: "ERP System Rollout", assignee: "Lisa Morgan", dueDate: "2026-04-28", priority: "Medium", hours: 20, status: "On Hold" },
+];
+
 export const SEED_DATA: DataStoreState = {
   businessUnits: SEED_BUS,
   products: SEED_PRODUCTS,
@@ -613,6 +707,10 @@ export const SEED_DATA: DataStoreState = {
   costCenters: SEED_COST_CENTERS,
   budgets: SEED_BUDGETS,
   employees: SEED_EMPLOYEES,
+  jobs: SEED_JOBS,
+  candidates: SEED_CANDIDATES,
+  projects: SEED_PROJECTS,
+  projectTasks: SEED_PROJECT_TASKS,
   nextInvoiceSeq: 3,
   nextJournalSeq: 9,
 };

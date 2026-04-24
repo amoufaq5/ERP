@@ -148,8 +148,8 @@ function AdminDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Total Revenue (YTD)" value={fmtM(totalRevenue)} delta="+14.2%" trend="up" icon={DollarSign} color="bg-green-100 text-green-600" />
         <KpiCard label="Customers" value={totalCustomers} delta="+8.3%" trend="up" icon={Users} color="bg-blue-100 text-blue-600" />
-        <KpiCard label="GMP Compliance" value="98.5%" delta="+0.4%" trend="up" icon={ShieldCheck} color="bg-purple-100 text-purple-600" />
-        <KpiCard label="Active Batches" value={24} delta="+3" trend="up" icon={FlaskConical} color="bg-orange-100 text-orange-600" />
+        <KpiCard label="Employees" value={store.employees.length} icon={Users} color="bg-purple-100 text-purple-600" />
+        <KpiCard label="Open Positions" value={store.jobs.filter(j => j.status === "OPEN").length} delta={`${store.candidates.length} applicants`} trend="up" icon={Briefcase} color="bg-orange-100 text-orange-600" />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card>
@@ -626,25 +626,19 @@ function HRDashboard() {
         badge="HR MANAGER"
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Headcount" value={156} delta="+4" trend="up" icon={Users} color="bg-blue-100 text-blue-600" />
-        <KpiCard label="Open Tasks" value={openTasks} icon={Briefcase} color="bg-purple-100 text-purple-600" />
-        <KpiCard label="GMP Training" value="94%" delta="+3%" trend="up" icon={GraduationCap} color="bg-green-100 text-green-600" />
-        <KpiCard label="Leave Today" value={7} icon={Calendar} color="bg-amber-100 text-amber-600" />
+        <KpiCard label="Headcount" value={store.employees.length} delta={`${store.employees.filter(e => e.status === "ACTIVE").length} active`} trend="up" icon={Users} color="bg-blue-100 text-blue-600" />
+        <KpiCard label="Open Positions" value={store.jobs.filter(j => j.status === "OPEN").length} icon={Briefcase} color="bg-purple-100 text-purple-600" />
+        <KpiCard label="Total Candidates" value={store.candidates.length} delta={`${store.candidates.filter(c => c.status === "INTERVIEW").length} interviewing`} trend="up" icon={UserPlus} color="bg-green-100 text-green-600" />
+        <KpiCard label="Active Projects" value={store.projects.filter(p => p.status === "In Progress").length} icon={Calendar} color="bg-amber-100 text-amber-600" />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader><CardTitle className="text-base">Recruiting Pipeline</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
-            {[
-              { stage: "Applied", count: 84 },
-              { stage: "Screening", count: 42 },
-              { stage: "Interview", count: 18 },
-              { stage: "Offer", count: 6 },
-              { stage: "Hired", count: 3 },
-            ].map((s) => (
-              <div key={s.stage} className="flex items-center justify-between">
-                <span>{s.stage}</span>
-                <Badge variant="secondary">{s.count}</Badge>
+            {(["APPLIED", "SCREENING", "INTERVIEW", "OFFER", "HIRED"] as const).map((stage) => (
+              <div key={stage} className="flex items-center justify-between">
+                <span>{stage.charAt(0) + stage.slice(1).toLowerCase()}</span>
+                <Badge variant="secondary">{store.candidates.filter(c => c.status === stage).length}</Badge>
               </div>
             ))}
           </CardContent>

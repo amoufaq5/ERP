@@ -11,35 +11,7 @@ import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
-
-interface Candidate {
-  id: number;
-  name: string;
-  email: string;
-  degree: string;
-  currentCompany: string;
-  appliedFor: string;
-  experience: string;
-  source: string;
-  status: string;
-  rating: number;
-  appliedDate: string;
-}
-
-const initialCandidates: Candidate[] = [
-  { id: 1, name: "Dr. Amira Hassan", email: "amira.h@email.com", degree: "BSc Pharmacy, Ain Shams", currentCompany: "Hikma Pharmaceuticals", appliedFor: "District Sales Manager", experience: "6 yrs pharma sales", source: "LinkedIn", status: "INTERVIEW", rating: 5, appliedDate: "2026-03-01" },
-  { id: 2, name: "Mohamed El-Sayed", email: "mohamed.e@email.com", degree: "BSc Pharmacy, Cairo Univ", currentCompany: "EIPICO", appliedFor: "Medical Representative", experience: "2 yrs pharma sales", source: "Referral", status: "SCREENING", rating: 4, appliedDate: "2026-03-05" },
-  { id: 3, name: "Dr. Fatima Khaled", email: "fatima.k@email.com", degree: "MSc Analytical Chemistry", currentCompany: "Pharco Pharmaceuticals", appliedFor: "Quality Control Analyst", experience: "4 yrs QC lab", source: "Company Site", status: "OFFER", rating: 5, appliedDate: "2026-03-02" },
-  { id: 4, name: "Ahmed Mansour", email: "ahmed.m@email.com", degree: "BSc Pharmacy, Alex Univ", currentCompany: "Novartis Egypt", appliedFor: "Regulatory Affairs Specialist", experience: "5 yrs regulatory", source: "LinkedIn", status: "INTERVIEW", rating: 4, appliedDate: "2026-03-08" },
-  { id: 5, name: "Sara Ibrahim", email: "sara.i@email.com", degree: "BSc Pharmacy, Tanta Univ", currentCompany: "Fresh Graduate", appliedFor: "Medical Representative", experience: "Internship only", source: "University Career Fair", status: "APPLIED", rating: 3, appliedDate: "2026-03-10" },
-  { id: 6, name: "Dr. Khaled Nabil", email: "khaled.n@email.com", degree: "PhD Pharmaceutics", currentCompany: "GSK Egypt", appliedFor: "R&D Formulation Scientist", experience: "8 yrs R&D", source: "LinkedIn", status: "INTERVIEW", rating: 5, appliedDate: "2026-03-09" },
-  { id: 7, name: "Noura Youssef", email: "noura.y@email.com", degree: "BSc Pharmacy, Mansoura", currentCompany: "Amoun Pharmaceutical", appliedFor: "Production Pharmacist", experience: "3 yrs manufacturing", source: "Indeed", status: "SCREENING", rating: 4, appliedDate: "2026-03-12" },
-  { id: 8, name: "Dr. Tarek Abdel-Fattah", email: "tarek.a@email.com", degree: "MD, MSc Pharmacology", currentCompany: "Pfizer Egypt", appliedFor: "Pharmacovigilance Officer", experience: "4 yrs PV", source: "Referral", status: "OFFER", rating: 5, appliedDate: "2026-03-06" },
-  { id: 9, name: "Yasser Reda", email: "yasser.r@email.com", degree: "BSc + MBA", currentCompany: "Bayer Egypt", appliedFor: "Supply Chain Manager", experience: "9 yrs supply chain", source: "LinkedIn", status: "APPLIED", rating: 4, appliedDate: "2026-03-14" },
-  { id: 10, name: "Heba Mostafa", email: "heba.m@email.com", degree: "BSc Pharmacy, Zagazig", currentCompany: "Sedico Pharma", appliedFor: "Medical Representative", experience: "1 yr pharma sales", source: "Indeed", status: "REJECTED", rating: 2, appliedDate: "2026-02-28" },
-  { id: 11, name: "Omar Farouk", email: "omar.f@email.com", degree: "BSc Chemistry", currentCompany: "National Org for Drug Control", appliedFor: "Quality Control Analyst", experience: "6 yrs analytical", source: "Company Site", status: "INTERVIEW", rating: 4, appliedDate: "2026-03-15" },
-  { id: 12, name: "Dina Samy", email: "dina.s@email.com", degree: "BSc Pharmacy, Cairo Univ", currentCompany: "AstraZeneca Egypt", appliedFor: "Clinical Research Associate", experience: "3 yrs CRA, GCP certified", source: "LinkedIn", status: "SCREENING", rating: 4, appliedDate: "2026-03-16" },
-];
+import { useDataStore, type Candidate } from "@/lib/data-store";
 
 const statusColors: Record<string, string> = {
   APPLIED: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
@@ -50,29 +22,11 @@ const statusColors: Record<string, string> = {
   REJECTED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 };
 
-const CANDIDATE_FIELDS: EntityField[] = [
-  { name: "name", label: "Full Name", type: "text", placeholder: "Dr. Ahmed Mohamed", required: true },
-  { name: "email", label: "Email", type: "email", placeholder: "ahmed@email.com", required: true },
-  { name: "degree", label: "Qualification / Degree", type: "text", placeholder: "BSc Pharmacy, Cairo University", fullWidth: true },
-  { name: "currentCompany", label: "Current Employer", type: "text", placeholder: "Current company" },
-  { name: "appliedFor", label: "Applying For", type: "select", options: [
-    { label: "Medical Representative", value: "Medical Representative" },
-    { label: "District Sales Manager", value: "District Sales Manager" },
-    { label: "Quality Control Analyst", value: "Quality Control Analyst" },
-    { label: "Production Pharmacist", value: "Production Pharmacist" },
-    { label: "R&D Formulation Scientist", value: "R&D Formulation Scientist" },
-    { label: "Regulatory Affairs Specialist", value: "Regulatory Affairs Specialist" },
-    { label: "Pharmacovigilance Officer", value: "Pharmacovigilance Officer" },
-    { label: "Supply Chain Manager", value: "Supply Chain Manager" },
-    { label: "Clinical Research Associate", value: "Clinical Research Associate" },
-  ]},
-  { name: "experience", label: "Experience", type: "text", placeholder: "3 yrs pharma sales" },
-  { name: "source", label: "Source", type: "select", defaultValue: "LinkedIn", options: [
-    { label: "LinkedIn", value: "LinkedIn" }, { label: "Indeed", value: "Indeed" },
-    { label: "Referral", value: "Referral" }, { label: "Company Site", value: "Company Site" },
-    { label: "University Career Fair", value: "University Career Fair" },
-    { label: "Recruitment Agency", value: "Recruitment Agency" },
-  ]},
+const SOURCE_OPTIONS = [
+  { label: "LinkedIn", value: "LinkedIn" }, { label: "Indeed", value: "Indeed" },
+  { label: "Referral", value: "Referral" }, { label: "Company Site", value: "Company Site" },
+  { label: "University Career Fair", value: "University Career Fair" },
+  { label: "Recruitment Agency", value: "Recruitment Agency" },
 ];
 
 const FILTER_FIELDS = [
@@ -102,7 +56,8 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 export default function CandidatesPage() {
-  const [candidates, setCandidates] = useState<Candidate[]>(initialCandidates);
+  const store = useDataStore();
+  const candidates = store.candidates;
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", source: "" });
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Candidate | null>(null);
@@ -123,6 +78,20 @@ export default function CandidatesPage() {
   const statusFlow: Record<string, string> = {
     APPLIED: "SCREENING", SCREENING: "INTERVIEW", INTERVIEW: "OFFER", OFFER: "HIRED",
   };
+
+  const jobOptions = store.jobs
+    .filter(j => j.status === "OPEN")
+    .map(j => ({ label: j.title, value: j.title }));
+
+  const candidateFields: EntityField[] = [
+    { name: "name", label: "Full Name", type: "text", placeholder: "Dr. Ahmed Mohamed", required: true },
+    { name: "email", label: "Email", type: "email", placeholder: "ahmed@email.com", required: true },
+    { name: "degree", label: "Qualification / Degree", type: "text", placeholder: "BSc Pharmacy, Cairo University", fullWidth: true },
+    { name: "currentCompany", label: "Current Employer", type: "text", placeholder: "Current company" },
+    { name: "appliedFor", label: "Applying For", type: "select", options: jobOptions.length > 0 ? jobOptions : [{ label: "No open positions", value: "" }] },
+    { name: "experience", label: "Experience", type: "text", placeholder: "3 yrs pharma sales" },
+    { name: "source", label: "Source", type: "select", defaultValue: "LinkedIn", options: SOURCE_OPTIONS },
+  ];
 
   const columns: Column<Candidate>[] = [
     {
@@ -164,13 +133,13 @@ export default function CandidatesPage() {
         return (
           <EditDeleteMenu
             onEdit={() => { setEditing(row); setShowModal(true); }}
-            onDelete={() => setCandidates((prev) => prev.filter((c) => c.id !== row.id))}
+            onDelete={() => store.remove("candidates", row.id)}
             onView={() => setDetailCandidate(row)}
             canView
             itemLabel={row.name}
             extraItems={[
-              ...(next ? [{ label: `Move to ${next}`, onClick: () => setCandidates((prev) => prev.map((c) => c.id === row.id ? { ...c, status: next } : c)) }] : []),
-              ...(row.status !== "REJECTED" && row.status !== "HIRED" ? [{ label: "Reject", onClick: () => setCandidates((prev) => prev.map((c) => c.id === row.id ? { ...c, status: "REJECTED" } : c)) }] : []),
+              ...(next ? [{ label: `Move to ${next}`, onClick: () => store.update("candidates", row.id, { status: next }) }] : []),
+              ...(row.status !== "REJECTED" && row.status !== "HIRED" ? [{ label: "Reject", onClick: () => store.update("candidates", row.id, { status: "REJECTED" }) }] : []),
             ]}
           />
         );
@@ -211,23 +180,22 @@ export default function CandidatesPage() {
         open={showModal}
         onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null); } }}
         title={editing ? "Edit Candidate" : "Add Pharmaceutical Candidate"}
-        fields={CANDIDATE_FIELDS}
+        fields={candidateFields}
         initialData={editing ? { name: editing.name, email: editing.email, degree: editing.degree, currentCompany: editing.currentCompany, appliedFor: editing.appliedFor, experience: editing.experience, source: editing.source } : undefined}
         onSubmit={(data) => {
           if (editing) {
-            setCandidates((prev) => prev.map((c) => c.id === editing.id ? {
-              ...c,
+            store.update("candidates", editing.id, {
               name: data.name as string,
               email: data.email as string,
-              degree: (data.degree as string) || c.degree,
-              currentCompany: (data.currentCompany as string) || c.currentCompany,
-              appliedFor: (data.appliedFor as string) || c.appliedFor,
-              experience: (data.experience as string) || c.experience,
-              source: (data.source as string) || c.source,
-            } : c));
+              degree: (data.degree as string) || editing.degree,
+              currentCompany: (data.currentCompany as string) || editing.currentCompany,
+              appliedFor: (data.appliedFor as string) || editing.appliedFor,
+              experience: (data.experience as string) || editing.experience,
+              source: (data.source as string) || editing.source,
+            });
           } else {
-            const candidate: Candidate = {
-              id: Date.now(),
+            store.add("candidates", {
+              id: store.genId("cand"),
               name: data.name as string,
               email: data.email as string,
               degree: (data.degree as string) || "",
@@ -238,8 +206,7 @@ export default function CandidatesPage() {
               status: "APPLIED",
               rating: 3,
               appliedDate: new Date().toISOString().split("T")[0],
-            };
-            setCandidates((prev) => [candidate, ...prev]);
+            });
           }
           setShowModal(false);
           setEditing(null);
@@ -278,6 +245,37 @@ export default function CandidatesPage() {
                   <span className="ml-2 font-semibold">{detailCandidate.rating} / 5</span>
                 </div>
               </div>
+              {detailCandidate.status === "HIRED" && (
+                <div className="pt-2 border-t">
+                  <span className="text-sm text-muted-foreground">Cross-Module Actions</span>
+                  {store.employees.some(e => e.email === detailCandidate.email) ? (
+                    <p className="text-sm text-green-600 font-medium mt-1">Employee record already exists in HR</p>
+                  ) : (
+                    <Button
+                      className="mt-2 w-full"
+                      onClick={() => {
+                        store.add("employees", {
+                          id: store.genId("emp"),
+                          employeeId: `EMP-${String(store.employees.length + 1).padStart(3, "0")}`,
+                          name: detailCandidate.name,
+                          email: detailCandidate.email,
+                          department: detailCandidate.appliedFor,
+                          position: detailCandidate.appliedFor,
+                          hireDate: new Date().toISOString().split("T")[0],
+                          salary: 0,
+                          status: "ACTIVE",
+                          manager: "—",
+                          phone: "",
+                        });
+                        setDetailCandidate(null);
+                      }}
+                    >
+                      <UserCheck className="h-4 w-4 mr-2" />
+                      Create Employee Record in HR
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

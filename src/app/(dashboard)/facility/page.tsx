@@ -9,6 +9,7 @@ import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Building2, MapPin, Wrench, Zap, Users, ShieldCheck, Plus,
@@ -212,6 +213,7 @@ export default function FacilityPage() {
 
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [vendorList, setVendorList] = useState(vendors);
+  const [viewWorkOrder, setViewWorkOrder] = useState<typeof workOrders[0] | null>(null);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -363,6 +365,8 @@ export default function FacilityPage() {
                     const next = flow[wo.status];
                     return (
                       <EditDeleteMenu
+                        onView={() => setViewWorkOrder(wo)}
+                        canView
                         onEdit={() => { setEditingWo(wo); setShowForm(true); }}
                         onDelete={() => setWos(prev => prev.filter(w => w.id !== wo.id))}
                         itemLabel={wo.id}
@@ -638,6 +642,28 @@ export default function FacilityPage() {
           }, ...prev]);
         }}
       />
+
+      {/* ── Work Order Detail Dialog ── */}
+      <Dialog open={!!viewWorkOrder} onOpenChange={(o) => !o && setViewWorkOrder(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Work Order {viewWorkOrder?.id}</DialogTitle>
+          </DialogHeader>
+          {viewWorkOrder && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Title</span><p className="font-medium">{viewWorkOrder.title}</p></div>
+              <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium font-mono">{viewWorkOrder.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Building</span><p className="font-medium">{viewWorkOrder.building}</p></div>
+              <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{viewWorkOrder.category}</p></div>
+              <div><span className="text-sm text-muted-foreground">Priority</span><p>{priorityBadge(viewWorkOrder.priority)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Assignee</span><p className="font-medium">{viewWorkOrder.assignee}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p>{statusBadge(viewWorkOrder.status)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Created</span><p className="font-medium">{viewWorkOrder.created}</p></div>
+              <div><span className="text-sm text-muted-foreground">Due Date</span><p className="font-medium">{viewWorkOrder.due}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

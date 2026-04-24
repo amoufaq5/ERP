@@ -7,6 +7,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
@@ -98,6 +99,8 @@ export default function TrainingPage() {
   const [filters, setFilters] = useState<FilterState>({ _search: "", format: "" })
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<Course | null>(null)
+  const [viewItem, setViewItem] = useState<Course | null>(null)
+  const [viewEnrollment, setViewEnrollment] = useState<Enrollment | null>(null)
 
   const totalCourses = courses.length
   const activeEnrollments = initialEnrollments.filter((e) => e.status === "IN_PROGRESS").length
@@ -181,6 +184,7 @@ export default function TrainingPage() {
                   <div className="flex items-start justify-between gap-2">
                     <CardTitle className="text-base leading-tight">{course.title}</CardTitle>
                     <EditDeleteMenu
+                      onView={() => setViewItem(course)}
                       onEdit={() => { setEditing(course); setShowModal(true) }}
                       onDelete={() => setCourses((prev) => prev.filter((c) => c.id !== course.id))}
                       itemLabel={course.title}
@@ -248,6 +252,23 @@ export default function TrainingPage() {
                 return <span className="text-muted-foreground">—</span>;
               },
             },
+            {
+              key: "actions",
+              label: "",
+              render: (_v: unknown, row: unknown) => {
+                const enrollment = row as Enrollment;
+                return (
+                  <EditDeleteMenu
+                    onView={() => setViewEnrollment(enrollment)}
+                    onEdit={() => {}}
+                    onDelete={() => {}}
+                    canEdit={false}
+                    canDelete={false}
+                    itemLabel={enrollment.employee}
+                  />
+                );
+              },
+            },
           ] as Column<Record<string, unknown>>[]}
           data={initialEnrollments as unknown as Record<string, unknown>[]}
           emptyMessage="No enrollments found."
@@ -255,6 +276,38 @@ export default function TrainingPage() {
           exportFilename="training-enrollments.csv"
         />
       )}
+
+      <Dialog open={!!viewItem} onOpenChange={(o) => !o && setViewItem(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewItem?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{viewItem?.category}</p></div>
+            <div><span className="text-sm text-muted-foreground">Format</span><p className="font-medium">{viewItem?.format}</p></div>
+            <div><span className="text-sm text-muted-foreground">Duration</span><p className="font-medium">{viewItem?.duration}</p></div>
+            <div><span className="text-sm text-muted-foreground">Enrolled</span><p className="font-medium">{viewItem?.enrolled}</p></div>
+            <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+            <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewItem?.description}</p></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewEnrollment} onOpenChange={(o) => !o && setViewEnrollment(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewEnrollment?.employee} - {viewEnrollment?.course}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <div><span className="text-sm text-muted-foreground">Employee</span><p className="font-medium">{viewEnrollment?.employee}</p></div>
+            <div><span className="text-sm text-muted-foreground">Course</span><p className="font-medium">{viewEnrollment?.course}</p></div>
+            <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewEnrollment?.status?.replace(/_/g, " ")}</p></div>
+            <div><span className="text-sm text-muted-foreground">Enrolled Date</span><p className="font-medium">{viewEnrollment?.enrolledDate}</p></div>
+            <div><span className="text-sm text-muted-foreground">Completed Date</span><p className="font-medium">{viewEnrollment?.completedDate ?? "—"}</p></div>
+            <div><span className="text-sm text-muted-foreground">Score</span><p className="font-medium">{viewEnrollment?.score !== null && viewEnrollment?.score !== undefined ? `${viewEnrollment.score}%` : "—"}</p></div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <EntityFormModal
         open={showModal}

@@ -10,6 +10,7 @@ import { EntityFormModal, type EntityField, type EntityFormData } from "@/compon
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDataStore, type Invoice, type Payment, type Budget, type GLAccount } from "@/lib/data-store";
@@ -36,6 +37,9 @@ export default function FinancePage() {
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
+  const [viewPayment, setViewPayment] = useState<Payment | null>(null);
+  const [viewBudget, setViewBudget] = useState<Budget | null>(null);
 
   const customerName = (id: string) => store.customers.find((c) => c.id === id)?.name ?? id;
   const vendorName = (id: string) => store.vendors.find((v) => v.id === id)?.name ?? id;
@@ -198,6 +202,8 @@ export default function FinancePage() {
       const next = invoiceFlow[inv.status];
       return (
         <EditDeleteMenu
+          onView={() => setViewInvoice(inv)}
+          canView
           onEdit={() => { setEditingInvoice(inv); setShowInvoiceModal(true); }}
           onDelete={() => store.remove("invoices", inv.id)}
           itemLabel={inv.number}
@@ -228,6 +234,8 @@ export default function FinancePage() {
       if (!p) return null;
       return (
         <EditDeleteMenu
+          onView={() => setViewPayment(p)}
+          canView
           onEdit={() => { setEditingPayment(p); setShowPaymentModal(true); }}
           onDelete={() => store.remove("payments", p.id)}
           itemLabel={p.reference}
@@ -475,7 +483,7 @@ export default function FinancePage() {
                 { key: "status", label: "Status", render: (v) => <StatusBadge status={v as string} /> },
                 { key: "accountId", label: "", render: (_v, row) => {
                   const b = row as unknown as Budget;
-                  return <EditDeleteMenu onEdit={() => { setEditingBudget(b); setShowBudgetModal(true); }} onDelete={() => store.remove("budgets", b.id)} itemLabel={b.name} />;
+                  return <EditDeleteMenu onView={() => setViewBudget(b)} canView onEdit={() => { setEditingBudget(b); setShowBudgetModal(true); }} onDelete={() => store.remove("budgets", b.id)} itemLabel={b.name} />;
                 }},
               ] as Column<Record<string, unknown>>[]}
               data={store.budgets as unknown as Record<string, unknown>[]}
@@ -620,6 +628,77 @@ export default function FinancePage() {
         initialData={editingBudget ? { name: editingBudget.name, fiscalYear: editingBudget.fiscalYear, period: editingBudget.period, accountId: editingBudget.accountId ?? "", costCenterId: editingBudget.costCenterId ?? "", budgeted: editingBudget.budgeted, actual: editingBudget.actual, status: editingBudget.status } : undefined}
         onSubmit={handleBudgetSubmit}
       />
+
+      {/* ── Invoice Detail Dialog ── */}
+      <Dialog open={!!viewInvoice} onOpenChange={(o) => !o && setViewInvoice(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Invoice {viewInvoice?.number}</DialogTitle>
+          </DialogHeader>
+          {viewInvoice && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Invoice Number</span><p className="font-medium font-mono">{viewInvoice.number}</p></div>
+              <div><span className="text-sm text-muted-foreground">Customer</span><p className="font-medium">{customerName(viewInvoice.customerId)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewInvoice.date.slice(0, 10)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Due Date</span><p className="font-medium">{viewInvoice.dueDate.slice(0, 10)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Subtotal</span><p className="font-medium">{egp(viewInvoice.subtotal)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Tax</span><p className="font-medium">{egp(viewInvoice.tax)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Total</span><p className="font-semibold text-lg">{egp(viewInvoice.total)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Currency</span><p className="font-medium">{viewInvoice.currency}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={viewInvoice.status} /></p></div>
+              <div><span className="text-sm text-muted-foreground">Line Items</span><p className="font-medium">{viewInvoice.items.length} item(s)</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Payment Detail Dialog ── */}
+      <Dialog open={!!viewPayment} onOpenChange={(o) => !o && setViewPayment(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Payment {viewPayment?.reference}</DialogTitle>
+          </DialogHeader>
+          {viewPayment && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Reference</span><p className="font-medium font-mono">{viewPayment.reference}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewPayment.type === "RECEIVED" ? "Received" : "Sent"}</p></div>
+              <div><span className="text-sm text-muted-foreground">Party</span><p className="font-medium">{viewPayment.customerId ? customerName(viewPayment.customerId) : viewPayment.vendorId ? vendorName(viewPayment.vendorId) : "—"}</p></div>
+              <div><span className="text-sm text-muted-foreground">Amount</span><p className="font-semibold text-lg">{egp(viewPayment.amount)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Currency</span><p className="font-medium">{viewPayment.currency}</p></div>
+              <div><span className="text-sm text-muted-foreground">Method</span><p className="font-medium">{methodLabels[viewPayment.method] ?? viewPayment.method}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewPayment.date}</p></div>
+              <div><span className="text-sm text-muted-foreground">Bank Account</span><p className="font-medium">{viewPayment.bankAccountId ? store.bankAccounts.find(b => b.id === viewPayment.bankAccountId)?.name ?? viewPayment.bankAccountId : "—"}</p></div>
+              <div><span className="text-sm text-muted-foreground">Invoice</span><p className="font-medium">{viewPayment.invoiceId ? store.invoices.find(i => i.id === viewPayment.invoiceId)?.number ?? viewPayment.invoiceId : "—"}</p></div>
+              {viewPayment.notes && <div className="col-span-2"><span className="text-sm text-muted-foreground">Notes</span><p className="font-medium">{viewPayment.notes}</p></div>}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Budget Detail Dialog ── */}
+      <Dialog open={!!viewBudget} onOpenChange={(o) => !o && setViewBudget(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewBudget?.name}</DialogTitle>
+          </DialogHeader>
+          {viewBudget && (() => {
+            const variance = viewBudget.budgeted - viewBudget.actual;
+            return (
+              <div className="grid grid-cols-2 gap-4 py-4">
+                <div><span className="text-sm text-muted-foreground">Budget Name</span><p className="font-medium">{viewBudget.name}</p></div>
+                <div><span className="text-sm text-muted-foreground">Fiscal Year</span><p className="font-medium">{viewBudget.fiscalYear}</p></div>
+                <div><span className="text-sm text-muted-foreground">Period</span><p className="font-medium">{viewBudget.period}</p></div>
+                <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={viewBudget.status} /></p></div>
+                <div><span className="text-sm text-muted-foreground">Budgeted</span><p className="font-medium">{egp(viewBudget.budgeted)}</p></div>
+                <div><span className="text-sm text-muted-foreground">Actual</span><p className="font-medium">{egp(viewBudget.actual)}</p></div>
+                <div><span className="text-sm text-muted-foreground">Variance</span><p className={`font-semibold ${variance >= 0 ? "text-green-600" : "text-red-600"}`}>{variance >= 0 ? "+" : ""}{egp(variance)}</p></div>
+                <div><span className="text-sm text-muted-foreground">GL Account</span><p className="font-medium">{viewBudget.accountId ? glName(viewBudget.accountId) : "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Cost Center</span><p className="font-medium">{viewBudget.costCenterId ? ccName(viewBudget.costCenterId) : "—"}</p></div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Scale, Shield, FileText, Plus, Eye, Users,
@@ -162,6 +163,8 @@ export default function CompliancePage() {
   const [viols, setViols] = useState(violations);
   const [regFilters, setRegFilters] = useState<FilterState>({});
   const [violFilters, setViolFilters] = useState<FilterState>({});
+  const [viewItem, setViewItem] = useState<any>(null);
+  const [viewType, setViewType] = useState<"regulation" | "audit" | "violation" | "risk" | null>(null);
 
   const regulationColumns: Column<Record<string, unknown>>[] = [
     { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
@@ -175,6 +178,7 @@ export default function CompliancePage() {
     { key: "dept", label: "Dept", render: (v) => <span className="text-xs">{String(v)}</span> },
     { key: "actions", label: "Actions", render: (_v, row) => (
       <EditDeleteMenu
+        onView={() => { setViewItem(row); setViewType("regulation"); }}
         onEdit={() => { setEditingReg(row as unknown as typeof regulations[0]); setShowForm(true); }}
         onDelete={() => setRegs(prev => prev.filter(x => x.id !== row.id))}
         itemLabel={String(row.name)}
@@ -198,6 +202,7 @@ export default function CompliancePage() {
       const next = flow[String(row.status)];
       return (
         <EditDeleteMenu
+          onView={() => { setViewItem(row); setViewType("violation"); }}
           onEdit={() => {}}
           onDelete={() => setViols(prev => prev.filter(x => x.id !== row.id))}
           canEdit={false}
@@ -360,6 +365,38 @@ export default function CompliancePage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!viewItem} onOpenChange={(o) => { if (!o) { setViewItem(null); setViewType(null); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewItem?.name || viewItem?.id}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            {viewType === "regulation" && (<>
+              <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Authority</span><p className="font-medium">{viewItem?.authority}</p></div>
+              <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{viewItem?.category}</p></div>
+              <div><span className="text-sm text-muted-foreground">Jurisdiction</span><p className="font-medium">{viewItem?.jurisdiction}</p></div>
+              <div><span className="text-sm text-muted-foreground">Effective</span><p className="font-medium">{viewItem?.effective}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Impact</span><p className="font-medium">{viewItem?.impact}</p></div>
+              <div><span className="text-sm text-muted-foreground">Department</span><p className="font-medium">{viewItem?.dept}</p></div>
+            </>)}
+            {viewType === "violation" && (<>
+              <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem?.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Regulation</span><p className="font-medium">{viewItem?.regulation}</p></div>
+              <div><span className="text-sm text-muted-foreground">Severity</span><p className="font-medium">{viewItem?.severity}</p></div>
+              <div><span className="text-sm text-muted-foreground">Detected</span><p className="font-medium">{viewItem?.detected}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Deadline</span><p className="font-medium">{viewItem?.deadline}</p></div>
+              <div><span className="text-sm text-muted-foreground">Assigned To</span><p className="font-medium">{viewItem?.assignee}</p></div>
+              <div><span className="text-sm text-muted-foreground">Fine</span><p className="font-medium">{viewItem?.fine}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewItem?.desc}</p></div>
+            </>)}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <EntityFormModal
         open={showForm}
