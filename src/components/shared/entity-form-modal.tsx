@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, type FormEvent, type ReactNode } from
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -289,7 +290,7 @@ export function EntityFormModal({
       <DialogContent className={`${sizeClass} max-h-[90vh] overflow-y-auto`}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          {description && <p className="text-sm text-muted-foreground">{description}</p>}
+          <DialogDescription>{description || "Fill in the fields below"}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2">

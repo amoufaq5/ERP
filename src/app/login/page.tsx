@@ -29,8 +29,8 @@ const USER_PROFILES: Record<string, { id: string; name: string; email: string; r
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("admin123");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -39,9 +39,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     setMounted(true);
-    // Check for ?logout parameter to force clear session
+    // Always clear stale auth on login page to prevent redirect loops
     const params = new URLSearchParams(window.location.search);
-    if (params.get("logout") === "1") {
+    if (params.get("logout") === "1" || params.get("clear") === "1") {
       localStorage.removeItem("token");
       localStorage.removeItem("pharma.currentUser");
       window.history.replaceState({}, "", "/login");
@@ -58,6 +58,17 @@ export default function LoginPage() {
     setUsername(user);
     setPassword(pass);
     setError("");
+  }
+
+  function quickLogin(cred: typeof DEMO_CREDENTIALS[0]) {
+    setError("");
+    setIsLoading(true);
+    const profile = USER_PROFILES[cred.userId];
+    if (profile) {
+      localStorage.setItem("pharma.currentUser", JSON.stringify(profile));
+    }
+    localStorage.setItem("token", `demo-token-${cred.userId}-${Date.now()}`);
+    router.push("/dashboard");
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -269,18 +280,31 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Demo credentials — click to fill */}
+            {/* Quick login — click any role to sign in instantly */}
             <div className="mt-6 pt-5 border-t border-gray-100">
-              <p className="text-xs font-medium text-gray-500 mb-2">
-                Demo credentials <span className="text-gray-400">(click to fill)</span>:
+              <p className="text-xs font-medium text-gray-500 mb-3">
+                Quick Login <span className="text-gray-400">(click any role to sign in instantly)</span>:
               </p>
+
+              {/* Prominent admin quick-login */}
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => quickLogin(DEMO_CREDENTIALS[0])}
+                className="w-full mb-3 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400
+                           text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors shadow-sm"
+              >
+                Sign in as Admin (Full Access)
+              </button>
+
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono">
-                {DEMO_CREDENTIALS.map((cred) => (
+                {DEMO_CREDENTIALS.slice(1).map((cred) => (
                   <button
                     key={cred.username}
                     type="button"
-                    onClick={() => fillCredentials(cred.username, cred.password)}
-                    className="text-left text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded px-1 py-0.5 transition-colors cursor-pointer"
+                    disabled={isLoading}
+                    onClick={() => quickLogin(cred)}
+                    className="text-left text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded px-1.5 py-1 transition-colors cursor-pointer"
                   >
                     {cred.username} / {cred.password}
                   </button>

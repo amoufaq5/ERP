@@ -903,7 +903,7 @@ export default function AccountingPage() {
 
           {costTab === "budgets" && (
             <div className="space-y-3">
-              <div className="flex justify-end"><Button size="sm" onClick={() => { setEditingBudget(null); setBudgetFormOpen(true); }}><Plus className="h-3 w-3 mr-1" /> Add Budget</Button></div>
+              <div className="flex justify-end"><Button type="button" size="sm" onClick={() => { setEditingBudget(null); setBudgetFormOpen(true); }}><Plus className="h-3 w-3 mr-1" /> Add Budget</Button></div>
               <Card><CardContent className="p-0 overflow-x-auto">
                 <DataTable
                   columns={[

@@ -338,13 +338,16 @@ export default function FinancePage() {
     <div className="p-6 space-y-6">
       <PageHeader title="Finance" description="Integrated financial overview — invoices, payments, bank accounts, and vendor AP from the central data store">
         {activeTab === "invoices" && (
-          <Button onClick={() => { setEditingInvoice(null); setShowInvoiceModal(true); }} className="gap-2"><Plus className="h-4 w-4" /> New Invoice</Button>
+          <Button type="button" onClick={() => { setEditingInvoice(null); setShowInvoiceModal(true); }} className="gap-2"><Plus className="h-4 w-4" /> New Invoice</Button>
         )}
         {activeTab === "payments" && (
-          <Button onClick={() => { setEditingPayment(null); setShowPaymentModal(true); }} className="gap-2"><Plus className="h-4 w-4" /> Record Payment</Button>
+          <Button type="button" onClick={() => { setEditingPayment(null); setShowPaymentModal(true); }} className="gap-2"><Plus className="h-4 w-4" /> Record Payment</Button>
+        )}
+        {activeTab === "budgets" && (
+          <Button type="button" onClick={() => { setEditingBudget(null); setShowBudgetModal(true); }} className="gap-2"><Plus className="h-4 w-4" /> Add Budget</Button>
         )}
         {(activeTab === "invoices" || activeTab === "payments") && (
-          <Button variant="outline" onClick={() => {
+          <Button type="button" variant="outline" onClick={() => {
             if (activeTab === "invoices") downloadCSV("invoices.csv", store.invoices.map((i) => ({ Number: i.number, Customer: customerName(i.customerId), Date: i.date.slice(0, 10), DueDate: i.dueDate.slice(0, 10), Total: i.total, Status: i.status })) as unknown as Record<string, unknown>[]);
             else downloadCSV("payments.csv", store.payments.map((p) => ({ Reference: p.reference, Type: p.type, Party: p.customerId ? customerName(p.customerId) : p.vendorId ? vendorName(p.vendorId) : "", Amount: p.amount, Method: p.method, Date: p.date })) as unknown as Record<string, unknown>[]);
           }} className="gap-2"><Download className="h-4 w-4" /> Export CSV</Button>
@@ -472,7 +475,7 @@ export default function FinancePage() {
             <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Net Variance</div><div className={`text-lg font-bold ${store.budgets.reduce((s, b) => s + (b.budgeted - b.actual), 0) >= 0 ? "text-green-600" : "text-red-600"}`}>{egp(store.budgets.reduce((s, b) => s + (b.budgeted - b.actual), 0))}</div></CardContent></Card>
             <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Active Budgets</div><div className="text-lg font-bold">{store.budgets.filter((b) => b.status === "APPROVED").length} <span className="text-sm font-normal text-muted-foreground">of {store.budgets.length}</span></div></CardContent></Card>
           </div>
-          <div className="flex justify-end"><Button size="sm" onClick={() => { setEditingBudget(null); setShowBudgetModal(true); }}><Plus className="h-4 w-4 mr-1" /> Add Budget</Button></div>
+          <div className="flex justify-end"><Button type="button" size="sm" onClick={() => { setEditingBudget(null); setShowBudgetModal(true); }}><Plus className="h-4 w-4 mr-1" /> Add Budget</Button></div>
           <div className="bg-card rounded-xl border border-border shadow-sm">
             <DataTable
               columns={[
