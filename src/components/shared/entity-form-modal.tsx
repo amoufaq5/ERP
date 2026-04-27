@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 export type EntityFieldType =
   | "text"
@@ -108,6 +109,7 @@ export function EntityFormModal({
   size = "lg",
   footerExtra,
 }: EntityFormModalProps) {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<EntityFormData>(() => buildInitial(fields, initialData));
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -290,7 +292,7 @@ export function EntityFormModal({
       <DialogContent className={`${sizeClass} max-h-[90vh] overflow-y-auto`}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description || "Fill in the fields below"}</DialogDescription>
+          <DialogDescription>{description || t("form.fillFields")}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2">
@@ -319,9 +321,9 @@ export function EntityFormModal({
           <DialogFooter className="gap-2 pt-2">
             {footerExtra}
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
-            <Button type="submit">{submitLabel}</Button>
+            <Button type="submit">{submitLabel === "Save" ? t("common.save") : submitLabel}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

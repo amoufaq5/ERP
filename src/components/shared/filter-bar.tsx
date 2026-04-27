@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 export interface FilterOption {
   label: string;
@@ -49,6 +50,7 @@ export function FilterBar({
   rightSlot,
   collapsible = false,
 }: FilterBarProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(!collapsible);
 
   const activeCount = useMemo(
@@ -89,7 +91,7 @@ export function FilterBar({
             className="gap-2"
           >
             <Filter className="h-4 w-4" />
-            Filters
+            {t("common.filter")}
             {activeCount > 0 && (
               <Badge className="ml-1 bg-blue-600 hover:bg-blue-700 text-white px-1.5 py-0 text-xs">
                 {activeCount}
@@ -100,7 +102,7 @@ export function FilterBar({
         {(searchValue || activeCount > 0) && (
           <Button variant="ghost" size="sm" onClick={clearAll} className="gap-1 text-slate-600">
             <X className="h-3 w-3" />
-            Clear
+            {t("filter.clear")}
           </Button>
         )}
         {rightSlot && <div className="ml-auto flex items-center gap-2">{rightSlot}</div>}
@@ -118,10 +120,10 @@ export function FilterBar({
                   </label>
                   <Select value={v || "ALL"} onValueChange={(val) => setValue(f.key, val === "ALL" ? "" : val)}>
                     <SelectTrigger className="h-9 text-xs">
-                      <SelectValue placeholder={f.placeholder ?? "All"} />
+                      <SelectValue placeholder={f.placeholder ?? t("common.all")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ALL">All</SelectItem>
+                      <SelectItem value="ALL">{t("common.all")}</SelectItem>
                       {f.options?.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
                           {opt.label}

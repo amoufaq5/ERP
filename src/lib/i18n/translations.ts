@@ -121,6 +121,22 @@ export const translations: Record<Locale, Record<string, string>> = {
     "common.all": "All",
     "common.currency": "EGP",
 
+    // Table / DataTable
+    "table.search": "Search...",
+    "table.exportCsv": "Export CSV",
+    "table.selected": "selected",
+    "table.showing": "Showing",
+    "table.of": "of",
+    "table.results": "results",
+    "table.noRecords": "No records found.",
+
+    // Filter
+    "filter.clear": "Clear",
+
+    // Form
+    "form.fillFields": "Fill in the fields below",
+    "form.required": "is required",
+
     // Auth
     "auth.login": "Login",
     "auth.logout": "Logout",
@@ -356,6 +372,22 @@ export const translations: Record<Locale, Record<string, string>> = {
     "common.completed": "مكتمل",
     "common.all": "الكل",
     "common.currency": "ج.م",
+
+    // Table / DataTable
+    "table.search": "بحث...",
+    "table.exportCsv": "تصدير CSV",
+    "table.selected": "محدد",
+    "table.showing": "عرض",
+    "table.of": "من",
+    "table.results": "نتائج",
+    "table.noRecords": "لا توجد سجلات.",
+
+    // Filter
+    "filter.clear": "مسح",
+
+    // Form
+    "form.fillFields": "املأ الحقول أدناه",
+    "form.required": "مطلوب",
 
     // Auth
     "auth.login": "تسجيل الدخول",

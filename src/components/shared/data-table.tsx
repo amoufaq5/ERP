@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 export interface Column<T = any> {
   key: string;
@@ -79,6 +80,7 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
   onBulkAction,
   bulkActions = [],
 }: DataTableProps<T>) {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortState, setSortState] = useState<SortState>({ key: null, direction: null });
   const [currentPage, setCurrentPage] = useState(1);
@@ -200,7 +202,7 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <input
                 type="search"
-                placeholder="Search..."
+                placeholder={t("table.search")}
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="h-9 w-full pl-9 pr-4 text-sm rounded-md border border-input bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 transition-shadow"
@@ -210,7 +212,7 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
           {exportable && sortedData.length > 0 && (
             <button onClick={handleExport} className="inline-flex items-center gap-1.5 h-9 px-3 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
               <Download className="h-4 w-4" />
-              Export CSV
+              {t("table.exportCsv")}
             </button>
           )}
         </div>
@@ -218,7 +220,7 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
 
       {selectable && selectedRows.size > 0 && bulkActions.length > 0 && (
         <div className="flex items-center justify-between p-2 bg-primary/5 border border-primary/20 rounded-lg">
-          <span className="text-sm font-medium">{selectedRows.size} selected</span>
+          <span className="text-sm font-medium">{selectedRows.size} {t("table.selected")}</span>
           <div className="flex gap-2">
             {bulkActions.map((action) => (
               <button
@@ -333,7 +335,7 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
       {pagination && sortedData.length > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
           <p>
-            Showing{" "}
+            {t("table.showing")}{" "}
             <span className="font-medium text-foreground">
               {Math.min((currentPage - 1) * PAGE_SIZE + 1, sortedData.length)}
             </span>
@@ -341,9 +343,9 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
             <span className="font-medium text-foreground">
               {Math.min(currentPage * PAGE_SIZE, sortedData.length)}
             </span>{" "}
-            of{" "}
+            {t("table.of")}{" "}
             <span className="font-medium text-foreground">{sortedData.length}</span>{" "}
-            result{sortedData.length !== 1 ? "s" : ""}
+            {t("table.results")}
           </p>
 
           <div className="flex items-center gap-1">
