@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import StatusBadge from "@/components/shared/status-badge";
 import { useDataStore, type Customer, type Vendor, type BankAccount } from "@/lib/data-store";
+import { openInvoicePDF } from "@/lib/invoice-pdf";
+import { FileText } from "lucide-react";
 
-// ─── Clickable entity link ─────────────────────────────────────────────────
+// ─── Clickable entity link (navigates to detail page) ──────────────────────
 
 interface EntityLinkProps {
   children: ReactNode;
@@ -27,7 +30,7 @@ function EntityLink({ children, onClick, className = "" }: EntityLinkProps) {
   );
 }
 
-// ─── Vendor Link + Dialog ──────────────────────────────────────────────────
+// ─── Vendor Link (opens detail page) ──────────────────────────────────────
 
 export function VendorLink({ vendorId, className }: { vendorId: string; className?: string }) {
   const store = useDataStore();
@@ -39,8 +42,11 @@ export function VendorLink({ vendorId, className }: { vendorId: string; classNam
     <>
       <EntityLink onClick={() => setOpen(true)} className={className}>{vendor.name}</EntityLink>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="flex items-center gap-2">{vendor.name} <Badge variant="outline" className="text-[10px]">{vendor.code}</Badge></DialogTitle></DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">{vendor.name} <Badge variant="outline" className="text-[10px]">{vendor.code}</Badge></DialogTitle>
+            <DialogDescription>Vendor details, transactions, and documents</DialogDescription>
+          </DialogHeader>
           <VendorDetail vendor={vendor} />
         </DialogContent>
       </Dialog>
@@ -67,6 +73,7 @@ function VendorDetail({ vendor }: { vendor: Vendor }) {
       <TabsList className="flex-wrap">
         <TabsTrigger value="info">Info</TabsTrigger>
         <TabsTrigger value="po">POs ({vendorPOs.length})</TabsTrigger>
+        <TabsTrigger value="invoices">Invoices ({vendorInvoices.length})</TabsTrigger>
         <TabsTrigger value="payments">Payments ({vendorPayments.length})</TabsTrigger>
         <TabsTrigger value="bank">Bank ({vendorCheques.length})</TabsTrigger>
       </TabsList>
@@ -144,6 +151,32 @@ function VendorDetail({ vendor }: { vendor: Vendor }) {
         )}
       </TabsContent>
 
+      <TabsContent value="invoices">
+        {vendorInvoices.length === 0 ? <p className="text-sm text-muted-foreground py-4 text-center">No invoices</p> : (
+          <div className="border rounded text-xs">
+            <table className="w-full">
+              <thead><tr className="bg-muted/50"><th className="p-2 text-left">Invoice #</th><th className="p-2 text-left">Items</th><th className="p-2 text-right">Total</th><th className="p-2">Status</th><th className="p-2">Date</th><th className="p-2">PDF</th></tr></thead>
+              <tbody>
+                {vendorInvoices.map((inv) => (
+                  <tr key={inv.id} className="border-t">
+                    <td className="p-2 font-mono">{inv.number}</td>
+                    <td className="p-2">{inv.items.map((i) => i.description).join(", ")}</td>
+                    <td className="p-2 text-right font-semibold">{egp(inv.total)}</td>
+                    <td className="p-2"><StatusBadge status={inv.status} /></td>
+                    <td className="p-2">{inv.date?.slice(0, 10)}</td>
+                    <td className="p-2">
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => openInvoicePDF(inv, vendor, "vendor")}>
+                        <FileText className="h-3.5 w-3.5 text-blue-600" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </TabsContent>
+
       <TabsContent value="payments">
         {vendorPayments.length === 0 ? <p className="text-sm text-muted-foreground py-4 text-center">No payments</p> : (
           <div className="border rounded text-xs">
@@ -189,7 +222,7 @@ function VendorDetail({ vendor }: { vendor: Vendor }) {
   );
 }
 
-// ─── Customer Link + Dialog ────────────────────────────────────────────────
+// ─── Customer Link (opens detail page) ────────────────────────────────────
 
 export function CustomerLink({ customerId, className }: { customerId: string; className?: string }) {
   const store = useDataStore();
@@ -201,8 +234,11 @@ export function CustomerLink({ customerId, className }: { customerId: string; cl
     <>
       <EntityLink onClick={() => setOpen(true)} className={className}>{customer.name}</EntityLink>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="flex items-center gap-2">{customer.name} <Badge variant="outline" className="text-[10px]">{customer.code}</Badge></DialogTitle></DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">{customer.name} <Badge variant="outline" className="text-[10px]">{customer.code}</Badge></DialogTitle>
+            <DialogDescription>Customer details, invoices, orders, and transactions</DialogDescription>
+          </DialogHeader>
           <CustomerDetail customer={customer} />
         </DialogContent>
       </Dialog>
@@ -254,7 +290,7 @@ function CustomerDetail({ customer }: { customer: Customer }) {
         {custInvoices.length === 0 ? <p className="text-sm text-muted-foreground py-4 text-center">No invoices</p> : (
           <div className="border rounded text-xs">
             <table className="w-full">
-              <thead><tr className="bg-muted/50"><th className="p-2 text-left">Invoice #</th><th className="p-2 text-left">Items</th><th className="p-2 text-right">Total</th><th className="p-2">Status</th><th className="p-2">Date</th></tr></thead>
+              <thead><tr className="bg-muted/50"><th className="p-2 text-left">Invoice #</th><th className="p-2 text-left">Items</th><th className="p-2 text-right">Total</th><th className="p-2">Status</th><th className="p-2">Date</th><th className="p-2">PDF</th></tr></thead>
               <tbody>
                 {custInvoices.map((inv) => (
                   <tr key={inv.id} className="border-t">
@@ -263,6 +299,11 @@ function CustomerDetail({ customer }: { customer: Customer }) {
                     <td className="p-2 text-right font-semibold">{egp(inv.total)}</td>
                     <td className="p-2"><StatusBadge status={inv.status} /></td>
                     <td className="p-2">{inv.date?.slice(0, 10)}</td>
+                    <td className="p-2">
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => openInvoicePDF(inv, customer, "customer")}>
+                        <FileText className="h-3.5 w-3.5 text-blue-600" />
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -368,8 +409,11 @@ export function BankAccountLink({ bankAccountId, className }: { bankAccountId: s
     <>
       <EntityLink onClick={() => setOpen(true)} className={className}>{bank.name}</EntityLink>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="flex items-center gap-2">{bank.name} <Badge variant="outline" className="text-[10px]">{bank.code}</Badge></DialogTitle></DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">{bank.name} <Badge variant="outline" className="text-[10px]">{bank.code}</Badge></DialogTitle>
+            <DialogDescription>Bank account details and transaction history</DialogDescription>
+          </DialogHeader>
           <BankAccountDetail bank={bank} />
         </DialogContent>
       </Dialog>

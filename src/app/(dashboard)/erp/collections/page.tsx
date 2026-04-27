@@ -209,7 +209,7 @@ export default function CollectionsPage() {
 
   /* ─── Cheque CRUD (data store) ─── */
   const chequeFields: EntityField[] = [
-    { name: "number", label: "Cheque Number", type: "text", required: true },
+    { name: "number", label: "Cheque Number", type: "text", placeholder: "Auto-generated if empty", helperText: "Leave blank for auto-generated number" },
     { name: "bankName", label: "Bank", type: "select", required: true, options: store.bankAccounts.map(ba => ({ label: `${ba.bankName} - ${ba.accountNumber}`, value: ba.bankName })) },
     { name: "type", label: "Type", type: "select", required: true, options: [{ label: "Incoming", value: "INCOMING" }, { label: "Outgoing", value: "OUTGOING" }] },
     { name: "partyName", label: "Party Name", type: "text", required: true },
@@ -236,7 +236,8 @@ export default function CollectionsPage() {
     if (editingCheque) {
       store.update("cheques", editingCheque.id, payload);
     } else {
-      store.add("cheques", { id: store.genId("ch"), ...payload });
+      const number = payload.number.trim() || store.generateChequeNumber();
+      store.add("cheques", { id: store.genId("ch"), ...payload, number });
     }
     setChequeFormOpen(false); setEditingCheque(null);
   }

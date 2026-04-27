@@ -197,13 +197,15 @@ export default function DataUploadPage() {
           try {
             store.add("products", {
               id: store.genId("p"),
-              code: obj["SKU"] || obj["Code"] || obj["code"] || "",
+              code: obj["SKU"] || obj["Code"] || obj["code"] || store.generateProductCode(),
               name: obj["Name"] || obj["name"] || "Imported Product",
               strength: obj["Strength"] || obj["strength"] || "",
               form: (obj["Form"] || "Tablet") as "Tablet",
               buId: null,
               pricePerUnit: Number(obj["Price"] || obj["pricePerUnit"]) || 0,
               therapeuticArea: obj["Category"] || obj["therapeuticArea"] || "",
+              stockQty: Number(obj["Stock"] || obj["stockQty"]) || 0,
+              reorderLevel: Number(obj["ReorderLevel"] || obj["reorderLevel"]) || 100,
             });
             imported++;
           } catch { errors++; }

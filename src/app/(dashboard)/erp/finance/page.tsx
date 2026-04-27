@@ -14,20 +14,24 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useDataStore, type Invoice, type Payment, type Budget, type GLAccount } from "@/lib/data-store";
+import { useDataStore, type Invoice, type Payment, type Budget, type GLAccount, type SalesOrder } from "@/lib/data-store";
+import { useApprovals } from "@/lib/approval-workflow";
+import { openInvoicePDF } from "@/lib/invoice-pdf";
 import {
   DollarSign, TrendingUp, TrendingDown, FileText,
   Plus, CreditCard, BookOpen, Landmark, Download,
   BarChart3, Calculator, Activity, Target,
+  ShoppingBag, CheckCircle, XCircle, AlertTriangle,
 } from "lucide-react";
 import { downloadCSV } from "@/lib/download";
 
 const egp = (n: number) => `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-type Tab = "overview" | "invoices" | "payments" | "bank" | "vendors" | "budgets" | "trial" | "ratios" | "cashflow";
+type Tab = "overview" | "invoices" | "payments" | "bank" | "vendors" | "budgets" | "trial" | "ratios" | "cashflow" | "sales-orders";
 
 export default function FinancePage() {
   const store = useDataStore();
+  const approvals = useApprovals();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [invoiceFilters, setInvoiceFilters] = useState<FilterState>({ _search: "", status: "" });
   const [paymentFilters, setPaymentFilters] = useState<FilterState>({ _search: "", type: "", method: "" });
@@ -166,7 +170,7 @@ export default function FinancePage() {
   function handlePaymentSubmit(data: EntityFormData) {
     const amount = Number(data.amount) || 0;
     const payload: Omit<Payment, "id"> = {
-      reference: `PAY-${new Date().getFullYear()}-${Date.now().toString(36)}`,
+      reference: store.generatePaymentRef(),
       type: String(data.type) as Payment["type"],
       customerId: data.customerId ? String(data.customerId) : undefined,
       vendorId: data.vendorId ? String(data.vendorId) : undefined,
@@ -297,6 +301,7 @@ export default function FinancePage() {
     { key: "trial", label: "Trial Balance" },
     { key: "ratios", label: "Financial Ratios" },
     { key: "cashflow", label: "Cash Flow" },
+    { key: "sales-orders", label: `Sales Orders (${store.salesOrders.length})` },
   ];
 
   // ─── Budget CRUD ──────────────────────────────────────────────
@@ -615,6 +620,129 @@ export default function FinancePage() {
         </div>
       )}
 
+      {activeTab === "sales-orders" && (() => {
+        const soApprovals = approvals.getByModule("SalesOrder");
+        const pendingSOApprovals = soApprovals.filter((a) => a.status === "PENDING");
+        const egpF = (n: number) => `EGP ${n.toLocaleString()}`;
+
+        function submitSOForApproval(so: SalesOrder) {
+          const customer = store.customers.find((c) => c.id === so.customerId);
+          approvals.submit({
+            type: "Sales Order", module: "SalesOrder", entityId: so.id,
+            title: `SO ${so.number} — ${customer?.name ?? "Unknown"}`,
+            description: `Sales order for ${egpF(so.total)}`,
+            requestedBy: "u-admin", requestedByName: "Admin User",
+            assignedTo: "admin-001", assignedToName: "Finance Manager",
+            amount: so.total,
+            priority: so.total > 500000 ? "HIGH" : so.total > 100000 ? "MEDIUM" : "LOW",
+          });
+          store.update("salesOrders", so.id, { status: "CONFIRMED" });
+        }
+
+        function approveSOFinance(approvalId: string, soId: string) {
+          const so = store.salesOrders.find((s) => s.id === soId);
+          if (!so) return;
+          const stockIssues: string[] = [];
+          for (const item of so.items) {
+            const product = store.products.find((p) => p.id === item.productId);
+            if (product && product.stockQty < item.quantity) stockIssues.push(`${product.name}: need ${item.quantity}, have ${product.stockQty}`);
+          }
+          if (stockIssues.length > 0) { alert(`Insufficient stock:\n${stockIssues.join("\n")}`); return; }
+          for (const item of so.items) {
+            const product = store.products.find((p) => p.id === item.productId);
+            if (product) store.update("products", product.id, { stockQty: product.stockQty - item.quantity });
+          }
+          const dnId = store.genId("dn");
+          store.add("deliveryNotes", { id: dnId, number: store.generateDNNumber(), soId: so.id, customerId: so.customerId, date: new Date().toISOString(), items: so.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity })), status: "PENDING", createdAt: new Date().toISOString() });
+          const invId = store.genId("inv");
+          store.add("invoices", { id: invId, number: store.generateInvoiceNumber(), customerId: so.customerId, date: new Date().toISOString().split("T")[0], dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0], subtotal: so.subtotal, tax: so.tax, total: so.total, currency: "EGP", status: "SENT", items: so.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })), notes: `Auto from SO ${so.number}` });
+          store.add("journalEntries", { id: store.genId("je"), number: store.generateJournalNumber(), date: new Date().toISOString().split("T")[0], description: `Sales — SO ${so.number}`, reference: so.number, type: "GENERAL", lines: [{ accountId: "gl-1100", description: "Accounts Receivable", debit: so.total, credit: 0 }, { accountId: "gl-4000", description: "Revenue", debit: 0, credit: so.subtotal }, { accountId: "gl-2100", description: "VAT Payable", debit: 0, credit: so.tax }], status: "POSTED", createdBy: "u-admin", createdAt: new Date().toISOString() });
+          store.update("salesOrders", so.id, { status: "INVOICED", invoiceId: invId, dnId });
+          approvals.approve(approvalId, "Approved — stock verified, invoice created");
+        }
+
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card className="border-blue-200 bg-blue-50/50"><CardContent className="pt-4"><div className="flex items-center gap-2"><ShoppingBag className="h-5 w-5 text-blue-600" /><div><p className="text-2xl font-bold">{store.salesOrders.length}</p><p className="text-xs text-muted-foreground">Total SOs</p></div></div></CardContent></Card>
+              <Card className="border-amber-200 bg-amber-50/50"><CardContent className="pt-4"><div className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-600" /><div><p className="text-2xl font-bold">{pendingSOApprovals.length}</p><p className="text-xs text-muted-foreground">Pending Approval</p></div></div></CardContent></Card>
+              <Card className="border-green-200 bg-green-50/50"><CardContent className="pt-4"><div className="flex items-center gap-2"><CheckCircle className="h-5 w-5 text-green-600" /><div><p className="text-2xl font-bold">{store.salesOrders.filter((s) => s.status === "INVOICED").length}</p><p className="text-xs text-muted-foreground">Invoiced</p></div></div></CardContent></Card>
+              <Card className="border-purple-200 bg-purple-50/50"><CardContent className="pt-4"><div className="flex items-center gap-2"><FileText className="h-5 w-5 text-purple-600" /><div><p className="text-2xl font-bold">{egpF(store.salesOrders.filter((s) => s.status === "INVOICED").reduce((sum, s) => sum + s.total, 0))}</p><p className="text-xs text-muted-foreground">Revenue</p></div></div></CardContent></Card>
+            </div>
+
+            {pendingSOApprovals.length > 0 && (
+              <Card className="border-amber-300">
+                <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Pending SO Approvals</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {pendingSOApprovals.map((apr) => {
+                      const so = store.salesOrders.find((s) => s.id === apr.entityId);
+                      return (
+                        <div key={apr.id} className="flex items-center justify-between border rounded-lg p-3 bg-white">
+                          <div className="space-y-1">
+                            <p className="font-medium text-sm">{apr.title}</p>
+                            <div className="flex items-center gap-2 text-xs">
+                              <Badge variant="outline">{apr.priority}</Badge>
+                              {apr.amount && <span className="font-semibold">{egpF(apr.amount)}</span>}
+                            </div>
+                            {so && <p className="text-xs text-muted-foreground">Stock: {so.items.map((item) => { const p = store.products.find((x) => x.id === item.productId); return p ? `${p.name}: ${p.stockQty >= item.quantity ? "OK" : "LOW"}` : "N/A"; }).join(" | ")}</p>}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" className="h-8 text-red-600" onClick={() => { store.update("salesOrders", apr.entityId, { status: "CANCELLED" }); approvals.reject(apr.id, "Rejected"); }}>
+                              <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                            </Button>
+                            <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={() => approveSOFinance(apr.id, apr.entityId)}>
+                              <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-base">All Sales Orders</CardTitle></CardHeader>
+              <CardContent>
+                <DataTable
+                  columns={[
+                    { key: "number", label: "SO #", render: (v: unknown) => <span className="font-mono text-xs font-semibold">{v as string}</span> },
+                    { key: "customerId", label: "Customer", render: (v: unknown) => <CustomerLink customerId={v as string} /> },
+                    { key: "total", label: "Total", className: "text-right", render: (v: unknown) => <span className="font-semibold">{egpF(v as number)}</span> },
+                    { key: "status", label: "Status", render: (v: unknown) => <StatusBadge status={v as string} /> },
+                    { key: "id", label: "", render: (_v: unknown, row: Record<string, unknown>) => {
+                      const so = row as unknown as SalesOrder;
+                      return (
+                        <div className="flex gap-1 justify-end">
+                          {so.status === "DRAFT" && <Button size="sm" className="h-7 text-xs" onClick={() => submitSOForApproval(so)}>Submit for Approval</Button>}
+                          {so.invoiceId && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { const inv = store.invoices.find((i) => i.id === so.invoiceId); const cust = store.customers.find((c) => c.id === so.customerId); if (inv) openInvoicePDF(inv, cust, "customer"); }}><FileText className="h-3.5 w-3.5 mr-1" /> PDF</Button>}
+                        </div>
+                      );
+                    }},
+                  ] as Column<Record<string, unknown>>[]}
+                  data={store.salesOrders as unknown as Record<string, unknown>[]}
+                  emptyMessage="No sales orders."
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Approval Workflow</CardTitle></CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2 text-xs flex-wrap">
+                  <Badge variant="outline">DRAFT</Badge><span>→</span>
+                  <Badge variant="outline" className="bg-blue-50">Submit for Approval</Badge><span>→</span>
+                  <Badge variant="outline" className="bg-amber-50">Stock Check + Review</Badge><span>→</span>
+                  <Badge variant="outline" className="bg-green-50">Approve → Inventory + Invoice + JE</Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
+
       <EntityFormModal
         open={showInvoiceModal}
         onOpenChange={(open) => { setShowInvoiceModal(open); if (!open) setEditingInvoice(null); }}
@@ -660,6 +788,11 @@ export default function FinancePage() {
               <div><span className="text-sm text-muted-foreground">Currency</span><p className="font-medium">{viewInvoice.currency}</p></div>
               <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={viewInvoice.status} /></p></div>
               <div><span className="text-sm text-muted-foreground">Line Items</span><p className="font-medium">{viewInvoice.items.length} item(s)</p></div>
+              <div className="col-span-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => { const c = store.customers.find((x) => x.id === viewInvoice.customerId); openInvoicePDF(viewInvoice, c, "customer"); }}>
+                  <FileText className="h-4 w-4 mr-2" /> View / Print PDF
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

@@ -360,7 +360,7 @@ export default function LeadsPage() {
                       onClick={() => {
                         store.add("customers", {
                           id: store.genId("cust"),
-                          code: `C-${String(store.customers.length + 1).padStart(3, "0")}`,
+                          code: store.generateCustomerCode(),
                           name: detailLead.company || `${detailLead.firstName} ${detailLead.lastName}`,
                           type: "Pharmacy Chain",
                           email: detailLead.email,

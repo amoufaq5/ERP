@@ -27,7 +27,10 @@ import {
   type JournalEntry,
   type CostCenter,
   type Budget,
+  type SalesOrder,
 } from "@/lib/data-store";
+import { useApprovals } from "@/lib/approval-workflow";
+import { openInvoicePDF } from "@/lib/invoice-pdf";
 import {
   Users,
   Building2,
@@ -42,12 +45,17 @@ import {
   BarChart3,
   Target,
   PieChart,
+  ShoppingBag,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { downloadCSV, downloadHTML, buildPrintableReport } from "@/lib/download";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function AccountingPage() {
   const store = useDataStore();
+  const approvals = useApprovals();
   const [custSearch, setCustSearch] = useState("");
   const [custFilters, setCustFilters] = useState<FilterState>({});
   const [vendSearch, setVendSearch] = useState("");
@@ -193,7 +201,7 @@ export default function AccountingPage() {
 
   // ─── Customer CRUD ─────────────────────────────────────────────────────
   const customerFields: EntityField[] = [
-    { name: "code", label: "Code", type: "text", required: true, placeholder: "CUST-XXXX" },
+    { name: "code", label: "Code", type: "text", placeholder: "Auto-generated if empty", helperText: "Leave blank for auto-generated code" },
     { name: "name", label: "Name", type: "text", required: true },
     { name: "type", label: "Type", type: "select", required: true, options: ["Pharmacy Chain", "Hospital", "Distributor", "Government"].map((t) => ({ label: t, value: t })) },
     { name: "phone", label: "Phone", type: "tel", required: true },
@@ -225,7 +233,8 @@ export default function AccountingPage() {
     if (editingCustomer) {
       store.update("customers", editingCustomer.id, payload);
     } else {
-      store.add("customers", { id: store.genId("c"), ...payload, createdAt: new Date().toISOString() });
+      const code = payload.code.trim() || store.generateCustomerCode();
+      store.add("customers", { id: store.genId("c"), ...payload, code, createdAt: new Date().toISOString() });
     }
     setCustFormOpen(false);
     setEditingCustomer(null);
@@ -233,7 +242,7 @@ export default function AccountingPage() {
 
   // ─── Vendor CRUD ───────────────────────────────────────────────────────
   const vendorFields: EntityField[] = [
-    { name: "code", label: "Code", type: "text", required: true },
+    { name: "code", label: "Code", type: "text", placeholder: "Auto-generated if empty", helperText: "Leave blank for auto-generated code" },
     { name: "name", label: "Name", type: "text", required: true },
     { name: "category", label: "Category", type: "select", required: true, options: ["API Supplier", "Excipients", "Primary Packaging", "Lab Reagents", "Equipment", "Services"].map((t) => ({ label: t, value: t })) },
     { name: "phone", label: "Phone", type: "tel", required: true },
@@ -259,7 +268,8 @@ export default function AccountingPage() {
     if (editingVendor) {
       store.update("vendors", editingVendor.id, payload);
     } else {
-      store.add("vendors", { id: store.genId("ve"), ...payload, createdAt: new Date().toISOString() });
+      const code = payload.code.trim() || store.generateVendorCode();
+      store.add("vendors", { id: store.genId("ve"), ...payload, code, createdAt: new Date().toISOString() });
     }
     setVendFormOpen(false);
     setEditingVendor(null);
@@ -267,7 +277,7 @@ export default function AccountingPage() {
 
   // ─── Cheque CRUD ───────────────────────────────────────────────────────
   const chequeFields: EntityField[] = [
-    { name: "number", label: "Cheque Number", type: "text", required: true },
+    { name: "number", label: "Cheque Number", type: "text", placeholder: "Auto-generated if empty", helperText: "Leave blank for auto-generated number" },
     { name: "bankName", label: "Bank", type: "text", required: true },
     { name: "type", label: "Direction", type: "select", required: true, options: [{ label: "Incoming", value: "INCOMING" }, { label: "Outgoing", value: "OUTGOING" }] },
     { name: "partyName", label: "Party Name", type: "text", required: true },
@@ -295,7 +305,8 @@ export default function AccountingPage() {
     if (editingCheque) {
       store.update("cheques", editingCheque.id, payload);
     } else {
-      store.add("cheques", { id: store.genId("ch"), ...payload });
+      const number = payload.number.trim() || store.generateChequeNumber();
+      store.add("cheques", { id: store.genId("ch"), ...payload, number });
     }
     setChequeFormOpen(false);
     setEditingCheque(null);
@@ -303,7 +314,7 @@ export default function AccountingPage() {
 
   // ─── Invoice CRUD ──────────────────────────────────────────────────────
   const invoiceFields: EntityField[] = [
-    { name: "number", label: "Invoice Number", type: "text", required: true },
+    { name: "number", label: "Invoice Number", type: "text", placeholder: "Auto-generated if empty", helperText: "Leave blank for auto-generated number" },
     { name: "customerId", label: "Customer", type: "select", required: true, options: store.customers.map((c) => ({ label: c.name, value: c.id })) },
     { name: "date", label: "Invoice Date", type: "date", required: true },
     { name: "dueDate", label: "Due Date", type: "date", required: true },
@@ -342,7 +353,8 @@ export default function AccountingPage() {
     if (editingInvoice) {
       store.update("invoices", editingInvoice.id, payload);
     } else {
-      store.add("invoices", { id: store.genId("inv"), ...payload });
+      const number = payload.number.trim() || store.generateInvoiceNumber();
+      store.add("invoices", { id: store.genId("inv"), ...payload, number });
     }
     setInvFormOpen(false);
     setEditingInvoice(null);
@@ -400,7 +412,7 @@ export default function AccountingPage() {
 
   // ─── Cost Center CRUD ─────────────────────────────────────────────────
   const ccFields: EntityField[] = [
-    { name: "code", label: "Code", type: "text", required: true, placeholder: "CC-XXX" },
+    { name: "code", label: "Code", type: "text", placeholder: "Auto-generated if empty", helperText: "Leave blank for auto-generated code" },
     { name: "name", label: "Name", type: "text", required: true },
     { name: "type", label: "Type", type: "select", required: true, options: [
       { label: "Production", value: "PRODUCTION" }, { label: "Administrative", value: "ADMINISTRATIVE" },
@@ -415,7 +427,7 @@ export default function AccountingPage() {
   function handleCCSubmit(data: EntityFormData) {
     const payload = { code: String(data.code), name: String(data.name), type: String(data.type) as CostCenter["type"], budget: Number(data.budget), actualSpend: Number(data.actualSpend ?? 0), isActive: data.isActive !== false };
     if (editingCC) { store.update("costCenters", editingCC.id, payload); }
-    else { store.add("costCenters", { id: store.genId("cc"), ...payload }); }
+    else { const code = payload.code.trim() || store.generateCostCenterCode(); store.add("costCenters", { id: store.genId("cc"), ...payload, code }); }
     setCcFormOpen(false); setEditingCC(null);
   }
 
@@ -449,6 +461,106 @@ export default function AccountingPage() {
     return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors[type] ?? "bg-muted text-foreground"}`}>{type}</span>;
   };
 
+  // ─── Sales Order Approval Workflow ────────────────────────────────────
+  const soApprovals = approvals.getByModule("SalesOrder");
+  const pendingSOApprovals = soApprovals.filter((a) => a.status === "PENDING");
+
+  function submitSOForApproval(so: SalesOrder) {
+    const customer = store.customers.find((c) => c.id === so.customerId);
+    approvals.submit({
+      type: "Sales Order",
+      module: "SalesOrder",
+      entityId: so.id,
+      title: `SO ${so.number} — ${customer?.name ?? "Unknown"}`,
+      description: `Sales order ${so.number} for ${egpFmt(so.total)}. Items: ${so.items.map((i) => i.description).join(", ")}`,
+      requestedBy: "u-admin",
+      requestedByName: "Admin User",
+      assignedTo: "admin-001",
+      assignedToName: "Finance Manager",
+      amount: so.total,
+      priority: so.total > 500000 ? "HIGH" : so.total > 100000 ? "MEDIUM" : "LOW",
+    });
+    store.update("salesOrders", so.id, { status: "CONFIRMED" });
+  }
+
+  function approveSOFromApproval(approvalId: string, soId: string) {
+    const so = store.salesOrders.find((s) => s.id === soId);
+    if (!so) return;
+
+    // Stock check
+    const stockIssues: string[] = [];
+    for (const item of so.items) {
+      const product = store.products.find((p) => p.id === item.productId);
+      if (product && product.stockQty < item.quantity) {
+        stockIssues.push(`${product.name}: need ${item.quantity}, have ${product.stockQty}`);
+      }
+    }
+    if (stockIssues.length > 0) {
+      alert(`Insufficient stock:\n${stockIssues.join("\n")}`);
+      return;
+    }
+
+    // Deduct inventory
+    for (const item of so.items) {
+      const product = store.products.find((p) => p.id === item.productId);
+      if (product) {
+        store.update("products", product.id, { stockQty: product.stockQty - item.quantity });
+      }
+    }
+
+    // Create delivery note
+    const dnId = store.genId("dn");
+    store.add("deliveryNotes", {
+      id: dnId,
+      number: store.generateDNNumber(),
+      soId: so.id,
+      customerId: so.customerId,
+      date: new Date().toISOString(),
+      items: so.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity })),
+      status: "PENDING",
+      createdAt: new Date().toISOString(),
+    });
+
+    // Create invoice
+    const invId = store.genId("inv");
+    store.add("invoices", {
+      id: invId,
+      number: store.generateInvoiceNumber(),
+      customerId: so.customerId,
+      date: new Date().toISOString().split("T")[0],
+      dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+      subtotal: so.subtotal, tax: so.tax, total: so.total,
+      currency: "EGP", status: "SENT",
+      items: so.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })),
+      notes: `Auto-generated from approved SO ${so.number}`,
+    });
+
+    // Create journal entry
+    store.add("journalEntries", {
+      id: store.genId("je"),
+      number: store.generateJournalNumber(),
+      date: new Date().toISOString().split("T")[0],
+      description: `Sales revenue — SO ${so.number} (Approved)`,
+      reference: so.number, type: "GENERAL",
+      lines: [
+        { accountId: "gl-1100", description: "Accounts Receivable", debit: so.total, credit: 0 },
+        { accountId: "gl-4000", description: "Product Sales Revenue", debit: 0, credit: so.subtotal },
+        { accountId: "gl-2100", description: "VAT Payable", debit: 0, credit: so.tax },
+      ],
+      status: "POSTED", createdBy: "u-admin", createdAt: new Date().toISOString(),
+    });
+
+    store.update("salesOrders", so.id, { status: "INVOICED", invoiceId: invId, dnId });
+    approvals.approve(approvalId, "SO approved — stock verified, invoice & JE created");
+  }
+
+  function rejectSOApproval(approvalId: string, soId: string) {
+    store.update("salesOrders", soId, { status: "CANCELLED" });
+    approvals.reject(approvalId, "Sales order rejected");
+  }
+
+  const egpFmt = (n: number) => `EGP ${n.toLocaleString()}`;
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -479,6 +591,7 @@ export default function AccountingPage() {
           <TabsTrigger value="gl">General Ledger</TabsTrigger>
           <TabsTrigger value="je">Journal Entries</TabsTrigger>
           <TabsTrigger value="cost">Cost Accounting</TabsTrigger>
+          <TabsTrigger value="sales-orders">Sales Orders ({store.salesOrders.length})</TabsTrigger>
         </TabsList>
 
         {/* Customers */}
@@ -993,6 +1106,191 @@ export default function AccountingPage() {
             </div>
           )}
         </TabsContent>
+
+        {/* ── Sales Orders with Approval Workflow ── */}
+        <TabsContent value="sales-orders" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="border-blue-200 bg-blue-50/50">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <p className="text-2xl font-bold">{store.salesOrders.length}</p>
+                    <p className="text-xs text-muted-foreground">Total SOs</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-amber-200 bg-amber-50/50">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  <div>
+                    <p className="text-2xl font-bold">{pendingSOApprovals.length}</p>
+                    <p className="text-xs text-muted-foreground">Pending Approval</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-green-200 bg-green-50/50">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <div>
+                    <p className="text-2xl font-bold">{store.salesOrders.filter((s) => s.status === "INVOICED").length}</p>
+                    <p className="text-xs text-muted-foreground">Invoiced</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-purple-200 bg-purple-50/50">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-purple-600" />
+                  <div>
+                    <p className="text-2xl font-bold">{egpFmt(store.salesOrders.filter((s) => s.status === "INVOICED").reduce((sum, s) => sum + s.total, 0))}</p>
+                    <p className="text-xs text-muted-foreground">Revenue</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Pending Approvals Section */}
+          {pendingSOApprovals.length > 0 && (
+            <Card className="border-amber-300">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Pending SO Approvals</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {pendingSOApprovals.map((apr) => {
+                    const so = store.salesOrders.find((s) => s.id === apr.entityId);
+                    const customer = so ? store.customers.find((c) => c.id === so.customerId) : null;
+                    return (
+                      <div key={apr.id} className="flex items-center justify-between border rounded-lg p-3 bg-white">
+                        <div className="space-y-1">
+                          <p className="font-medium text-sm">{apr.title}</p>
+                          <p className="text-xs text-muted-foreground">{apr.description}</p>
+                          <div className="flex items-center gap-2 text-xs">
+                            <Badge variant="outline">{apr.priority}</Badge>
+                            {apr.amount && <span className="font-semibold">{egpFmt(apr.amount)}</span>}
+                            {customer && <span className="text-muted-foreground">Customer: {customer.name}</span>}
+                          </div>
+                          {so && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Stock check: {so.items.map((item) => {
+                                const prod = store.products.find((p) => p.id === item.productId);
+                                if (!prod) return `${item.description}: N/A`;
+                                const ok = prod.stockQty >= item.quantity;
+                                return `${prod.name}: ${ok ? "OK" : "INSUFFICIENT"} (need ${item.quantity}, have ${prod.stockQty})`;
+                              }).join(" | ")}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" className="h-8 text-red-600 border-red-200 hover:bg-red-50" onClick={() => rejectSOApproval(apr.id, apr.entityId)}>
+                            <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                          </Button>
+                          <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={() => approveSOFromApproval(apr.id, apr.entityId)}>
+                            <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* All Sales Orders */}
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-base">All Sales Orders</CardTitle></CardHeader>
+            <CardContent>
+              <DataTable
+                columns={[
+                  { key: "number", label: "SO #", render: (v: unknown) => <span className="font-mono text-xs font-semibold">{v as string}</span> },
+                  { key: "customerId", label: "Customer", render: (v: unknown) => { const c = store.customers.find((x) => x.id === (v as string)); return c ? c.name : (v as string); } },
+                  { key: "total", label: "Total", className: "text-right", render: (v: unknown) => <span className="font-semibold">{egpFmt(v as number)}</span> },
+                  { key: "date", label: "Date", render: (v: unknown) => (v as string)?.slice(0, 10) },
+                  { key: "status", label: "Status", render: (v: unknown) => {
+                    const s = v as string;
+                    const colors: Record<string, string> = { DRAFT: "bg-gray-100 text-gray-800", CONFIRMED: "bg-blue-100 text-blue-800", DELIVERED: "bg-amber-100 text-amber-800", INVOICED: "bg-green-100 text-green-800", CANCELLED: "bg-red-100 text-red-800" };
+                    return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[s] ?? "bg-muted"}`}>{s}</span>;
+                  }},
+                  { key: "id", label: "Actions", className: "text-right", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const so = row as unknown as SalesOrder;
+                    return (
+                      <div className="flex items-center justify-end gap-1">
+                        {so.status === "DRAFT" && (
+                          <Button size="sm" className="h-7 text-xs" onClick={() => submitSOForApproval(so)}>
+                            Submit for Approval
+                          </Button>
+                        )}
+                        {so.invoiceId && (
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => {
+                            const inv = store.invoices.find((i) => i.id === so.invoiceId);
+                            const cust = store.customers.find((c) => c.id === so.customerId);
+                            if (inv) openInvoicePDF(inv, cust, "customer");
+                          }}>
+                            <FileText className="h-3.5 w-3.5 mr-1" /> PDF
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={store.salesOrders as unknown as Record<string, unknown>[]}
+                emptyMessage="No sales orders."
+              />
+            </CardContent>
+          </Card>
+
+          {/* Approval Flow */}
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Sales Order Approval Workflow</CardTitle></CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 text-xs flex-wrap">
+                <Badge variant="outline">1. SO Created (DRAFT)</Badge>
+                <span className="text-muted-foreground">→</span>
+                <Badge variant="outline" className="bg-blue-50">2. Submit for Approval</Badge>
+                <span className="text-muted-foreground">→</span>
+                <Badge variant="outline" className="bg-amber-50">3. Stock Check + Review</Badge>
+                <span className="text-muted-foreground">→</span>
+                <Badge variant="outline" className="bg-green-50">4. Approve → Auto: Inventory Deduction + Invoice + Delivery Note + Journal Entry</Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Approval History */}
+          {soApprovals.filter((a) => a.status !== "PENDING").length > 0 && (
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Approval History</CardTitle></CardHeader>
+              <CardContent>
+                <div className="border rounded text-xs">
+                  <table className="w-full">
+                    <thead><tr className="bg-muted/50"><th className="p-2 text-left">SO</th><th className="p-2 text-left">Description</th><th className="p-2 text-right">Amount</th><th className="p-2">Status</th><th className="p-2">Resolved</th><th className="p-2">Comments</th></tr></thead>
+                    <tbody>
+                      {soApprovals.filter((a) => a.status !== "PENDING").map((a) => (
+                        <tr key={a.id} className="border-t">
+                          <td className="p-2 font-mono">{a.title}</td>
+                          <td className="p-2">{a.description?.slice(0, 60)}</td>
+                          <td className="p-2 text-right font-semibold">{a.amount ? egpFmt(a.amount) : "—"}</td>
+                          <td className="p-2">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${a.status === "APPROVED" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{a.status}</span>
+                          </td>
+                          <td className="p-2">{a.resolvedAt ? new Date(a.resolvedAt).toLocaleDateString() : "—"}</td>
+                          <td className="p-2 text-muted-foreground">{a.comments ?? "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
       </Tabs>
 
       {/* JE Detail dialog */}
@@ -1105,7 +1403,7 @@ export default function AccountingPage() {
         open={bankFormOpen} onOpenChange={(open) => { setBankFormOpen(open); if (!open) setEditingBank(null); }}
         title={editingBank ? `Edit ${editingBank.name}` : "Add Bank Account"}
         fields={[
-          { name: "code", label: "Code", type: "text", required: true, placeholder: "BA-XXX" },
+          { name: "code", label: "Code", type: "text", placeholder: "Auto-generated if empty", helperText: "Leave blank for auto-generated code" },
           { name: "name", label: "Account Name", type: "text", required: true },
           { name: "bankName", label: "Bank Name", type: "text", required: true },
           { name: "accountNumber", label: "Account Number", type: "text", required: true },
@@ -1119,7 +1417,7 @@ export default function AccountingPage() {
         onSubmit={(data) => {
           const payload = { code: String(data.code), name: String(data.name), bankName: String(data.bankName), accountNumber: String(data.accountNumber), iban: data.iban ? String(data.iban) : undefined, currency: String(data.currency || "EGP"), balance: Number(data.balance), type: String(data.type) as BankAccount["type"], status: String(data.status) as BankAccount["status"], openedAt: editingBank?.openedAt ?? new Date().toISOString() };
           if (editingBank) store.update("bankAccounts", editingBank.id, payload);
-          else store.add("bankAccounts", { id: store.genId("ba"), ...payload });
+          else { const code = payload.code.trim() || store.generateBankCode(); store.add("bankAccounts", { id: store.genId("ba"), ...payload, code }); }
           setBankFormOpen(false); setEditingBank(null);
         }}
       />

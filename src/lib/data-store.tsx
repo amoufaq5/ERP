@@ -27,6 +27,9 @@ export interface Product {
   pricePerUnit: number;
   therapeuticArea: string;
   edaRegistration?: string;
+  stockQty: number;
+  reorderLevel: number;
+  warehouse?: string;
 }
 
 // ─── IMS Standard Specialties ────────────────────────────────────────────────
@@ -593,6 +596,13 @@ export interface DataStoreState {
   nextRFQSeq: number;
   nextGRNSeq: number;
   nextDNSeq: number;
+  nextCustomerSeq: number;
+  nextVendorSeq: number;
+  nextProductSeq: number;
+  nextBankSeq: number;
+  nextCostCenterSeq: number;
+  nextPaymentSeq: number;
+  nextChequeSeq: number;
 }
 
 // ─── Seed data ───────────────────────────────────────────────────────────────
@@ -639,14 +649,14 @@ const SEED_BUS: BusinessUnit[] = [
 ];
 
 const SEED_PRODUCTS: Product[] = [
-  { id: "p-cardio-1", code: "CV-001", name: "Cardioprex", strength: "500mg", form: "Tablet", buId: "bu-cardio", pricePerUnit: 48, therapeuticArea: "Hypertension", edaRegistration: "EDA/2024/1001" },
-  { id: "p-cardio-2", code: "CV-002", name: "Atorvastat", strength: "20mg", form: "Tablet", buId: "bu-cardio", pricePerUnit: 62, therapeuticArea: "Dyslipidemia", edaRegistration: "EDA/2024/1002" },
-  { id: "p-cardio-3", code: "CV-003", name: "Metoprolax", strength: "50mg", form: "Tablet", buId: "bu-cardio", pricePerUnit: 35, therapeuticArea: "Beta-blocker", edaRegistration: "EDA/2023/0892" },
-  { id: "p-diab-1", code: "DM-001", name: "Diabetex XR", strength: "1000mg", form: "Tablet", buId: "bu-diabetes", pricePerUnit: 95, therapeuticArea: "Type 2 Diabetes", edaRegistration: "EDA/2024/1101" },
-  { id: "p-diab-2", code: "DM-002", name: "Glargin-Long", strength: "100U/ml", form: "Injection", buId: "bu-diabetes", pricePerUnit: 420, therapeuticArea: "Insulin", edaRegistration: "EDA/2023/0774" },
-  { id: "p-prim-1", code: "PC-001", name: "Antibio-Z", strength: "1g", form: "Capsule", buId: "bu-primary", pricePerUnit: 28, therapeuticArea: "Antibiotic", edaRegistration: "EDA/2022/0550" },
-  { id: "p-prim-2", code: "PC-002", name: "Paraflu Junior", strength: "120mg/5ml", form: "Syrup", buId: "bu-primary", pricePerUnit: 22, therapeuticArea: "Pediatric", edaRegistration: "EDA/2023/0612" },
-  { id: "p-prim-3", code: "PC-003", name: "Nervocalm", strength: "10mg", form: "Tablet", buId: "bu-primary", pricePerUnit: 18, therapeuticArea: "Anxiolytic", edaRegistration: "EDA/2023/0713" },
+  { id: "p-cardio-1", code: "CV-001", name: "Cardioprex", strength: "500mg", form: "Tablet", buId: "bu-cardio", pricePerUnit: 48, therapeuticArea: "Hypertension", edaRegistration: "EDA/2024/1001", stockQty: 12000, reorderLevel: 3000, warehouse: "FG Warehouse-Cairo" },
+  { id: "p-cardio-2", code: "CV-002", name: "Atorvastat", strength: "20mg", form: "Tablet", buId: "bu-cardio", pricePerUnit: 62, therapeuticArea: "Dyslipidemia", edaRegistration: "EDA/2024/1002", stockQty: 8500, reorderLevel: 2000, warehouse: "FG Warehouse-Cairo" },
+  { id: "p-cardio-3", code: "CV-003", name: "Metoprolax", strength: "50mg", form: "Tablet", buId: "bu-cardio", pricePerUnit: 35, therapeuticArea: "Beta-blocker", edaRegistration: "EDA/2023/0892", stockQty: 15000, reorderLevel: 4000, warehouse: "FG Warehouse-Cairo" },
+  { id: "p-diab-1", code: "DM-001", name: "Diabetex XR", strength: "1000mg", form: "Tablet", buId: "bu-diabetes", pricePerUnit: 95, therapeuticArea: "Type 2 Diabetes", edaRegistration: "EDA/2024/1101", stockQty: 6000, reorderLevel: 1500, warehouse: "FG Warehouse-Cairo" },
+  { id: "p-diab-2", code: "DM-002", name: "Glargin-Long", strength: "100U/ml", form: "Injection", buId: "bu-diabetes", pricePerUnit: 420, therapeuticArea: "Insulin", edaRegistration: "EDA/2023/0774", stockQty: 2000, reorderLevel: 500, warehouse: "Cold Storage-Cairo" },
+  { id: "p-prim-1", code: "PC-001", name: "Antibio-Z", strength: "1g", form: "Capsule", buId: "bu-primary", pricePerUnit: 28, therapeuticArea: "Antibiotic", edaRegistration: "EDA/2022/0550", stockQty: 20000, reorderLevel: 5000, warehouse: "FG Warehouse-Cairo" },
+  { id: "p-prim-2", code: "PC-002", name: "Paraflu Junior", strength: "120mg/5ml", form: "Syrup", buId: "bu-primary", pricePerUnit: 22, therapeuticArea: "Pediatric", edaRegistration: "EDA/2023/0612", stockQty: 10000, reorderLevel: 2500, warehouse: "FG Warehouse-Cairo" },
+  { id: "p-prim-3", code: "PC-003", name: "Nervocalm", strength: "10mg", form: "Tablet", buId: "bu-primary", pricePerUnit: 18, therapeuticArea: "Anxiolytic", edaRegistration: "EDA/2023/0713", stockQty: 18000, reorderLevel: 4000, warehouse: "FG Warehouse-Cairo" },
 ];
 
 const SEED_TERRITORIES: Territory[] = [
@@ -1081,6 +1091,13 @@ export const SEED_DATA: DataStoreState = {
   nextRFQSeq: 3,
   nextGRNSeq: 2,
   nextDNSeq: 2,
+  nextCustomerSeq: 1006,
+  nextVendorSeq: 2006,
+  nextProductSeq: 9,
+  nextBankSeq: 5,
+  nextCostCenterSeq: 7,
+  nextPaymentSeq: 6,
+  nextChequeSeq: 8,
 };
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -1105,6 +1122,13 @@ interface DataStoreValue extends DataStoreState {
   generateRFQNumber: () => string;
   generateGRNNumber: () => string;
   generateDNNumber: () => string;
+  generateCustomerCode: () => string;
+  generateVendorCode: () => string;
+  generateProductCode: () => string;
+  generateBankCode: () => string;
+  generateCostCenterCode: () => string;
+  generatePaymentRef: () => string;
+  generateChequeNumber: () => string;
 }
 
 const DataStoreContext = createContext<DataStoreValue | null>(null);
@@ -1212,6 +1236,56 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     return `DN-${year}-${String(seq).padStart(4, "0")}`;
   }
 
+  function generateCustomerCode(): string {
+    const seq = state.nextCustomerSeq;
+    const next: DataStoreState = { ...state, nextCustomerSeq: seq + 1 };
+    mutate(next);
+    return `CUST-${String(seq).padStart(4, "0")}`;
+  }
+
+  function generateVendorCode(): string {
+    const seq = state.nextVendorSeq;
+    const next: DataStoreState = { ...state, nextVendorSeq: seq + 1 };
+    mutate(next);
+    return `VEN-${String(seq).padStart(4, "0")}`;
+  }
+
+  function generateProductCode(): string {
+    const seq = state.nextProductSeq;
+    const next: DataStoreState = { ...state, nextProductSeq: seq + 1 };
+    mutate(next);
+    return `PRD-${String(seq).padStart(4, "0")}`;
+  }
+
+  function generateBankCode(): string {
+    const seq = state.nextBankSeq;
+    const next: DataStoreState = { ...state, nextBankSeq: seq + 1 };
+    mutate(next);
+    return `BNK-${String(seq).padStart(4, "0")}`;
+  }
+
+  function generateCostCenterCode(): string {
+    const seq = state.nextCostCenterSeq;
+    const next: DataStoreState = { ...state, nextCostCenterSeq: seq + 1 };
+    mutate(next);
+    return `CC-${String(seq).padStart(4, "0")}`;
+  }
+
+  function generatePaymentRef(): string {
+    const year = new Date().getFullYear();
+    const seq = state.nextPaymentSeq;
+    const next: DataStoreState = { ...state, nextPaymentSeq: seq + 1 };
+    mutate(next);
+    return `PAY-${year}-${String(seq).padStart(4, "0")}`;
+  }
+
+  function generateChequeNumber(): string {
+    const seq = state.nextChequeSeq;
+    const next: DataStoreState = { ...state, nextChequeSeq: seq + 1 };
+    mutate(next);
+    return `CHQ-${String(seq).padStart(6, "0")}`;
+  }
+
   function add<K extends EntityKey>(key: K, item: DataStoreState[K][number]) {
     // We use a narrow local type because TS can't prove the array union matches the single-element union.
     // The runtime is identical: just append.
@@ -1277,6 +1351,13 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
         generateRFQNumber,
         generateGRNNumber,
         generateDNNumber,
+        generateCustomerCode,
+        generateVendorCode,
+        generateProductCode,
+        generateBankCode,
+        generateCostCenterCode,
+        generatePaymentRef,
+        generateChequeNumber,
       }}
     >
       {children}
@@ -1303,6 +1384,13 @@ export function useDataStore(): DataStoreValue {
       generateRFQNumber: () => "RFQ-0000-0000",
       generateGRNNumber: () => "GRN-0000-0000",
       generateDNNumber: () => "DN-0000-0000",
+      generateCustomerCode: () => "CUST-0000",
+      generateVendorCode: () => "VEN-0000",
+      generateProductCode: () => "PRD-0000",
+      generateBankCode: () => "BNK-0000",
+      generateCostCenterCode: () => "CC-0000",
+      generatePaymentRef: () => "PAY-0000-0000",
+      generateChequeNumber: () => "CHQ-000000",
     };
   }
   return ctx;

@@ -90,21 +90,9 @@ export default function SalesOrderPage() {
     setEditingSO(null);
   }
 
-  // ─── Integration: Confirm SO → auto-create Delivery Note ─────────────
-  function confirmSO(so: SalesOrder) {
-    const dnId = store.genId("dn");
-    const dnNumber = store.generateDNNumber();
-    store.add("deliveryNotes", {
-      id: dnId,
-      number: dnNumber,
-      soId: so.id,
-      customerId: so.customerId,
-      date: new Date().toISOString(),
-      items: so.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity })),
-      status: "PENDING",
-      createdAt: new Date().toISOString(),
-    });
-    store.update("salesOrders", so.id, { status: "CONFIRMED", dnId });
+  // ─── Submit SO for approval (status → CONFIRMED, sent to Finance) ────
+  function submitSOForApproval(so: SalesOrder) {
+    store.update("salesOrders", so.id, { status: "CONFIRMED" });
   }
 
   // ─── Integration: Confirm Delivery → auto-create Invoice + JE ───────
@@ -114,42 +102,48 @@ export default function SalesOrderPage() {
     const so = store.salesOrders.find((s) => s.id === dn.soId);
     if (!so) return;
 
-    // Auto-create customer invoice (AR)
+    // Stock check before fulfillment
+    for (const item of so.items) {
+      const product = store.products.find((p) => p.id === item.productId);
+      if (product && product.stockQty < item.quantity) {
+        alert(`Insufficient stock for ${product.name}: need ${item.quantity}, have ${product.stockQty}`);
+        return;
+      }
+    }
+
+    // Deduct inventory
+    for (const item of so.items) {
+      const product = store.products.find((p) => p.id === item.productId);
+      if (product) {
+        store.update("products", product.id, { stockQty: product.stockQty - item.quantity });
+      }
+    }
+
     const invId = store.genId("inv");
-    const invNumber = store.generateInvoiceNumber();
     store.add("invoices", {
       id: invId,
-      number: invNumber,
+      number: store.generateInvoiceNumber(),
       customerId: so.customerId,
       date: new Date().toISOString().split("T")[0],
       dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
-      subtotal: so.subtotal,
-      tax: so.tax,
-      total: so.total,
-      currency: "EGP",
-      status: "SENT",
+      subtotal: so.subtotal, tax: so.tax, total: so.total,
+      currency: "EGP", status: "SENT",
       items: so.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })),
       notes: `Auto-generated from SO ${so.number} / DN ${dn.number}`,
     });
 
-    // Auto-create journal entry: DR Accounts Receivable, CR Revenue
-    const jeId = store.genId("je");
-    const jeNumber = store.generateJournalNumber();
     store.add("journalEntries", {
-      id: jeId,
-      number: jeNumber,
+      id: store.genId("je"),
+      number: store.generateJournalNumber(),
       date: new Date().toISOString().split("T")[0],
       description: `Sales revenue — SO ${so.number}`,
-      reference: so.number,
-      type: "GENERAL",
+      reference: so.number, type: "GENERAL",
       lines: [
         { accountId: "gl-1100", description: "Accounts Receivable", debit: so.total, credit: 0 },
         { accountId: "gl-4000", description: "Product Sales Revenue", debit: 0, credit: so.subtotal },
         { accountId: "gl-2100", description: "VAT Payable", debit: 0, credit: so.tax },
       ],
-      status: "POSTED",
-      createdBy: "u-admin",
-      createdAt: new Date().toISOString(),
+      status: "POSTED", createdBy: "u-admin", createdAt: new Date().toISOString(),
     });
 
     store.update("salesOrders", so.id, { status: "INVOICED", invoiceId: invId });
@@ -220,8 +214,8 @@ export default function SalesOrderPage() {
                     return (
                       <div className="flex items-center justify-end gap-1">
                         {so.status === "DRAFT" && (
-                          <Button size="sm" className="h-7 text-xs" onClick={() => confirmSO(so)}>
-                            <ArrowRight className="h-3 w-3 mr-1" /> Confirm
+                          <Button size="sm" className="h-7 text-xs" onClick={() => submitSOForApproval(so)}>
+                            <ArrowRight className="h-3 w-3 mr-1" /> Submit for Approval
                           </Button>
                         )}
                         <EditDeleteMenu
@@ -248,11 +242,11 @@ export default function SalesOrderPage() {
               <div className="flex items-center gap-2 text-xs flex-wrap">
                 <Badge variant="outline">SO Created (DRAFT)</Badge>
                 <ArrowRight className="h-3 w-3" />
-                <Badge variant="outline" className="bg-blue-50">Confirmed → Auto Delivery Note</Badge>
+                <Badge variant="outline" className="bg-blue-50">Submit for Approval</Badge>
                 <ArrowRight className="h-3 w-3" />
-                <Badge variant="outline" className="bg-amber-50">Delivery Confirmed</Badge>
+                <Badge variant="outline" className="bg-amber-50">Finance/Accounting Reviews + Stock Check</Badge>
                 <ArrowRight className="h-3 w-3" />
-                <Badge variant="outline" className="bg-green-50">Auto Invoice + Journal Entry</Badge>
+                <Badge variant="outline" className="bg-green-50">Approved → Inventory Deduction + Invoice + JE</Badge>
               </div>
             </CardContent>
           </Card>
