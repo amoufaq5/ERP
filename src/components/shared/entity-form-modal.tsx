@@ -162,10 +162,14 @@ export function EntityFormModal({
     const className = hasError ? "border-destructive" : undefined;
 
     if (f.type === "select") {
+      const EMPTY = "__none__";
+      const strVal = (raw as string) ?? "";
+      const hasEmptyOption = f.options?.some((o) => o.value === "");
+      const selectValue = strVal === "" ? (hasEmptyOption ? EMPTY : undefined) : strVal;
       return (
         <Select
-          value={(raw as string) ?? ""}
-          onValueChange={(v) => setValue(f.name, v)}
+          value={selectValue}
+          onValueChange={(v) => setValue(f.name, v === EMPTY ? "" : v)}
           disabled={f.disabled}
         >
           <SelectTrigger className={className}>
@@ -173,7 +177,7 @@ export function EntityFormModal({
           </SelectTrigger>
           <SelectContent>
             {f.options?.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
+              <SelectItem key={opt.value || EMPTY} value={opt.value || EMPTY}>
                 {opt.label}
               </SelectItem>
             ))}

@@ -8,6 +8,7 @@ import StatusBadge from "@/components/shared/status-badge";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField, type EntityFormData } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import { CustomerLink, VendorLink, BankAccountLink } from "@/components/shared/entity-detail-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -191,7 +192,7 @@ export default function FinancePage() {
 
   const invoiceColumns: Column<Record<string, unknown>>[] = [
     { key: "number", label: "Invoice #", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
-    { key: "customerId", label: "Customer", render: (v) => customerName(v as string) },
+    { key: "customerId", label: "Customer", render: (v) => <CustomerLink customerId={v as string} /> },
     { key: "date", label: "Date", render: (v) => (v as string).slice(0, 10) },
     { key: "dueDate", label: "Due Date", render: (v) => (v as string).slice(0, 10) },
     { key: "total", label: "Total", render: (v) => <span className="font-semibold">{egp(v as number)}</span>, className: "text-right" },
@@ -224,7 +225,9 @@ export default function FinancePage() {
     )},
     { key: "customerId", label: "Party", render: (_v, row) => {
       const p = row as unknown as Payment;
-      return p.customerId ? customerName(p.customerId) : p.vendorId ? vendorName(p.vendorId) : "—";
+      if (p.customerId) return <CustomerLink customerId={p.customerId} />;
+      if (p.vendorId) return <VendorLink vendorId={p.vendorId} />;
+      return "—";
     }},
     { key: "date", label: "Date" },
     { key: "method", label: "Method", render: (v) => <Badge variant="outline">{methodLabels[v as string] ?? (v as string)}</Badge> },
@@ -246,7 +249,10 @@ export default function FinancePage() {
 
   const bankColumns: Column<Record<string, unknown>>[] = [
     { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
-    { key: "name", label: "Account Name", render: (v) => <span className="font-medium">{v as string}</span> },
+    { key: "id", label: "Account Name", render: (_v, row) => {
+      const b = row as unknown as { id: string };
+      return <BankAccountLink bankAccountId={b.id} />;
+    }},
     { key: "bankName", label: "Bank" },
     { key: "accountNumber", label: "Account #", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
     { key: "currency", label: "Currency" },
@@ -257,7 +263,10 @@ export default function FinancePage() {
 
   const vendorColumns: Column<Record<string, unknown>>[] = [
     { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
-    { key: "name", label: "Vendor", render: (v) => <span className="font-medium">{v as string}</span> },
+    { key: "id", label: "Vendor", render: (_v, row) => {
+      const vendor = row as unknown as { id: string };
+      return <VendorLink vendorId={vendor.id} />;
+    }},
     { key: "category", label: "Category" },
     { key: "outstanding", label: "Outstanding (AP)", render: (v) => <span className="font-semibold text-red-600">{egp(v as number)}</span>, className: "text-right" },
     { key: "paymentTerms", label: "Terms" },
@@ -293,8 +302,8 @@ export default function FinancePage() {
   // ─── Budget CRUD ──────────────────────────────────────────────
   const budgetFields: EntityField[] = [
     { name: "name", label: "Budget Name", type: "text", required: true },
-    { name: "fiscalYear", label: "Fiscal Year", type: "text", required: true, placeholder: "2026" },
-    { name: "period", label: "Period", type: "select", required: true, options: ["Q1", "Q2", "Q3", "Q4", "Annual", "Monthly"].map((p) => ({ label: p, value: p })) },
+    { name: "fiscalYear", label: "Fiscal Year", type: "text", required: true, defaultValue: String(new Date().getFullYear()), placeholder: "2026" },
+    { name: "period", label: "Period", type: "select", required: true, defaultValue: "Q1", options: ["Q1", "Q2", "Q3", "Q4", "Annual", "Monthly"].map((p) => ({ label: p, value: p })) },
     { name: "accountId", label: "GL Account", type: "select", options: [{ label: "— None —", value: "" }, ...store.glAccounts.map((a) => ({ label: `${a.code} — ${a.name}`, value: a.id }))] },
     { name: "costCenterId", label: "Cost Center", type: "select", options: [{ label: "— None —", value: "" }, ...store.costCenters.map((c) => ({ label: `${c.code} — ${c.name}`, value: c.id }))] },
     { name: "budgeted", label: "Budgeted (EGP)", type: "number", required: true, defaultValue: 0 },

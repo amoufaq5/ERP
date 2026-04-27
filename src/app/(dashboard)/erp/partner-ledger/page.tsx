@@ -28,6 +28,7 @@ import {
   type EntityField,
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
+import { CustomerLink, VendorLink } from "@/components/shared/entity-detail-dialog";
 import { useDataStore, type Invoice, type Payment as PaymentType } from "@/lib/data-store";
 import { Download } from "lucide-react";
 
@@ -271,7 +272,11 @@ export default function PartnerLedgerPage() {
     {
       key: "name",
       label: "Partner Name",
-      render: (v: unknown) => <span className="font-medium">{v as string}</span>,
+      render: (_v: unknown, row: Record<string, unknown>) => {
+        const p = row as unknown as Partner;
+        if (p.type === "Customer") return <CustomerLink customerId={p.id} />;
+        return <VendorLink vendorId={p.id} />;
+      },
     },
     {
       key: "type",

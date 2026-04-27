@@ -30,6 +30,7 @@ import {
 } from "@/components/shared/entity-form-modal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useDataStore, type Cheque, type Invoice } from "@/lib/data-store";
+import { CustomerLink } from "@/components/shared/entity-detail-dialog";
 
 /* ─── Payment type ─── */
 interface Payment {
@@ -364,8 +365,7 @@ export default function CollectionsPage() {
                   { key: "number", label: "Invoice", render: (v: string) => <span className="font-mono text-xs font-medium">{v}</span> },
                   { key: "customerId", label: "Customer", render: (_: unknown, row: Record<string, unknown>) => {
                     const inv = row as unknown as Invoice;
-                    const cust = customers.find((c) => c.id === inv.customerId);
-                    return <span className="font-medium">{cust?.name || "—"}</span>;
+                    return <CustomerLink customerId={inv.customerId} />;
                   } },
                   { key: "customerType", label: "Type", render: (_: unknown, row: Record<string, unknown>) => {
                     const inv = row as unknown as Invoice;

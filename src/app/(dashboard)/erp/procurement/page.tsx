@@ -16,6 +16,7 @@ import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { EntityFormModal, type EntityField, type EntityFormData } from "@/components/shared/entity-form-modal";
 import { useDataStore, type PurchaseOrder, type RFQ, type GoodsReceipt } from "@/lib/data-store";
+import { VendorLink } from "@/components/shared/entity-detail-dialog";
 
 export default function ProcurementPage() {
   const store = useDataStore();
@@ -287,7 +288,7 @@ export default function ProcurementPage() {
               <DataTable
                 columns={[
                   { key: "number", label: "PO #", render: (v: string) => <span className="font-mono text-xs font-semibold">{v}</span> },
-                  { key: "vendorId", label: "Vendor", render: (v: string) => <span className="font-medium">{vendorName(v)}</span> },
+                  { key: "vendorId", label: "Vendor", render: (v: string) => <VendorLink vendorId={v} /> },
                   { key: "items", label: "Items", render: (_v: unknown, row: Record<string, unknown>) => {
                     const po = row as unknown as PurchaseOrder;
                     return <span className="text-sm">{po.items.map((i) => i.description).join(", ")}</span>;
@@ -370,7 +371,7 @@ export default function ProcurementPage() {
               <DataTable
                 columns={[
                   { key: "number", label: "RFQ #", render: (v: string) => <span className="font-mono text-xs font-semibold">{v}</span> },
-                  { key: "vendorId", label: "Vendor", render: (v: string) => <span className="font-medium">{vendorName(v)}</span> },
+                  { key: "vendorId", label: "Vendor", render: (v: string) => <VendorLink vendorId={v} /> },
                   { key: "items", label: "Items", render: (_v: unknown, row: Record<string, unknown>) => {
                     const rfq = row as unknown as RFQ;
                     return <span className="text-sm">{rfq.items.map((i) => `${i.description} (${i.quantity} ${i.unit})`).join(", ")}</span>;
@@ -423,7 +424,7 @@ export default function ProcurementPage() {
                     const po = store.purchaseOrders.find((p) => p.id === v);
                     return <span className="font-mono text-xs">{po?.number ?? v}</span>;
                   }},
-                  { key: "vendorId", label: "Vendor", render: (v: string) => vendorName(v) },
+                  { key: "vendorId", label: "Vendor", render: (v: string) => <VendorLink vendorId={v} /> },
                   { key: "items", label: "Items", render: (_v: unknown, row: Record<string, unknown>) => {
                     const g = row as unknown as GoodsReceipt;
                     return <span className="text-sm">{g.items.map((i) => `${i.description} × ${i.quantity}`).join(", ")}</span>;

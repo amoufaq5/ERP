@@ -39,6 +39,14 @@ export default function LoginPage() {
 
   useEffect(() => {
     setMounted(true);
+    // Check for ?logout parameter to force clear session
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("logout") === "1") {
+      localStorage.removeItem("token");
+      localStorage.removeItem("pharma.currentUser");
+      window.history.replaceState({}, "", "/login");
+      return;
+    }
     // If already logged in, redirect to dashboard
     const token = localStorage.getItem("token");
     if (token) {
@@ -46,15 +54,24 @@ export default function LoginPage() {
     }
   }, [router]);
 
+  function fillCredentials(user: string, pass: string) {
+    setUsername(user);
+    setPassword(pass);
+    setError("");
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
+    const trimUser = username.trim();
+    const trimPass = password.trim();
+
     setTimeout(() => {
       // 1. Check hardcoded demo credentials
       const matched = DEMO_CREDENTIALS.find(
-        (cred) => cred.username === username && cred.password === password
+        (cred) => cred.username === trimUser && cred.password === trimPass
       );
 
       if (matched) {
@@ -76,7 +93,7 @@ export default function LoginPage() {
         const allUsers = usersRaw ? JSON.parse(usersRaw) : [];
 
         const matchedEntry = Object.entries(creds).find(
-          ([, c]) => c.username === username && c.password === password
+          ([, c]) => c.username === trimUser && c.password === trimPass
         );
 
         if (matchedEntry) {
@@ -252,20 +269,22 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Demo credentials hint */}
+            {/* Demo credentials — click to fill */}
             <div className="mt-6 pt-5 border-t border-gray-100">
               <p className="text-xs font-medium text-gray-500 mb-2">
-                Demo credentials:
+                Demo credentials <span className="text-gray-400">(click to fill)</span>:
               </p>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-400 font-mono">
-                <p>admin / admin123</p>
-                <p>bum / bum123</p>
-                <p>dm / dm123</p>
-                <p>marketeer / mkt123</p>
-                <p>medrep / rep123</p>
-                <p>accountant / acc123</p>
-                <p>warehouse / wh123</p>
-                <p>hr / hr123</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono">
+                {DEMO_CREDENTIALS.map((cred) => (
+                  <button
+                    key={cred.username}
+                    type="button"
+                    onClick={() => fillCredentials(cred.username, cred.password)}
+                    className="text-left text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded px-1 py-0.5 transition-colors cursor-pointer"
+                  >
+                    {cred.username} / {cred.password}
+                  </button>
+                ))}
               </div>
             </div>
           </div>

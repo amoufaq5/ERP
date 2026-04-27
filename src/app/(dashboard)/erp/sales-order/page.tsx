@@ -16,6 +16,7 @@ import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { EntityFormModal, type EntityField, type EntityFormData } from "@/components/shared/entity-form-modal";
 import { useDataStore, type SalesOrder, type DeliveryNote } from "@/lib/data-store";
+import { CustomerLink } from "@/components/shared/entity-detail-dialog";
 
 export default function SalesOrderPage() {
   const store = useDataStore();
@@ -206,7 +207,7 @@ export default function SalesOrderPage() {
               <DataTable
                 columns={[
                   { key: "number", label: "SO #", render: (v: string) => <span className="font-mono text-xs font-semibold">{v}</span> },
-                  { key: "customerId", label: "Customer", render: (v: string) => <span className="font-medium">{customerName(v)}</span> },
+                  { key: "customerId", label: "Customer", render: (v: string) => <CustomerLink customerId={v} /> },
                   { key: "items", label: "Items", render: (_v: unknown, row: Record<string, unknown>) => {
                     const so = row as unknown as SalesOrder;
                     return <span className="text-sm">{so.items.map((i) => `${i.description} ×${i.quantity}`).join(", ")}</span>;
@@ -272,7 +273,7 @@ export default function SalesOrderPage() {
                     const so = store.salesOrders.find((s) => s.id === v);
                     return <span className="font-mono text-xs">{so?.number ?? v}</span>;
                   }},
-                  { key: "customerId", label: "Customer", render: (v: string) => customerName(v) },
+                  { key: "customerId", label: "Customer", render: (v: string) => <CustomerLink customerId={v} /> },
                   { key: "items", label: "Items", render: (_v: unknown, row: Record<string, unknown>) => {
                     const dn = row as unknown as DeliveryNote;
                     return <span className="text-sm">{dn.items.map((i) => `${i.description} ×${i.quantity}`).join(", ")}</span>;

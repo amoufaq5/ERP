@@ -422,8 +422,8 @@ export default function AccountingPage() {
   // ─── Budget CRUD ──────────────────────────────────────────────────────
   const budgetFields: EntityField[] = [
     { name: "name", label: "Budget Name", type: "text", required: true },
-    { name: "fiscalYear", label: "Fiscal Year", type: "text", required: true, placeholder: "2026" },
-    { name: "period", label: "Period", type: "select", required: true, options: ["Q1", "Q2", "Q3", "Q4", "Annual", "Monthly"].map((p) => ({ label: p, value: p })) },
+    { name: "fiscalYear", label: "Fiscal Year", type: "text", required: true, defaultValue: String(new Date().getFullYear()), placeholder: "2026" },
+    { name: "period", label: "Period", type: "select", required: true, defaultValue: "Q1", options: ["Q1", "Q2", "Q3", "Q4", "Annual", "Monthly"].map((p) => ({ label: p, value: p })) },
     { name: "accountId", label: "GL Account (optional)", type: "select", options: [{ label: "— None —", value: "" }, ...store.glAccounts.map((a) => ({ label: `${a.code} — ${a.name}`, value: a.id }))] },
     { name: "costCenterId", label: "Cost Center (optional)", type: "select", options: [{ label: "— None —", value: "" }, ...store.costCenters.map((c) => ({ label: `${c.code} — ${c.name}`, value: c.id }))] },
     { name: "budgeted", label: "Budgeted (EGP)", type: "number", required: true, defaultValue: 0 },
