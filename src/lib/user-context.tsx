@@ -31,12 +31,13 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
   ADMIN: ["*"],
   BUM: [
     "/dashboard", "/messages", "/tasks",
-    "/hubs/crm", "/hubs/finance",
+    "/hubs/crm", "/hubs/finance", "/hubs/supply-chain",
     "/crm/accounts", "/crm/contacts", "/crm/leads", "/crm/opportunities",
     "/crm/campaigns", "/crm/tickets", "/crm/loyalty",
     "/crm/bum", "/crm/marketeer", "/crm/district-manager", "/crm/medical-rep",
     "/crm/business-units", "/crm/territories", "/crm/weekly-plan", "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests", "/crm/reports",
     "/erp/finance", "/erp/accounting", "/erp/collections", "/erp/returns", "/erp/partner-ledger",
+    "/erp/procurement", "/erp/sales-order",
     "/reports", "/settings/profile",
   ],
   MARKETEER: [
@@ -65,14 +66,15 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
   ],
   ACCOUNTANT: [
     "/dashboard", "/messages", "/tasks",
-    "/hubs/finance",
+    "/hubs/finance", "/hubs/supply-chain",
     "/erp/finance", "/erp/accounting", "/erp/collections", "/erp/returns", "/erp/partner-ledger",
+    "/erp/procurement", "/erp/sales-order",
     "/reports", "/settings/profile",
   ],
   WAREHOUSE: [
     "/dashboard", "/messages", "/tasks",
     "/hubs/supply-chain",
-    "/erp/inventory", "/erp/procurement", "/erp/returns",
+    "/erp/inventory", "/erp/procurement", "/erp/sales-order", "/erp/returns",
     "/supply-chain",
     "/settings/profile",
   ],

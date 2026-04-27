@@ -56,6 +56,7 @@ import {
   Heart,
   Sparkles,
   Globe,
+  ShoppingBag,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -120,6 +121,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Hub Overview", labelKey: "sidebar.hubOverview", href: "/hubs/supply-chain", icon: LayoutDashboard },
       { label: "Supply Chain", labelKey: "sidebar.supplyChain", href: "/supply-chain", icon: Truck },
       { label: "Procurement", labelKey: "nav.procurement", href: "/erp/procurement", icon: ShoppingCart },
+      { label: "Sales Orders", labelKey: "sidebar.salesOrders", href: "/erp/sales-order", icon: ShoppingBag },
       { label: "Inventory", labelKey: "nav.inventory", href: "/erp/inventory", icon: Package },
     ],
   },

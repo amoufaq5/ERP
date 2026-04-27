@@ -426,13 +426,14 @@ export default function AccountingPage() {
     { name: "period", label: "Period", type: "select", required: true, options: ["Q1", "Q2", "Q3", "Q4", "Annual", "Monthly"].map((p) => ({ label: p, value: p })) },
     { name: "accountId", label: "GL Account (optional)", type: "select", options: [{ label: "— None —", value: "" }, ...store.glAccounts.map((a) => ({ label: `${a.code} — ${a.name}`, value: a.id }))] },
     { name: "costCenterId", label: "Cost Center (optional)", type: "select", options: [{ label: "— None —", value: "" }, ...store.costCenters.map((c) => ({ label: `${c.code} — ${c.name}`, value: c.id }))] },
-    { name: "budgeted", label: "Budgeted (EGP)", type: "number", required: true },
+    { name: "budgeted", label: "Budgeted (EGP)", type: "number", required: true, defaultValue: 0 },
     { name: "actual", label: "Actual (EGP)", type: "number", defaultValue: 0 },
-    { name: "status", label: "Status", type: "select", defaultValue: "DRAFT", options: [{ label: "Draft", value: "DRAFT" }, { label: "Approved", value: "APPROVED" }, { label: "Closed", value: "CLOSED" }] },
+    { name: "status", label: "Status", type: "select", required: true, defaultValue: "DRAFT", options: [{ label: "Draft", value: "DRAFT" }, { label: "Approved", value: "APPROVED" }, { label: "Closed", value: "CLOSED" }] },
   ];
 
   function handleBudgetSubmit(data: EntityFormData) {
-    const payload = { name: String(data.name), fiscalYear: String(data.fiscalYear), period: String(data.period), accountId: data.accountId ? String(data.accountId) : undefined, costCenterId: data.costCenterId ? String(data.costCenterId) : undefined, budgeted: Number(data.budgeted), actual: Number(data.actual ?? 0), status: String(data.status) as Budget["status"] };
+    const status = (String(data.status || "DRAFT")) as Budget["status"];
+    const payload = { name: String(data.name), fiscalYear: String(data.fiscalYear || new Date().getFullYear()), period: String(data.period || "Q1"), accountId: data.accountId ? String(data.accountId) : undefined, costCenterId: data.costCenterId ? String(data.costCenterId) : undefined, budgeted: Number(data.budgeted) || 0, actual: Number(data.actual) || 0, status };
     if (editingBudget) { store.update("budgets", editingBudget.id, payload); }
     else { store.add("budgets", { id: store.genId("bud"), ...payload }); }
     setBudgetFormOpen(false); setEditingBudget(null);

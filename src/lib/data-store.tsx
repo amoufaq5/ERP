@@ -416,6 +416,73 @@ export interface Budget {
   status: "DRAFT" | "APPROVED" | "CLOSED";
 }
 
+export interface PurchaseOrder {
+  id: string;
+  number: string;
+  vendorId: string;
+  date: string;
+  expectedDate: string;
+  items: { productId: string; description: string; quantity: number; unitPrice: number; total: number }[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  status: "DRAFT" | "APPROVED" | "ORDERED" | "RECEIVED" | "CANCELLED";
+  grnId?: string;
+  invoiceId?: string;
+  createdAt: string;
+}
+
+export interface SalesOrder {
+  id: string;
+  number: string;
+  customerId: string;
+  date: string;
+  expectedDate: string;
+  items: { productId: string; description: string; quantity: number; unitPrice: number; total: number }[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  status: "DRAFT" | "CONFIRMED" | "DELIVERED" | "INVOICED" | "CANCELLED";
+  invoiceId?: string;
+  dnId?: string;
+  createdAt: string;
+}
+
+export interface RFQ {
+  id: string;
+  number: string;
+  vendorId: string;
+  date: string;
+  validUntil: string;
+  items: { description: string; quantity: number; unit: string }[];
+  status: "DRAFT" | "SENT" | "RECEIVED" | "CONVERTED" | "CANCELLED";
+  convertedPOId?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface GoodsReceipt {
+  id: string;
+  number: string;
+  poId: string;
+  vendorId: string;
+  date: string;
+  items: { productId: string; description: string; quantity: number; unitPrice: number }[];
+  status: "PENDING" | "RECEIVED" | "INSPECTED" | "REJECTED";
+  createdAt: string;
+}
+
+export interface DeliveryNote {
+  id: string;
+  number: string;
+  soId: string;
+  customerId: string;
+  date: string;
+  items: { productId: string; description: string; quantity: number }[];
+  status: "PENDING" | "SHIPPED" | "DELIVERED";
+  createdAt: string;
+}
+
 export interface Employee {
   id: string;
   employeeId: string;        // e.g. "EMP-001"
@@ -509,6 +576,11 @@ export interface DataStoreState {
   journalEntries: JournalEntry[];
   costCenters: CostCenter[];
   budgets: Budget[];
+  purchaseOrders: PurchaseOrder[];
+  salesOrders: SalesOrder[];
+  rfqs: RFQ[];
+  goodsReceipts: GoodsReceipt[];
+  deliveryNotes: DeliveryNote[];
   employees: Employee[];
   jobs: Job[];
   candidates: Candidate[];
@@ -516,6 +588,11 @@ export interface DataStoreState {
   projectTasks: ProjectTask[];
   nextInvoiceSeq: number;
   nextJournalSeq: number;
+  nextPOSeq: number;
+  nextSOSeq: number;
+  nextRFQSeq: number;
+  nextGRNSeq: number;
+  nextDNSeq: number;
 }
 
 // ─── Seed data ───────────────────────────────────────────────────────────────
@@ -938,6 +1015,32 @@ const SEED_PROJECT_TASKS: ProjectTask[] = [
   { id: "ptask-8", title: "User acceptance testing", project: "ERP System Rollout", assignee: "Lisa Morgan", dueDate: "2026-04-28", priority: "Medium", hours: 20, status: "On Hold" },
 ];
 
+const SEED_PURCHASE_ORDERS: PurchaseOrder[] = [
+  { id: "po-001", number: "PO-2026-0001", vendorId: "v-001", date: daysAgo(20), expectedDate: daysAgo(5), items: [{ productId: "p-cardio-1", description: "Cardioprex 500mg Tablet — Bulk", quantity: 5000, unitPrice: 28, total: 140000 }], subtotal: 140000, tax: 19600, total: 159600, status: "RECEIVED", grnId: "grn-001", invoiceId: "inv-po-001", createdAt: daysAgo(20) },
+  { id: "po-002", number: "PO-2026-0002", vendorId: "v-002", date: daysAgo(10), expectedDate: daysAhead(5), items: [{ productId: "p-diab-1", description: "Diabetex XR 1000mg — Bulk", quantity: 3000, unitPrice: 55, total: 165000 }, { productId: "p-diab-2", description: "Glargin-Long 100U/ml — Bulk", quantity: 500, unitPrice: 280, total: 140000 }], subtotal: 305000, tax: 42700, total: 347700, status: "APPROVED", createdAt: daysAgo(10) },
+  { id: "po-003", number: "PO-2026-0003", vendorId: "v-003", date: daysAgo(5), expectedDate: daysAhead(15), items: [{ productId: "p-prim-1", description: "Antibio-Z 1g Capsule — Bulk", quantity: 10000, unitPrice: 14, total: 140000 }], subtotal: 140000, tax: 19600, total: 159600, status: "ORDERED", createdAt: daysAgo(5) },
+  { id: "po-004", number: "PO-2026-0004", vendorId: "v-001", date: daysAgo(2), expectedDate: daysAhead(20), items: [{ productId: "p-cardio-2", description: "Atorvastat 20mg — Bulk", quantity: 8000, unitPrice: 35, total: 280000 }], subtotal: 280000, tax: 39200, total: 319200, status: "DRAFT", createdAt: daysAgo(2) },
+];
+
+const SEED_SALES_ORDERS: SalesOrder[] = [
+  { id: "so-001", number: "SO-2026-0001", customerId: "c-001", date: daysAgo(15), expectedDate: daysAgo(3), items: [{ productId: "p-cardio-1", description: "Cardioprex 500mg Tablet", quantity: 500, unitPrice: 48, total: 24000 }, { productId: "p-cardio-2", description: "Atorvastat 20mg Tablet", quantity: 300, unitPrice: 62, total: 18600 }], subtotal: 42600, tax: 5964, total: 48564, status: "INVOICED", invoiceId: "inv-001", dnId: "dn-001", createdAt: daysAgo(15) },
+  { id: "so-002", number: "SO-2026-0002", customerId: "c-002", date: daysAgo(8), expectedDate: daysAhead(2), items: [{ productId: "p-diab-1", description: "Diabetex XR 1000mg Tablet", quantity: 200, unitPrice: 95, total: 19000 }], subtotal: 19000, tax: 2660, total: 21660, status: "CONFIRMED", createdAt: daysAgo(8) },
+  { id: "so-003", number: "SO-2026-0003", customerId: "c-003", date: daysAgo(3), expectedDate: daysAhead(10), items: [{ productId: "p-prim-1", description: "Antibio-Z 1g Capsule", quantity: 1000, unitPrice: 28, total: 28000 }, { productId: "p-prim-2", description: "Paraflu Junior Syrup", quantity: 500, unitPrice: 22, total: 11000 }], subtotal: 39000, tax: 5460, total: 44460, status: "DRAFT", createdAt: daysAgo(3) },
+];
+
+const SEED_RFQS: RFQ[] = [
+  { id: "rfq-001", number: "RFQ-2026-0001", vendorId: "v-001", date: daysAgo(30), validUntil: daysAgo(15), items: [{ description: "Cardioprex 500mg API — Bulk", quantity: 5000, unit: "kg" }], status: "CONVERTED", convertedPOId: "po-001", createdAt: daysAgo(30) },
+  { id: "rfq-002", number: "RFQ-2026-0002", vendorId: "v-003", date: daysAgo(7), validUntil: daysAhead(14), items: [{ description: "Antibio-Z raw material", quantity: 2000, unit: "kg" }, { description: "Capsule shells size 0", quantity: 50000, unit: "pcs" }], status: "SENT", createdAt: daysAgo(7) },
+];
+
+const SEED_GOODS_RECEIPTS: GoodsReceipt[] = [
+  { id: "grn-001", number: "GRN-2026-0001", poId: "po-001", vendorId: "v-001", date: daysAgo(5), items: [{ productId: "p-cardio-1", description: "Cardioprex 500mg Tablet — Bulk", quantity: 5000, unitPrice: 28 }], status: "RECEIVED", createdAt: daysAgo(5) },
+];
+
+const SEED_DELIVERY_NOTES: DeliveryNote[] = [
+  { id: "dn-001", number: "DN-2026-0001", soId: "so-001", customerId: "c-001", date: daysAgo(5), items: [{ productId: "p-cardio-1", description: "Cardioprex 500mg Tablet", quantity: 500 }, { productId: "p-cardio-2", description: "Atorvastat 20mg Tablet", quantity: 300 }], status: "DELIVERED", createdAt: daysAgo(5) },
+];
+
 export const SEED_DATA: DataStoreState = {
   businessUnits: SEED_BUS,
   products: SEED_PRODUCTS,
@@ -961,6 +1064,11 @@ export const SEED_DATA: DataStoreState = {
   journalEntries: SEED_JOURNAL_ENTRIES,
   costCenters: SEED_COST_CENTERS,
   budgets: SEED_BUDGETS,
+  purchaseOrders: SEED_PURCHASE_ORDERS,
+  salesOrders: SEED_SALES_ORDERS,
+  rfqs: SEED_RFQS,
+  goodsReceipts: SEED_GOODS_RECEIPTS,
+  deliveryNotes: SEED_DELIVERY_NOTES,
   employees: SEED_EMPLOYEES,
   jobs: SEED_JOBS,
   candidates: SEED_CANDIDATES,
@@ -968,6 +1076,11 @@ export const SEED_DATA: DataStoreState = {
   projectTasks: SEED_PROJECT_TASKS,
   nextInvoiceSeq: 3,
   nextJournalSeq: 9,
+  nextPOSeq: 5,
+  nextSOSeq: 4,
+  nextRFQSeq: 3,
+  nextGRNSeq: 2,
+  nextDNSeq: 2,
 };
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -987,6 +1100,11 @@ interface DataStoreValue extends DataStoreState {
   genId: (prefix: string) => string;
   generateInvoiceNumber: () => string;
   generateJournalNumber: () => string;
+  generatePONumber: () => string;
+  generateSONumber: () => string;
+  generateRFQNumber: () => string;
+  generateGRNNumber: () => string;
+  generateDNNumber: () => string;
 }
 
 const DataStoreContext = createContext<DataStoreValue | null>(null);
@@ -1054,6 +1172,46 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     return `JE-${year}-${String(seq).padStart(4, "0")}`;
   }
 
+  function generatePONumber(): string {
+    const year = new Date().getFullYear();
+    const seq = state.nextPOSeq;
+    const next: DataStoreState = { ...state, nextPOSeq: seq + 1 };
+    mutate(next);
+    return `PO-${year}-${String(seq).padStart(4, "0")}`;
+  }
+
+  function generateSONumber(): string {
+    const year = new Date().getFullYear();
+    const seq = state.nextSOSeq;
+    const next: DataStoreState = { ...state, nextSOSeq: seq + 1 };
+    mutate(next);
+    return `SO-${year}-${String(seq).padStart(4, "0")}`;
+  }
+
+  function generateRFQNumber(): string {
+    const year = new Date().getFullYear();
+    const seq = state.nextRFQSeq;
+    const next: DataStoreState = { ...state, nextRFQSeq: seq + 1 };
+    mutate(next);
+    return `RFQ-${year}-${String(seq).padStart(4, "0")}`;
+  }
+
+  function generateGRNNumber(): string {
+    const year = new Date().getFullYear();
+    const seq = state.nextGRNSeq;
+    const next: DataStoreState = { ...state, nextGRNSeq: seq + 1 };
+    mutate(next);
+    return `GRN-${year}-${String(seq).padStart(4, "0")}`;
+  }
+
+  function generateDNNumber(): string {
+    const year = new Date().getFullYear();
+    const seq = state.nextDNSeq;
+    const next: DataStoreState = { ...state, nextDNSeq: seq + 1 };
+    mutate(next);
+    return `DN-${year}-${String(seq).padStart(4, "0")}`;
+  }
+
   function add<K extends EntityKey>(key: K, item: DataStoreState[K][number]) {
     // We use a narrow local type because TS can't prove the array union matches the single-element union.
     // The runtime is identical: just append.
@@ -1114,6 +1272,11 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
         genId,
         generateInvoiceNumber,
         generateJournalNumber,
+        generatePONumber,
+        generateSONumber,
+        generateRFQNumber,
+        generateGRNNumber,
+        generateDNNumber,
       }}
     >
       {children}
@@ -1135,6 +1298,11 @@ export function useDataStore(): DataStoreValue {
       genId: (p) => `${p}-stub`,
       generateInvoiceNumber: () => "INV-0000-0000",
       generateJournalNumber: () => "JE-0000-0000",
+      generatePONumber: () => "PO-0000-0000",
+      generateSONumber: () => "SO-0000-0000",
+      generateRFQNumber: () => "RFQ-0000-0000",
+      generateGRNNumber: () => "GRN-0000-0000",
+      generateDNNumber: () => "DN-0000-0000",
     };
   }
   return ctx;
