@@ -62,6 +62,7 @@ import {
   PieChart,
   Code2,
   GitBranch,
+  Pill,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -118,6 +119,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Interviews", labelKey: "nav.interviews", href: "/ats/interviews", icon: CalendarCheck },
       { label: "Onboarding", labelKey: "nav.onboarding", href: "/ats/onboarding", icon: Rocket },
       { label: "Training", labelKey: "nav.training", href: "/ats/training", icon: GraduationCap },
+      { label: "Quizzes", labelKey: "nav.quizzes", href: "/ats/quizzes", icon: FileCheck },
     ],
   },
   {
@@ -164,6 +166,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Visit Tracking", labelKey: "sidebar.visitTracking", href: "/crm/gps-tracking", icon: MapPin },
       { label: "Market Requests", labelKey: "sidebar.marketRequests", href: "/crm/market-requests", icon: ClipboardList },
       { label: "KPIs", labelKey: "sidebar.kpis", href: "/crm/kpis", icon: Target },
+      { label: "Expenses", labelKey: "sidebar.expenses", href: "/crm/expenses", icon: Banknote },
       { label: "CRM Reports", labelKey: "sidebar.crmReports", href: "/crm/reports", icon: BarChart3 },
     ],
   },

@@ -55,6 +55,10 @@ const ALL_ROUTES: { href: string; label: string; group: string }[] = [
   { group: "ERP", href: "/erp/manufacturing", label: "Manufacturing" },
   { group: "ERP", href: "/erp/returns", label: "Returns" },
   { group: "ERP", href: "/erp/collections", label: "Collections" },
+  { group: "ERP", href: "/erp/products", label: "Products" },
+  { group: "ERP", href: "/erp/sales-order", label: "Sales Orders" },
+  { group: "ERP", href: "/erp/integrations", label: "Integrations" },
+  { group: "ERP", href: "/erp/workflows", label: "Workflows" },
 
   { group: "CRM", href: "/crm/medical-rep", label: "Medical Reps" },
   { group: "CRM", href: "/crm/district-manager", label: "District Manager" },
@@ -65,12 +69,16 @@ const ALL_ROUTES: { href: string; label: string; group: string }[] = [
   { group: "CRM", href: "/crm/gps-tracking", label: "Visit Tracking" },
   { group: "CRM", href: "/crm/market-requests", label: "Market Requests" },
   { group: "CRM", href: "/crm/reports", label: "CRM Reports" },
+  { group: "CRM", href: "/crm/kpis", label: "KPIs" },
+  { group: "CRM", href: "/crm/expenses", label: "Expenses" },
+  { group: "CRM", href: "/crm/business-units", label: "Business Units" },
 
   { group: "ATS", href: "/ats/jobs", label: "Jobs" },
   { group: "ATS", href: "/ats/candidates", label: "Candidates" },
   { group: "ATS", href: "/ats/interviews", label: "Interviews" },
   { group: "ATS", href: "/ats/onboarding", label: "Onboarding" },
   { group: "ATS", href: "/ats/training", label: "Training" },
+  { group: "ATS", href: "/ats/quizzes", label: "Quizzes" },
 
   { group: "System", href: "/reports", label: "Reports" },
   { group: "System", href: "/industry", label: "Industry Solutions" },
