@@ -3,6 +3,25 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DollarSign,
   Users,
@@ -33,12 +52,24 @@ import {
   Calendar,
   PackageCheck,
   Microscope,
+  Star,
+  Navigation,
+  Save,
+  Plus,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  Upload,
+  Printer,
+  StickyNote,
+  Route,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 import { useAppConfig } from "@/lib/config-context";
-import { useDataStore } from "@/lib/data-store";
+import { useDataStore, BUYING_LADDER_STAGES, type BuyingLadderStage, type SampleGiven } from "@/lib/data-store";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
 const fmtEGP = (n: number) => `EGP ${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
