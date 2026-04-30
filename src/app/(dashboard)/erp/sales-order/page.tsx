@@ -49,6 +49,8 @@ export default function SalesOrderPage() {
   // Stats
   const totalSOs = store.salesOrders.length;
   const confirmedSOs = store.salesOrders.filter((s) => s.status === "CONFIRMED").length;
+  const processingSOs = store.salesOrders.filter((s) => s.status === "PROCESSING").length;
+  const shippedSOs = store.salesOrders.filter((s) => s.status === "SHIPPED").length;
   const deliveredSOs = store.salesOrders.filter((s) => s.status === "DELIVERED").length;
   const totalRevenue = store.salesOrders.filter((s) => s.status === "INVOICED").reduce((sum, s) => sum + s.total, 0);
 
@@ -267,6 +269,7 @@ export default function SalesOrderPage() {
             fields={[
               { key: "status", label: "Status", type: "select" as const, options: [
                 { value: "DRAFT", label: "Draft" }, { value: "CONFIRMED", label: "Confirmed" },
+                { value: "PROCESSING", label: "Processing" }, { value: "SHIPPED", label: "Shipped" },
                 { value: "DELIVERED", label: "Delivered" }, { value: "INVOICED", label: "Invoiced" },
                 { value: "CANCELLED", label: "Cancelled" },
               ]},
@@ -300,6 +303,21 @@ export default function SalesOrderPage() {
                             <ArrowRight className="h-3 w-3 mr-1" /> Submit for Approval
                           </Button>
                         )}
+                        {so.status === "CONFIRMED" && (
+                          <Button size="sm" className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700" onClick={() => processOrder(so)}>
+                            <Package className="h-3 w-3 mr-1" /> Process Order
+                          </Button>
+                        )}
+                        {so.status === "PROCESSING" && (
+                          <Button size="sm" className="h-7 text-xs bg-cyan-600 hover:bg-cyan-700" onClick={() => markShipped(so)}>
+                            <Truck className="h-3 w-3 mr-1" /> Mark Shipped
+                          </Button>
+                        )}
+                        {(so.status === "DRAFT" || so.status === "CONFIRMED") && (
+                          <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => cancelOrder(so)}>
+                            <Ban className="h-3 w-3 mr-1" /> Cancel
+                          </Button>
+                        )}
                         <EditDeleteMenu
                           onView={() => setDetailSO(so)}
                           onEdit={so.status === "DRAFT" ? () => openSOModal(so) : undefined}
@@ -319,17 +337,22 @@ export default function SalesOrderPage() {
           </Card>
 
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Sales Cycle Integration</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Sales Cycle Integration — Full Lifecycle</CardTitle></CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 text-xs flex-wrap">
-                <Badge variant="outline">SO Created (DRAFT)</Badge>
+                <Badge variant="outline">1. DRAFT</Badge>
                 <ArrowRight className="h-3 w-3" />
-                <Badge variant="outline" className="bg-blue-50">Submit for Approval</Badge>
+                <Badge variant="outline" className="bg-blue-50">2. CONFIRMED (Submit for Approval)</Badge>
                 <ArrowRight className="h-3 w-3" />
-                <Badge variant="outline" className="bg-amber-50">Finance/Accounting Reviews + Stock Check</Badge>
+                <Badge variant="outline" className="bg-indigo-50">3. PROCESSING (Stock Check + Deduction)</Badge>
                 <ArrowRight className="h-3 w-3" />
-                <Badge variant="outline" className="bg-green-50">Approved → Inventory Deduction + Invoice + JE</Badge>
+                <Badge variant="outline" className="bg-cyan-50">4. SHIPPED (Auto-create DN)</Badge>
+                <ArrowRight className="h-3 w-3" />
+                <Badge variant="outline" className="bg-amber-50">5. DELIVERED (DN Confirmed)</Badge>
+                <ArrowRight className="h-3 w-3" />
+                <Badge variant="outline" className="bg-green-50">6. INVOICED (Auto: Invoice + JE)</Badge>
               </div>
+              <p className="text-[10px] text-muted-foreground mt-2">DRAFT and CONFIRMED orders can be cancelled. Stock is reserved at the PROCESSING stage.</p>
             </CardContent>
           </Card>
         </TabsContent>
@@ -520,11 +543,25 @@ export default function SalesOrderPage() {
                 <span className="text-muted-foreground">Items</span>
                 <div className="mt-1 border rounded">
                   <table className="w-full text-xs">
-                    <thead><tr className="bg-muted/50"><th className="p-2 text-left">Product</th><th className="p-2 text-right">Qty</th><th className="p-2 text-right">Price</th><th className="p-2 text-right">Total</th></tr></thead>
+                    <thead><tr className="bg-muted/50"><th className="p-2 text-left">Product</th><th className="p-2 text-right">Qty</th><th className="p-2 text-right">Price</th><th className="p-2 text-right">Total</th><th className="p-2 text-center">Stock</th></tr></thead>
                     <tbody>
-                      {detailSO.items.map((it, i) => (
-                        <tr key={i} className="border-t"><td className="p-2">{it.description}</td><td className="p-2 text-right">{it.quantity}</td><td className="p-2 text-right">{egp(it.unitPrice)}</td><td className="p-2 text-right">{egp(it.total)}</td></tr>
-                      ))}
+                      {detailSO.items.map((it, i) => {
+                        const stock = getStockStatus(it.productId, it.quantity);
+                        return (
+                          <tr key={i} className="border-t">
+                            <td className="p-2">{it.description}</td>
+                            <td className="p-2 text-right">{it.quantity}</td>
+                            <td className="p-2 text-right">{egp(it.unitPrice)}</td>
+                            <td className="p-2 text-right">{egp(it.total)}</td>
+                            <td className="p-2 text-center">
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${stock.sufficient ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                {stock.sufficient ? <CheckCircle className="h-2.5 w-2.5" /> : <AlertTriangle className="h-2.5 w-2.5" />}
+                                {stock.label}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

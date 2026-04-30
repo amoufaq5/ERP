@@ -61,6 +61,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "@/lib/i18n/i18n-context";
+import { PartnerLink } from "@/components/shared/partner-link";
 
 export default function AccountingPage() {
   const store = useDataStore();
@@ -729,7 +730,10 @@ export default function AccountingPage() {
               <DataTable
                 columns={[
                   { key: "code", label: "Code", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
-                  { key: "name", label: "Name", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "name", label: "Name", render: (_v: string, row: Record<string, unknown>) => {
+                    const c = row as unknown as Customer;
+                    return <PartnerLink type="customer" id={c.id}>{c.name}</PartnerLink>;
+                  } },
                   { key: "type", label: "Type", render: (v: string) => <span className="text-xs">{v}</span> },
                   { key: "phone", label: "Phone", render: (v: string) => <span className="text-xs">{v}</span> },
                   { key: "creditLimit", label: "Credit Limit", className: "text-right", render: (v: number) => <span className="font-semibold">{v.toLocaleString()}</span> },
@@ -778,7 +782,10 @@ export default function AccountingPage() {
               <DataTable
                 columns={[
                   { key: "code", label: "Code", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
-                  { key: "name", label: "Name", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "name", label: "Name", render: (_v: string, row: Record<string, unknown>) => {
+                    const ve = row as unknown as Vendor;
+                    return <PartnerLink type="vendor" id={ve.id}>{ve.name}</PartnerLink>;
+                  } },
                   { key: "category", label: "Category", render: (v: string) => <span className="text-xs">{v}</span> },
                   { key: "email", label: "Contact", render: (v: string) => <span className="text-xs">{v}</span> },
                   { key: "outstanding", label: "Outstanding", className: "text-right", render: (v: number) => v.toLocaleString() },
@@ -891,7 +898,7 @@ export default function AccountingPage() {
                   { key: "customerId", label: "Customer", render: (_: unknown, row: Record<string, unknown>) => {
                     const inv = row as unknown as Invoice;
                     const cust = store.customers.find((c) => c.id === inv.customerId);
-                    return <span className="font-medium">{cust?.name ?? "—"}</span>;
+                    return cust ? <PartnerLink type="customer" id={cust.id}>{cust.name}</PartnerLink> : <span className="text-muted-foreground">---</span>;
                   } },
                   { key: "date", label: "Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
                   { key: "dueDate", label: "Due Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },

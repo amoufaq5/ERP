@@ -135,6 +135,22 @@ export default function ProductsPage() {
   const [apiErrors, setApiErrors] = useState<ValidationError[]>([]);
   const [apiFileName, setApiFileName] = useState("");
 
+  // Product detail dialog state
+  const [detailProduct, setDetailProduct] = useState<typeof products[number] | null>(null);
+  const [detailTab, setDetailTab] = useState<"overview" | "stock" | "documents" | "conversion">("overview");
+  const [docType, setDocType] = useState("Specification");
+  const docInputRef = useRef<HTMLInputElement>(null);
+
+  // Conversion formula state
+  const conversionFormulas = store.conversionFormulas;
+  const [cfFormOpen, setCfFormOpen] = useState(false);
+  const [cfName, setCfName] = useState("");
+  const [cfBatchSize, setCfBatchSize] = useState(1000);
+  const [cfBatchUnit, setCfBatchUnit] = useState("units");
+  const [cfYield, setCfYield] = useState(95);
+  const [cfInstructions, setCfInstructions] = useState("");
+  const [cfIngredients, setCfIngredients] = useState<{ rawMaterialId: string; quantity: number; unit: string }[]>([]);
+
   let _nxt = Date.now();
   const genId = (p: string) => `${p}-${(_nxt++).toString(36).slice(-6)}`;
 
@@ -201,6 +217,13 @@ export default function ProductsPage() {
     { name: "stockQty", label: "Stock Quantity", type: "number", required: true },
     { name: "reorderLevel", label: "Reorder Level", type: "number", required: true },
     { name: "warehouse", label: "Warehouse", type: "text" },
+    { name: "description", label: "Description", type: "textarea" },
+    { name: "manufacturer", label: "Manufacturer", type: "text" },
+    { name: "shelfLife", label: "Shelf Life", type: "text", placeholder: "e.g. 36 months" },
+    {
+      name: "storageCondition", label: "Storage Condition", type: "select",
+      options: STORAGE_CONDITIONS.map((s) => ({ label: s, value: s })),
+    },
   ];
 
   function handleCreate() { setEditingProduct(null); setFormOpen(true); }
@@ -219,6 +242,10 @@ export default function ProductsPage() {
       stockQty: Number(data.stockQty),
       reorderLevel: Number(data.reorderLevel),
       warehouse: data.warehouse ? String(data.warehouse) : undefined,
+      description: data.description ? String(data.description) : undefined,
+      manufacturer: data.manufacturer ? String(data.manufacturer) : undefined,
+      shelfLife: data.shelfLife ? String(data.shelfLife) : undefined,
+      storageCondition: data.storageCondition ? String(data.storageCondition) : undefined,
     };
 
     if (editingProduct) {
@@ -229,6 +256,104 @@ export default function ProductsPage() {
     setFormOpen(false);
     setEditingProduct(null);
   }
+
+  /* ─── Product Document helpers ─── */
+  const PRODUCT_DOC_TYPES = [
+    "Specification", "Certificate of Analysis", "MSDS",
+    "Stability Study", "Validation Report", "SOP", "Other",
+  ];
+
+  function handleProductDocUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !detailProduct) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const newDoc: ProductDocument = {
+        id: genId("pdoc"),
+        name: file.name,
+        type: docType,
+        data: reader.result as string,
+        uploadedAt: new Date().toISOString(),
+      };
+      const existing = detailProduct.documents ?? [];
+      store.update("products", detailProduct.id, { documents: [...existing, newDoc] });
+      setDetailProduct({ ...detailProduct, documents: [...existing, newDoc] });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  }
+
+  function removeProductDoc(docId: string) {
+    if (!detailProduct) return;
+    const updated = (detailProduct.documents ?? []).filter((d) => d.id !== docId);
+    store.update("products", detailProduct.id, { documents: updated });
+    setDetailProduct({ ...detailProduct, documents: updated });
+  }
+
+  function viewProductDoc(doc: ProductDocument) {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    if (doc.data.startsWith("data:image/")) {
+      w.document.write(`<html><head><title>${doc.name}</title></head><body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f1f1f1"><img src="${doc.data}" style="max-width:100%;max-height:100vh" /></body></html>`);
+    } else if (doc.data.startsWith("data:application/pdf")) {
+      w.document.write(`<html><head><title>${doc.name}</title></head><body style="margin:0"><embed src="${doc.data}" type="application/pdf" width="100%" height="100%" style="position:absolute;inset:0" /></body></html>`);
+    } else {
+      const a = w.document.createElement("a");
+      a.href = doc.data;
+      a.download = doc.name;
+      a.click();
+      w.close();
+    }
+  }
+
+  /* ─── Conversion Formula helpers ─── */
+  function openNewFormulaForm() {
+    setCfName("");
+    setCfBatchSize(1000);
+    setCfBatchUnit("units");
+    setCfYield(95);
+    setCfInstructions("");
+    setCfIngredients([]);
+    setCfFormOpen(true);
+  }
+
+  function addIngredientRow() {
+    setCfIngredients((prev) => [...prev, { rawMaterialId: "", quantity: 0, unit: "kg" }]);
+  }
+
+  function removeIngredientRow(idx: number) {
+    setCfIngredients((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function updateIngredient(idx: number, field: string, value: string | number) {
+    setCfIngredients((prev) => prev.map((ing, i) => i === idx ? { ...ing, [field]: value } : ing));
+  }
+
+  function submitConversionFormula() {
+    if (!detailProduct || !cfName || cfIngredients.length === 0) return;
+    const formula: ConversionFormula = {
+      id: genId("cf"),
+      productId: detailProduct.id,
+      name: cfName,
+      batchSize: cfBatchSize,
+      batchUnit: cfBatchUnit,
+      ingredients: cfIngredients.filter((i) => i.rawMaterialId && i.quantity > 0),
+      yieldPercent: cfYield,
+      instructions: cfInstructions || undefined,
+      createdAt: new Date().toISOString(),
+    };
+    store.add("conversionFormulas", formula);
+    setCfFormOpen(false);
+  }
+
+  function deleteConversionFormula(id: string) {
+    store.remove("conversionFormulas", id);
+  }
+
+  const productFormulas = useMemo(() => {
+    if (!detailProduct) return [];
+    return conversionFormulas.filter((f) => f.productId === detailProduct.id);
+  }, [conversionFormulas, detailProduct]);
 
   function handleDelete(p: typeof products[number]) {
     store.remove("products", p.id);
@@ -280,12 +405,16 @@ export default function ProductsPage() {
         form: "Tablet", therapeuticArea: "Cardiology", buId: "bu-cardio",
         pricePerUnit: "48", edaRegistration: "EDA/2024/9999",
         stockQty: "10000", reorderLevel: "2000", warehouse: "FG Warehouse-Cairo",
+        description: "Cardiovascular tablet", manufacturer: "PharmaCo",
+        shelfLife: "36 months", storageCondition: "Below 30°C",
       },
       {
         code: "PC-200", name: "Example Syrup", strength: "120mg/5ml",
         form: "Syrup", therapeuticArea: "Pediatric", buId: "bu-primary",
         pricePerUnit: "22", edaRegistration: "EDA/2023/8888",
         stockQty: "5000", reorderLevel: "1000", warehouse: "FG Warehouse-Cairo",
+        description: "Pediatric syrup", manufacturer: "PharmaCo",
+        shelfLife: "24 months", storageCondition: "15-25°C",
       },
     ];
     downloadCSV("products-template.csv", templateRows as unknown as Record<string, unknown>[]);
@@ -504,6 +633,7 @@ export default function ProductsPage() {
               <DataTable
                 columns={columns}
                 data={filteredProducts as unknown as Record<string, unknown>[]}
+                onRowClick={(row) => { setDetailProduct(row as unknown as typeof products[number]); setDetailTab("overview"); }}
                 exportable
                 exportFilename="products-list.csv"
                 emptyMessage="No products match your filters."
