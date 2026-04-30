@@ -24,6 +24,7 @@ import {
   ShoppingBag, CheckCircle, XCircle, AlertTriangle,
 } from "lucide-react";
 import { downloadCSV } from "@/lib/download";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 const egp = (n: number) => `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -32,6 +33,7 @@ type Tab = "overview" | "invoices" | "payments" | "bank" | "vendors" | "budgets"
 export default function FinancePage() {
   const store = useDataStore();
   const approvals = useApprovals();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [invoiceFilters, setInvoiceFilters] = useState<FilterState>({ _search: "", status: "" });
   const [paymentFilters, setPaymentFilters] = useState<FilterState>({ _search: "", type: "", method: "" });
@@ -292,16 +294,16 @@ export default function FinancePage() {
   ];
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "overview", label: "Overview" },
-    { key: "invoices", label: `Invoices (${store.invoices.length})` },
-    { key: "payments", label: `Payments (${store.payments.length})` },
+    { key: "overview", label: t("acct.overview") },
+    { key: "invoices", label: `${t("fin.invoices")} (${store.invoices.length})` },
+    { key: "payments", label: `${t("fin.payments")} (${store.payments.length})` },
     { key: "bank", label: `Bank Accounts (${store.bankAccounts.length})` },
     { key: "vendors", label: `Vendors AP (${store.vendors.length})` },
-    { key: "budgets", label: `Budgets (${store.budgets.length})` },
+    { key: "budgets", label: `${t("fin.budgets")} (${store.budgets.length})` },
     { key: "trial", label: "Trial Balance" },
     { key: "ratios", label: "Financial Ratios" },
     { key: "cashflow", label: "Cash Flow" },
-    { key: "sales-orders", label: `Sales Orders (${store.salesOrders.length})` },
+    { key: "sales-orders", label: `${t("fin.salesOrders")} (${store.salesOrders.length})` },
   ];
 
   // ─── Budget CRUD ──────────────────────────────────────────────
@@ -341,7 +343,7 @@ export default function FinancePage() {
 
   return (
     <div className="p-6 space-y-6">
-      <PageHeader title="Finance" description="Integrated financial overview — invoices, payments, bank accounts, and vendor AP from the central data store">
+      <PageHeader title={t("fin.title")} description={t("fin.manageFinance")}>
         {activeTab === "invoices" && (
           <Button type="button" onClick={() => { setEditingInvoice(null); setShowInvoiceModal(true); }} className="gap-2"><Plus className="h-4 w-4" /> New Invoice</Button>
         )}
@@ -360,10 +362,10 @@ export default function FinancePage() {
       </PageHeader>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Total Bank Balance" value={egp(totalBankBalance)} subtitle={`${store.bankAccounts.length} active accounts`} icon={Landmark} />
-        <StatsCard title="Accounts Receivable" value={egp(totalAR)} subtitle="Outstanding from customers" icon={TrendingUp} />
-        <StatsCard title="Accounts Payable" value={egp(totalAP)} subtitle="Owed to vendors" icon={TrendingDown} />
-        <StatsCard title="Net Position" value={egp(netPosition)} subtitle="Bank + AR − AP" icon={DollarSign} />
+        <StatsCard title={t("fin.totalReceivables")} value={egp(totalBankBalance)} subtitle={`${store.bankAccounts.length} active accounts`} icon={Landmark} />
+        <StatsCard title={t("fin.totalPayables")} value={egp(totalAR)} subtitle="Outstanding from customers" icon={TrendingUp} />
+        <StatsCard title={t("fin.netCashFlow")} value={egp(totalAP)} subtitle="Owed to vendors" icon={TrendingDown} />
+        <StatsCard title={t("fin.overdueInvoices")} value={egp(netPosition)} subtitle="Bank + AR − AP" icon={DollarSign} />
       </div>
 
       <div className="border-b border-border">

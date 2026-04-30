@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useTranslation } from "@/lib/i18n/i18n-context"
 import { BarChart3, Clock, Star, Calendar, Play, FileText, Download, PieChart, TrendingUp, Building } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -81,6 +82,7 @@ function daysBetween(a: Date, b: Date): number {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function ReportsPage() {
+  const { t } = useTranslation()
   const store = useDataStore()
   const [lastGenerated, setLastGenerated] = useState<Record<string, Date>>({})
 
@@ -493,8 +495,8 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
-        <p className="text-gray-500">Generate and analyze business intelligence reports</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t("rpt.title")}</h1>
+        <p className="text-gray-500">{t("rpt.manageReports")}</p>
       </div>
 
       {/* Summary stats */}
@@ -516,11 +518,11 @@ export default function ReportsPage() {
       {/* Tabbed report categories */}
       <Tabs defaultValue="financial" className="space-y-4">
         <TabsList className="flex-wrap">
-          <TabsTrigger value="financial">Financial</TabsTrigger>
+          <TabsTrigger value="financial">{t("rpt.financial")}</TabsTrigger>
           <TabsTrigger value="sales">Sales</TabsTrigger>
-          <TabsTrigger value="pivot">Pivot Tables</TabsTrigger>
-          <TabsTrigger value="bu-analysis">BU Analysis</TabsTrigger>
-          <TabsTrigger value="hr">HR / Field Force</TabsTrigger>
+          <TabsTrigger value="pivot">{t("rpt.pivotTables")}</TabsTrigger>
+          <TabsTrigger value="bu-analysis">{t("rpt.buAnalysis")}</TabsTrigger>
+          <TabsTrigger value="hr">{t("rpt.hrFieldForce")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="financial">

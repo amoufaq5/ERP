@@ -10,6 +10,7 @@ import { EntityFormModal, type EntityField } from "@/components/shared/entity-fo
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
 import DataTable from "@/components/shared/data-table"
 import type { Column } from "@/components/shared/data-table"
+import { useTranslation } from "@/lib/i18n/i18n-context"
 
 const typeIcon: Record<string, { icon: string; color: string }> = {
   PDF: { icon: "PDF", color: "bg-red-100 text-red-700" },
@@ -58,6 +59,7 @@ const initialDocs: Doc[] = [
 ]
 
 export default function DocumentsPage() {
+  const { t } = useTranslation()
   const [docs, setDocs] = useState(initialDocs)
   const [editing, setEditing] = useState<Doc | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -96,7 +98,7 @@ export default function DocumentsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-gray-900">Document Management</h1><p className="text-gray-500">Centralized document storage and management</p></div>
+        <div><h1 className="text-2xl font-bold text-gray-900">{t("doc.title")}</h1><p className="text-gray-500">{t("doc.manageDocuments")}</p></div>
         <Button onClick={() => { setEditing(null); setShowModal(true) }}><Upload className="h-4 w-4 mr-2" />Upload Document</Button>
       </div>
 

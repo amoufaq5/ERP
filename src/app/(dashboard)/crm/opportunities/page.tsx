@@ -12,6 +12,7 @@ import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { useDataStore } from "@/lib/data-store";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 type Stage = "PROSPECTING" | "QUALIFICATION" | "PROPOSAL" | "NEGOTIATION" | "CLOSED_WON" | "CLOSED_LOST";
 
@@ -71,6 +72,7 @@ function StageBadge({ stage }: { stage: Stage }) {
 
 export default function OpportunitiesPage() {
   const store = useDataStore();
+  const { t } = useTranslation();
 
   const OPP_FIELDS: EntityField[] = [
     OPP_FIELDS_STATIC.title,
@@ -150,7 +152,7 @@ export default function OpportunitiesPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <PageHeader title="Opportunities" description="Manage your sales pipeline and track deal progress">
+      <PageHeader title={t("opp.title")} description={t("opp.manageOpportunities")}>
         <div className="flex items-center gap-2">
           <Button variant={view === "kanban" ? "default" : "outline"} size="sm" onClick={() => setView("kanban")} className="gap-1.5">
             <LayoutGrid className="w-4 h-4" /> Kanban

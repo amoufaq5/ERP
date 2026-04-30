@@ -13,6 +13,7 @@ import { downloadCSV } from "@/lib/download";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { useDataStore } from "@/lib/data-store";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 type LeadStatus = "NEW" | "CONTACTED" | "QUALIFIED" | "PROPOSAL" | "NEGOTIATION" | "CLOSED_WON" | "CLOSED_LOST" | "NURTURING";
 type LeadSource = "WEBSITE" | "REFERRAL" | "COLD_CALL" | "EMAIL" | "SOCIAL_MEDIA" | "TRADE_SHOW" | "PARTNER";
@@ -118,6 +119,7 @@ function StatusBadge({ status }: { status: LeadStatus }) {
 
 export default function LeadsPage() {
   const store = useDataStore();
+  const { t } = useTranslation();
   const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", source: "" });
   const [showModal, setShowModal] = useState(false);
@@ -152,9 +154,9 @@ export default function LeadsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <PageHeader title="Leads" description="Track and manage your sales leads pipeline">
+      <PageHeader title={t("leads.title")} description={t("leads.manageLeads")}>
         <Button onClick={() => { setEditing(null); setShowModal(true); }} className="gap-2">
-          <Plus className="w-4 h-4" /> Add New Lead
+          <Plus className="w-4 h-4" /> {t("leads.addLead")}
         </Button>
       </PageHeader>
 

@@ -13,6 +13,7 @@ import DataTable from "@/components/shared/data-table";
 import StatusBadge from "@/components/shared/status-badge";
 import type { Column } from "@/components/shared/data-table";
 import { useDataStore } from "@/lib/data-store";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 interface Contact {
   id: string;
@@ -56,6 +57,7 @@ const FILTER_FIELDS = [
 
 export default function ContactsPage() {
   const store = useDataStore();
+  const { t } = useTranslation();
 
   const CONTACT_FIELDS: EntityField[] = [
     ...CONTACT_FIELDS_STATIC,
@@ -124,7 +126,7 @@ export default function ContactsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <PageHeader title="Contacts" description="Manage your business contacts and relationships">
+      <PageHeader title={t("contact.title")} description={t("contact.manageContacts")}>
         <Button onClick={() => { setEditing(null); setShowModal(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Add Contact
         </Button>

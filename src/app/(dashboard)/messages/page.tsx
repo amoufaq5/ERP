@@ -24,6 +24,7 @@ import {
   Inbox,
   Mail,
 } from "lucide-react";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -67,6 +68,7 @@ type Folder = "inbox" | "sent" | "starred";
 export default function MessagesPage() {
   const store = useDataStore();
   const { user, allUsers } = useCurrentUser();
+  const { t } = useTranslation();
   const currentUserId = user.id;
 
   // UI state
@@ -295,7 +297,7 @@ export default function MessagesPage() {
         <div>
           <div className="flex items-center gap-2">
             <MessageSquare className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Messages</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{t("msg.title")}</h1>
             {unreadCount > 0 && (
               <Badge variant="destructive" className="text-xs">
                 {unreadCount} new
@@ -303,7 +305,7 @@ export default function MessagesPage() {
             )}
           </div>
           <p className="text-muted-foreground text-sm mt-1">
-            Internal messaging and team communication
+            {t("msg.manageMessages")}
           </p>
         </div>
         <Button size="sm" className="gap-1.5" onClick={() => setShowCompose(true)}>

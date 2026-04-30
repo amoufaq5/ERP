@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 /* ─── Types ──────────────────────────────────────────────────────── */
 
@@ -92,6 +93,7 @@ type Tab = "raw" | "finished" | "warehouses";
 export default function InventoryPage() {
   const { config } = useAppConfig();
   const store = useDataStore();
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("raw");
 
   const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>(SEED_RM);
@@ -276,8 +278,8 @@ export default function InventoryPage() {
   return (
     <div className="p-6 space-y-6">
       <PageHeader
-        title="Inventory"
-        description="Raw materials, finished products, and warehouse management"
+        title={t("inv.title")}
+        description={t("inv.manageInventory")}
         actions={
           <>
             <Button variant="outline" onClick={() =>
@@ -295,25 +297,25 @@ export default function InventoryPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatsCard title="Raw Materials Value" value={fmt(stats.rmValue)} subtitle={`${rawMaterials.length} active SKUs`} icon={<FlaskConical className="h-5 w-5" />} iconColor="bg-purple-100 text-purple-700" />
+        <StatsCard title={t("inv.totalProducts")} value={fmt(stats.rmValue)} subtitle={`${rawMaterials.length} active SKUs`} icon={<FlaskConical className="h-5 w-5" />} iconColor="bg-purple-100 text-purple-700" />
         <StatsCard title="Finished Goods Value" value={fmt(stats.fgValue)} subtitle={`${finishedProducts.length} active SKUs`} icon={<Pill className="h-5 w-5" />} iconColor="bg-emerald-100 text-emerald-700" />
-        <StatsCard title="Catalog Products" value={store.products.length.toLocaleString()} subtitle={`${new Set(store.products.map((p) => p.therapeuticArea)).size} therapeutic areas`} icon={<BookOpen className="h-5 w-5" />} iconColor="bg-blue-100 text-blue-700" />
-        <StatsCard title="Low Stock Alerts" value={stats.lowStock.toLocaleString()} subtitle="RM at/below reorder level" icon={<AlertTriangle className="h-5 w-5" />} iconColor="bg-amber-100 text-amber-700" />
-        <StatsCard title="Expiring Soon" value={stats.expiringSoon.toLocaleString()} subtitle={`Within ${config.inventory.expiryAlertDays} days`} icon={<Thermometer className="h-5 w-5" />} iconColor="bg-red-100 text-red-700" />
+        <StatsCard title={t("inv.catalogProducts")} value={store.products.length.toLocaleString()} subtitle={`${new Set(store.products.map((p) => p.therapeuticArea)).size} therapeutic areas`} icon={<BookOpen className="h-5 w-5" />} iconColor="bg-blue-100 text-blue-700" />
+        <StatsCard title={t("inv.lowStock")} value={stats.lowStock.toLocaleString()} subtitle="RM at/below reorder level" icon={<AlertTriangle className="h-5 w-5" />} iconColor="bg-amber-100 text-amber-700" />
+        <StatsCard title={t("inv.expiringSoon")} value={stats.expiringSoon.toLocaleString()} subtitle={`Within ${config.inventory.expiryAlertDays} days`} icon={<Thermometer className="h-5 w-5" />} iconColor="bg-red-100 text-red-700" />
       </div>
 
       <div className="border-b border-border">
         <nav className="flex gap-1 -mb-px">
           {([
-            { key: "raw" as Tab, label: "Raw Materials", icon: FlaskConical },
-            { key: "finished" as Tab, label: "Finished Products", icon: Pill },
-            { key: "warehouses" as Tab, label: "Warehouses", icon: Warehouse },
-          ]).map((t) => {
-            const Icon = t.icon;
+            { key: "raw" as Tab, label: t("inv.rawMaterials"), icon: FlaskConical },
+            { key: "finished" as Tab, label: t("inv.catalogProducts"), icon: Pill },
+            { key: "warehouses" as Tab, label: t("inv.warehouses"), icon: Warehouse },
+          ]).map((item) => {
+            const Icon = item.icon;
             return (
-              <button key={t.key} onClick={() => { setTab(t.key); setSearch(""); setFilters({}); }}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${tab === t.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"}`}>
-                <Icon className="h-4 w-4" />{t.label}
+              <button key={item.key} onClick={() => { setTab(item.key); setSearch(""); setFilters({}); }}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${tab === item.key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"}`}>
+                <Icon className="h-4 w-4" />{item.label}
               </button>
             );
           })}

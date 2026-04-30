@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 import {
   Users,
   UserCheck,
@@ -96,6 +97,7 @@ const SEED_DEPARTMENTS: Department[] = [
 /* ─── Component ────────────────────────────────────────────────────── */
 
 export default function HRPage() {
+  const { t } = useTranslation();
   const fmt = (n: number) =>
     `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -381,8 +383,8 @@ export default function HRPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="HR & Payroll"
-        description="Manage employees, departments, leave requests, and payroll"
+        title={t("hr2.title")}
+        description={t("hr2.manageHR")}
         actions={
           <Button onClick={handleCreateEmp}>
             <Plus className="h-4 w-4 mr-2" /> Add Employee
@@ -391,18 +393,18 @@ export default function HRPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard icon={Users} title="Total Employees" value={employees.length} iconColor="bg-blue-100 text-blue-600" />
-        <StatsCard icon={Calendar} title="On Leave" value={onLeaveCount} iconColor="bg-yellow-100 text-yellow-600" />
-        <StatsCard icon={UserCheck} title="Departments" value={departments.length} iconColor="bg-green-100 text-green-600" />
-        <StatsCard icon={DollarSign} title="Monthly Payroll" value={fmt(totalPayroll)} iconColor="bg-purple-100 text-purple-600" />
+        <StatsCard icon={Users} title={t("hr2.headcount")} value={employees.length} iconColor="bg-blue-100 text-blue-600" />
+        <StatsCard icon={Calendar} title={t("hr2.onLeave")} value={onLeaveCount} iconColor="bg-yellow-100 text-yellow-600" />
+        <StatsCard icon={UserCheck} title={t("hr2.openPositions")} value={departments.length} iconColor="bg-green-100 text-green-600" />
+        <StatsCard icon={DollarSign} title={t("hr2.monthlyPayroll")} value={fmt(totalPayroll)} iconColor="bg-purple-100 text-purple-600" />
       </div>
 
       <Tabs defaultValue="employees">
         <TabsList>
-          <TabsTrigger value="employees"><Users className="h-3.5 w-3.5 mr-1.5" />Employees ({employees.length})</TabsTrigger>
-          <TabsTrigger value="departments"><Building2 className="h-3.5 w-3.5 mr-1.5" />Departments</TabsTrigger>
-          <TabsTrigger value="leave"><Calendar className="h-3.5 w-3.5 mr-1.5" />Leave ({pendingLeaves.length} pending)</TabsTrigger>
-          <TabsTrigger value="payroll"><DollarSign className="h-3.5 w-3.5 mr-1.5" />Payroll</TabsTrigger>
+          <TabsTrigger value="employees"><Users className="h-3.5 w-3.5 mr-1.5" />{t("hr2.employees")} ({employees.length})</TabsTrigger>
+          <TabsTrigger value="departments"><Building2 className="h-3.5 w-3.5 mr-1.5" />{t("hr2.departments")}</TabsTrigger>
+          <TabsTrigger value="leave"><Calendar className="h-3.5 w-3.5 mr-1.5" />{t("hr2.leaveRequests")} ({pendingLeaves.length} pending)</TabsTrigger>
+          <TabsTrigger value="payroll"><DollarSign className="h-3.5 w-3.5 mr-1.5" />{t("hr2.payroll")}</TabsTrigger>
         </TabsList>
 
         {/* ── Employees ── */}

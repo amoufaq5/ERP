@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 import { RotateCcw, Clock, DollarSign, TrendingDown, Plus, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -93,6 +94,7 @@ const destructionFields: EntityField[] = [
 type ModalType = { kind: "return"; editing: typeof RETURNS[0] | null } | { kind: "credit"; editing: typeof CREDIT_NOTES[0] | null } | { kind: "destruction"; editing: typeof DESTRUCTION[0] | null } | null;
 
 export default function ReturnsPage() {
+  const { t } = useTranslation();
   const [returns, setReturns] = useState(RETURNS);
   const [credits, setCredits] = useState(CREDIT_NOTES);
   const [destructions, setDestructions] = useState(DESTRUCTION);
@@ -108,8 +110,8 @@ export default function ReturnsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Goods Returns Management"
-        description="Manage returned products, credit notes, and destruction logs"
+        title={t("ret.title")}
+        description={t("ret.manageReturns")}
         actions={<Button onClick={() => setModal({ kind: "return", editing: null })}><Plus className="mr-2 h-4 w-4" />New Return Request</Button>}
       />
 

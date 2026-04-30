@@ -39,6 +39,7 @@ import Link from "next/link";
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 import { useAppConfig } from "@/lib/config-context";
 import { useDataStore } from "@/lib/data-store";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 const fmtEGP = (n: number) => `EGP ${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 const fmtM = (n: number) =>

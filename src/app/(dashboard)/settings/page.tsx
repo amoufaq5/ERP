@@ -38,6 +38,7 @@ import {
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
 import { DeleteConfirmDialog } from "@/components/shared/edit-delete-menu";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 // All routes that exist in the app — admin can grant/deny each per user
 const ALL_ROUTES: { href: string; label: string; group: string }[] = [
@@ -102,6 +103,7 @@ export default function SettingsPage() {
     updateUser,
     deleteUser,
   } = useCurrentUser();
+  const { t } = useTranslation();
   const {
     config,
     updateFinance,
@@ -270,10 +272,10 @@ export default function SettingsPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("settings.title")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
           {isAdmin
-            ? "System configuration, per-user interface customization, and module settings"
+            ? t("settings.systemConfig")
             : "Limited view — only administrators can modify these settings"}
         </p>
       </div>

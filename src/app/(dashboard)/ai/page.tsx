@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import PageHeader from "@/components/shared/page-header"
+import { useTranslation } from "@/lib/i18n/i18n-context"
 
 const aiFeatures = [
   { id: "1", name: "Lead Scoring", description: "Auto-score leads based on engagement, demographics, and behavior patterns", icon: Target, active: true },
@@ -26,6 +27,7 @@ const recentActivity = [
 ]
 
 export default function AIHubPage() {
+  const { t } = useTranslation()
   const [features, setFeatures] = useState(aiFeatures)
   const [config, setConfig] = useState({ provider: "openai", apiKey: "", model: "gpt-4o" })
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle")
@@ -58,7 +60,7 @@ export default function AIHubPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="AI Hub" description="Configure AI integrations and manage intelligent features" />
+      <PageHeader title={t("ai.title")} description={t("ai.manageAI")} />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><Brain className="h-5 w-5 text-purple-600" /></div><div><p className="text-sm text-muted-foreground">AI Features Active</p><p className="text-2xl font-bold">{activeCount}</p></div></div></CardContent></Card>

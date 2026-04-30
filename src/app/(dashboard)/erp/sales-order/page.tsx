@@ -17,11 +17,13 @@ import type { Column } from "@/components/shared/data-table";
 import { EntityFormModal, type EntityField, type EntityFormData } from "@/components/shared/entity-form-modal";
 import { useDataStore, type SalesOrder, type DeliveryNote } from "@/lib/data-store";
 import { CustomerLink } from "@/components/shared/entity-detail-dialog";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 export default function SalesOrderPage() {
   const store = useDataStore();
   const [showSOModal, setShowSOModal] = useState(false);
   const [activeTab, setActiveTab] = useState("orders");
+  const { t } = useTranslation();
 
   const [editingSO, setEditingSO] = useState<SalesOrder | null>(null);
   const [detailSO, setDetailSO] = useState<SalesOrder | null>(null);
@@ -154,26 +156,26 @@ export default function SalesOrderPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Sales Orders"
-        description="Manage sales orders with auto-integration to delivery, invoicing & accounting"
+        title={t("so.title")}
+        description={t("so.manageSO")}
         actions={
           <Button onClick={() => { setEditingSO(null); setShowSOModal(true); }}>
-            <Plus className="h-4 w-4 mr-2" /> New Sales Order
+            <Plus className="h-4 w-4 mr-2" /> {t("so.createSO")}
           </Button>
         }
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard icon={ShoppingBag} title="Total SOs" value={String(totalSOs)} subtitle={`${confirmedSOs} confirmed`} iconColor="text-blue-600" />
-        <StatsCard icon={Package} title="Pending Delivery" value={String(store.deliveryNotes.filter((d) => d.status === "PENDING").length)} subtitle="Awaiting shipment" iconColor="text-amber-600" />
+        <StatsCard icon={ShoppingBag} title={t("so.totalSOs")} value={String(totalSOs)} subtitle={`${confirmedSOs} confirmed`} iconColor="text-blue-600" />
+        <StatsCard icon={Package} title={t("so.pendingDelivery")} value={String(store.deliveryNotes.filter((d) => d.status === "PENDING").length)} subtitle="Awaiting shipment" iconColor="text-amber-600" />
         <StatsCard icon={Truck} title="Delivered" value={String(deliveredSOs)} subtitle="Completed" iconColor="text-green-600" />
-        <StatsCard icon={FileText} title="Invoiced Revenue" value={egp(totalRevenue)} subtitle="From completed SOs" iconColor="text-purple-600" />
+        <StatsCard icon={FileText} title={t("so.invoicedRevenue")} value={egp(totalRevenue)} subtitle="From completed SOs" iconColor="text-purple-600" />
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="orders">Sales Orders ({store.salesOrders.length})</TabsTrigger>
-          <TabsTrigger value="delivery">Delivery Notes ({store.deliveryNotes.length})</TabsTrigger>
+          <TabsTrigger value="orders">{t("so.title")} ({store.salesOrders.length})</TabsTrigger>
+          <TabsTrigger value="delivery">{t("so.deliveryNotes")} ({store.deliveryNotes.length})</TabsTrigger>
         </TabsList>
 
         {/* ── Sales Orders Tab ── */}

@@ -33,10 +33,12 @@ import {
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 export default function TasksPage() {
   const store = useDataStore();
   const { user, allUsers } = useCurrentUser();
+  const { t } = useTranslation();
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
@@ -357,8 +359,8 @@ export default function TasksPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Tasks & KPIs"
-        description="Manage tasks and key performance indicators. Superiors can assign tasks with KPI targets to their team."
+        title={t("task.title")}
+        description={t("task.manageTasks")}
         actions={
           canAssign && (
             <Button onClick={handleCreate}>

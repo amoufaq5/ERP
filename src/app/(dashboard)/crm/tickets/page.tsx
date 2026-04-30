@@ -13,6 +13,7 @@ import DataTable from "@/components/shared/data-table";
 import StatusBadge from "@/components/shared/status-badge";
 import type { Column } from "@/components/shared/data-table";
 import { useDataStore } from "@/lib/data-store";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 type Priority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "PENDING" | "RESOLVED" | "CLOSED";
@@ -87,6 +88,7 @@ function PriorityBadge({ priority }: { priority: Priority }) {
 
 export default function TicketsPage() {
   const store = useDataStore();
+  const { t } = useTranslation();
 
   const TICKET_FIELDS: EntityField[] = [
     TICKET_FIELDS_STATIC[0],
@@ -149,7 +151,7 @@ export default function TicketsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <PageHeader title="Support Tickets" description="Track and resolve customer support requests">
+      <PageHeader title={t("ticket.title")} description={t("ticket.manageTickets")}>
         <Button onClick={() => { setEditing(null); setShowModal(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> New Ticket
         </Button>

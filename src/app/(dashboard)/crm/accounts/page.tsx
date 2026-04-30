@@ -13,6 +13,7 @@ import DataTable from "@/components/shared/data-table";
 import StatusBadge from "@/components/shared/status-badge";
 import type { Column } from "@/components/shared/data-table";
 import { useDataStore } from "@/lib/data-store";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 type AccountType = "CUSTOMER" | "PROSPECT" | "PARTNER" | "VENDOR";
 type Industry = "Technology" | "Finance" | "Healthcare" | "Retail" | "Manufacturing" | "Logistics" | "Education" | "Energy";
@@ -86,6 +87,7 @@ const fmtEGP = (n: number) => `EGP ${n >= 1_000_000 ? (n / 1_000_000).toFixed(1)
 
 export default function AccountsPage() {
   const store = useDataStore();
+  const { t } = useTranslation();
   const [accounts, setAccounts] = useState<Account[]>(INITIAL_ACCOUNTS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", type: "", industry: "" });
   const [showModal, setShowModal] = useState(false);
@@ -136,7 +138,7 @@ export default function AccountsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <PageHeader title="Accounts" description="Manage your customer and prospect accounts">
+      <PageHeader title={t("account.title")} description={t("account.manageAccounts")}>
         <Button onClick={() => { setEditing(null); setShowModal(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Add Account
         </Button>

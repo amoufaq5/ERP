@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 import {
   Banknote,
   Clock,
@@ -72,6 +73,7 @@ const SEED_ROUTES: CollectionRoute[] = [
 const COLLECTORS = ["Ahmed Hassan", "Mahmoud Ali", "Karim Saeed", "System"];
 
 export default function CollectionsPage() {
+  const { t } = useTranslation();
   const store = useDataStore();
 
   const [payments, setPayments] = useState<Payment[]>(SEED_PAYMENTS);
@@ -317,8 +319,8 @@ export default function CollectionsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Payment Collections"
-        description="Track outstanding invoices, payments, cheque management, and collection routes"
+        title={t("coll.title")}
+        description={t("coll.manageCollections")}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleCreateRoute}>
@@ -332,10 +334,10 @@ export default function CollectionsPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard icon={Banknote} title="Total Outstanding" value={fmt(totalOutstanding)} subtitle={`${outstandingInvoices.length} invoices`} iconColor="bg-blue-100 text-blue-600" />
-        <StatsCard icon={AlertTriangle} title="Overdue" value={fmt(totalOverdue)} subtitle={`${overdueInvoices.length} overdue`} iconColor="bg-red-100 text-red-600" />
-        <StatsCard icon={TrendingUp} title="Collected" value={fmt(totalCollected)} subtitle={`${payments.length} payments`} iconColor="bg-green-100 text-green-600" />
-        <StatsCard icon={CreditCard} title="Bounced Cheques" value={fmt(bouncedTotal)} subtitle={`${chequeStats.bounced.length} cheques`} iconColor="bg-amber-100 text-amber-600" />
+        <StatsCard icon={Banknote} title={t("coll.totalCollected")} value={fmt(totalOutstanding)} subtitle={`${outstandingInvoices.length} invoices`} iconColor="bg-blue-100 text-blue-600" />
+        <StatsCard icon={AlertTriangle} title={t("coll.overdue")} value={fmt(totalOverdue)} subtitle={`${overdueInvoices.length} overdue`} iconColor="bg-red-100 text-red-600" />
+        <StatsCard icon={TrendingUp} title={t("coll.pendingPayments")} value={fmt(totalCollected)} subtitle={`${payments.length} payments`} iconColor="bg-green-100 text-green-600" />
+        <StatsCard icon={CreditCard} title={t("coll.bouncedCheques")} value={fmt(bouncedTotal)} subtitle={`${chequeStats.bounced.length} cheques`} iconColor="bg-amber-100 text-amber-600" />
       </div>
 
       <Tabs defaultValue="outstanding">

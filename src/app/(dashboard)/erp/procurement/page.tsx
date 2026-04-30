@@ -17,9 +17,11 @@ import type { Column } from "@/components/shared/data-table";
 import { EntityFormModal, type EntityField, type EntityFormData } from "@/components/shared/entity-form-modal";
 import { useDataStore, type PurchaseOrder, type RFQ, type GoodsReceipt } from "@/lib/data-store";
 import { VendorLink } from "@/components/shared/entity-detail-dialog";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 export default function ProcurementPage() {
   const store = useDataStore();
+  const { t } = useTranslation();
   const [showPOModal, setShowPOModal] = useState(false);
   const [showRFQModal, setShowRFQModal] = useState(false);
   const [activeTab, setActiveTab] = useState("orders");
@@ -235,32 +237,32 @@ export default function ProcurementPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Procurement"
-        description="Purchase orders, RFQs, and goods receipt with auto-integration to inventory & accounting"
+        title={t("proc.title")}
+        description={t("proc.manageProcurement")}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => { setEditingRFQ(null); setShowRFQModal(true); }}>
-              <Plus className="h-4 w-4 mr-2" /> New RFQ
+              <Plus className="h-4 w-4 mr-2" /> {t("proc.createRFQ")}
             </Button>
             <Button onClick={() => { setEditingPO(null); setShowPOModal(true); }}>
-              <Plus className="h-4 w-4 mr-2" /> New Purchase Order
+              <Plus className="h-4 w-4 mr-2" /> {t("proc.createPO")}
             </Button>
           </div>
         }
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard icon={Package} title="Total POs" value={String(totalPOs)} subtitle={`${approvedPOs} approved`} iconColor="text-blue-600" />
+        <StatsCard icon={Package} title={t("proc.totalPOs")} value={String(totalPOs)} subtitle={`${approvedPOs} approved`} iconColor="text-blue-600" />
         <StatsCard icon={Truck} title="Received" value={String(receivedPOs)} subtitle="Goods received" iconColor="text-green-600" />
-        <StatsCard icon={ClipboardCheck} title="GRN Pending" value={String(store.goodsReceipts.filter((g) => g.status === "PENDING").length)} subtitle="Awaiting confirmation" iconColor="text-amber-600" />
-        <StatsCard icon={ShieldCheck} title="Total Value" value={egp(totalValue)} subtitle="All POs" iconColor="text-purple-600" />
+        <StatsCard icon={ClipboardCheck} title={t("proc.grnPending")} value={String(store.goodsReceipts.filter((g) => g.status === "PENDING").length)} subtitle="Awaiting confirmation" iconColor="text-amber-600" />
+        <StatsCard icon={ShieldCheck} title={t("proc.totalSpend")} value={egp(totalValue)} subtitle="All POs" iconColor="text-purple-600" />
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="orders">Purchase Orders ({store.purchaseOrders.length})</TabsTrigger>
-          <TabsTrigger value="rfqs">RFQs ({store.rfqs.length})</TabsTrigger>
-          <TabsTrigger value="grn">Goods Received ({store.goodsReceipts.length})</TabsTrigger>
+          <TabsTrigger value="orders">{t("proc.purchaseOrders")} ({store.purchaseOrders.length})</TabsTrigger>
+          <TabsTrigger value="rfqs">{t("proc.rfqs")} ({store.rfqs.length})</TabsTrigger>
+          <TabsTrigger value="grn">{t("proc.grn")} ({store.goodsReceipts.length})</TabsTrigger>
         </TabsList>
 
         {/* ── Purchase Orders Tab ── */}

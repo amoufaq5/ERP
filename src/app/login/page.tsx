@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Building, Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 const DEMO_CREDENTIALS = [
   { username: "admin", password: "admin123", userId: "admin-001" },
@@ -29,6 +30,7 @@ const USER_PROFILES: Record<string, { id: string; name: string; email: string; r
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("admin123");
   const [showPassword, setShowPassword] = useState(false);
@@ -154,7 +156,7 @@ export default function LoginPage() {
                 <Building className="h-8 w-8 text-white" />
               </div>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">Enterprise Suite</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{t("login.title")}</h1>
             <p className="text-blue-200 text-sm mt-1.5 font-medium tracking-widest uppercase">
               ERP &middot; CRM &middot; ATS
             </p>
@@ -163,7 +165,7 @@ export default function LoginPage() {
           {/* Form */}
           <div className="px-8 py-8">
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Welcome back</h2>
+              <h2 className="text-xl font-semibold text-gray-900">{t("login.welcomeBack")}</h2>
               <p className="text-sm text-gray-500 mt-1">
                 Sign in to your account to continue
               </p>
@@ -200,7 +202,7 @@ export default function LoginPage() {
                     required
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Enter your username"
+                    placeholder={t("login.enterUsername")}
                     className="block w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg bg-gray-50 text-gray-900 placeholder-gray-400
                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white
                                transition-colors"
@@ -227,7 +229,7 @@ export default function LoginPage() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
+                    placeholder={t("login.enterPassword")}
                     className="block w-full pl-10 pr-10 py-2.5 text-sm border border-gray-300 rounded-lg bg-gray-50 text-gray-900 placeholder-gray-400
                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white
                                transition-colors"
@@ -256,7 +258,7 @@ export default function LoginPage() {
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="text-sm text-gray-600">Remember me</span>
+                  <span className="text-sm text-gray-600">{t("login.rememberMe")}</span>
                 </label>
               </div>
 
@@ -275,7 +277,7 @@ export default function LoginPage() {
                     Signing in...
                   </>
                 ) : (
-                  "Sign In"
+                  t("login.signIn")
                 )}
               </button>
             </form>

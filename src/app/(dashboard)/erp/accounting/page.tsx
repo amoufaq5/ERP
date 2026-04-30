@@ -52,10 +52,12 @@ import {
 } from "lucide-react";
 import { downloadCSV, downloadHTML, buildPrintableReport } from "@/lib/download";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 export default function AccountingPage() {
   const store = useDataStore();
   const approvals = useApprovals();
+  const { t } = useTranslation();
   const [custSearch, setCustSearch] = useState("");
   const [custFilters, setCustFilters] = useState<FilterState>({});
   const [vendSearch, setVendSearch] = useState("");
@@ -564,8 +566,8 @@ export default function AccountingPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Accounting"
-        description="Manage customers, vendors, cheques, and invoices."
+        title={t("acct.title")}
+        description={t("acct.manageAccounting")}
         actions={
           <Button variant="outline" onClick={exportCustomerCSV}>
             <Download className="h-4 w-4 mr-2" /> Export Customers
@@ -574,24 +576,24 @@ export default function AccountingPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatsCard icon={Landmark} title="Bank Balance" value={`EGP ${(totalBankBalance / 1e6).toFixed(1)}M`} subtitle={`${store.bankAccounts.length} accounts`} iconColor="bg-indigo-100 text-indigo-600" />
-        <StatsCard icon={Users} title="Total AR" value={`EGP ${(totalAR / 1e6).toFixed(1)}M`} subtitle={`${store.customers.length} customers`} iconColor="bg-blue-100 text-blue-600" />
-        <StatsCard icon={Building2} title="Total AP" value={`EGP ${(totalAP / 1e6).toFixed(1)}M`} subtitle={`${store.vendors.length} vendors`} iconColor="bg-red-100 text-red-600" />
-        <StatsCard icon={BookOpen} title="GL Accounts" value={activeGLAccounts.length} subtitle={`${store.glAccounts.length} total`} iconColor="bg-violet-100 text-violet-600" />
-        <StatsCard icon={ScrollText} title="Journal Entries" value={postedJEs} subtitle={`${store.journalEntries.length} total`} iconColor="bg-emerald-100 text-emerald-600" />
+        <StatsCard icon={Landmark} title={t("acct.totalAssets")} value={`EGP ${(totalBankBalance / 1e6).toFixed(1)}M`} subtitle={`${store.bankAccounts.length} accounts`} iconColor="bg-indigo-100 text-indigo-600" />
+        <StatsCard icon={Users} title={t("acct.totalLiabilities")} value={`EGP ${(totalAR / 1e6).toFixed(1)}M`} subtitle={`${store.customers.length} customers`} iconColor="bg-blue-100 text-blue-600" />
+        <StatsCard icon={Building2} title={t("acct.totalExpenses")} value={`EGP ${(totalAP / 1e6).toFixed(1)}M`} subtitle={`${store.vendors.length} vendors`} iconColor="bg-red-100 text-red-600" />
+        <StatsCard icon={BookOpen} title={t("acct.totalRevenue")} value={activeGLAccounts.length} subtitle={`${store.glAccounts.length} total`} iconColor="bg-violet-100 text-violet-600" />
+        <StatsCard icon={ScrollText} title={t("acct.postedJournals")} value={postedJEs} subtitle={`${store.journalEntries.length} total`} iconColor="bg-emerald-100 text-emerald-600" />
       </div>
 
       <Tabs defaultValue="customers">
         <TabsList className="flex flex-wrap gap-1">
-          <TabsTrigger value="customers">Customers ({store.customers.length})</TabsTrigger>
-          <TabsTrigger value="vendors">Vendors ({store.vendors.length})</TabsTrigger>
-          <TabsTrigger value="cheques">Cheques ({store.cheques.length})</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices ({store.invoices.length})</TabsTrigger>
-          <TabsTrigger value="bank">Bank ({store.bankAccounts.length})</TabsTrigger>
-          <TabsTrigger value="gl">General Ledger</TabsTrigger>
-          <TabsTrigger value="je">Journal Entries</TabsTrigger>
-          <TabsTrigger value="cost">Cost Accounting</TabsTrigger>
-          <TabsTrigger value="sales-orders">Sales Orders ({store.salesOrders.length})</TabsTrigger>
+          <TabsTrigger value="customers">{t("acct.customers")} ({store.customers.length})</TabsTrigger>
+          <TabsTrigger value="vendors">{t("acct.vendors")} ({store.vendors.length})</TabsTrigger>
+          <TabsTrigger value="cheques">{t("acct.cheques")} ({store.cheques.length})</TabsTrigger>
+          <TabsTrigger value="invoices">{t("acct.invoices")} ({store.invoices.length})</TabsTrigger>
+          <TabsTrigger value="bank">{t("acct.bankAccounts")} ({store.bankAccounts.length})</TabsTrigger>
+          <TabsTrigger value="gl">{t("acct.chartOfAccounts")}</TabsTrigger>
+          <TabsTrigger value="je">{t("acct.journalEntries")}</TabsTrigger>
+          <TabsTrigger value="cost">{t("acct.costCenters")}</TabsTrigger>
+          <TabsTrigger value="sales-orders">{t("acct.salesOrders")} ({store.salesOrders.length})</TabsTrigger>
         </TabsList>
 
         {/* Customers */}

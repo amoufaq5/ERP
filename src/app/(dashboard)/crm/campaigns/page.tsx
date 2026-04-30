@@ -12,6 +12,7 @@ import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
 import StatusBadge from "@/components/shared/status-badge";
 import type { Column } from "@/components/shared/data-table";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 type CampaignType = "EMAIL" | "SOCIAL_MEDIA" | "PPC" | "CONTENT" | "WEBINAR" | "TRADE_SHOW" | "DIRECT_MAIL";
 type CampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "CANCELLED";
@@ -84,6 +85,7 @@ function BudgetProgress({ budget, spent }: { budget: number; spent: number }) {
 }
 
 export default function CampaignsPage() {
+  const { t } = useTranslation();
   const [campaigns, setCampaigns] = useState<Campaign[]>(INITIAL_CAMPAIGNS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", type: "" });
   const [showModal, setShowModal] = useState(false);
@@ -140,7 +142,7 @@ export default function CampaignsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <PageHeader title="Campaigns" description="Plan, execute and measure your marketing campaigns">
+      <PageHeader title={t("camp.title")} description={t("camp.manageCampaigns")}>
         <Button onClick={() => { setEditing(null); setShowModal(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Add Campaign
         </Button>

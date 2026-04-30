@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 import {
   Users,
   ArrowDownLeft,
@@ -75,6 +76,7 @@ const fmt = (n: number) =>
   `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function PartnerLedgerPage() {
+  const { t } = useTranslation();
   const store = useDataStore();
 
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>(SEED_LEDGER_ENTRIES);
@@ -390,8 +392,8 @@ export default function PartnerLedgerPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Partner Ledger"
-        description="Track all financial transactions between the company and its partners (customers &amp; vendors)"
+        title={t("pl.title")}
+        description={t("pl.manageLedger")}
         actions={
           <Button onClick={handleCreateEntry}>
             <Plus className="h-4 w-4 mr-2" /> Add Ledger Entry
