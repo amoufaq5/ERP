@@ -1224,6 +1224,106 @@ export default function AccountingPage() {
               </Card>
             </div>
           )}
+
+          {costTab === "product-costing" && (() => {
+            const formulas = store.conversionFormulas;
+            const productCostData = store.products.map((product) => {
+              const productFormulas = formulas.filter((f) => f.productId === product.id);
+              let rawMaterialCost = 0;
+              if (productFormulas.length > 0) {
+                // Use the first formula for costing
+                const formula = productFormulas[0];
+                rawMaterialCost = formula.ingredients.reduce((sum, ing) => {
+                  const rm = store.products.find((p) => p.id === ing.rawMaterialId);
+                  return sum + (rm ? ing.quantity * rm.pricePerUnit : 0);
+                }, 0);
+                // Normalize to per-unit cost based on batch size and yield
+                if (formula.batchSize > 0) {
+                  rawMaterialCost = rawMaterialCost / (formula.batchSize * (formula.yieldPercent / 100));
+                }
+              }
+              const overhead = rawMaterialCost * 0.15; // 15% overhead
+              const totalCost = rawMaterialCost + overhead;
+              const sellingPrice = product.pricePerUnit;
+              const margin = sellingPrice - totalCost;
+              const marginPct = sellingPrice > 0 ? (margin / sellingPrice) * 100 : 0;
+              return { product, rawMaterialCost, overhead, totalCost, sellingPrice, margin, marginPct, hasFormula: productFormulas.length > 0 };
+            }).filter((d) => d.hasFormula || d.sellingPrice > 0);
+
+            const totalProducts = productCostData.length;
+            const withFormula = productCostData.filter((d) => d.hasFormula).length;
+            const avgMargin = productCostData.filter((d) => d.hasFormula).reduce((s, d) => s + d.marginPct, 0) / (withFormula || 1);
+
+            return (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Products with Formulas</div><div className="text-lg font-bold text-purple-700">{withFormula} / {totalProducts}</div></CardContent></Card>
+                  <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Avg Gross Margin (with formula)</div><div className={`text-lg font-bold ${avgMargin >= 0 ? "text-green-700" : "text-red-600"}`}>{avgMargin.toFixed(1)}%</div></CardContent></Card>
+                  <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Overhead Rate</div><div className="text-lg font-bold text-amber-700">15%</div><div className="text-[10px] text-muted-foreground">of raw material cost</div></CardContent></Card>
+                </div>
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">Product Cost & Margin Analysis</CardTitle></CardHeader>
+                  <CardContent className="p-0 overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Product</th>
+                          <th className="px-3 py-2 text-right">RM Cost/Unit</th>
+                          <th className="px-3 py-2 text-right">Overhead (15%)</th>
+                          <th className="px-3 py-2 text-right">Total Cost</th>
+                          <th className="px-3 py-2 text-right">Selling Price</th>
+                          <th className="px-3 py-2 text-right">Margin</th>
+                          <th className="px-3 py-2 text-right">Margin %</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {productCostData.map((d) => (
+                          <tr key={d.product.id} className="hover:bg-muted/30">
+                            <td className="px-3 py-2">
+                              <div>
+                                <span className="font-medium">{d.product.name}</span>
+                                <span className="text-xs text-muted-foreground ml-1">({d.product.code})</span>
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">{d.product.strength} - {d.product.form}</div>
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono text-xs">
+                              {d.hasFormula ? `EGP ${d.rawMaterialCost.toFixed(2)}` : <span className="text-muted-foreground">N/A</span>}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono text-xs">
+                              {d.hasFormula ? `EGP ${d.overhead.toFixed(2)}` : <span className="text-muted-foreground">N/A</span>}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono text-xs font-semibold">
+                              {d.hasFormula ? `EGP ${d.totalCost.toFixed(2)}` : <span className="text-muted-foreground">No formula</span>}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono text-xs font-semibold">
+                              EGP {d.sellingPrice.toFixed(2)}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {d.hasFormula ? (
+                                <span className={`font-semibold ${d.margin >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                  EGP {d.margin.toFixed(2)}
+                                </span>
+                              ) : <span className="text-muted-foreground">--</span>}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {d.hasFormula ? (
+                                <Badge className={d.marginPct >= 30 ? "bg-green-100 text-green-700" : d.marginPct >= 15 ? "bg-amber-100 text-amber-700" : d.marginPct >= 0 ? "bg-orange-100 text-orange-700" : "bg-red-100 text-red-700"}>
+                                  {d.marginPct.toFixed(1)}%
+                                </Badge>
+                              ) : <span className="text-muted-foreground">--</span>}
+                            </td>
+                          </tr>
+                        ))}
+                        {productCostData.length === 0 && (
+                          <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">No products found. Add products and conversion formulas to see cost analysis.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })()}
         </TabsContent>
 
         {/* ── Sales Orders with Approval Workflow ── */}
