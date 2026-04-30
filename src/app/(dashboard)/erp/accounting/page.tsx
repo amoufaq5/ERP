@@ -50,9 +50,16 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
+  Upload,
+  Trash2,
+  Eye,
+  Paperclip,
 } from "lucide-react";
 import { downloadCSV, downloadHTML, buildPrintableReport } from "@/lib/download";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
 export default function AccountingPage() {
@@ -78,6 +85,12 @@ export default function AccountingPage() {
   const [editingBank, setEditingBank] = useState<BankAccount | null>(null);
   const [statementParty, setStatementParty] = useState<{ type: "customer" | "vendor"; id: string } | null>(null);
 
+  // Customer documents state
+  const [custDocDialogOpen, setCustDocDialogOpen] = useState(false);
+  const [docCustomerId, setDocCustomerId] = useState<string | null>(null);
+  const [docType, setDocType] = useState("Registration Certificate");
+  const custDocInputRef = useRef<HTMLInputElement>(null);
+
   // GL state
   const [glSearch, setGlSearch] = useState("");
   const [glFilters, setGlFilters] = useState<FilterState>({});
@@ -90,6 +103,7 @@ export default function AccountingPage() {
   const [jeFormOpen, setJeFormOpen] = useState(false);
   const [editingJE, setEditingJE] = useState<JournalEntry | null>(null);
   const [jeDetailId, setJeDetailId] = useState<string | null>(null);
+  const [jeNewLine, setJeNewLine] = useState({ accountId: "", description: "", debit: 0, credit: 0, costCenterId: "" });
 
   // Cost Accounting state
   const [costTab, setCostTab] = useState<"centers" | "budgets" | "allocation" | "variance">("centers");
@@ -242,6 +256,71 @@ export default function AccountingPage() {
     setCustFormOpen(false);
     setEditingCustomer(null);
   }
+
+  // ─── Customer Document helpers ────────────────────────────────────────
+  const DOCUMENT_TYPES = [
+    "Registration Certificate",
+    "Tax Card",
+    "Commercial Register",
+    "VAT Certificate",
+    "ID / Passport",
+    "Power of Attorney",
+    "Bank Letter",
+    "Contract",
+    "Other",
+  ];
+
+  function openDocDialog(customerId: string) {
+    setDocCustomerId(customerId);
+    setDocType("Registration Certificate");
+    setCustDocDialogOpen(true);
+  }
+
+  function handleDocUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !docCustomerId) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const cust = store.customers.find((c) => c.id === docCustomerId);
+      if (!cust) return;
+      const newDoc: CustomerDocument = {
+        id: store.genId("cdoc"),
+        name: file.name,
+        type: docType,
+        data: reader.result as string,
+        uploadedAt: new Date().toISOString(),
+      };
+      const existing = cust.documents ?? [];
+      store.update("customers", docCustomerId, { documents: [...existing, newDoc] });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  }
+
+  function removeDocument(customerId: string, docId: string) {
+    const cust = store.customers.find((c) => c.id === customerId);
+    if (!cust) return;
+    const updated = (cust.documents ?? []).filter((d) => d.id !== docId);
+    store.update("customers", customerId, { documents: updated });
+  }
+
+  function viewDocument(doc: CustomerDocument) {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    if (doc.data.startsWith("data:image/")) {
+      w.document.write(`<html><head><title>${doc.name}</title></head><body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f1f1f1"><img src="${doc.data}" style="max-width:100%;max-height:100vh" /></body></html>`);
+    } else if (doc.data.startsWith("data:application/pdf")) {
+      w.document.write(`<html><head><title>${doc.name}</title></head><body style="margin:0"><embed src="${doc.data}" type="application/pdf" width="100%" height="100%" style="position:absolute;inset:0" /></body></html>`);
+    } else {
+      const a = w.document.createElement("a");
+      a.href = doc.data;
+      a.download = doc.name;
+      a.click();
+      w.close();
+    }
+  }
+
+  const docCustomer = docCustomerId ? store.customers.find((c) => c.id === docCustomerId) : null;
 
   // ─── Vendor CRUD ───────────────────────────────────────────────────────
   const vendorFields: EntityField[] = [
@@ -430,12 +509,15 @@ export default function AccountingPage() {
     if (editingJE) {
       store.update("journalEntries", editingJE.id, { date: String(data.date), description: String(data.description), reference: data.reference ? String(data.reference) : undefined, type: String(data.type) as JournalEntry["type"] });
     } else {
+      const newId = store.genId("je");
       store.add("journalEntries", {
-        id: store.genId("je"), number: store.generateJournalNumber(), date: String(data.date),
+        id: newId, number: store.generateJournalNumber(), date: String(data.date),
         description: String(data.description), reference: data.reference ? String(data.reference) : undefined,
         type: String(data.type) as JournalEntry["type"], lines: [], status: "DRAFT",
         createdBy: "u-admin", createdAt: new Date().toISOString(),
       });
+      // Auto-open detail view so user can add lines
+      setTimeout(() => setJeDetailId(newId), 100);
     }
     setJeFormOpen(false); setEditingJE(null);
   }
@@ -663,13 +745,16 @@ export default function AccountingPage() {
                         onDelete={() => store.remove("customers", c.id)}
                         itemLabel={c.name}
                         compact
-                        extraItems={[{ label: "View Statement", onClick: () => setStatementParty({ type: "customer", id: c.id }) }]}
+                        extraItems={[
+                          { label: "View Statement", onClick: () => setStatementParty({ type: "customer", id: c.id }) },
+                          { label: "Documents", onClick: () => openDocDialog(c.id) },
+                        ]}
                       />
                     );
                   } },
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredCustomers as unknown as Record<string, unknown>[]}
-                
+
                 exportable exportFilename="erp-accounting.csv" emptyMessage="No customers found."
               />
             </CardContent>
@@ -963,7 +1048,7 @@ export default function AccountingPage() {
             searchValue={jeSearch}
             onSearchChange={setJeSearch}
             fields={[
-              { key: "type", label: "Type", type: "select", options: ["GENERAL", "ADJUSTING", "CLOSING", "OPENING", "PARTNER"].map((t) => ({ label: t, value: t })) },
+              { key: "type", label: "Type", type: "select", options: ["GENERAL", "ADJUSTING", "CLOSING", "REVERSING", "ACCRUAL", "OPENING", "PARTNER"].map((t) => ({ label: t, value: t })) },
               { key: "status", label: "Status", type: "select", options: ["DRAFT", "POSTED", "VOID"].map((t) => ({ label: t, value: t })) },
             ]}
             values={jeFilters}
@@ -997,7 +1082,7 @@ export default function AccountingPage() {
                   }},
                 ] as Column<Record<string, unknown>>[]}
                 data={filteredJE as unknown as Record<string, unknown>[]}
-                
+                onRowClick={(row) => setJeDetailId((row as unknown as JournalEntry).id)}
                 exportable exportFilename="erp-accounting.csv" emptyMessage="No journal entries found."
               />
             </CardContent>
@@ -1334,20 +1419,20 @@ export default function AccountingPage() {
       </Tabs>
 
       {/* JE Detail dialog */}
-      <Dialog open={!!jeDetail} onOpenChange={(open) => { if (!open) setJeDetailId(null); }}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5" /> {jeDetail?.number} — Journal Entry Lines</DialogTitle></DialogHeader>
+      <Dialog open={!!jeDetail} onOpenChange={(open) => { if (!open) { setJeDetailId(null); setJeNewLine({ accountId: "", description: "", debit: 0, credit: 0, costCenterId: "" }); } }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5" /> {jeDetail?.number} — Journal Entry Detail</DialogTitle></DialogHeader>
           {jeDetail && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="text-muted-foreground">Date:</span> {new Date(jeDetail.date).toLocaleDateString()}</div>
+                <div><span className="text-muted-foreground">Date:</span> {new Date(jeDetail.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</div>
                 <div><span className="text-muted-foreground">Type:</span> {jeBadge(jeDetail.type)}</div>
                 <div className="col-span-2"><span className="text-muted-foreground">Description:</span> {jeDetail.description}</div>
-                {jeDetail.reference && <div className="col-span-2"><span className="text-muted-foreground">Reference:</span> {jeDetail.reference}</div>}
+                {jeDetail.reference && <div className="col-span-2"><span className="text-muted-foreground">Reference:</span> <span className="font-mono text-xs">{jeDetail.reference}</span></div>}
               </div>
               <div className="border rounded-lg overflow-hidden">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/50"><tr><th className="px-3 py-2 text-left">Account</th><th className="px-3 py-2 text-left">Description</th><th className="px-3 py-2 text-right">Debit</th><th className="px-3 py-2 text-right">Credit</th><th className="px-3 py-2 text-left">Cost Center</th></tr></thead>
+                  <thead className="bg-muted/50"><tr><th className="px-3 py-2 text-left">Account</th><th className="px-3 py-2 text-left">Description</th><th className="px-3 py-2 text-right">Debit</th><th className="px-3 py-2 text-right">Credit</th><th className="px-3 py-2 text-left">Cost Center</th>{jeDetail.status === "DRAFT" && <th className="px-3 py-2 w-8" />}</tr></thead>
                   <tbody className="divide-y">
                     {jeDetail.lines.map((l, i) => (
                       <tr key={i} className="hover:bg-muted/30">
@@ -1356,23 +1441,92 @@ export default function AccountingPage() {
                         <td className="px-3 py-2 text-right font-semibold text-red-600">{l.debit > 0 ? l.debit.toLocaleString() : "—"}</td>
                         <td className="px-3 py-2 text-right font-semibold text-green-600">{l.credit > 0 ? l.credit.toLocaleString() : "—"}</td>
                         <td className="px-3 py-2 text-xs">{l.costCenterId ? ccName(l.costCenterId) : "—"}</td>
+                        {jeDetail.status === "DRAFT" && (
+                          <td className="px-3 py-2">
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:text-red-700" onClick={() => {
+                              const updatedLines = [...jeDetail.lines];
+                              updatedLines.splice(i, 1);
+                              store.update("journalEntries", jeDetail.id, { lines: updatedLines });
+                            }}><XCircle className="h-3.5 w-3.5" /></Button>
+                          </td>
+                        )}
                       </tr>
                     ))}
-                    {jeDetail.lines.length === 0 && <tr><td colSpan={5} className="px-3 py-4 text-center text-muted-foreground">No lines. Edit this entry to add lines.</td></tr>}
+                    {jeDetail.lines.length === 0 && <tr><td colSpan={jeDetail.status === "DRAFT" ? 6 : 5} className="px-3 py-4 text-center text-muted-foreground">No lines yet. Add lines below.</td></tr>}
                   </tbody>
                   <tfoot className="bg-muted/30 font-semibold">
                     <tr>
                       <td colSpan={2} className="px-3 py-2">Total</td>
                       <td className="px-3 py-2 text-right">{jeDetail.lines.reduce((s, l) => s + l.debit, 0).toLocaleString()}</td>
                       <td className="px-3 py-2 text-right">{jeDetail.lines.reduce((s, l) => s + l.credit, 0).toLocaleString()}</td>
-                      <td />
+                      <td colSpan={jeDetail.status === "DRAFT" ? 2 : 1} />
                     </tr>
                   </tfoot>
                 </table>
               </div>
+              {(() => {
+                const totalDebit = jeDetail.lines.reduce((s, l) => s + l.debit, 0);
+                const totalCredit = jeDetail.lines.reduce((s, l) => s + l.credit, 0);
+                const diff = totalDebit - totalCredit;
+                if (jeDetail.lines.length > 0 && diff !== 0) {
+                  return (
+                    <div className="flex items-center gap-2 text-xs px-1">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                      <span className="text-amber-700">Unbalanced: difference of {Math.abs(diff).toLocaleString()} ({diff > 0 ? "debit exceeds credit" : "credit exceeds debit"})</span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+              {jeDetail.status === "DRAFT" && (
+                <div className="border rounded-lg p-3 bg-muted/20 space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">Add Line</p>
+                  <div className="grid grid-cols-5 gap-2">
+                    <div>
+                      <Label className="text-xs">Account</Label>
+                      <select className="w-full rounded-md border px-2 py-1.5 text-xs mt-0.5" value={jeNewLine.accountId} onChange={(e) => setJeNewLine((p) => ({ ...p, accountId: e.target.value }))}>
+                        <option value="">Select account...</option>
+                        {store.glAccounts.filter((a) => a.isActive).map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Description</Label>
+                      <Input className="h-7 text-xs mt-0.5" value={jeNewLine.description} onChange={(e) => setJeNewLine((p) => ({ ...p, description: e.target.value }))} placeholder="Line description" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Debit</Label>
+                      <Input className="h-7 text-xs mt-0.5" type="number" min={0} value={jeNewLine.debit || ""} onChange={(e) => setJeNewLine((p) => ({ ...p, debit: Number(e.target.value) || 0 }))} placeholder="0" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Credit</Label>
+                      <Input className="h-7 text-xs mt-0.5" type="number" min={0} value={jeNewLine.credit || ""} onChange={(e) => setJeNewLine((p) => ({ ...p, credit: Number(e.target.value) || 0 }))} placeholder="0" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Cost Center</Label>
+                      <select className="w-full rounded-md border px-2 py-1.5 text-xs mt-0.5" value={jeNewLine.costCenterId} onChange={(e) => setJeNewLine((p) => ({ ...p, costCenterId: e.target.value }))}>
+                        <option value="">None</option>
+                        {store.costCenters.map((c) => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <Button size="sm" className="h-7 text-xs" disabled={!jeNewLine.accountId || (jeNewLine.debit === 0 && jeNewLine.credit === 0)} onClick={() => {
+                    const newLine = { accountId: jeNewLine.accountId, description: jeNewLine.description || undefined, debit: jeNewLine.debit, credit: jeNewLine.credit, costCenterId: jeNewLine.costCenterId || undefined };
+                    store.update("journalEntries", jeDetail.id, { lines: [...jeDetail.lines, newLine] });
+                    setJeNewLine({ accountId: "", description: "", debit: 0, credit: 0, costCenterId: "" });
+                  }}><Plus className="h-3 w-3 mr-1" /> Add Line</Button>
+                </div>
+              )}
               <div className="flex justify-between items-center text-xs text-muted-foreground">
                 <span>Status: <Badge variant={jeDetail.status === "POSTED" ? "success" : jeDetail.status === "VOID" ? "destructive" : "warning"}>{jeDetail.status}</Badge></span>
-                <span>Created: {new Date(jeDetail.createdAt).toLocaleDateString()}</span>
+                <div className="flex items-center gap-2">
+                  <span>Created: {new Date(jeDetail.createdAt).toLocaleDateString()}</span>
+                  {jeDetail.status === "DRAFT" && (
+                    <Button size="sm" className="h-6 text-xs bg-green-600 hover:bg-green-700" onClick={() => { store.update("journalEntries", jeDetail.id, { status: "POSTED" as JournalEntry["status"] }); }}>Post</Button>
+                  )}
+                  {jeDetail.status === "POSTED" && (
+                    <Button size="sm" variant="destructive" className="h-6 text-xs" onClick={() => { store.update("journalEntries", jeDetail.id, { status: "VOID" as JournalEntry["status"] }); }}>Void</Button>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1515,6 +1669,112 @@ export default function AccountingPage() {
       <EntityFormModal open={budgetFormOpen} onOpenChange={(open) => { setBudgetFormOpen(open); if (!open) setEditingBudget(null); }} title={editingBudget ? `Edit ${editingBudget.name}` : "Add Budget"} fields={budgetFields}
         initialData={editingBudget ? { name: editingBudget.name, fiscalYear: editingBudget.fiscalYear, period: editingBudget.period, accountId: editingBudget.accountId ?? "", costCenterId: editingBudget.costCenterId ?? "", budgeted: editingBudget.budgeted, actual: editingBudget.actual, status: editingBudget.status } : undefined}
         onSubmit={handleBudgetSubmit} submitLabel={editingBudget ? "Save" : "Create"} />
+
+      {/* Customer Documents dialog */}
+      <Dialog open={custDocDialogOpen} onOpenChange={(open) => { if (!open) { setCustDocDialogOpen(false); setDocCustomerId(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Paperclip className="h-5 w-5" />
+              Documents {docCustomer ? `— ${docCustomer.name}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          {docCustomer && (
+            <div className="space-y-4">
+              {/* Upload section */}
+              <Card>
+                <CardContent className="p-4 space-y-3">
+                  <p className="text-sm font-medium">Upload New Document</p>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground mb-1 block">Document Type</Label>
+                      <Select value={docType} onValueChange={setDocType}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DOCUMENT_TYPES.map((dt) => (
+                            <SelectItem key={dt} value={dt}>{dt}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-end">
+                      <input
+                        ref={custDocInputRef}
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                        className="hidden"
+                        onChange={handleDocUpload}
+                      />
+                      <Button size="sm" onClick={() => custDocInputRef.current?.click()}>
+                        <Upload className="h-4 w-4 mr-1" /> Choose File
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Document list */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Uploaded Documents ({(docCustomer.documents ?? []).length})</p>
+                {(docCustomer.documents ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4 border rounded-lg">No documents uploaded yet.</p>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Name</th>
+                          <th className="px-3 py-2 text-left">Type</th>
+                          <th className="px-3 py-2 text-left">Uploaded</th>
+                          <th className="px-3 py-2 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {(docCustomer.documents ?? []).map((doc) => (
+                          <tr key={doc.id} className="hover:bg-muted/30">
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+                                <span className="truncate max-w-[200px]">{doc.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2">
+                              <Badge variant="outline" className="text-[10px]">{doc.type}</Badge>
+                            </td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground">
+                              {new Date(doc.uploadedAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <div className="flex items-center gap-1 justify-end">
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => viewDocument(doc)} title="View / Download">
+                                  <Eye className="h-3.5 w-3.5 text-blue-600" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
+                                  const a = document.createElement("a");
+                                  a.href = doc.data;
+                                  a.download = doc.name;
+                                  a.click();
+                                }} title="Download">
+                                  <Download className="h-3.5 w-3.5 text-green-600" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => removeDocument(docCustomer.id, doc.id)} title="Delete">
+                                  <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

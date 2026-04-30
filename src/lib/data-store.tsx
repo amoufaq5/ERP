@@ -31,6 +31,31 @@ export interface Product {
   stockQty: number;
   reorderLevel: number;
   warehouse?: string;
+  description?: string;
+  manufacturer?: string;
+  shelfLife?: string;
+  storageCondition?: string;
+  documents?: ProductDocument[];
+}
+
+export interface ProductDocument {
+  id: string;
+  name: string;
+  type: string;
+  data: string;
+  uploadedAt: string;
+}
+
+export interface ConversionFormula {
+  id: string;
+  productId: string;
+  name: string;
+  batchSize: number;
+  batchUnit: string;
+  ingredients: { rawMaterialId: string; quantity: number; unit: string }[];
+  yieldPercent: number;
+  instructions?: string;
+  createdAt: string;
 }
 
 // ─── IMS Standard Specialties ────────────────────────────────────────────────
@@ -615,11 +640,13 @@ export interface DataStoreState {
   rfqs: RFQ[];
   goodsReceipts: GoodsReceipt[];
   deliveryNotes: DeliveryNote[];
+  shipments: Shipment[];
   employees: Employee[];
   jobs: Job[];
   candidates: Candidate[];
   projects: Project[];
   projectTasks: ProjectTask[];
+  conversionFormulas: ConversionFormula[];
   nextInvoiceSeq: number;
   nextJournalSeq: number;
   nextPOSeq: number;
@@ -634,6 +661,7 @@ export interface DataStoreState {
   nextCostCenterSeq: number;
   nextPaymentSeq: number;
   nextChequeSeq: number;
+  nextShipmentSeq: number;
 }
 
 // ─── Seed data ───────────────────────────────────────────────────────────────
@@ -1056,11 +1084,13 @@ export const SEED_DATA: DataStoreState = {
   rfqs: SEED_RFQS,
   goodsReceipts: SEED_GOODS_RECEIPTS,
   deliveryNotes: SEED_DELIVERY_NOTES,
+  shipments: [],
   employees: SEED_EMPLOYEES,
   jobs: SEED_JOBS,
   candidates: SEED_CANDIDATES,
   projects: SEED_PROJECTS,
   projectTasks: SEED_PROJECT_TASKS,
+  conversionFormulas: [],
   nextInvoiceSeq: 3,
   nextJournalSeq: 9,
   nextPOSeq: 5,
@@ -1075,6 +1105,7 @@ export const SEED_DATA: DataStoreState = {
   nextCostCenterSeq: 7,
   nextPaymentSeq: 6,
   nextChequeSeq: 8,
+  nextShipmentSeq: 1,
 };
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -1106,6 +1137,7 @@ interface DataStoreValue extends DataStoreState {
   generateCostCenterCode: () => string;
   generatePaymentRef: () => string;
   generateChequeNumber: () => string;
+  generateShipmentNumber: () => string;
 }
 
 const DataStoreContext = createContext<DataStoreValue | null>(null);
@@ -1263,6 +1295,14 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     return `CHQ-${String(seq).padStart(6, "0")}`;
   }
 
+  function generateShipmentNumber(): string {
+    const year = new Date().getFullYear();
+    const seq = state.nextShipmentSeq;
+    const next: DataStoreState = { ...state, nextShipmentSeq: seq + 1 };
+    mutate(next);
+    return `SHP-${year}-${String(seq).padStart(4, "0")}`;
+  }
+
   function add<K extends EntityKey>(key: K, item: DataStoreState[K][number]) {
     // We use a narrow local type because TS can't prove the array union matches the single-element union.
     // The runtime is identical: just append.
@@ -1335,6 +1375,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
         generateCostCenterCode,
         generatePaymentRef,
         generateChequeNumber,
+        generateShipmentNumber,
       }}
     >
       {children}
@@ -1368,6 +1409,7 @@ export function useDataStore(): DataStoreValue {
       generateCostCenterCode: () => "CC-0000",
       generatePaymentRef: () => "PAY-0000-0000",
       generateChequeNumber: () => "CHQ-000000",
+      generateShipmentNumber: () => "SHP-0000-0000",
     };
   }
   return ctx;

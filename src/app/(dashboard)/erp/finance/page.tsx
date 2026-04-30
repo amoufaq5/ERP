@@ -14,7 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useDataStore, type Invoice, type Payment, type Budget, type GLAccount, type SalesOrder } from "@/lib/data-store";
+import { useDataStore, type Invoice, type Payment, type Budget, type GLAccount, type SalesOrder, type BankAccount } from "@/lib/data-store";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useApprovals } from "@/lib/approval-workflow";
 import { openInvoicePDF } from "@/lib/invoice-pdf";
 import {
@@ -22,6 +24,7 @@ import {
   Plus, CreditCard, BookOpen, Landmark, Download,
   BarChart3, Calculator, Activity, Target,
   ShoppingBag, CheckCircle, XCircle, AlertTriangle,
+  ArrowUpDown, RefreshCw, Eye, Link2, Unlink, ArrowDownLeft, ArrowUpRight,
 } from "lucide-react";
 import { downloadCSV } from "@/lib/download";
 import { useTranslation } from "@/lib/i18n/i18n-context";
@@ -47,6 +50,13 @@ export default function FinancePage() {
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
   const [viewPayment, setViewPayment] = useState<Payment | null>(null);
   const [viewBudget, setViewBudget] = useState<Budget | null>(null);
+
+  // ─── Bank state ────────────────────────────────────────────────
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [editingBank, setEditingBank] = useState<BankAccount | null>(null);
+  const [bankDetailId, setBankDetailId] = useState<string | null>(null);
+  const [bankTxFilter, setBankTxFilter] = useState<"all" | "credit" | "debit">("all");
+  const [bankTxSearch, setBankTxSearch] = useState("");
 
   const customerName = (id: string) => store.customers.find((c) => c.id === id)?.name ?? id;
   const vendorName = (id: string) => store.vendors.find((v) => v.id === id)?.name ?? id;
@@ -463,8 +473,64 @@ export default function FinancePage() {
       )}
 
       {activeTab === "bank" && (
-        <div className="bg-card rounded-xl border border-border shadow-sm">
-          <DataTable columns={bankColumns} data={store.bankAccounts as unknown as Record<string, unknown>[]} exportable exportFilename="erp-finance.csv" emptyMessage="No bank accounts." />
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Total Balance: <span className="font-semibold text-foreground">{egp(totalBankBalance)}</span> across {store.bankAccounts.length} accounts
+            </div>
+            <Button size="sm" onClick={() => { setEditingBank(null); setShowBankModal(true); }}><Plus className="h-4 w-4 mr-1" /> Add Bank Account</Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {store.bankAccounts.map((acc) => {
+              const accCheques = store.cheques.filter((c) => c.bankAccountId === acc.id);
+              const pendingIn = accCheques.filter((c) => c.type === "INCOMING" && (c.status === "PENDING" || c.status === "DEPOSITED")).reduce((s, c) => s + c.amount, 0);
+              const pendingOut = accCheques.filter((c) => c.type === "OUTGOING" && c.status === "PENDING").reduce((s, c) => s + c.amount, 0);
+              const accPayments = store.payments.filter((p) => p.bankAccountId === acc.id);
+              const recentTxCount = accPayments.length;
+              return (
+                <Card key={acc.id} className={`cursor-pointer transition-all hover:shadow-md hover:border-primary/40 ${acc.status !== "ACTIVE" ? "opacity-60" : ""}`} onClick={() => setBankDetailId(acc.id)}>
+                  <CardContent className="pt-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-blue-100 rounded-lg"><Landmark className="h-4 w-4 text-blue-600" /></div>
+                        <div>
+                          <h3 className="font-semibold text-sm">{acc.name}</h3>
+                          <p className="text-xs text-muted-foreground">{acc.bankName}</p>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${acc.status === "ACTIVE" ? "bg-green-100 text-green-800" : acc.status === "DORMANT" ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-600"}`}>{acc.status}</span>
+                    </div>
+                    <div className="text-sm space-y-1.5">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Account #</span><span className="font-mono text-xs">{acc.accountNumber}</span></div>
+                      {acc.iban && <div className="flex justify-between"><span className="text-muted-foreground">IBAN</span><span className="font-mono text-xs">{acc.iban.length > 16 ? acc.iban.substring(0, 16) + "..." : acc.iban}</span></div>}
+                      <div className="flex justify-between"><span className="text-muted-foreground">Currency</span><span>{acc.currency}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Type</span><Badge variant="outline" className="text-xs h-5">{acc.type}</Badge></div>
+                    </div>
+                    <div className="pt-2 border-t">
+                      <p className="text-xs text-muted-foreground">Balance</p>
+                      <p className="text-xl font-bold text-green-700">{egp(acc.balance)}</p>
+                    </div>
+                    {(pendingIn > 0 || pendingOut > 0) && (
+                      <div className="flex gap-3 text-xs pt-1">
+                        {pendingIn > 0 && <span className="text-green-600">+{(pendingIn / 1000).toFixed(0)}K incoming</span>}
+                        {pendingOut > 0 && <span className="text-red-600">-{(pendingOut / 1000).toFixed(0)}K outgoing</span>}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                      <span>{recentTxCount} transaction{recentTxCount !== 1 ? "s" : ""}</span>
+                      <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> Click to view</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+            {store.bankAccounts.length === 0 && (
+              <div className="col-span-3 text-center py-12 text-muted-foreground">
+                <Landmark className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                <p>No bank accounts. Click &quot;Add Bank Account&quot; to get started.</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
