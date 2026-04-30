@@ -362,7 +362,7 @@ export default function InventoryPage() {
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredRM as unknown as Record<string, unknown>[]}
-                
+                onRowClick={(row) => setDetailRM(row as unknown as RawMaterial)}
                 exportable exportFilename="erp-inventory.csv" emptyMessage="No raw materials match your filters."
               />
             </CardContent>
@@ -404,7 +404,7 @@ export default function InventoryPage() {
                   }},
                 ] satisfies Column<Record<string, unknown>>[]}
                 data={filteredFP as unknown as Record<string, unknown>[]}
-                
+                onRowClick={(row) => setDetailFP(row as unknown as FinishedProduct)}
                 exportable exportFilename="erp-inventory.csv" emptyMessage="No finished products match your filters."
               />
             </CardContent>
@@ -419,14 +419,16 @@ export default function InventoryPage() {
             const pct = Math.round((w.used / w.capacity) * 100);
             const colorByType: Record<string, string> = { "Raw Material": "bg-purple-100 text-purple-700", "Finished Goods": "bg-emerald-100 text-emerald-700", "Cold Chain": "bg-blue-100 text-blue-700", Quarantine: "bg-amber-100 text-amber-700" };
             return (
-              <Card key={w.id}>
+              <Card key={w.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setDetailWH(w)}>
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
                       <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${colorByType[w.type] || "bg-gray-100 text-gray-700"}`}><Package className="h-4 w-4" /></div>
                       <div><CardTitle className="text-sm font-semibold">{w.name}</CardTitle><p className="text-[11px] text-muted-foreground mt-0.5">{w.location}</p></div>
                     </div>
-                    <EditDeleteMenu onEdit={() => handleEditWH(w)} onDelete={() => handleDeleteWH(w)} onView={() => setDetailWH(w)} canView itemLabel={w.name} compact />
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <EditDeleteMenu onEdit={() => handleEditWH(w)} onDelete={() => handleDeleteWH(w)} onView={() => setDetailWH(w)} canView itemLabel={w.name} compact />
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
