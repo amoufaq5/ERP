@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   FlaskConical, Pill, Warehouse, AlertTriangle,
-  Thermometer, Download, Plus, Package, BookOpen, Filter,
+  Thermometer, Download, Plus, Package, BookOpen,
 } from "lucide-react";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
