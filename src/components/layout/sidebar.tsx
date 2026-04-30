@@ -57,6 +57,10 @@ import {
   Sparkles,
   Globe,
   ShoppingBag,
+  Landmark,
+  FileCheck,
+  PieChart,
+  Code2,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -97,6 +101,8 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Collections", labelKey: "nav.collections", href: "/erp/collections", icon: Banknote },
       { label: "Returns", labelKey: "nav.returns", href: "/erp/returns", icon: RotateCcw },
       { label: "Partner Ledger", labelKey: "nav.partnerLedger", href: "/erp/partner-ledger", icon: Scale },
+      { label: "Banking", labelKey: "sidebar.banking", href: "/erp/banking", icon: Landmark },
+      { label: "E-Invoicing", labelKey: "sidebar.eInvoicing", href: "/erp/e-invoicing", icon: FileCheck },
     ],
   },
   {
@@ -123,6 +129,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Procurement", labelKey: "nav.procurement", href: "/erp/procurement", icon: ShoppingCart },
       { label: "Sales Orders", labelKey: "sidebar.salesOrders", href: "/erp/sales-order", icon: ShoppingBag },
       { label: "Inventory", labelKey: "nav.inventory", href: "/erp/inventory", icon: Package },
+      { label: "Forecasting", labelKey: "sidebar.forecasting", href: "/erp/forecasting", icon: TrendingUp },
     ],
   },
   {
@@ -195,9 +202,12 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "AI Hub", labelKey: "sidebar.aiHub", href: "/ai", icon: Brain },
       { label: "Documents", labelKey: "nav.documents", href: "/documents", icon: FileText },
       { label: "Reports", labelKey: "nav.reports", href: "/reports", icon: BarChart3 },
+      { label: "Analytics", labelKey: "sidebar.analytics", href: "/analytics", icon: PieChart },
       { label: "Settings", labelKey: "nav.settings", href: "/settings", icon: Settings },
       { label: "User Management", labelKey: "sidebar.userManagement", href: "/admin/users", icon: Users },
       { label: "Tenants", labelKey: "sidebar.tenants", href: "/admin/tenants", icon: Building2 },
+      { label: "Database", labelKey: "sidebar.database", href: "/admin/database", icon: Database },
+      { label: "API Docs", labelKey: "sidebar.apiDocs", href: "/admin/api", icon: Code2 },
     ],
   },
 ];
