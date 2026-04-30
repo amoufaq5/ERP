@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   Map, ChevronRight, ChevronDown, Users, Stethoscope, Building,
-  Plus, Pencil, Trash2, MapPin, Globe, Layers,
+  Plus, Pencil, Trash2, MapPin, Globe, Layers, BarChart3,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -125,6 +125,7 @@ export default function TerritoriesPage() {
       { label: "Brick", value: "brick" },
     ]},
     { name: "imsCode", label: "IMS-IQVIA Code", type: "text", required: true, placeholder: "e.g. EG-B010" },
+    { name: "geoShare", label: "% GEO. SHARE", type: "number", placeholder: "e.g. 1.49" },
     { name: "parentId", label: "Parent Territory", type: "select", options: territories.map((t) => ({
       label: `${LEVEL_LABELS[t.level]}: ${t.name}`,
       value: t.id,
@@ -139,6 +140,7 @@ export default function TerritoriesPage() {
         level: String(data.level) as Territory["level"],
         imsCode: String(data.imsCode),
         parentId: data.parentId ? String(data.parentId) : null,
+        geoShare: data.geoShare ? Number(data.geoShare) : undefined,
       });
     } else {
       store.add("territories", {
@@ -148,6 +150,7 @@ export default function TerritoriesPage() {
         level: String(data.level) as Territory["level"],
         parentId: data.parentId ? String(data.parentId) : null,
         imsCode: String(data.imsCode),
+        geoShare: data.geoShare ? Number(data.geoShare) : undefined,
         assignedRepIds: [],
         assignedBUIds: [],
       } as Territory);
@@ -210,6 +213,11 @@ export default function TerritoriesPage() {
               </div>
             </div>
             <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
+              {territory.geoShare != null && (
+                <span className="flex items-center gap-1 font-mono text-emerald-600">
+                  <BarChart3 className="h-3 w-3" />{territory.geoShare.toFixed(2)}%
+                </span>
+              )}
               {doctorCount > 0 && (
                 <span className="flex items-center gap-1"><Stethoscope className="h-3 w-3" />{doctorCount}</span>
               )}
@@ -243,7 +251,7 @@ export default function TerritoriesPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatsCard icon={Globe} title="Regions" value={regions.length} subtitle="Top-level geographic areas" iconColor="bg-red-100 text-red-600" />
-        <StatsCard icon={Map} title="Governorates" value={governorates.length} subtitle="State/province level" iconColor="bg-blue-100 text-blue-600" />
+        <StatsCard icon={Map} title="Districts / Areas" value={districts.length} subtitle="IMS district-level areas" iconColor="bg-blue-100 text-blue-600" />
         <StatsCard icon={Layers} title="Bricks" value={`${coveredBricks}/${bricks.length}`} subtitle="Covered / Total IMS bricks" iconColor="bg-green-100 text-green-600" />
         <StatsCard icon={Users} title="Field Reps Assigned" value={totalReps} subtitle="Across all territories" iconColor="bg-purple-100 text-purple-600" />
       </div>
@@ -309,6 +317,33 @@ export default function TerritoriesPage() {
                   <div><span className="text-muted-foreground block text-xs">Sub-territories</span>
                     <span className="font-semibold">{getChildren(selectedTerritory.id).length}</span>
                   </div>
+                  {selectedTerritory.geoShare != null && (
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground block text-xs">% GEO. SHARE (IMS)</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(selectedTerritory.geoShare * 10, 100)}%` }} />
+                        </div>
+                        <span className="font-semibold font-mono text-emerald-600">{selectedTerritory.geoShare.toFixed(4)}%</span>
+                      </div>
+                    </div>
+                  )}
+                  {selectedTerritory.level !== "brick" && (
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground block text-xs">Aggregate GEO. SHARE</span>
+                      <span className="font-semibold font-mono text-emerald-600">
+                        {(() => {
+                          const sum = (id: string): number => {
+                            const t = territories.find(x => x.id === id);
+                            if (!t) return 0;
+                            if (t.geoShare != null) return t.geoShare;
+                            return getChildren(id).reduce((s, c) => s + sum(c.id), 0);
+                          };
+                          return sum(selectedTerritory.id).toFixed(4);
+                        })()}%
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Assigned Reps */}
@@ -424,6 +459,7 @@ export default function TerritoriesPage() {
           nameAr: editing.nameAr,
           level: editing.level,
           imsCode: editing.imsCode,
+          geoShare: editing.geoShare || "",
           parentId: editing.parentId || "",
         } : undefined}
         onSubmit={handleCreateTerritory}
