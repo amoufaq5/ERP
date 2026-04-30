@@ -162,6 +162,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Doctor Directory", labelKey: "sidebar.doctorDirectory", href: "/crm/doctors", icon: Stethoscope },
       { label: "Visit Tracking", labelKey: "sidebar.visitTracking", href: "/crm/gps-tracking", icon: MapPin },
       { label: "Market Requests", labelKey: "sidebar.marketRequests", href: "/crm/market-requests", icon: ClipboardList },
+      { label: "KPIs", labelKey: "sidebar.kpis", href: "/crm/kpis", icon: Target },
       { label: "CRM Reports", labelKey: "sidebar.crmReports", href: "/crm/reports", icon: BarChart3 },
     ],
   },
