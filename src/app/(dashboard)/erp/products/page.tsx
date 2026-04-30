@@ -684,6 +684,10 @@ export default function ProductsPage() {
                           ["stockQty", "Yes", "12000"],
                           ["reorderLevel", "Yes", "3000"],
                           ["warehouse", "No", "FG Warehouse-Cairo"],
+                          ["description", "No", "Cardiovascular tablet"],
+                          ["manufacturer", "No", "PharmaCo"],
+                          ["shelfLife", "No", "36 months"],
+                          ["storageCondition", "No", "Below 30°C"],
                         ].map(([col, req, ex]) => (
                           <tr key={col}>
                             <td className="border px-2 py-1 font-mono">{col}</td>
@@ -973,6 +977,10 @@ export default function ProductsPage() {
                 stockQty: editingProduct.stockQty,
                 reorderLevel: editingProduct.reorderLevel,
                 warehouse: editingProduct.warehouse || "",
+                description: editingProduct.description || "",
+                manufacturer: editingProduct.manufacturer || "",
+                shelfLife: editingProduct.shelfLife || "",
+                storageCondition: editingProduct.storageCondition || "",
               }
             : undefined
         }

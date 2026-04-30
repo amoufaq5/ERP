@@ -264,9 +264,9 @@ export default function FinancePage() {
 
   const bankColumns: Column<Record<string, unknown>>[] = [
     { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
-    { key: "id", label: "Account Name", render: (_v, row) => {
-      const b = row as unknown as { id: string };
-      return <BankAccountLink bankAccountId={b.id} />;
+    { key: "name", label: "Name", render: (_v, row) => {
+      const b = row as unknown as BankAccount;
+      return <span className="font-medium cursor-pointer text-blue-700 hover:underline" onClick={(e) => { e.stopPropagation(); setBankDetailId(b.id); }}>{b.name}</span>;
     }},
     { key: "bankName", label: "Bank" },
     { key: "accountNumber", label: "Account #", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
@@ -274,6 +274,18 @@ export default function FinancePage() {
     { key: "balance", label: "Balance", render: (v) => <span className="font-semibold text-green-700">{egp(v as number)}</span>, className: "text-right" },
     { key: "type", label: "Type", render: (v) => <Badge variant="outline">{v as string}</Badge> },
     { key: "status", label: "Status", render: (v) => <StatusBadge status={v as string} /> },
+    { key: "id", label: "", render: (_v, row) => {
+      const b = row as unknown as BankAccount;
+      return (
+        <EditDeleteMenu
+          onView={() => setBankDetailId(b.id)}
+          canView
+          onEdit={() => { setEditingBank(b); setShowBankModal(true); }}
+          onDelete={() => store.remove("bankAccounts", b.id)}
+          itemLabel={b.name}
+        />
+      );
+    }},
   ];
 
   const vendorColumns: Column<Record<string, unknown>>[] = [

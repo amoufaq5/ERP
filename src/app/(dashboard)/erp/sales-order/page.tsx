@@ -248,8 +248,8 @@ export default function SalesOrderPage() {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard icon={ShoppingBag} title={t("so.totalSOs")} value={String(totalSOs)} subtitle={`${confirmedSOs} confirmed`} iconColor="text-blue-600" />
-        <StatsCard icon={Package} title={t("so.pendingDelivery")} value={String(store.deliveryNotes.filter((d) => d.status === "PENDING").length)} subtitle="Awaiting shipment" iconColor="text-amber-600" />
+        <StatsCard icon={ShoppingBag} title={t("so.totalSOs")} value={String(totalSOs)} subtitle={`${confirmedSOs} confirmed, ${processingSOs} processing`} iconColor="text-blue-600" />
+        <StatsCard icon={Package} title={t("so.pendingDelivery")} value={String(shippedSOs)} subtitle={`${store.deliveryNotes.filter((d) => d.status === "PENDING").length} DN pending`} iconColor="text-amber-600" />
         <StatsCard icon={Truck} title="Delivered" value={String(deliveredSOs)} subtitle="Completed" iconColor="text-green-600" />
         <StatsCard icon={FileText} title={t("so.invoicedRevenue")} value={egp(totalRevenue)} subtitle="From completed SOs" iconColor="text-purple-600" />
       </div>
