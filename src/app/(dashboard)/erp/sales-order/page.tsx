@@ -1,23 +1,30 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ShoppingBag, Truck, FileText, Plus, ArrowRight, CheckCircle, Package } from "lucide-react";
+import { ShoppingBag, Truck, FileText, Plus, ArrowRight, CheckCircle, Package, X } from "lucide-react";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import StatusBadge from "@/components/shared/status-badge";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
-import { EntityFormModal, type EntityField, type EntityFormData } from "@/components/shared/entity-form-modal";
 import { useDataStore, type SalesOrder, type DeliveryNote } from "@/lib/data-store";
 import { CustomerLink } from "@/components/shared/entity-detail-dialog";
 import { useTranslation } from "@/lib/i18n/i18n-context";
+
+interface SOLine {
+  productId: string;
+  quantity: number;
+}
 
 export default function SalesOrderPage() {
   const store = useDataStore();
@@ -31,6 +38,11 @@ export default function SalesOrderPage() {
 
   const [soSearch, setSOSearch] = useState("");
   const [soFilters, setSOFilters] = useState<FilterState>({});
+
+  // Multi-line-item SO form state
+  const [soCustomerId, setSOCustomerId] = useState("");
+  const [soExpectedDate, setSOExpectedDate] = useState("");
+  const [soLines, setSOLines] = useState<SOLine[]>([{ productId: "", quantity: 1 }]);
 
   const customerName = (id: string) => store.customers.find((c) => c.id === id)?.name ?? id;
 
@@ -49,41 +61,67 @@ export default function SalesOrderPage() {
     });
   }, [store.salesOrders, soSearch, soFilters]);
 
-  const customerOptions = store.customers.map((c) => ({ value: c.id, label: c.name }));
-  const productOptions = store.products.map((p) => ({ value: p.id, label: `${p.name} ${p.strength} (${p.code}) — EGP ${p.pricePerUnit}` }));
+  function openSOModal(so?: SalesOrder | null) {
+    if (so) {
+      setEditingSO(so);
+      setSOCustomerId(so.customerId);
+      setSOExpectedDate(so.expectedDate?.slice(0, 10) ?? "");
+      setSOLines(so.items.map((it) => ({ productId: it.productId, quantity: it.quantity })));
+    } else {
+      setEditingSO(null);
+      setSOCustomerId("");
+      setSOExpectedDate("");
+      setSOLines([{ productId: "", quantity: 1 }]);
+    }
+    setShowSOModal(true);
+  }
 
-  const soFields: EntityField[] = [
-    { name: "customerId", label: "Customer", type: "select", required: true, options: customerOptions },
-    { name: "productId", label: "Product", type: "select", required: true, options: productOptions },
-    { name: "quantity", label: "Quantity", type: "number", required: true },
-    { name: "expectedDate", label: "Expected Delivery", type: "date", required: true },
-  ];
+  function getLinePrice(productId: string) {
+    return store.products.find((p) => p.id === productId)?.pricePerUnit ?? 0;
+  }
+  function getLineDesc(productId: string) {
+    const product = store.products.find((p) => p.id === productId);
+    return product ? `${product.name} ${product.strength}` : "Custom item";
+  }
 
-  function handleSOSubmit(data: EntityFormData) {
-    const product = store.products.find((p) => p.id === String(data.productId));
-    const desc = product ? `${product.name} ${product.strength}` : "Custom item";
-    const price = product?.pricePerUnit ?? 0;
-    const qty = Number(data.quantity);
-    const lineTotal = qty * price;
-    const tax = lineTotal * 0.14;
-    const total = lineTotal + tax;
+  const soSubtotal = soLines.reduce((sum, l) => sum + l.quantity * getLinePrice(l.productId), 0);
+  const soTax = soSubtotal * 0.14;
+  const soTotal = soSubtotal + soTax;
+
+  function handleSOSubmit() {
+    if (!soCustomerId || !soExpectedDate || soLines.length === 0) return;
+    if (soLines.some((l) => !l.productId || l.quantity <= 0)) return;
+
+    const items = soLines.map((l) => {
+      const price = getLinePrice(l.productId);
+      return {
+        productId: l.productId,
+        description: getLineDesc(l.productId),
+        quantity: l.quantity,
+        unitPrice: price,
+        total: l.quantity * price,
+      };
+    });
+    const subtotal = items.reduce((sum, i) => sum + i.total, 0);
+    const tax = subtotal * 0.14;
+    const total = subtotal + tax;
 
     if (editingSO) {
       store.update("salesOrders", editingSO.id, {
-        customerId: String(data.customerId),
-        items: [{ productId: String(data.productId), description: desc, quantity: qty, unitPrice: price, total: lineTotal }],
-        subtotal: lineTotal, tax, total,
-        expectedDate: String(data.expectedDate),
+        customerId: soCustomerId,
+        items,
+        subtotal, tax, total,
+        expectedDate: soExpectedDate,
       });
     } else {
       store.add("salesOrders", {
         id: store.genId("so"),
         number: store.generateSONumber(),
-        customerId: String(data.customerId),
+        customerId: soCustomerId,
         date: new Date().toISOString(),
-        expectedDate: String(data.expectedDate),
-        items: [{ productId: String(data.productId), description: desc, quantity: qty, unitPrice: price, total: lineTotal }],
-        subtotal: lineTotal, tax, total,
+        expectedDate: soExpectedDate,
+        items,
+        subtotal, tax, total,
         status: "DRAFT",
         createdAt: new Date().toISOString(),
       });
@@ -159,7 +197,7 @@ export default function SalesOrderPage() {
         title={t("so.title")}
         description={t("so.manageSO")}
         actions={
-          <Button onClick={() => { setEditingSO(null); setShowSOModal(true); }}>
+          <Button onClick={() => openSOModal()}>
             <Plus className="h-4 w-4 mr-2" /> {t("so.createSO")}
           </Button>
         }
@@ -222,7 +260,7 @@ export default function SalesOrderPage() {
                         )}
                         <EditDeleteMenu
                           onView={() => setDetailSO(so)}
-                          onEdit={so.status === "DRAFT" ? () => { setEditingSO(so); setShowSOModal(true); } : undefined}
+                          onEdit={so.status === "DRAFT" ? () => openSOModal(so) : undefined}
                           onDelete={so.status === "DRAFT" ? () => store.remove("salesOrders", so.id) : undefined}
                           canView
                           itemLabel={so.number}
@@ -308,22 +346,118 @@ export default function SalesOrderPage() {
         </TabsContent>
       </Tabs>
 
-      {/* ── SO Form Modal ── */}
-      <EntityFormModal
-        open={showSOModal}
-        onOpenChange={(open) => { setShowSOModal(open); if (!open) setEditingSO(null); }}
-        title={editingSO ? `Edit ${editingSO.number}` : "New Sales Order"}
-        description="SO number will be generated automatically"
-        fields={soFields}
-        initialData={editingSO ? {
-          customerId: editingSO.customerId,
-          productId: editingSO.items[0]?.productId ?? "",
-          quantity: editingSO.items[0]?.quantity ?? 0,
-          expectedDate: editingSO.expectedDate?.slice(0, 10) ?? "",
-        } : undefined}
-        onSubmit={handleSOSubmit}
-        submitLabel={editingSO ? "Update" : "Create SO"}
-      />
+      {/* ── SO Form Modal (multi-line-item) ── */}
+      <Dialog open={showSOModal} onOpenChange={(open) => { setShowSOModal(open); if (!open) setEditingSO(null); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingSO ? `Edit ${editingSO.number}` : "New Sales Order"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">SO number will be generated automatically</p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="mb-1.5 block text-sm">Customer</Label>
+                <Select value={soCustomerId} onValueChange={setSOCustomerId}>
+                  <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
+                  <SelectContent>
+                    {store.customers.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-sm">Expected Delivery</Label>
+                <Input type="date" value={soExpectedDate} onChange={(e) => setSOExpectedDate(e.target.value)} />
+              </div>
+            </div>
+
+            {/* Line Items */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-semibold">Line Items</Label>
+                <Button type="button" variant="outline" size="sm" onClick={() => setSOLines((prev) => [...prev, { productId: "", quantity: 1 }])}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />Add Line
+                </Button>
+              </div>
+
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left px-3 py-2 font-medium">Product</th>
+                      <th className="text-right px-3 py-2 font-medium w-24">Qty</th>
+                      <th className="text-right px-3 py-2 font-medium w-28">Unit Price</th>
+                      <th className="text-right px-3 py-2 font-medium w-28">Line Total</th>
+                      <th className="w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {soLines.map((line, idx) => {
+                      const unitPrice = getLinePrice(line.productId);
+                      const lineTotal = line.quantity * unitPrice;
+                      return (
+                        <tr key={idx}>
+                          <td className="px-3 py-2">
+                            <Select value={line.productId} onValueChange={(v) => setSOLines((prev) => prev.map((l, i) => i === idx ? { ...l, productId: v } : l))}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select product..." /></SelectTrigger>
+                              <SelectContent>
+                                {store.products.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>{p.name} {p.strength} ({p.code})</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input type="number" min={1} className="h-8 text-sm text-right" value={line.quantity} onChange={(e) => setSOLines((prev) => prev.map((l, i) => i === idx ? { ...l, quantity: Math.max(1, Number(e.target.value)) } : l))} />
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs text-muted-foreground">
+                            {unitPrice > 0 ? `EGP ${unitPrice.toLocaleString()}` : "—"}
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs font-medium">
+                            {lineTotal > 0 ? `EGP ${lineTotal.toLocaleString()}` : "—"}
+                          </td>
+                          <td className="px-1 py-2">
+                            {soLines.length > 1 && (
+                              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500" onClick={() => setSOLines((prev) => prev.filter((_, i) => i !== idx))}>
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Totals */}
+            <div className="border rounded-lg p-3 bg-muted/30 space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span className="font-medium">EGP {soSubtotal.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Tax (14%)</span>
+                <span className="font-medium">EGP {soTax.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between border-t pt-1 mt-1">
+                <span className="font-semibold">Total</span>
+                <span className="font-bold text-base">EGP {soTotal.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => { setShowSOModal(false); setEditingSO(null); }}>Cancel</Button>
+            <Button type="button" onClick={handleSOSubmit} disabled={!soCustomerId || !soExpectedDate || soLines.some((l) => !l.productId || l.quantity <= 0)}>
+              {editingSO ? "Update" : "Create SO"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── SO Detail Dialog ── */}
       <Dialog open={!!detailSO} onOpenChange={(o) => !o && setDetailSO(null)}>

@@ -38,12 +38,15 @@ interface BOM {
   materials: BOMItem[];
 }
 
+interface WOMaterial { materialCode: string; materialName: string; requiredQty: number; unit: string; }
+
 interface WorkOrder {
   id: string; bomId: string; bomName: string;
   quantity: number; priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   status: "PLANNED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
   startDate: string; endDate: string;
   assignedTo: string; notes?: string;
+  materials: WOMaterial[];
 }
 
 /* ─── Seed ─── */
@@ -74,12 +77,27 @@ const SEED_BOMS: BOM[] = [
     ] },
 ];
 
+function calcWOMaterials(bom: BOM, quantity: number): WOMaterial[] {
+  const ratio = quantity / bom.batchSize;
+  return bom.materials.map((m) => ({
+    materialCode: m.materialCode,
+    materialName: m.materialName,
+    requiredQty: Math.ceil(m.quantity * ratio * 100) / 100,
+    unit: m.unit,
+  }));
+}
+
 const SEED_WO: WorkOrder[] = [
-  { id: "wo-1", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", quantity: 500000, priority: "HIGH", status: "IN_PROGRESS", startDate: "2026-03-15", endDate: "2026-04-15", assignedTo: "Production Line A" },
-  { id: "wo-2", bomId: "bom-2", bomName: "Amoxicillin 250mg Capsule", quantity: 200000, priority: "MEDIUM", status: "PLANNED", startDate: "2026-04-01", endDate: "2026-05-01", assignedTo: "Production Line B" },
-  { id: "wo-3", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", quantity: 300000, priority: "HIGH", status: "COMPLETED", startDate: "2026-02-01", endDate: "2026-03-01", assignedTo: "Production Line A" },
-  { id: "wo-4", bomId: "bom-4", bomName: "Vitamin C Effervescent 1000mg", quantity: 50000, priority: "MEDIUM", status: "IN_PROGRESS", startDate: "2026-03-10", endDate: "2026-04-10", assignedTo: "Production Line C" },
-  { id: "wo-5", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", quantity: 250000, priority: "LOW", status: "PLANNED", startDate: "2026-05-01", endDate: "2026-05-30", assignedTo: "Production Line A" },
+  { id: "wo-1", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", quantity: 500000, priority: "HIGH", status: "IN_PROGRESS", startDate: "2026-03-15", endDate: "2026-04-15", assignedTo: "Production Line A",
+    materials: calcWOMaterials(SEED_BOMS[0], 500000) },
+  { id: "wo-2", bomId: "bom-2", bomName: "Amoxicillin 250mg Capsule", quantity: 200000, priority: "MEDIUM", status: "PLANNED", startDate: "2026-04-01", endDate: "2026-05-01", assignedTo: "Production Line B",
+    materials: calcWOMaterials(SEED_BOMS[1], 200000) },
+  { id: "wo-3", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", quantity: 300000, priority: "HIGH", status: "COMPLETED", startDate: "2026-02-01", endDate: "2026-03-01", assignedTo: "Production Line A",
+    materials: calcWOMaterials(SEED_BOMS[0], 300000) },
+  { id: "wo-4", bomId: "bom-4", bomName: "Vitamin C Effervescent 1000mg", quantity: 50000, priority: "MEDIUM", status: "IN_PROGRESS", startDate: "2026-03-10", endDate: "2026-04-10", assignedTo: "Production Line C",
+    materials: calcWOMaterials(SEED_BOMS[3], 50000) },
+  { id: "wo-5", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", quantity: 250000, priority: "LOW", status: "PLANNED", startDate: "2026-05-01", endDate: "2026-05-30", assignedTo: "Production Line A",
+    materials: calcWOMaterials(SEED_BOMS[0], 250000) },
 ];
 
 const statusColor: Record<string, string> = {
@@ -176,25 +194,49 @@ export default function ManufacturingPage() {
   }
 
   /* ─── WO CRUD ─── */
-  const woFields: EntityField[] = [
-    { name: "bomId", label: "BOM", type: "select", required: true, options: boms.filter((b) => b.status === "ACTIVE").map((b) => ({ label: b.name, value: b.id })) },
-    { name: "quantity", label: "Quantity", type: "number", required: true },
-    { name: "priority", label: "Priority", type: "select", required: true, options: [{ label: "Low", value: "LOW" }, { label: "Medium", value: "MEDIUM" }, { label: "High", value: "HIGH" }, { label: "Urgent", value: "URGENT" }] },
-    { name: "status", label: "Status", type: "select", required: true, options: [{ label: "Planned", value: "PLANNED" }, { label: "In Progress", value: "IN_PROGRESS" }, { label: "Completed", value: "COMPLETED" }, { label: "Cancelled", value: "CANCELLED" }] },
-    { name: "startDate", label: "Start Date", type: "date", required: true },
-    { name: "endDate", label: "End Date", type: "date" },
-    { name: "assignedTo", label: "Assigned To", type: "text", required: true, placeholder: "Production Line A" },
-    { name: "notes", label: "Notes", type: "textarea", fullWidth: true },
-  ];
+  const [woBomId, setWoBomId] = useState("");
+  const [woQuantity, setWoQuantity] = useState(0);
+  const [woPriority, setWoPriority] = useState<WorkOrder["priority"]>("MEDIUM");
+  const [woStatus, setWoStatus] = useState<WorkOrder["status"]>("PLANNED");
+  const [woStartDate, setWoStartDate] = useState("");
+  const [woEndDate, setWoEndDate] = useState("");
+  const [woAssignedTo, setWoAssignedTo] = useState("");
+  const [woNotes, setWoNotes] = useState("");
 
-  function handleCreateWO() { setEditingWo(null); setWoFormOpen(true); }
-  function handleEditWO(w: WorkOrder) { setEditingWo(w); setWoFormOpen(true); }
-  function handleWOSubmit(data: EntityFormData) {
-    const bom = boms.find((b) => b.id === String(data.bomId));
+  // Live materials preview
+  const woPreviewBom = boms.find((b) => b.id === woBomId);
+  const woPreviewMaterials: WOMaterial[] = useMemo(() => {
+    if (!woPreviewBom || woQuantity <= 0) return [];
+    return calcWOMaterials(woPreviewBom, woQuantity);
+  }, [woBomId, woQuantity, woPreviewBom]);
+
+  function handleCreateWO() {
+    setEditingWo(null);
+    setWoBomId(""); setWoQuantity(0); setWoPriority("MEDIUM"); setWoStatus("PLANNED");
+    setWoStartDate(""); setWoEndDate(""); setWoAssignedTo(""); setWoNotes("");
+    setWoFormOpen(true);
+  }
+  function handleEditWO(w: WorkOrder) {
+    setEditingWo(w);
+    setWoBomId(w.bomId); setWoQuantity(w.quantity); setWoPriority(w.priority); setWoStatus(w.status);
+    setWoStartDate(w.startDate); setWoEndDate(w.endDate); setWoAssignedTo(w.assignedTo); setWoNotes(w.notes || "");
+    setWoFormOpen(true);
+  }
+  function handleWOSubmit() {
+    if (!woBomId || woQuantity <= 0 || !woStartDate || !woAssignedTo) return;
+    const bom = boms.find((b) => b.id === woBomId);
+    const ratio = bom ? woQuantity / bom.batchSize : 1;
+    const materials: WOMaterial[] = bom ? bom.materials.map((m) => ({
+      materialCode: m.materialCode,
+      materialName: m.materialName,
+      requiredQty: Math.ceil(m.quantity * ratio * 100) / 100,
+      unit: m.unit,
+    })) : [];
+
     if (editingWo) {
-      setWorkOrders((prev) => prev.map((w) => w.id === editingWo.id ? { ...w, bomId: String(data.bomId), bomName: bom?.name || w.bomName, quantity: Number(data.quantity), priority: data.priority as WorkOrder["priority"], status: data.status as WorkOrder["status"], startDate: String(data.startDate), endDate: String(data.endDate || ""), assignedTo: String(data.assignedTo), notes: data.notes ? String(data.notes) : undefined } : w));
+      setWorkOrders((prev) => prev.map((w) => w.id === editingWo.id ? { ...w, bomId: woBomId, bomName: bom?.name || w.bomName, quantity: woQuantity, priority: woPriority, status: woStatus, startDate: woStartDate, endDate: woEndDate, assignedTo: woAssignedTo, notes: woNotes || undefined, materials } : w));
     } else {
-      setWorkOrders((prev) => [...prev, { id: genId("wo"), bomId: String(data.bomId), bomName: bom?.name || "—", quantity: Number(data.quantity), priority: (data.priority as WorkOrder["priority"]) || "MEDIUM", status: "PLANNED", startDate: String(data.startDate), endDate: String(data.endDate || ""), assignedTo: String(data.assignedTo), notes: data.notes ? String(data.notes) : undefined }]);
+      setWorkOrders((prev) => [...prev, { id: genId("wo"), bomId: woBomId, bomName: bom?.name || "—", quantity: woQuantity, priority: woPriority, status: "PLANNED", startDate: woStartDate, endDate: woEndDate, assignedTo: woAssignedTo, notes: woNotes || undefined, materials }]);
     }
     setWoFormOpen(false); setEditingWo(null);
   }
@@ -312,10 +354,113 @@ export default function ManufacturingPage() {
         initialData={editingBom ? { name: editingBom.name, productId: store.products.find((p) => p.code === editingBom.productCode)?.id ?? "", version: editingBom.version, status: editingBom.status, batchSize: editingBom.batchSize, batchUnit: editingBom.batchUnit } : undefined}
         onSubmit={handleBomSubmit} submitLabel={editingBom ? "Save" : "Create"} size="lg" />
 
-      <EntityFormModal open={woFormOpen} onOpenChange={setWoFormOpen}
-        title={editingWo ? "Edit Work Order" : "New Work Order"} fields={woFields}
-        initialData={editingWo ? { bomId: editingWo.bomId, quantity: editingWo.quantity, priority: editingWo.priority, status: editingWo.status, startDate: editingWo.startDate, endDate: editingWo.endDate, assignedTo: editingWo.assignedTo, notes: editingWo.notes || "" } : undefined}
-        onSubmit={handleWOSubmit} submitLabel={editingWo ? "Save" : "Create"} size="lg" />
+      {/* ── WO Form Dialog (with materials preview) ── */}
+      <Dialog open={woFormOpen} onOpenChange={(open) => { setWoFormOpen(open); if (!open) setEditingWo(null); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingWo ? "Edit Work Order" : "New Work Order"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="mb-1.5 block text-sm">BOM</Label>
+                <Select value={woBomId} onValueChange={setWoBomId}>
+                  <SelectTrigger><SelectValue placeholder="Select BOM..." /></SelectTrigger>
+                  <SelectContent>
+                    {boms.filter((b) => b.status === "ACTIVE").map((b) => (
+                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-sm">Quantity</Label>
+                <Input type="number" min={1} value={woQuantity || ""} onChange={(e) => setWoQuantity(Math.max(0, Number(e.target.value)))} placeholder="e.g. 500000" />
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-sm">Priority</Label>
+                <Select value={woPriority} onValueChange={(v) => setWoPriority(v as WorkOrder["priority"])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="LOW">Low</SelectItem>
+                    <SelectItem value="MEDIUM">Medium</SelectItem>
+                    <SelectItem value="HIGH">High</SelectItem>
+                    <SelectItem value="URGENT">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {editingWo && (
+                <div>
+                  <Label className="mb-1.5 block text-sm">Status</Label>
+                  <Select value={woStatus} onValueChange={(v) => setWoStatus(v as WorkOrder["status"])}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PLANNED">Planned</SelectItem>
+                      <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                      <SelectItem value="COMPLETED">Completed</SelectItem>
+                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div>
+                <Label className="mb-1.5 block text-sm">Start Date</Label>
+                <Input type="date" value={woStartDate} onChange={(e) => setWoStartDate(e.target.value)} />
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-sm">End Date</Label>
+                <Input type="date" value={woEndDate} onChange={(e) => setWoEndDate(e.target.value)} />
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-sm">Assigned To</Label>
+                <Input value={woAssignedTo} onChange={(e) => setWoAssignedTo(e.target.value)} placeholder="Production Line A" />
+              </div>
+              <div className="col-span-2">
+                <Label className="mb-1.5 block text-sm">Notes</Label>
+                <Input value={woNotes} onChange={(e) => setWoNotes(e.target.value)} placeholder="Optional notes..." />
+              </div>
+            </div>
+
+            {/* Required Materials Preview */}
+            {woPreviewMaterials.length > 0 && (
+              <div>
+                <Label className="text-sm font-semibold mb-2 block">
+                  Required Materials
+                  {woPreviewBom && <span className="font-normal text-muted-foreground ml-1">(scaled from batch of {woPreviewBom.batchSize.toLocaleString()} to {woQuantity.toLocaleString()})</span>}
+                </Label>
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left px-3 py-2 font-medium">Code</th>
+                        <th className="text-left px-3 py-2 font-medium">Material</th>
+                        <th className="text-right px-3 py-2 font-medium">Required Qty</th>
+                        <th className="text-left px-3 py-2 font-medium">Unit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {woPreviewMaterials.map((m, i) => (
+                        <tr key={i}>
+                          <td className="px-3 py-2 font-mono text-xs">{m.materialCode}</td>
+                          <td className="px-3 py-2">{m.materialName}</td>
+                          <td className="px-3 py-2 text-right font-medium">{m.requiredQty}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{m.unit}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => { setWoFormOpen(false); setEditingWo(null); }}>Cancel</Button>
+            <Button type="button" onClick={handleWOSubmit} disabled={!woBomId || woQuantity <= 0 || !woStartDate || !woAssignedTo}>
+              {editingWo ? "Save" : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Materials modal */}
       <Dialog open={materialsModalOpen} onOpenChange={setMaterialsModalOpen}>
@@ -435,26 +580,29 @@ export default function ManufacturingPage() {
                     </div>
                   </div>
                 )}
-                {/* BOM Materials */}
-                {bom && bom.materials.length > 0 && (
+                {/* Required Materials (scaled for this WO) */}
+                {detailWO.materials && detailWO.materials.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold mb-2">BOM Materials ({bom.materials.length})</h4>
+                    <h4 className="text-sm font-semibold mb-2">
+                      Required Materials ({detailWO.materials.length})
+                      {bom && <span className="font-normal text-muted-foreground ml-1">(scaled from batch of {bom.batchSize.toLocaleString()} to {detailWO.quantity.toLocaleString()})</span>}
+                    </h4>
                     <div className="border rounded-lg overflow-hidden">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b bg-muted/50">
                             <th className="text-left px-3 py-2 font-medium">Code</th>
                             <th className="text-left px-3 py-2 font-medium">Material</th>
-                            <th className="text-right px-3 py-2 font-medium">Quantity</th>
+                            <th className="text-right px-3 py-2 font-medium">Required Qty</th>
                             <th className="text-left px-3 py-2 font-medium">Unit</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y">
-                          {bom.materials.map((m, i) => (
+                          {detailWO.materials.map((m, i) => (
                             <tr key={i}>
                               <td className="px-3 py-2 font-mono text-xs">{m.materialCode}</td>
                               <td className="px-3 py-2">{m.materialName}</td>
-                              <td className="px-3 py-2 text-right font-medium">{m.quantity}</td>
+                              <td className="px-3 py-2 text-right font-medium">{m.requiredQty}</td>
                               <td className="px-3 py-2 text-muted-foreground">{m.unit}</td>
                             </tr>
                           ))}
