@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Building, Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
-import { useTranslation } from "@/lib/i18n/i18n-context";
+import { useTranslation, I18nProvider } from "@/lib/i18n/i18n-context";
 
 const DEMO_CREDENTIALS = [
   { username: "admin", password: "admin123", userId: "admin-001" },
@@ -29,6 +29,14 @@ const USER_PROFILES: Record<string, { id: string; name: string; email: string; r
 };
 
 export default function LoginPage() {
+  return (
+    <I18nProvider>
+      <LoginPageInner />
+    </I18nProvider>
+  );
+}
+
+function LoginPageInner() {
   const router = useRouter();
   const { t } = useTranslation();
   const [username, setUsername] = useState("admin");
