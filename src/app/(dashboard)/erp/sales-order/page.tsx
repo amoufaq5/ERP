@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ShoppingBag, Truck, FileText, Plus, ArrowRight, CheckCircle, Package, X, Ban, AlertTriangle, CircleDot } from "lucide-react";
+import { ShoppingBag, Truck, FileText, Plus, ArrowRight, CheckCircle, Package, X, Ban, AlertTriangle } from "lucide-react";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { Button } from "@/components/ui/button";

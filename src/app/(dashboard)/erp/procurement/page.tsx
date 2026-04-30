@@ -1,23 +1,34 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Package, Truck, ClipboardCheck, Plus, ShieldCheck, FileText, ArrowRight, CheckCircle } from "lucide-react";
+import { Package, Truck, ClipboardCheck, Plus, ShieldCheck, FileText, ArrowRight, CheckCircle, X, Anchor, Ship } from "lucide-react";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import StatusBadge from "@/components/shared/status-badge";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { EntityFormModal, type EntityField, type EntityFormData } from "@/components/shared/entity-form-modal";
-import { useDataStore, type PurchaseOrder, type RFQ, type GoodsReceipt } from "@/lib/data-store";
+import { useDataStore, type PurchaseOrder, type RFQ, type GoodsReceipt, type Shipment } from "@/lib/data-store";
 import { VendorLink } from "@/components/shared/entity-detail-dialog";
 import { useTranslation } from "@/lib/i18n/i18n-context";
+
+const COMPANY_NAME = "PharmaCorp Egypt";
+
+interface POLine {
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+}
 
 export default function ProcurementPage() {
   const store = useDataStore();
@@ -34,6 +45,22 @@ export default function ProcurementPage() {
   const [poSearch, setPOSearch] = useState("");
   const [poFilters, setPOFilters] = useState<FilterState>({});
   const [rfqSearch, setRFQSearch] = useState("");
+
+  // Multi-line PO form state
+  const [poVendorId, setPOVendorId] = useState("");
+  const [poExpectedDate, setPOExpectedDate] = useState("");
+  const [poLines, setPOLines] = useState<POLine[]>([{ productId: "", quantity: 1, unitPrice: 0 }]);
+
+  // Shipment state
+  const [showShipmentModal, setShowShipmentModal] = useState(false);
+  const [shipmentPO, setShipmentPO] = useState<PurchaseOrder | null>(null);
+  const [shipCarrier, setShipCarrier] = useState("");
+  const [shipTracking, setShipTracking] = useState("");
+  const [shipDate, setShipDate] = useState("");
+  const [shipExpected, setShipExpected] = useState("");
+  const [shipMethod, setShipMethod] = useState<"Sea" | "Air" | "Land">("Land");
+  const [shipCost, setShipCost] = useState("");
+  const [shipNotes, setShipNotes] = useState("");
 
   const vendorName = (id: string) => store.vendors.find((v) => v.id === id)?.name ?? id;
   const productName = (id: string) => { const p = store.products.find((pr) => pr.id === id); return p ? `${p.name} ${p.strength}` : id; };
@@ -63,15 +90,6 @@ export default function ProcurementPage() {
   }, [store.rfqs, rfqSearch]);
 
   const vendorOptions = store.vendors.map((v) => ({ value: v.id, label: v.name }));
-  const productOptions = store.products.map((p) => ({ value: p.id, label: `${p.name} ${p.strength} (${p.code})` }));
-
-  const poFields: EntityField[] = [
-    { name: "vendorId", label: "Vendor", type: "select", required: true, options: vendorOptions },
-    { name: "productId", label: "Product", type: "select", required: true, options: productOptions },
-    { name: "quantity", label: "Quantity", type: "number", required: true },
-    { name: "unitPrice", label: "Unit Price (EGP)", type: "number", required: true },
-    { name: "expectedDate", label: "Expected Delivery", type: "date", required: true },
-  ];
 
   const rfqFields: EntityField[] = [
     { name: "vendorId", label: "Vendor", type: "select", required: true, options: vendorOptions },
@@ -82,31 +100,65 @@ export default function ProcurementPage() {
     { name: "notes", label: "Notes", type: "textarea" },
   ];
 
-  function handlePOSubmit(data: EntityFormData) {
-    const product = store.products.find((p) => p.id === String(data.productId));
-    const desc = product ? `${product.name} ${product.strength}` : "Custom item";
-    const qty = Number(data.quantity);
-    const price = Number(data.unitPrice);
-    const lineTotal = qty * price;
-    const tax = lineTotal * 0.14;
-    const total = lineTotal + tax;
+  function getLinePrice(productId: string) {
+    return store.products.find((p) => p.id === productId)?.pricePerUnit ?? 0;
+  }
+  function getLineDesc(productId: string) {
+    const product = store.products.find((p) => p.id === productId);
+    return product ? `${product.name} ${product.strength}` : "Custom item";
+  }
+
+  const poSubtotal = poLines.reduce((sum, l) => sum + l.quantity * (l.unitPrice || getLinePrice(l.productId)), 0);
+  const poTax = poSubtotal * 0.14;
+  const poTotal = poSubtotal + poTax;
+
+  function openPOModal(po?: PurchaseOrder | null) {
+    if (po) {
+      setEditingPO(po);
+      setPOVendorId(po.vendorId);
+      setPOExpectedDate(po.expectedDate?.slice(0, 10) ?? "");
+      setPOLines(po.items.map((it) => ({ productId: it.productId, quantity: it.quantity, unitPrice: it.unitPrice })));
+    } else {
+      setEditingPO(null);
+      setPOVendorId("");
+      setPOExpectedDate("");
+      setPOLines([{ productId: "", quantity: 1, unitPrice: 0 }]);
+    }
+    setShowPOModal(true);
+  }
+
+  function handlePOSubmit() {
+    if (!poVendorId || !poExpectedDate || poLines.length === 0) return;
+    if (poLines.some((l) => !l.productId || l.quantity <= 0)) return;
+
+    const items = poLines.map((l) => {
+      const price = l.unitPrice || getLinePrice(l.productId);
+      return {
+        productId: l.productId,
+        description: getLineDesc(l.productId),
+        quantity: l.quantity,
+        unitPrice: price,
+        total: l.quantity * price,
+      };
+    });
+    const subtotal = items.reduce((sum, i) => sum + i.total, 0);
+    const tax = subtotal * 0.14;
+    const total = subtotal + tax;
 
     if (editingPO) {
       store.update("purchaseOrders", editingPO.id, {
-        vendorId: String(data.vendorId),
-        items: [{ productId: String(data.productId), description: desc, quantity: qty, unitPrice: price, total: lineTotal }],
-        subtotal: lineTotal, tax, total,
-        expectedDate: String(data.expectedDate),
+        vendorId: poVendorId,
+        items, subtotal, tax, total,
+        expectedDate: poExpectedDate,
       });
     } else {
       store.add("purchaseOrders", {
         id: store.genId("po"),
         number: store.generatePONumber(),
-        vendorId: String(data.vendorId),
+        vendorId: poVendorId,
         date: new Date().toISOString(),
-        expectedDate: String(data.expectedDate),
-        items: [{ productId: String(data.productId), description: desc, quantity: qty, unitPrice: price, total: lineTotal }],
-        subtotal: lineTotal, tax, total,
+        expectedDate: poExpectedDate,
+        items, subtotal, tax, total,
         status: "DRAFT",
         createdAt: new Date().toISOString(),
       });
@@ -138,6 +190,49 @@ export default function ProcurementPage() {
     }
     setShowRFQModal(false);
     setEditingRFQ(null);
+  }
+
+  // ─── Shipment functions ──────────────────────────────────────────────
+  function openShipmentModal(po: PurchaseOrder) {
+    setShipmentPO(po);
+    setShipCarrier("");
+    setShipTracking("");
+    setShipDate(new Date().toISOString().split("T")[0]);
+    setShipExpected(po.expectedDate?.slice(0, 10) ?? "");
+    setShipMethod("Land");
+    setShipCost("");
+    setShipNotes("");
+    setShowShipmentModal(true);
+  }
+
+  function handleShipmentSubmit() {
+    if (!shipmentPO || !shipCarrier || !shipDate || !shipExpected) return;
+    store.add("shipments", {
+      id: store.genId("shp"),
+      number: store.generateShipmentNumber(),
+      poId: shipmentPO.id,
+      vendorId: shipmentPO.vendorId,
+      carrier: shipCarrier,
+      trackingNumber: shipTracking,
+      shipDate,
+      expectedArrival: shipExpected,
+      method: shipMethod,
+      cost: Number(shipCost) || 0,
+      status: "IN_TRANSIT",
+      items: shipmentPO.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })),
+      notes: shipNotes || undefined,
+      createdAt: new Date().toISOString(),
+    });
+    setShowShipmentModal(false);
+    setShipmentPO(null);
+  }
+
+  function markShipmentDelivered(shipment: Shipment) {
+    store.update("shipments", shipment.id, { status: "DELIVERED" });
+    const po = store.purchaseOrders.find((p) => p.id === shipment.poId);
+    if (po && po.status === "ORDERED") {
+      receivePO(po);
+    }
   }
 
   // ─── Integration: Approve PO ─────────────────────────────────────────
@@ -244,7 +339,7 @@ export default function ProcurementPage() {
             <Button variant="outline" onClick={() => { setEditingRFQ(null); setShowRFQModal(true); }}>
               <Plus className="h-4 w-4 mr-2" /> {t("proc.createRFQ")}
             </Button>
-            <Button onClick={() => { setEditingPO(null); setShowPOModal(true); }}>
+            <Button onClick={() => openPOModal()}>
               <Plus className="h-4 w-4 mr-2" /> {t("proc.createPO")}
             </Button>
           </div>
@@ -261,6 +356,7 @@ export default function ProcurementPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="orders">{t("proc.purchaseOrders")} ({store.purchaseOrders.length})</TabsTrigger>
+          <TabsTrigger value="shipments">Shipments ({store.shipments.length})</TabsTrigger>
           <TabsTrigger value="rfqs">{t("proc.rfqs")} ({store.rfqs.length})</TabsTrigger>
           <TabsTrigger value="grn">{t("proc.grn")} ({store.goodsReceipts.length})</TabsTrigger>
         </TabsList>
@@ -313,13 +409,18 @@ export default function ProcurementPage() {
                           </Button>
                         )}
                         {po.status === "ORDERED" && (
-                          <Button size="sm" className="h-7 text-xs" onClick={() => receivePO(po)}>
-                            <ArrowRight className="h-3 w-3 mr-1" /> Receive
-                          </Button>
+                          <>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openShipmentModal(po)}>
+                              <Anchor className="h-3 w-3 mr-1" /> Shipment
+                            </Button>
+                            <Button size="sm" className="h-7 text-xs" onClick={() => receivePO(po)}>
+                              <ArrowRight className="h-3 w-3 mr-1" /> Receive
+                            </Button>
+                          </>
                         )}
                         <EditDeleteMenu
                           onView={() => setDetailPO(po)}
-                          onEdit={po.status === "DRAFT" ? () => { setEditingPO(po); setShowPOModal(true); } : undefined}
+                          onEdit={po.status === "DRAFT" ? () => openPOModal(po) : undefined}
                           onDelete={po.status === "DRAFT" ? () => store.remove("purchaseOrders", po.id) : undefined}
                           canView
                           itemLabel={po.number}
@@ -344,12 +445,69 @@ export default function ProcurementPage() {
                 <ArrowRight className="h-3 w-3" />
                 <Badge variant="outline" className="bg-blue-50">Approved</Badge>
                 <ArrowRight className="h-3 w-3" />
-                <Badge variant="outline" className="bg-amber-50">Ordered</Badge>
+                <Badge variant="outline" className="bg-amber-50">Ordered → Create Shipment</Badge>
+                <ArrowRight className="h-3 w-3" />
+                <Badge variant="outline" className="bg-cyan-50">Shipment Delivered → Auto Receive</Badge>
                 <ArrowRight className="h-3 w-3" />
                 <Badge variant="outline" className="bg-green-50">Received → Auto GRN</Badge>
                 <ArrowRight className="h-3 w-3" />
                 <Badge variant="outline" className="bg-purple-50">GRN Confirmed → Auto Invoice + Journal Entry</Badge>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Shipments Tab ── */}
+        <TabsContent value="shipments" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Shipments</CardTitle>
+              <CardDescription>Track shipments linked to purchase orders. Create from ordered POs.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={[
+                  { key: "number", label: "Shipment #", render: (v: string) => <span className="font-mono text-xs font-semibold">{v}</span> },
+                  { key: "poId", label: "PO Ref", render: (v: string) => {
+                    const po = store.purchaseOrders.find((p) => p.id === v);
+                    return <span className="font-mono text-xs">{po?.number ?? v}</span>;
+                  }},
+                  { key: "vendorId", label: "Vendor", render: (v: string) => <VendorLink vendorId={v} /> },
+                  { key: "method", label: "Method", render: (v: string) => (
+                    <Badge className={v === "Air" ? "bg-sky-100 text-sky-800" : v === "Sea" ? "bg-blue-100 text-blue-800" : "bg-amber-100 text-amber-800"}>{v}</Badge>
+                  )},
+                  { key: "carrier", label: "Carrier" },
+                  { key: "trackingNumber", label: "Tracking", render: (v: string) => <span className="font-mono text-xs">{v || "—"}</span> },
+                  { key: "shipDate", label: "Ship Date", render: (v: string) => v?.slice(0, 10) },
+                  { key: "expectedArrival", label: "ETA", render: (v: string) => v?.slice(0, 10) },
+                  { key: "cost", label: "Cost", className: "text-right", render: (v: number) => <span>{v > 0 ? `EGP ${v.toLocaleString()}` : "—"}</span> },
+                  { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
+                  { key: "id", label: "Actions", className: "text-right", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const s = row as unknown as Shipment;
+                    return (
+                      <div className="flex items-center justify-end gap-1">
+                        {s.status === "IN_TRANSIT" && (
+                          <>
+                            <Button size="sm" variant="outline" className="h-7 text-xs text-amber-600" onClick={() => store.update("shipments", s.id, { status: "DELAYED" })}>
+                              Delayed
+                            </Button>
+                            <Button size="sm" className="h-7 text-xs" onClick={() => markShipmentDelivered(s)}>
+                              <CheckCircle className="h-3 w-3 mr-1" /> Delivered
+                            </Button>
+                          </>
+                        )}
+                        {s.status === "DELAYED" && (
+                          <Button size="sm" className="h-7 text-xs" onClick={() => markShipmentDelivered(s)}>
+                            <CheckCircle className="h-3 w-3 mr-1" /> Delivered
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={store.shipments as unknown as Record<string, unknown>[]}
+                exportable exportFilename="shipments.csv" emptyMessage="No shipments. Create one from an ordered PO."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -460,23 +618,104 @@ export default function ProcurementPage() {
         </TabsContent>
       </Tabs>
 
-      {/* ── PO Form Modal ── */}
-      <EntityFormModal
-        open={showPOModal}
-        onOpenChange={(open) => { setShowPOModal(open); if (!open) setEditingPO(null); }}
-        title={editingPO ? `Edit ${editingPO.number}` : "New Purchase Order"}
-        description="PO number will be generated automatically"
-        fields={poFields}
-        initialData={editingPO ? {
-          vendorId: editingPO.vendorId,
-          productId: editingPO.items[0]?.productId ?? "",
-          quantity: editingPO.items[0]?.quantity ?? 0,
-          unitPrice: editingPO.items[0]?.unitPrice ?? 0,
-          expectedDate: editingPO.expectedDate?.slice(0, 10) ?? "",
-        } : undefined}
-        onSubmit={handlePOSubmit}
-        submitLabel={editingPO ? "Update" : "Create PO"}
-      />
+      {/* ── PO Form Modal (multi-line) ── */}
+      <Dialog open={showPOModal} onOpenChange={(open) => { setShowPOModal(open); if (!open) setEditingPO(null); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingPO ? `Edit ${editingPO.number}` : "New Purchase Order"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">PO number auto-generated. Buyer: <span className="font-semibold">{COMPANY_NAME}</span></p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="mb-1.5 block text-sm">Vendor</Label>
+                <Select value={poVendorId} onValueChange={setPOVendorId}>
+                  <SelectTrigger><SelectValue placeholder="Select vendor..." /></SelectTrigger>
+                  <SelectContent>
+                    {store.vendors.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-sm">Expected Delivery</Label>
+                <Input type="date" value={poExpectedDate} onChange={(e) => setPOExpectedDate(e.target.value)} />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-semibold">Line Items</Label>
+                <Button type="button" variant="outline" size="sm" onClick={() => setPOLines((prev) => [...prev, { productId: "", quantity: 1, unitPrice: 0 }])}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />Add Line
+                </Button>
+              </div>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left px-3 py-2 font-medium">Product</th>
+                      <th className="text-right px-3 py-2 font-medium w-24">Qty</th>
+                      <th className="text-right px-3 py-2 font-medium w-28">Unit Price</th>
+                      <th className="text-right px-3 py-2 font-medium w-28">Line Total</th>
+                      <th className="w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {poLines.map((line, idx) => {
+                      const unitPrice = line.unitPrice || getLinePrice(line.productId);
+                      const lineTotal = line.quantity * unitPrice;
+                      return (
+                        <tr key={idx}>
+                          <td className="px-3 py-2">
+                            <Select value={line.productId} onValueChange={(v) => setPOLines((prev) => prev.map((l, i) => i === idx ? { ...l, productId: v, unitPrice: 0 } : l))}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select product..." /></SelectTrigger>
+                              <SelectContent>
+                                {store.products.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>{p.name} {p.strength} ({p.code})</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input type="number" min={1} className="h-8 text-sm text-right" value={line.quantity} onChange={(e) => setPOLines((prev) => prev.map((l, i) => i === idx ? { ...l, quantity: Math.max(1, Number(e.target.value)) } : l))} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input type="number" min={0} className="h-8 text-sm text-right" value={line.unitPrice || ""} placeholder={unitPrice > 0 ? String(unitPrice) : "0"} onChange={(e) => setPOLines((prev) => prev.map((l, i) => i === idx ? { ...l, unitPrice: Number(e.target.value) || 0 } : l))} />
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs font-medium">
+                            {lineTotal > 0 ? `EGP ${lineTotal.toLocaleString()}` : "—"}
+                          </td>
+                          <td className="px-1 py-2">
+                            {poLines.length > 1 && (
+                              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500" onClick={() => setPOLines((prev) => prev.filter((_, i) => i !== idx))}>
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="border rounded-lg p-3 bg-muted/30 space-y-1 text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">EGP {poSubtotal.toLocaleString()}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Tax (14%)</span><span className="font-medium">EGP {poTax.toLocaleString()}</span></div>
+              <div className="flex justify-between border-t pt-1 mt-1"><span className="font-semibold">Total</span><span className="font-bold text-base">EGP {poTotal.toLocaleString()}</span></div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => { setShowPOModal(false); setEditingPO(null); }}>Cancel</Button>
+            <Button type="button" onClick={handlePOSubmit} disabled={!poVendorId || !poExpectedDate || poLines.some((l) => !l.productId || l.quantity <= 0)}>
+              {editingPO ? "Update" : "Create PO"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── RFQ Form Modal ── */}
       <EntityFormModal
@@ -497,6 +736,66 @@ export default function ProcurementPage() {
         submitLabel={editingRFQ ? "Update" : "Create RFQ"}
       />
 
+      {/* ── Shipment Form Modal ── */}
+      <Dialog open={showShipmentModal} onOpenChange={(open) => { setShowShipmentModal(open); if (!open) setShipmentPO(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create Shipment {shipmentPO ? `for ${shipmentPO.number}` : ""}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {shipmentPO && (
+              <div className="text-sm bg-muted/30 rounded-lg p-3">
+                <p><span className="text-muted-foreground">Vendor:</span> <span className="font-medium">{vendorName(shipmentPO.vendorId)}</span></p>
+                <p><span className="text-muted-foreground">Items:</span> {shipmentPO.items.map((i) => `${i.description} ×${i.quantity}`).join(", ")}</p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm">Carrier</Label>
+                <Input value={shipCarrier} onChange={(e) => setShipCarrier(e.target.value)} placeholder="DHL, Maersk, etc." />
+              </div>
+              <div>
+                <Label className="text-sm">Tracking Number</Label>
+                <Input value={shipTracking} onChange={(e) => setShipTracking(e.target.value)} placeholder="Optional" />
+              </div>
+              <div>
+                <Label className="text-sm">Ship Date</Label>
+                <Input type="date" value={shipDate} onChange={(e) => setShipDate(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-sm">Expected Arrival</Label>
+                <Input type="date" value={shipExpected} onChange={(e) => setShipExpected(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-sm">Shipping Method</Label>
+                <Select value={shipMethod} onValueChange={(v) => setShipMethod(v as "Sea" | "Air" | "Land")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Land">Land</SelectItem>
+                    <SelectItem value="Sea">Sea</SelectItem>
+                    <SelectItem value="Air">Air</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm">Shipping Cost (EGP)</Label>
+                <Input type="number" min={0} value={shipCost} onChange={(e) => setShipCost(e.target.value)} placeholder="0" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm">Notes</Label>
+              <Input value={shipNotes} onChange={(e) => setShipNotes(e.target.value)} placeholder="Optional notes..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowShipmentModal(false); setShipmentPO(null); }}>Cancel</Button>
+            <Button onClick={handleShipmentSubmit} disabled={!shipCarrier || !shipDate || !shipExpected}>
+              Create Shipment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── PO Detail Dialog ── */}
       <Dialog open={!!detailPO} onOpenChange={(o) => !o && setDetailPO(null)}>
         <DialogContent className="max-w-lg">
@@ -504,6 +803,7 @@ export default function ProcurementPage() {
           {detailPO && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
+                <div><span className="text-muted-foreground">Buyer</span><p className="font-medium">{COMPANY_NAME}</p></div>
                 <div><span className="text-muted-foreground">Vendor</span><p className="font-medium">{vendorName(detailPO.vendorId)}</p></div>
                 <div><span className="text-muted-foreground">Status</span><p><StatusBadge status={detailPO.status} /></p></div>
                 <div><span className="text-muted-foreground">Date</span><p>{detailPO.date?.slice(0, 10)}</p></div>

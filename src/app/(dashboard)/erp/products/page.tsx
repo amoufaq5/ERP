@@ -988,6 +988,328 @@ export default function ProductsPage() {
         submitLabel={editingProduct ? "Save" : "Create"}
         size="xl"
       />
+
+      {/* ── Product Detail Dialog ── */}
+      <Dialog open={!!detailProduct} onOpenChange={(open) => { if (!open) { setDetailProduct(null); setCfFormOpen(false); } }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              {detailProduct?.name} {detailProduct?.strength}
+            </DialogTitle>
+          </DialogHeader>
+          {detailProduct && (() => {
+            const p = detailProduct;
+            const isLow = p.stockQty <= p.reorderLevel;
+            const stockPct = Math.min(Math.round((p.stockQty / Math.max(p.reorderLevel * 3, 1)) * 100), 100);
+            const docs = p.documents ?? [];
+            return (
+              <div className="space-y-4">
+                {/* Tab buttons */}
+                <div className="flex gap-1 border-b border-border pb-2">
+                  {(["overview", "stock", "documents", "conversion"] as const).map((t) => (
+                    <button key={t} onClick={() => setDetailTab(t)}
+                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${detailTab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+                      {t === "overview" ? "Overview" : t === "stock" ? "Stock" : t === "documents" ? `Documents (${docs.length})` : "Conversion"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Overview Tab */}
+                {detailTab === "overview" && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><span className="text-sm text-muted-foreground">Code</span><p className="font-medium font-mono">{p.code}</p></div>
+                    <div><span className="text-sm text-muted-foreground">Form</span><p><Badge variant="secondary">{p.form}</Badge></p></div>
+                    <div><span className="text-sm text-muted-foreground">Strength</span><p className="font-medium">{p.strength}</p></div>
+                    <div><span className="text-sm text-muted-foreground">Therapeutic Area</span><p className="font-medium">{p.therapeuticArea}</p></div>
+                    <div><span className="text-sm text-muted-foreground">Business Unit</span><p className="font-medium">{p.buId ? buMap[p.buId] || p.buId : "N/A"}</p></div>
+                    <div><span className="text-sm text-muted-foreground">Price per Unit</span><p className="font-medium">{fmt(p.pricePerUnit)}</p></div>
+                    <div><span className="text-sm text-muted-foreground">EDA Registration</span><p className="font-medium font-mono">{p.edaRegistration || "N/A"}</p></div>
+                    <div><span className="text-sm text-muted-foreground">Manufacturer</span><p className="font-medium">{p.manufacturer || "N/A"}</p></div>
+                    <div><span className="text-sm text-muted-foreground">Shelf Life</span><p className="font-medium">{p.shelfLife || "N/A"}</p></div>
+                    <div><span className="text-sm text-muted-foreground">Storage Condition</span><p className="font-medium">{p.storageCondition || "N/A"}</p></div>
+                    {p.description && (
+                      <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{p.description}</p></div>
+                    )}
+                  </div>
+                )}
+
+                {/* Stock Tab */}
+                {detailTab === "stock" && (
+                  <div className="space-y-4">
+                    {isLow && (
+                      <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-3">
+                        <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium text-red-700">Stock Alert</p>
+                          <p className="text-xs text-red-600">Current stock ({p.stockQty.toLocaleString()}) is at or below reorder level ({p.reorderLevel.toLocaleString()})</p>
+                        </div>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div><span className="text-sm text-muted-foreground">Current Stock</span><p className={`text-2xl font-bold ${isLow ? "text-red-600" : ""}`}>{p.stockQty.toLocaleString()}</p></div>
+                      <div><span className="text-sm text-muted-foreground">Reorder Level</span><p className="text-2xl font-bold">{p.reorderLevel.toLocaleString()}</p></div>
+                      <div><span className="text-sm text-muted-foreground">Warehouse</span><p className="font-medium">{p.warehouse || "Not assigned"}</p></div>
+                      <div><span className="text-sm text-muted-foreground">Inventory Value</span><p className="font-medium text-lg">{fmt(p.stockQty * p.pricePerUnit)}</p></div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-muted-foreground">Stock Level</span>
+                        <span className={`font-medium ${isLow ? "text-red-600" : ""}`}>{p.stockQty.toLocaleString()} / {(p.reorderLevel * 3).toLocaleString()}</span>
+                      </div>
+                      <div className="h-3 bg-muted rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${isLow ? "bg-red-500" : stockPct > 70 ? "bg-emerald-500" : "bg-amber-500"}`} style={{ width: `${stockPct}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Documents Tab */}
+                {detailTab === "documents" && (
+                  <div className="space-y-4">
+                    <Card>
+                      <CardContent className="p-4 space-y-3">
+                        <p className="text-sm font-medium">Upload New Document</p>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <div className="flex-1">
+                            <Label className="text-xs text-muted-foreground mb-1 block">Document Type</Label>
+                            <Select value={docType} onValueChange={setDocType}>
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {PRODUCT_DOC_TYPES.map((dt) => (
+                                  <SelectItem key={dt} value={dt}>{dt}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex items-end">
+                            <input
+                              ref={docInputRef}
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                              className="hidden"
+                              onChange={handleProductDocUpload}
+                            />
+                            <Button size="sm" onClick={() => docInputRef.current?.click()}>
+                              <Upload className="h-4 w-4 mr-1" /> Choose File
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Uploaded Documents ({docs.length})</p>
+                      {docs.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4 border rounded-lg">No documents uploaded yet.</p>
+                      ) : (
+                        <div className="border rounded-lg overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead className="bg-muted/50">
+                              <tr>
+                                <th className="px-3 py-2 text-left">Name</th>
+                                <th className="px-3 py-2 text-left">Type</th>
+                                <th className="px-3 py-2 text-left">Uploaded</th>
+                                <th className="px-3 py-2 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {docs.map((doc) => (
+                                <tr key={doc.id} className="hover:bg-muted/30">
+                                  <td className="px-3 py-2">
+                                    <div className="flex items-center gap-2">
+                                      <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+                                      <span className="truncate max-w-[200px]">{doc.name}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <Badge variant="outline" className="text-[10px]">{doc.type}</Badge>
+                                  </td>
+                                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                                    {new Date(doc.uploadedAt).toLocaleDateString()}
+                                  </td>
+                                  <td className="px-3 py-2 text-right">
+                                    <div className="flex items-center gap-1 justify-end">
+                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => viewProductDoc(doc)} title="View">
+                                        <Eye className="h-3.5 w-3.5 text-blue-600" />
+                                      </Button>
+                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
+                                        const a = document.createElement("a");
+                                        a.href = doc.data;
+                                        a.download = doc.name;
+                                        a.click();
+                                      }} title="Download">
+                                        <Download className="h-3.5 w-3.5 text-green-600" />
+                                      </Button>
+                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => removeProductDoc(doc.id)} title="Delete">
+                                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Conversion Tab */}
+                {detailTab === "conversion" && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">Conversion Formulas ({productFormulas.length})</p>
+                      <Button size="sm" onClick={openNewFormulaForm}>
+                        <Plus className="h-3 w-3 mr-1" /> New Formula
+                      </Button>
+                    </div>
+
+                    {/* New Formula Form */}
+                    {cfFormOpen && (
+                      <Card className="border-primary/30">
+                        <CardContent className="p-4 space-y-3">
+                          <p className="text-sm font-semibold">New Conversion Formula</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs">Formula Name</Label>
+                              <Input className="h-8 text-sm mt-0.5" value={cfName} onChange={(e) => setCfName(e.target.value)} placeholder="e.g. Standard Batch" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <Label className="text-xs">Batch Size</Label>
+                                <Input className="h-8 text-sm mt-0.5" type="number" value={cfBatchSize} onChange={(e) => setCfBatchSize(Number(e.target.value))} />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Batch Unit</Label>
+                                <Input className="h-8 text-sm mt-0.5" value={cfBatchUnit} onChange={(e) => setCfBatchUnit(e.target.value)} placeholder="units/kg/L" />
+                              </div>
+                            </div>
+                            <div>
+                              <Label className="text-xs">Yield %</Label>
+                              <Input className="h-8 text-sm mt-0.5" type="number" value={cfYield} onChange={(e) => setCfYield(Number(e.target.value))} />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Instructions (optional)</Label>
+                              <Input className="h-8 text-sm mt-0.5" value={cfInstructions} onChange={(e) => setCfInstructions(e.target.value)} placeholder="Brief instructions..." />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs font-semibold">Ingredients (Raw Materials)</Label>
+                              <Button size="sm" variant="outline" className="h-6 text-xs" onClick={addIngredientRow}>
+                                <Plus className="h-3 w-3 mr-1" /> Add Ingredient
+                              </Button>
+                            </div>
+                            {cfIngredients.length === 0 && (
+                              <p className="text-xs text-muted-foreground text-center py-2 border rounded">No ingredients added yet. Click &quot;Add Ingredient&quot; to start.</p>
+                            )}
+                            {cfIngredients.map((ing, idx) => (
+                              <div key={idx} className="grid grid-cols-[1fr_80px_60px_30px] gap-2 items-end">
+                                <div>
+                                  <select className="w-full rounded-md border px-2 py-1.5 text-xs" value={ing.rawMaterialId} onChange={(e) => updateIngredient(idx, "rawMaterialId", e.target.value)}>
+                                    <option value="">Select product...</option>
+                                    {products.map((pr) => <option key={pr.id} value={pr.id}>{pr.code} - {pr.name} {pr.strength}</option>)}
+                                  </select>
+                                </div>
+                                <div>
+                                  <Input className="h-7 text-xs" type="number" placeholder="Qty" value={ing.quantity || ""} onChange={(e) => updateIngredient(idx, "quantity", Number(e.target.value))} />
+                                </div>
+                                <div>
+                                  <Input className="h-7 text-xs" placeholder="unit" value={ing.unit} onChange={(e) => updateIngredient(idx, "unit", e.target.value)} />
+                                </div>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500" onClick={() => removeIngredientRow(idx)}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={submitConversionFormula} disabled={!cfName || cfIngredients.filter((i) => i.rawMaterialId && i.quantity > 0).length === 0}>
+                              <Plus className="h-3 w-3 mr-1" /> Create Formula
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setCfFormOpen(false)}>Cancel</Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Existing Formulas */}
+                    {productFormulas.length === 0 && !cfFormOpen && (
+                      <p className="text-sm text-muted-foreground text-center py-4 border rounded-lg">No conversion formulas defined for this product.</p>
+                    )}
+                    {productFormulas.map((formula) => (
+                      <Card key={formula.id}>
+                        <CardContent className="p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-sm flex items-center gap-2">
+                                <Beaker className="h-4 w-4 text-purple-600" />
+                                {formula.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Batch: {formula.batchSize.toLocaleString()} {formula.batchUnit} | Yield: {formula.yieldPercent}%
+                              </p>
+                            </div>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500" onClick={() => deleteConversionFormula(formula.id)} title="Delete formula">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          {formula.instructions && (
+                            <p className="text-xs text-muted-foreground border-l-2 border-muted pl-2">{formula.instructions}</p>
+                          )}
+                          <div className="border rounded-lg overflow-hidden">
+                            <table className="w-full text-xs">
+                              <thead className="bg-muted/50">
+                                <tr>
+                                  <th className="px-2 py-1.5 text-left">Raw Material</th>
+                                  <th className="px-2 py-1.5 text-right">Quantity</th>
+                                  <th className="px-2 py-1.5 text-left">Unit</th>
+                                  <th className="px-2 py-1.5 text-right">Cost</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y">
+                                {formula.ingredients.map((ing, i) => {
+                                  const rm = products.find((pr) => pr.id === ing.rawMaterialId);
+                                  return (
+                                    <tr key={i}>
+                                      <td className="px-2 py-1.5 font-medium">{rm ? `${rm.name} (${rm.code})` : ing.rawMaterialId}</td>
+                                      <td className="px-2 py-1.5 text-right">{ing.quantity.toLocaleString()}</td>
+                                      <td className="px-2 py-1.5">{ing.unit}</td>
+                                      <td className="px-2 py-1.5 text-right">{rm ? fmt(ing.quantity * rm.pricePerUnit) : "N/A"}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot className="bg-muted/30">
+                                <tr>
+                                  <td colSpan={3} className="px-2 py-1.5 font-semibold">Total Raw Material Cost</td>
+                                  <td className="px-2 py-1.5 text-right font-semibold">
+                                    {fmt(formula.ingredients.reduce((s, ing) => {
+                                      const rm = products.find((pr) => pr.id === ing.rawMaterialId);
+                                      return s + (rm ? ing.quantity * rm.pricePerUnit : 0);
+                                    }, 0))}
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">Created: {new Date(formula.createdAt).toLocaleDateString()}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

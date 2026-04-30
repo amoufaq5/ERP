@@ -30,6 +30,8 @@ import {
   type Cheque,
   type SalesOrder,
   type PurchaseOrder,
+  type GoodsReceipt,
+  type BankAccount,
 } from "@/lib/data-store";
 import {
   ArrowLeft,
@@ -107,6 +109,25 @@ export default function PartnerDetailPage() {
     if (isCustomer || !partnerId) return [];
     return store.purchaseOrders.filter((po) => po.vendorId === partnerId);
   }, [store.purchaseOrders, partnerId, isCustomer]);
+
+  const goodsReceipts = useMemo(() => {
+    if (isCustomer || !partnerId) return [];
+    return store.goodsReceipts.filter((grn) => grn.vendorId === partnerId);
+  }, [store.goodsReceipts, partnerId, isCustomer]);
+
+  // Vendor invoices: invoices linked from purchase orders
+  const vendorInvoices = useMemo(() => {
+    if (isCustomer || !partnerId) return [];
+    const invoiceIds = purchaseOrders.filter((po) => po.invoiceId).map((po) => po.invoiceId!);
+    return store.invoices.filter((inv) => invoiceIds.includes(inv.id));
+  }, [store.invoices, purchaseOrders, partnerId, isCustomer]);
+
+  // Bank accounts linked through payments
+  const linkedBankAccounts = useMemo(() => {
+    const bankIds = new Set<string>();
+    payments.forEach((p) => { if (p.bankAccountId) bankIds.add(p.bankAccountId); });
+    return store.bankAccounts.filter((b) => bankIds.has(b.id));
+  }, [payments, store.bankAccounts]);
 
   // Financial summary
   const totalInvoiced = invoices.reduce((s, i) => s + i.total, 0);
@@ -237,7 +258,7 @@ export default function PartnerDetailPage() {
         </div>
       </div>
 
-      {/* Contact info */}
+      {/* Contact & Entity Info */}
       <Card>
         <CardContent className="p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
@@ -272,6 +293,54 @@ export default function PartnerDetailPage() {
               </div>
             )}
           </div>
+          {/* Customer-specific details */}
+          {isCustomer && customer && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm mt-4 pt-4 border-t">
+              {customer.buId && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Business Unit</p>
+                  <p className="font-medium">{store.businessUnits?.find((bu) => bu.id === customer.buId)?.name ?? customer.buId}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-muted-foreground">Customer Type</p>
+                <p className="font-medium">{customer.type}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Credit Limit</p>
+                <p className="font-medium">{egp(customer.creditLimit)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Payment Terms</p>
+                <p className="font-medium">{customer.paymentTerms}</p>
+              </div>
+            </div>
+          )}
+          {/* Vendor-specific details */}
+          {!isCustomer && vendor && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm mt-4 pt-4 border-t">
+              <div>
+                <p className="text-xs text-muted-foreground">Category</p>
+                <p className="font-medium">{(vendor as Vendor).category}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Payment Terms</p>
+                <p className="font-medium">{(vendor as Vendor).paymentTerms}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">GMP Certified</p>
+                <p className="font-medium">
+                  {(vendor as Vendor).gmpCertified
+                    ? <Badge className="bg-green-100 text-green-800">Certified</Badge>
+                    : <Badge variant="outline">Not Certified</Badge>}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Outstanding</p>
+                <p className="font-medium text-red-600">{egp((vendor as Vendor).outstanding)}</p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -293,6 +362,15 @@ export default function PartnerDetailPage() {
             iconColor="bg-blue-100 text-blue-600"
           />
         )}
+        {!isCustomer && (
+          <StatsCard
+            icon={FileText}
+            title="GRN History"
+            value={String(goodsReceipts.length)}
+            subtitle={`${goodsReceipts.filter((g) => g.status === "RECEIVED" || g.status === "INSPECTED").length} received`}
+            iconColor="bg-blue-100 text-blue-600"
+          />
+        )}
         <StatsCard
           icon={FileText}
           title={isCustomer ? "Total Invoiced" : "Total Purchases"}
@@ -310,46 +388,83 @@ export default function PartnerDetailPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="invoices">
+      <Tabs defaultValue={isCustomer ? "invoices" : "orders"}>
         <TabsList className="flex flex-wrap gap-1">
           <TabsTrigger value="invoices">
-            {isCustomer ? "Invoices" : "Invoices"} ({invoices.length})
+            Invoices ({isCustomer ? invoices.length : vendorInvoices.length})
           </TabsTrigger>
           <TabsTrigger value="payments">Payments ({payments.length})</TabsTrigger>
           <TabsTrigger value="cheques">Cheques ({cheques.length})</TabsTrigger>
           <TabsTrigger value="orders">
             {isCustomer ? "Sales Orders" : "Purchase Orders"} ({isCustomer ? salesOrders.length : purchaseOrders.length})
           </TabsTrigger>
+          {!isCustomer && (
+            <TabsTrigger value="grn">GRN History ({goodsReceipts.length})</TabsTrigger>
+          )}
+          <TabsTrigger value="banking">Banking ({linkedBankAccounts.length})</TabsTrigger>
           <TabsTrigger value="documents">Documents ({isCustomer ? (customer?.documents ?? []).length : 0})</TabsTrigger>
           <TabsTrigger value="ledger">Ledger ({ledgerEntries.length})</TabsTrigger>
         </TabsList>
 
         {/* Invoices */}
         <TabsContent value="invoices" className="space-y-3">
-          <Card>
-            <CardContent className="p-0 overflow-x-auto">
-              <DataTable
-                columns={[
-                  { key: "number", label: "Invoice #", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
-                  { key: "date", label: "Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
-                  { key: "dueDate", label: "Due Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
-                  { key: "subtotal", label: "Subtotal", className: "text-right", render: (v: number) => egp(v) },
-                  { key: "tax", label: "Tax", className: "text-right", render: (v: number) => egp(v) },
-                  { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{egp(v)}</span> },
-                  { key: "status", label: "Status", render: (v: string) => (
-                    <Badge className={
-                      v === "PAID" ? "bg-green-100 text-green-800"
-                        : v === "OVERDUE" ? "bg-red-100 text-red-800"
-                          : v === "VOID" ? "bg-slate-100 text-slate-800"
-                            : "bg-amber-100 text-amber-800"
-                    }>{v}</Badge>
-                  ) },
-                ] as Column<Record<string, unknown>>[]}
-                data={invoices as unknown as Record<string, unknown>[]}
-                emptyMessage="No invoices found."
-              />
-            </CardContent>
-          </Card>
+          {isCustomer ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Customer Invoices</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 overflow-x-auto">
+                <DataTable
+                  columns={[
+                    { key: "number", label: "Invoice #", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                    { key: "date", label: "Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
+                    { key: "dueDate", label: "Due Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
+                    { key: "subtotal", label: "Subtotal", className: "text-right", render: (v: number) => egp(v) },
+                    { key: "tax", label: "Tax", className: "text-right", render: (v: number) => egp(v) },
+                    { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{egp(v)}</span> },
+                    { key: "status", label: "Status", render: (v: string) => (
+                      <Badge className={
+                        v === "PAID" ? "bg-green-100 text-green-800"
+                          : v === "OVERDUE" ? "bg-red-100 text-red-800"
+                            : v === "VOID" ? "bg-slate-100 text-slate-800"
+                              : "bg-amber-100 text-amber-800"
+                      }>{v}</Badge>
+                    ) },
+                  ] as Column<Record<string, unknown>>[]}
+                  data={invoices as unknown as Record<string, unknown>[]}
+                  emptyMessage="No invoices found."
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Vendor Invoices (from Purchase Orders)</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 overflow-x-auto">
+                <DataTable
+                  columns={[
+                    { key: "number", label: "Invoice #", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                    { key: "date", label: "Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
+                    { key: "dueDate", label: "Due Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
+                    { key: "subtotal", label: "Subtotal", className: "text-right", render: (v: number) => egp(v) },
+                    { key: "tax", label: "Tax", className: "text-right", render: (v: number) => egp(v) },
+                    { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{egp(v)}</span> },
+                    { key: "status", label: "Status", render: (v: string) => (
+                      <Badge className={
+                        v === "PAID" ? "bg-green-100 text-green-800"
+                          : v === "OVERDUE" ? "bg-red-100 text-red-800"
+                            : v === "VOID" ? "bg-slate-100 text-slate-800"
+                              : "bg-amber-100 text-amber-800"
+                      }>{v}</Badge>
+                    ) },
+                  ] as Column<Record<string, unknown>>[]}
+                  data={vendorInvoices as unknown as Record<string, unknown>[]}
+                  emptyMessage="No invoices linked to purchase orders for this vendor."
+                />
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Payments */}
@@ -438,6 +553,156 @@ export default function PartnerDetailPage() {
                   data={purchaseOrders as unknown as Record<string, unknown>[]}
                   emptyMessage="No purchase orders found."
                 />
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* GRN History (vendor only) */}
+        {!isCustomer && (
+          <TabsContent value="grn" className="space-y-3">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Goods Received Notes</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 overflow-x-auto">
+                <DataTable
+                  columns={[
+                    { key: "number", label: "GRN #", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                    { key: "poId", label: "PO #", render: (v: string) => {
+                      const po = purchaseOrders.find((p) => p.id === v);
+                      return <span className="font-mono text-xs">{po?.number ?? v}</span>;
+                    }},
+                    { key: "date", label: "Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
+                    { key: "items", label: "Items", render: (v: unknown) => {
+                      const items = v as GoodsReceipt["items"];
+                      return <span className="text-xs">{items.length} item{items.length !== 1 ? "s" : ""}</span>;
+                    }},
+                    { key: "id", label: "Total Qty", render: (_v: string, row: Record<string, unknown>) => {
+                      const grn = row as unknown as GoodsReceipt;
+                      const totalQty = grn.items.reduce((s, item) => s + item.quantity, 0);
+                      return <span className="text-xs font-medium">{totalQty}</span>;
+                    }},
+                    { key: "status", label: "Status", render: (v: string) => (
+                      <Badge className={
+                        v === "RECEIVED" ? "bg-green-100 text-green-800"
+                          : v === "INSPECTED" ? "bg-blue-100 text-blue-800"
+                            : v === "REJECTED" ? "bg-red-100 text-red-800"
+                              : "bg-amber-100 text-amber-800"
+                      }>{v}</Badge>
+                    ) },
+                  ] as Column<Record<string, unknown>>[]}
+                  data={goodsReceipts as unknown as Record<string, unknown>[]}
+                  emptyMessage="No goods receipts found for this vendor."
+                />
+              </CardContent>
+            </Card>
+            {goodsReceipts.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-xs text-muted-foreground">Total GRNs</div>
+                    <div className="text-lg font-bold">{goodsReceipts.length}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-xs text-muted-foreground">Received / Inspected</div>
+                    <div className="text-lg font-bold text-green-600">
+                      {goodsReceipts.filter((g) => g.status === "RECEIVED" || g.status === "INSPECTED").length}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-xs text-muted-foreground">Rejected</div>
+                    <div className="text-lg font-bold text-red-600">
+                      {goodsReceipts.filter((g) => g.status === "REJECTED").length}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
+        )}
+
+        {/* Banking */}
+        <TabsContent value="banking" className="space-y-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Bank Accounts Used in Payments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {linkedBankAccounts.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">No bank accounts linked to payments for this partner.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {linkedBankAccounts.map((ba) => {
+                    const baPayments = payments.filter((p) => p.bankAccountId === ba.id);
+                    const baTotal = baPayments.reduce((s, p) => s + p.amount, 0);
+                    const baCheques = cheques.filter((c) => c.bankAccountId === ba.id);
+                    return (
+                      <Card key={ba.id} className="border">
+                        <CardContent className="p-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-semibold text-sm">{ba.name}</h4>
+                              <p className="text-xs text-muted-foreground">{ba.bankName} - {ba.accountNumber}</p>
+                            </div>
+                            <Badge className={
+                              ba.status === "ACTIVE" ? "bg-green-100 text-green-800"
+                                : ba.status === "DORMANT" ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-gray-100 text-gray-600"
+                            }>{ba.status}</Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t">
+                            <div>
+                              <span className="text-muted-foreground">Payments via this account</span>
+                              <p className="font-semibold">{baPayments.length} ({egp(baTotal)})</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Linked cheques</span>
+                              <p className="font-semibold">{baCheques.length}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Currency</span>
+                              <p className="font-medium">{ba.currency}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Account Balance</span>
+                              <p className="font-semibold text-green-700">{egp(ba.balance)}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Payment breakdown by method */}
+          {payments.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Payment Method Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {["BANK_TRANSFER", "CHEQUE", "CASH", "CREDIT_CARD"].map((method) => {
+                    const methodPayments = payments.filter((p) => p.method === method);
+                    if (methodPayments.length === 0) return null;
+                    const methodLabels: Record<string, string> = { BANK_TRANSFER: "Bank Transfer", CHEQUE: "Cheque", CASH: "Cash", CREDIT_CARD: "Credit Card" };
+                    return (
+                      <div key={method} className="p-3 rounded-lg bg-muted/50 text-center">
+                        <div className="text-xs text-muted-foreground">{methodLabels[method]}</div>
+                        <div className="text-lg font-bold">{methodPayments.length}</div>
+                        <div className="text-xs text-muted-foreground">{egp(methodPayments.reduce((s, p) => s + p.amount, 0))}</div>
+                      </div>
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
           )}

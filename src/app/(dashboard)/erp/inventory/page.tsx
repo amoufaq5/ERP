@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   FlaskConical, Pill, Warehouse, AlertTriangle,
-  Thermometer, Download, Plus, Package, BookOpen,
+  Thermometer, Download, Plus, Package, BookOpen, Filter,
 } from "lucide-react";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
@@ -86,7 +86,7 @@ const SEED_WH: WarehouseRec[] = [
   { id: "wh-5", name: "Solvent Store", type: "Raw Material", location: "Plant 1, Hazardous Block", manager: "Mostafa Salah", tempRange: "15-25°C", capacity: 12000, used: 8500 },
 ];
 
-type Tab = "raw" | "finished" | "warehouses";
+type Tab = "raw" | "finished" | "warehouses" | "catalog";
 
 /* ─── Component ──────────────────────────────────────────────────── */
 
@@ -113,6 +113,9 @@ export default function InventoryPage() {
   const [detailRM, setDetailRM] = useState<RawMaterial | null>(null);
   const [detailFP, setDetailFP] = useState<FinishedProduct | null>(null);
   const [detailWH, setDetailWH] = useState<WarehouseRec | null>(null);
+
+  // Product catalog category filter
+  const [catalogFilter, setCatalogFilter] = useState<"all" | "raw" | "finished">("all");
 
   let _nxt = Date.now();
   const genId = (p: string) => `${p}-${(_nxt++).toString(36).slice(-6)}`;
@@ -161,6 +164,44 @@ export default function InventoryPage() {
     }).length;
     return { rmValue, fgValue, lowStock, expiringSoon };
   }, [rawMaterials, finishedProducts, config]);
+
+  /* ─── Catalog Product Classification (Raw vs Finished) ─── */
+  const catalogClassification = useMemo(() => {
+    const conversionFormulas = store.conversionFormulas;
+    // Raw material IDs: products used as ingredients in conversion formulas, or products with form "Drops"
+    const ingredientIds = new Set<string>();
+    const outputIds = new Set<string>();
+    conversionFormulas.forEach((f) => {
+      outputIds.add(f.productId);
+      f.ingredients.forEach((ing) => ingredientIds.add(ing.rawMaterialId));
+    });
+
+    const rawProducts = store.products.filter((p) =>
+      p.form === "Drops" || ingredientIds.has(p.id)
+    );
+    const finishedProds = store.products.filter((p) =>
+      outputIds.has(p.id) || (!ingredientIds.has(p.id) && p.form !== "Drops")
+    );
+
+    return { rawProducts, finishedProds, ingredientIds, outputIds };
+  }, [store.products, store.conversionFormulas]);
+
+  const filteredCatalogProducts = useMemo(() => {
+    const { rawProducts, finishedProds } = catalogClassification;
+    const source = catalogFilter === "raw" ? rawProducts : catalogFilter === "finished" ? finishedProds : store.products;
+    if (!search) return source;
+    const q = search.toLowerCase();
+    return source.filter((p) =>
+      p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q) || p.therapeuticArea.toLowerCase().includes(q)
+    );
+  }, [store.products, catalogClassification, catalogFilter, search]);
+
+  const catalogTotals = useMemo(() => {
+    const { rawProducts, finishedProds } = catalogClassification;
+    const rawValue = rawProducts.reduce((s, p) => s + p.stockQty * p.pricePerUnit, 0);
+    const finishedValue = finishedProds.reduce((s, p) => s + p.stockQty * p.pricePerUnit, 0);
+    return { rawCount: rawProducts.length, finishedCount: finishedProds.length, rawValue, finishedValue };
+  }, [catalogClassification]);
 
   /* ─── RM CRUD ─── */
   const rmFields: EntityField[] = [
@@ -272,7 +313,7 @@ export default function InventoryPage() {
   function handleAdd() {
     if (tab === "raw") handleCreateRM();
     else if (tab === "finished") handleCreateFP();
-    else handleCreateWH();
+    else if (tab === "warehouses") handleCreateWH();
   }
 
   return (
@@ -285,13 +326,16 @@ export default function InventoryPage() {
             <Button variant="outline" onClick={() =>
               tab === "raw" ? downloadCSV("raw-materials.csv", rawMaterials as unknown as Record<string, unknown>[])
               : tab === "finished" ? downloadCSV("finished-products.csv", finishedProducts as unknown as Record<string, unknown>[])
+              : tab === "catalog" ? downloadCSV("catalog-products.csv", filteredCatalogProducts as unknown as Record<string, unknown>[])
               : downloadCSV("warehouses.csv", warehouses as unknown as Record<string, unknown>[])
             }>
               <Download className="h-4 w-4 mr-2" /> Export
             </Button>
-            <Button onClick={handleAdd}>
-              <Plus className="h-4 w-4 mr-2" /> Add {tab === "raw" ? "Material" : tab === "finished" ? "Product" : "Warehouse"}
-            </Button>
+            {tab !== "catalog" && (
+              <Button onClick={handleAdd}>
+                <Plus className="h-4 w-4 mr-2" /> Add {tab === "raw" ? "Material" : tab === "finished" ? "Product" : "Warehouse"}
+              </Button>
+            )}
           </>
         }
       />
@@ -308,7 +352,8 @@ export default function InventoryPage() {
         <nav className="flex gap-1 -mb-px">
           {([
             { key: "raw" as Tab, label: t("inv.rawMaterials"), icon: FlaskConical },
-            { key: "finished" as Tab, label: t("inv.catalogProducts"), icon: Pill },
+            { key: "finished" as Tab, label: "Finished Products", icon: Pill },
+            { key: "catalog" as Tab, label: `Product Catalog (${store.products.length})`, icon: BookOpen },
             { key: "warehouses" as Tab, label: t("inv.warehouses"), icon: Warehouse },
           ]).map((item) => {
             const Icon = item.icon;
@@ -406,6 +451,95 @@ export default function InventoryPage() {
                 data={filteredFP as unknown as Record<string, unknown>[]}
                 onRowClick={(row) => setDetailFP(row as unknown as FinishedProduct)}
                 exportable exportFilename="erp-inventory.csv" emptyMessage="No finished products match your filters."
+              />
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* ── Catalog Products (Raw vs Finished Classification) ── */}
+      {tab === "catalog" && (
+        <>
+          {/* Category totals */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card className={`cursor-pointer transition-shadow ${catalogFilter === "all" ? "ring-2 ring-primary" : "hover:shadow-md"}`} onClick={() => setCatalogFilter("all")}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-blue-100 text-blue-700"><BookOpen className="h-4 w-4" /></div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">All Products</p>
+                    <p className="text-lg font-bold">{store.products.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className={`cursor-pointer transition-shadow ${catalogFilter === "raw" ? "ring-2 ring-primary" : "hover:shadow-md"}`} onClick={() => setCatalogFilter("raw")}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-purple-100 text-purple-700"><FlaskConical className="h-4 w-4" /></div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Raw Materials</p>
+                    <p className="text-lg font-bold">{catalogTotals.rawCount} <span className="text-xs font-normal text-muted-foreground">({fmt(catalogTotals.rawValue)})</span></p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className={`cursor-pointer transition-shadow ${catalogFilter === "finished" ? "ring-2 ring-primary" : "hover:shadow-md"}`} onClick={() => setCatalogFilter("finished")}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-emerald-100 text-emerald-700"><Pill className="h-4 w-4" /></div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Finished Products</p>
+                    <p className="text-lg font-bold">{catalogTotals.finishedCount} <span className="text-xs font-normal text-muted-foreground">({fmt(catalogTotals.finishedValue)})</span></p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <FilterBar searchPlaceholder="Search by name, code, or therapeutic area..." searchValue={search} onSearchChange={setSearch}
+            fields={[
+              { key: "form", label: "Form", type: "select", options: ["Tablet", "Capsule", "Syrup", "Injection", "Cream", "Drops", "Inhaler", "Suppository"].map((f) => ({ label: f, value: f })) },
+            ]}
+            values={filters} onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))} />
+
+          <Card>
+            <CardContent className="overflow-x-auto p-0">
+              <DataTable
+                columns={[
+                  { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                  { key: "name", label: "Product", render: (_v, row) => {
+                    const p = row as unknown as typeof store.products[number];
+                    return (<div><div className="font-medium">{p.name}</div><div className="text-[11px] text-muted-foreground">{p.strength} - {p.form}</div></div>);
+                  }},
+                  { key: "therapeuticArea", label: "Category", render: (_v, row) => {
+                    const p = row as unknown as typeof store.products[number];
+                    const isRaw = catalogClassification.ingredientIds.has(p.id) || p.form === "Drops";
+                    const isOutput = catalogClassification.outputIds.has(p.id);
+                    return (
+                      <div className="flex items-center gap-1">
+                        <Badge className={isRaw ? "bg-purple-100 text-purple-700" : "bg-emerald-100 text-emerald-700"}>
+                          {isRaw ? "Raw Material" : "Finished"}
+                        </Badge>
+                        {isOutput && <Badge variant="outline" className="text-[10px]">Has Formula</Badge>}
+                      </div>
+                    );
+                  }},
+                  { key: "stockQty", label: "Stock", className: "text-right", render: (_v, row) => {
+                    const p = row as unknown as typeof store.products[number];
+                    const isLow = p.stockQty <= p.reorderLevel;
+                    return (
+                      <div className={`font-medium ${isLow ? "text-red-600" : ""}`}>
+                        {p.stockQty.toLocaleString()}
+                        {isLow && <div className="text-[10px] text-red-500">below reorder</div>}
+                      </div>
+                    );
+                  }},
+                  { key: "pricePerUnit", label: "Unit Price", className: "text-right", render: (v) => <span className="font-medium">{fmt(v as number)}</span> },
+                  { key: "warehouse", label: "Warehouse", render: (v) => v ? <span className="text-xs">{v as string}</span> : <span className="text-muted-foreground text-xs">--</span> },
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={filteredCatalogProducts as unknown as Record<string, unknown>[]}
+                exportable exportFilename="catalog-products.csv" emptyMessage="No catalog products match your filters."
               />
             </CardContent>
           </Card>

@@ -107,7 +107,7 @@ export default function AccountingPage() {
   const [jeNewLine, setJeNewLine] = useState({ accountId: "", description: "", debit: 0, credit: 0, costCenterId: "" });
 
   // Cost Accounting state
-  const [costTab, setCostTab] = useState<"centers" | "budgets" | "allocation" | "variance">("centers");
+  const [costTab, setCostTab] = useState<"centers" | "budgets" | "allocation" | "variance" | "product-costing">("centers");
   const [ccFormOpen, setCcFormOpen] = useState(false);
   const [editingCC, setEditingCC] = useState<CostCenter | null>(null);
   const [budgetFormOpen, setBudgetFormOpen] = useState(false);
@@ -600,7 +600,7 @@ export default function AccountingPage() {
     const so = store.salesOrders.find((s) => s.id === soId);
     if (!so) return;
 
-    // Stock check
+    // Stock availability check (informational warning — actual deduction happens at PROCESSING in SO page)
     const stockIssues: string[] = [];
     for (const item of so.items) {
       const product = store.products.find((p) => p.id === item.productId);
@@ -609,67 +609,17 @@ export default function AccountingPage() {
       }
     }
     if (stockIssues.length > 0) {
-      alert(`Insufficient stock:\n${stockIssues.join("\n")}`);
-      return;
+      alert(`Warning — insufficient stock detected:\n${stockIssues.join("\n")}\n\nThe SO will be approved but stock must be replenished before processing.`);
     }
 
-    // Deduct inventory
-    for (const item of so.items) {
-      const product = store.products.find((p) => p.id === item.productId);
-      if (product) {
-        store.update("products", product.id, { stockQty: product.stockQty - item.quantity });
-      }
-    }
-
-    // Create delivery note
-    const dnId = store.genId("dn");
-    store.add("deliveryNotes", {
-      id: dnId,
-      number: store.generateDNNumber(),
-      soId: so.id,
-      customerId: so.customerId,
-      date: new Date().toISOString(),
-      items: so.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity })),
-      status: "PENDING",
-      createdAt: new Date().toISOString(),
-    });
-
-    // Create invoice
-    const invId = store.genId("inv");
-    store.add("invoices", {
-      id: invId,
-      number: store.generateInvoiceNumber(),
-      customerId: so.customerId,
-      date: new Date().toISOString().split("T")[0],
-      dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
-      subtotal: so.subtotal, tax: so.tax, total: so.total,
-      currency: "EGP", status: "SENT",
-      items: so.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })),
-      notes: `Auto-generated from approved SO ${so.number}`,
-    });
-
-    // Create journal entry
-    store.add("journalEntries", {
-      id: store.genId("je"),
-      number: store.generateJournalNumber(),
-      date: new Date().toISOString().split("T")[0],
-      description: `Sales revenue — SO ${so.number} (Approved)`,
-      reference: so.number, type: "GENERAL",
-      lines: [
-        { accountId: "gl-1100", description: "Accounts Receivable", debit: so.total, credit: 0 },
-        { accountId: "gl-4000", description: "Product Sales Revenue", debit: 0, credit: so.subtotal },
-        { accountId: "gl-2100", description: "VAT Payable", debit: 0, credit: so.tax },
-      ],
-      status: "POSTED", createdBy: "u-admin", createdAt: new Date().toISOString(),
-    });
-
-    store.update("salesOrders", so.id, { status: "INVOICED", invoiceId: invId, dnId });
-    approvals.approve(approvalId, "SO approved — stock verified, invoice & JE created");
+    const soApprovalId = store.genId("soa");
+    store.update("salesOrders", so.id, { status: "PROCESSING", soApprovalId });
+    approvals.approve(approvalId, "SO approved by accounting — moved to PROCESSING");
   }
 
   function rejectSOApproval(approvalId: string, soId: string) {
-    store.update("salesOrders", soId, { status: "CANCELLED" });
-    approvals.reject(approvalId, "Sales order rejected");
+    store.update("salesOrders", soId, { status: "DRAFT" });
+    approvals.reject(approvalId, "Sales order rejected by accounting — returned to DRAFT");
   }
 
   const egpFmt = (n: number) => `EGP ${n.toLocaleString()}`;
@@ -693,6 +643,43 @@ export default function AccountingPage() {
         <StatsCard icon={BookOpen} title={t("acct.totalRevenue")} value={activeGLAccounts.length} subtitle={`${store.glAccounts.length} total`} iconColor="bg-violet-100 text-violet-600" />
         <StatsCard icon={ScrollText} title={t("acct.postedJournals")} value={postedJEs} subtitle={`${store.journalEntries.length} total`} iconColor="bg-emerald-100 text-emerald-600" />
       </div>
+
+      {/* Pending SO Approvals Alert — visible above all tabs */}
+      {pendingSOApprovals.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50/30">
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <span className="font-semibold text-sm">{pendingSOApprovals.length} Sales Order{pendingSOApprovals.length > 1 ? "s" : ""} Pending Approval</span>
+            </div>
+            <div className="space-y-2">
+              {pendingSOApprovals.map((apr) => {
+                const so = store.salesOrders.find((s) => s.id === apr.entityId);
+                const customer = so ? store.customers.find((c) => c.id === so.customerId) : null;
+                return (
+                  <div key={apr.id} className="flex items-center justify-between bg-white border rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-4 text-sm">
+                      <span className="font-mono font-semibold text-xs">{so?.number ?? "—"}</span>
+                      <span className="text-muted-foreground">{customer?.name ?? "Unknown"}</span>
+                      <span className="font-semibold">{apr.amount ? egpFmt(apr.amount) : "—"}</span>
+                      <span className="text-xs text-muted-foreground">{so?.date?.slice(0, 10)}</span>
+                      {so && <span className="text-xs text-muted-foreground truncate max-w-[200px]">{so.items.map((i) => `${i.description} x${i.quantity}`).join(", ")}</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => rejectSOApproval(apr.id, apr.entityId)}>
+                        <XCircle className="h-3 w-3 mr-1" /> Reject
+                      </Button>
+                      <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => approveSOFromApproval(apr.id, apr.entityId)}>
+                        <CheckCircle className="h-3 w-3 mr-1" /> Approve
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="customers">
         <TabsList className="flex flex-wrap gap-1">
@@ -1099,7 +1086,7 @@ export default function AccountingPage() {
         {/* ═══ Cost Accounting ═══ */}
         <TabsContent value="cost" className="space-y-4">
           <div className="flex gap-1 border-b border-border pb-2 flex-wrap">
-            {([["centers", "Cost Centers", Target], ["budgets", "Budget vs Actual", BarChart3], ["allocation", "Cost Allocation", PieChart], ["variance", "Variance Analysis", Calculator]] as const).map(([key, label, Icon]) => (
+            {([["centers", "Cost Centers", Target], ["budgets", "Budget vs Actual", BarChart3], ["allocation", "Cost Allocation", PieChart], ["variance", "Variance Analysis", Calculator], ["product-costing", "Product Costing", ShoppingBag]] as const).map(([key, label, Icon]) => (
               <button key={key} onClick={() => setCostTab(key)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${costTab === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
                 <Icon className="h-3.5 w-3.5" />{label}
@@ -1348,7 +1335,7 @@ export default function AccountingPage() {
                   { key: "date", label: "Date", render: (v: unknown) => (v as string)?.slice(0, 10) },
                   { key: "status", label: "Status", render: (v: unknown) => {
                     const s = v as string;
-                    const colors: Record<string, string> = { DRAFT: "bg-gray-100 text-gray-800", CONFIRMED: "bg-blue-100 text-blue-800", DELIVERED: "bg-amber-100 text-amber-800", INVOICED: "bg-green-100 text-green-800", CANCELLED: "bg-red-100 text-red-800" };
+                    const colors: Record<string, string> = { DRAFT: "bg-gray-100 text-gray-800", CONFIRMED: "bg-blue-100 text-blue-800", PROCESSING: "bg-indigo-100 text-indigo-800", SHIPPED: "bg-cyan-100 text-cyan-800", DELIVERED: "bg-amber-100 text-amber-800", INVOICED: "bg-green-100 text-green-800", CANCELLED: "bg-red-100 text-red-800" };
                     return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[s] ?? "bg-muted"}`}>{s}</span>;
                   }},
                   { key: "id", label: "Actions", className: "text-right", render: (_v: unknown, row: Record<string, unknown>) => {
@@ -1384,14 +1371,17 @@ export default function AccountingPage() {
             <CardHeader className="pb-2"><CardTitle className="text-sm">Sales Order Approval Workflow</CardTitle></CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 text-xs flex-wrap">
-                <Badge variant="outline">1. SO Created (DRAFT)</Badge>
+                <Badge variant="outline">1. DRAFT</Badge>
                 <span className="text-muted-foreground">→</span>
-                <Badge variant="outline" className="bg-blue-50">2. Submit for Approval</Badge>
+                <Badge variant="outline" className="bg-blue-50">2. CONFIRMED (Submit for Approval)</Badge>
                 <span className="text-muted-foreground">→</span>
-                <Badge variant="outline" className="bg-amber-50">3. Stock Check + Review</Badge>
+                <Badge variant="outline" className="bg-amber-50">3. Accounting Reviews + Stock Check</Badge>
                 <span className="text-muted-foreground">→</span>
-                <Badge variant="outline" className="bg-green-50">4. Approve → Auto: Inventory Deduction + Invoice + Delivery Note + Journal Entry</Badge>
+                <Badge variant="outline" className="bg-indigo-50">4. Approve → PROCESSING (soApprovalId assigned)</Badge>
+                <span className="text-muted-foreground">→</span>
+                <Badge variant="outline" className="bg-cyan-50">5. SHIPPED → DELIVERED → INVOICED (via SO page)</Badge>
               </div>
+              <p className="text-[10px] text-muted-foreground mt-2">Rejected SOs return to DRAFT. Approved SOs move to PROCESSING for stock deduction and fulfillment.</p>
             </CardContent>
           </Card>
 

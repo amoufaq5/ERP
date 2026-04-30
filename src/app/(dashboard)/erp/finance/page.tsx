@@ -371,6 +371,9 @@ export default function FinancePage() {
         {activeTab === "payments" && (
           <Button type="button" onClick={() => { setEditingPayment(null); setShowPaymentModal(true); }} className="gap-2"><Plus className="h-4 w-4" /> Record Payment</Button>
         )}
+        {activeTab === "bank" && (
+          <Button type="button" onClick={() => { setEditingBank(null); setShowBankModal(true); }} className="gap-2"><Plus className="h-4 w-4" /> New Bank Account</Button>
+        )}
         {activeTab === "budgets" && (
           <Button type="button" onClick={() => { setEditingBudget(null); setShowBudgetModal(true); }} className="gap-2"><Plus className="h-4 w-4" /> Add Budget</Button>
         )}
@@ -489,8 +492,10 @@ export default function FinancePage() {
             <div className="text-sm text-muted-foreground">
               Total Balance: <span className="font-semibold text-foreground">{egp(totalBankBalance)}</span> across {store.bankAccounts.length} accounts
             </div>
-            <Button size="sm" onClick={() => { setEditingBank(null); setShowBankModal(true); }}><Plus className="h-4 w-4 mr-1" /> Add Bank Account</Button>
+            <Button size="sm" onClick={() => { setEditingBank(null); setShowBankModal(true); }}><Plus className="h-4 w-4 mr-1" /> New Bank Account</Button>
           </div>
+
+          {/* Summary cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {store.bankAccounts.map((acc) => {
               const accCheques = store.cheques.filter((c) => c.bankAccountId === acc.id);
@@ -538,10 +543,49 @@ export default function FinancePage() {
             {store.bankAccounts.length === 0 && (
               <div className="col-span-3 text-center py-12 text-muted-foreground">
                 <Landmark className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                <p>No bank accounts. Click &quot;Add Bank Account&quot; to get started.</p>
+                <p>No bank accounts. Click &quot;New Bank Account&quot; to get started.</p>
               </div>
             )}
           </div>
+
+          {/* DataTable view */}
+          {store.bankAccounts.length > 0 && (
+            <div className="bg-card rounded-xl border border-border shadow-sm">
+              <div className="px-4 py-3 border-b border-border">
+                <h3 className="text-sm font-semibold">All Bank Accounts</h3>
+              </div>
+              <DataTable columns={bankColumns} data={store.bankAccounts as unknown as Record<string, unknown>[]} exportable exportFilename="bank-accounts.csv" emptyMessage="No bank accounts." />
+            </div>
+          )}
+
+          {/* Linked Cheques by Bank Account */}
+          {store.bankAccounts.length > 0 && store.cheques.some((c) => c.bankAccountId) && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2"><BookOpen className="h-4 w-4" /> Cheques Linked to Bank Accounts</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 overflow-x-auto">
+                <DataTable
+                  columns={[
+                    { key: "number", label: "Cheque #", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                    { key: "bankAccountId", label: "Bank Account", render: (v) => {
+                      const ba = store.bankAccounts.find((b) => b.id === (v as string));
+                      return ba ? <span className="text-xs cursor-pointer text-blue-700 hover:underline" onClick={() => setBankDetailId(ba.id)}>{ba.name} ({ba.bankName})</span> : <span className="text-muted-foreground text-xs">--</span>;
+                    }},
+                    { key: "type", label: "Type", render: (v) => (
+                      <Badge className={(v as string) === "INCOMING" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"}>{v as string}</Badge>
+                    )},
+                    { key: "partyName", label: "Party" },
+                    { key: "amount", label: "Amount", className: "text-right", render: (v) => <span className="font-semibold">{egp(v as number)}</span> },
+                    { key: "dueDate", label: "Due Date", render: (v) => <span className="text-xs">{new Date(v as string).toLocaleDateString()}</span> },
+                    { key: "status", label: "Status", render: (v) => <StatusBadge status={v as string} /> },
+                  ] as Column<Record<string, unknown>>[]}
+                  data={store.cheques.filter((c) => c.bankAccountId) as unknown as Record<string, unknown>[]}
+                  emptyMessage="No cheques linked to bank accounts."
+                />
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
