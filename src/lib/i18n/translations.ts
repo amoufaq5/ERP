@@ -970,6 +970,25 @@ export const translations: Record<Locale, Record<string, string>> = {
     "tenant.enterprise": "Enterprise",
     "tenant.isolatedDb": "Isolated Database",
     "tenant.architecture": "Multi-Tenancy Architecture",
+
+    // User Management
+    "sidebar.userManagement": "User Management",
+    "userMgmt.title": "User Management",
+    "userMgmt.manageUsers": "Create, edit, and manage user accounts, roles, and permissions",
+    "userMgmt.totalUsers": "Total Users",
+    "userMgmt.activeUsers": "Active Users",
+    "userMgmt.admins": "Admins",
+    "userMgmt.rolesUsed": "Roles Used",
+    "userMgmt.createUser": "Create New User",
+    "userMgmt.editUser": "Edit User",
+    "userMgmt.resetPassword": "Reset Password",
+    "userMgmt.roleMatrix": "Role Matrix",
+    "userMgmt.auditLog": "Audit Log",
+    "userMgmt.fullName": "Full Name",
+    "userMgmt.username": "Username (Login)",
+    "userMgmt.newPassword": "New Password",
+    "userMgmt.deactivate": "Deactivate",
+    "userMgmt.permissionsMatrix": "Role Permissions Matrix",
   },
   ar: {
     // Navigation
