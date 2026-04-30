@@ -61,6 +61,7 @@ import {
   FileCheck,
   PieChart,
   Code2,
+  GitBranch,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -199,6 +200,8 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Data Upload", labelKey: "nav.dataUpload", href: "/data-upload", icon: Upload },
       { label: "Data Migration", labelKey: "sidebar.dataMigration", href: "/data-migration", icon: Database },
       { label: "Integration", labelKey: "nav.integration", href: "/integration", icon: Link2 },
+      { label: "Integrations", labelKey: "sidebar.integrations", href: "/erp/integrations", icon: Link2 },
+      { label: "Workflows", labelKey: "sidebar.workflows", href: "/erp/workflows", icon: GitBranch },
       { label: "Ecosystem", labelKey: "sidebar.ecosystem", href: "/ecosystem", icon: Puzzle },
       { label: "Automation", labelKey: "nav.automation", href: "/automation", icon: Zap },
       { label: "AI Hub", labelKey: "sidebar.aiHub", href: "/ai", icon: Brain },
