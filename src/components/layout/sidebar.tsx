@@ -196,6 +196,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Documents", labelKey: "nav.documents", href: "/documents", icon: FileText },
       { label: "Reports", labelKey: "nav.reports", href: "/reports", icon: BarChart3 },
       { label: "Settings", labelKey: "nav.settings", href: "/settings", icon: Settings },
+      { label: "Tenants", labelKey: "sidebar.tenants", href: "/admin/tenants", icon: Building2 },
     ],
   },
 ];

@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/master-client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("MASTER_DATABASE_URL")
+}
+
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  domain      String?  @unique
+  dbUrl       String
+  logo        String?
+  primaryColor String? @default("#2563eb")
+  plan        String   @default("STARTER") // STARTER, PROFESSIONAL, ENTERPRISE
+  maxUsers    Int      @default(10)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users TenantUser[]
+
+  @@map("tenants")
+}
+
+model TenantUser {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  email      String
+  name       String
+  role       String   @default("EMPLOYEE") // SUPER_ADMIN, ADMIN, MANAGER, EMPLOYEE
+  isActive   Boolean  @default(true)
+  lastLogin  DateTime?
+  createdAt  DateTime @default(now())
+
+  @@unique([tenantId, email])
+  @@map("tenant_users")
+}
+
+model TenantInvite {
+  id        String   @id @default(cuid())
+  tenantId  String
+  email     String
+  role      String   @default("EMPLOYEE")
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@map("tenant_invites")
+}
