@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import type { Column } from "@/components/shared/data-table";
 import {
   useDataStore,
   type Customer,
+  type CustomerDocument,
   type Vendor,
   type Cheque,
   type Invoice,
@@ -278,11 +279,27 @@ export default function AccountingPage() {
   }
 
   // ─── Cheque CRUD ───────────────────────────────────────────────────────
+  const partyOptions = [
+    ...store.customers.map((c) => ({ label: `Customer: ${c.name}`, value: `CUSTOMER:${c.id}` })),
+    ...store.vendors.map((v) => ({ label: `Vendor: ${v.name}`, value: `VENDOR:${v.id}` })),
+  ];
+  const resolvePartyName = (cheque: Cheque): string => {
+    if (cheque.partyId && cheque.partyType) {
+      if (cheque.partyType === "CUSTOMER") {
+        const c = store.customers.find((x) => x.id === cheque.partyId);
+        if (c) return c.name;
+      } else {
+        const v = store.vendors.find((x) => x.id === cheque.partyId);
+        if (v) return v.name;
+      }
+    }
+    return cheque.partyName;
+  };
   const chequeFields: EntityField[] = [
     { name: "number", label: "Cheque Number", type: "text", placeholder: "Auto-generated if empty", helperText: "Leave blank for auto-generated number" },
     { name: "bankName", label: "Bank", type: "text", required: true },
     { name: "type", label: "Direction", type: "select", required: true, options: [{ label: "Incoming", value: "INCOMING" }, { label: "Outgoing", value: "OUTGOING" }] },
-    { name: "partyName", label: "Party Name", type: "text", required: true },
+    { name: "partySelect", label: "Party (Customer/Vendor)", type: "select", required: true, options: partyOptions, helperText: "Select a customer or vendor" },
     { name: "amount", label: "Amount (EGP)", type: "number", required: true },
     { name: "currency", label: "Currency", type: "select", defaultValue: "EGP", options: [{ label: "EGP", value: "EGP" }] },
     { name: "issueDate", label: "Issue Date", type: "date", required: true },
@@ -292,11 +309,21 @@ export default function AccountingPage() {
   ];
 
   function handleChequeSubmit(data: EntityFormData) {
+    const partySelectVal = String(data.partySelect || "");
+    const [partyType, partyId] = partySelectVal.includes(":") ? partySelectVal.split(":") : ["", ""];
+    let partyName = "";
+    if (partyType === "CUSTOMER") {
+      partyName = store.customers.find((c) => c.id === partyId)?.name ?? "";
+    } else if (partyType === "VENDOR") {
+      partyName = store.vendors.find((v) => v.id === partyId)?.name ?? "";
+    }
     const payload = {
       number: String(data.number),
       bankName: String(data.bankName),
       type: String(data.type) as Cheque["type"],
-      partyName: String(data.partyName),
+      partyName,
+      partyId: partyId || undefined,
+      partyType: (partyType === "CUSTOMER" || partyType === "VENDOR") ? partyType as "CUSTOMER" | "VENDOR" : undefined,
       amount: Number(data.amount),
       currency: String(data.currency || "EGP"),
       issueDate: String(data.issueDate),
@@ -393,7 +420,8 @@ export default function AccountingPage() {
     { name: "reference", label: "Reference", type: "text", placeholder: "INV/PO/PAY number" },
     { name: "type", label: "Entry Type", type: "select", required: true, defaultValue: "GENERAL", options: [
       { label: "General", value: "GENERAL" }, { label: "Adjusting", value: "ADJUSTING" },
-      { label: "Closing", value: "CLOSING" }, { label: "Opening", value: "OPENING" },
+      { label: "Closing", value: "CLOSING" }, { label: "Reversing", value: "REVERSING" },
+      { label: "Accrual", value: "ACCRUAL" }, { label: "Opening", value: "OPENING" },
       { label: "Partner", value: "PARTNER" },
     ]},
   ];
@@ -459,7 +487,7 @@ export default function AccountingPage() {
   };
 
   const jeBadge = (type: string) => {
-    const colors: Record<string, string> = { GENERAL: "bg-blue-100 text-blue-800", ADJUSTING: "bg-amber-100 text-amber-800", CLOSING: "bg-red-100 text-red-800", OPENING: "bg-green-100 text-green-800", PARTNER: "bg-purple-100 text-purple-800" };
+    const colors: Record<string, string> = { GENERAL: "bg-blue-100 text-blue-800", ADJUSTING: "bg-amber-100 text-amber-800", CLOSING: "bg-red-100 text-red-800", OPENING: "bg-green-100 text-green-800", PARTNER: "bg-purple-100 text-purple-800", REVERSING: "bg-orange-100 text-orange-800", ACCRUAL: "bg-teal-100 text-teal-800" };
     return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors[type] ?? "bg-muted text-foreground"}`}>{type}</span>;
   };
 
@@ -721,7 +749,17 @@ export default function AccountingPage() {
                   { key: "type", label: "Type", render: (v: string) => (
                     <Badge variant={v === "INCOMING" ? "success" : "default"}>{v}</Badge>
                   ) },
-                  { key: "partyName", label: "Party", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "partyName", label: "Party", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const c = row as unknown as Cheque;
+                    const name = resolvePartyName(c);
+                    const typeLabel = c.partyType === "CUSTOMER" ? "Customer" : c.partyType === "VENDOR" ? "Vendor" : "";
+                    return (
+                      <div>
+                        <span className="font-medium">{name}</span>
+                        {typeLabel && <span className="text-xs text-muted-foreground ml-1">({typeLabel})</span>}
+                      </div>
+                    );
+                  } },
                   { key: "amount", label: "Amount", className: "text-right", render: (v: number) => <span className="font-semibold">{v.toLocaleString()}</span> },
                   { key: "issueDate", label: "Issue Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
                   { key: "dueDate", label: "Due Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
@@ -1448,7 +1486,7 @@ export default function AccountingPage() {
         open={chequeFormOpen} onOpenChange={(open) => { setChequeFormOpen(open); if (!open) setEditingCheque(null); }}
         title={editingCheque ? `Edit Cheque ${editingCheque.number}` : "Add Cheque"}
         fields={chequeFields}
-        initialData={editingCheque ? { number: editingCheque.number, bankName: editingCheque.bankName, type: editingCheque.type, partyName: editingCheque.partyName, amount: editingCheque.amount, currency: editingCheque.currency, issueDate: editingCheque.issueDate.slice(0, 10), dueDate: editingCheque.dueDate.slice(0, 10), status: editingCheque.status, notes: editingCheque.notes ?? "" } : undefined}
+        initialData={editingCheque ? { number: editingCheque.number, bankName: editingCheque.bankName, type: editingCheque.type, partySelect: editingCheque.partyId && editingCheque.partyType ? `${editingCheque.partyType}:${editingCheque.partyId}` : "", amount: editingCheque.amount, currency: editingCheque.currency, issueDate: editingCheque.issueDate.slice(0, 10), dueDate: editingCheque.dueDate.slice(0, 10), status: editingCheque.status, notes: editingCheque.notes ?? "" } : undefined}
         onSubmit={handleChequeSubmit}
         submitLabel={editingCheque ? "Save" : "Create"}
       />

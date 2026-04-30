@@ -38,7 +38,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/crm/business-units", "/crm/territories", "/crm/weekly-plan", "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests", "/crm/reports", "/crm/kpis", "/crm/expenses",
     "/erp/finance", "/erp/accounting", "/erp/collections", "/erp/returns", "/erp/partner-ledger",
     "/erp/procurement", "/erp/sales-order", "/erp/products",
-    "/ats/quizzes",
+    "/ats/training",
     "/reports", "/settings", "/settings/profile",
   ],
   MARKETEER: [
@@ -48,7 +48,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/crm/campaigns", "/crm/tickets", "/crm/loyalty",
     "/crm/marketeer", "/crm/district-manager", "/crm/medical-rep",
     "/crm/business-units", "/crm/territories", "/crm/weekly-plan", "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests", "/crm/reports", "/crm/kpis", "/crm/expenses",
-    "/ats/quizzes",
+    "/ats/training",
     "/settings", "/settings/profile",
   ],
   DISTRICT_MANAGER: [
@@ -57,7 +57,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/crm/accounts", "/crm/contacts", "/crm/tickets",
     "/crm/district-manager", "/crm/medical-rep",
     "/crm/territories", "/crm/weekly-plan", "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests", "/crm/reports", "/crm/kpis", "/crm/expenses",
-    "/ats/quizzes",
+    "/ats/training",
     "/settings", "/settings/profile",
   ],
   MEDICAL_REP: [
@@ -65,7 +65,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/hubs/crm",
     "/crm/accounts", "/crm/contacts", "/crm/tickets",
     "/crm/medical-rep", "/crm/territories", "/crm/weekly-plan", "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests", "/crm/kpis", "/crm/expenses",
-    "/ats/quizzes",
+    "/ats/training",
     "/settings", "/settings/profile",
   ],
   ACCOUNTANT: [
@@ -86,7 +86,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/dashboard", "/messages", "/tasks",
     "/hubs/hr",
     "/erp/hr",
-    "/ats/jobs", "/ats/candidates", "/ats/interviews", "/ats/onboarding", "/ats/training", "/ats/quizzes",
+    "/ats/jobs", "/ats/candidates", "/ats/interviews", "/ats/onboarding", "/ats/training",
     "/settings", "/settings/profile",
   ],
 };

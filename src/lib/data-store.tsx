@@ -251,6 +251,14 @@ export interface MarketRequest {
   targetEntityId?: string;    // e.g., the doctor id being edited
 }
 
+export interface CustomerDocument {
+  id: string;
+  name: string;
+  type: string;
+  data: string;
+  uploadedAt: string;
+}
+
 export interface Customer {
   id: string;
   code: string;
@@ -267,6 +275,7 @@ export interface Customer {
   status: "ACTIVE" | "HOLD" | "BLOCKED";
   createdAt: string;
   buId?: string | null;
+  documents?: CustomerDocument[];
 }
 
 export interface Vendor {
@@ -290,6 +299,8 @@ export interface Cheque {
   bankAccountId?: string;
   type: "INCOMING" | "OUTGOING";
   partyName: string;            // customer or vendor name
+  partyId?: string;             // customer or vendor ID (for linked parties)
+  partyType?: "CUSTOMER" | "VENDOR"; // type of linked party
   amount: number;
   currency: string;
   issueDate: string;
@@ -390,7 +401,7 @@ export interface JournalEntry {
   date: string;
   description: string;
   reference?: string;
-  type: "GENERAL" | "ADJUSTING" | "CLOSING" | "OPENING" | "PARTNER";
+  type: "GENERAL" | "ADJUSTING" | "CLOSING" | "OPENING" | "PARTNER" | "REVERSING" | "ACCRUAL";
   lines: JournalEntryLine[];
   status: "DRAFT" | "POSTED" | "VOID";
   createdBy: string;
@@ -447,9 +458,10 @@ export interface SalesOrder {
   subtotal: number;
   tax: number;
   total: number;
-  status: "DRAFT" | "CONFIRMED" | "DELIVERED" | "INVOICED" | "CANCELLED";
+  status: "DRAFT" | "CONFIRMED" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "INVOICED" | "CANCELLED";
   invoiceId?: string;
   dnId?: string;
+  soApprovalId?: string;
   createdAt: string;
 }
 
@@ -485,6 +497,23 @@ export interface DeliveryNote {
   date: string;
   items: { productId: string; description: string; quantity: number }[];
   status: "PENDING" | "SHIPPED" | "DELIVERED";
+  createdAt: string;
+}
+
+export interface Shipment {
+  id: string;
+  number: string;
+  poId: string;
+  vendorId: string;
+  carrier: string;
+  trackingNumber: string;
+  shipDate: string;
+  expectedArrival: string;
+  method: "Sea" | "Air" | "Land";
+  cost: number;
+  status: "IN_TRANSIT" | "DELIVERED" | "DELAYED";
+  items: { productId: string; description: string; quantity: number; unitPrice: number }[];
+  notes?: string;
   createdAt: string;
 }
 

@@ -119,7 +119,6 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Interviews", labelKey: "nav.interviews", href: "/ats/interviews", icon: CalendarCheck },
       { label: "Onboarding", labelKey: "nav.onboarding", href: "/ats/onboarding", icon: Rocket },
       { label: "Training", labelKey: "nav.training", href: "/ats/training", icon: GraduationCap },
-      { label: "Quizzes", labelKey: "nav.quizzes", href: "/ats/quizzes", icon: FileCheck },
     ],
   },
   {
