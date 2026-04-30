@@ -31,10 +31,14 @@ import {
   type Task,
 } from "@/lib/data-store";
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 export default function TasksPage() {
   const store = useDataStore();
   const { user, allUsers } = useCurrentUser();
+  const { t } = useTranslation();
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
@@ -219,116 +223,144 @@ export default function TasksPage() {
 
   const priorityOrder: Record<string, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
 
-  function renderTaskRow(t: Task) {
-    const assignee = allUsers.find((u) => u.id === t.assignedToId);
-    const assigner = allUsers.find((u) => u.id === t.assignedById);
-    const progress = t.kpiTarget
-      ? Math.round(((t.kpiActual ?? 0) / t.kpiTarget) * 100)
-      : null;
-    const overdue = t.dueDate < new Date().toISOString().slice(0, 10) && t.status !== "DONE";
+  const sortedFiltered = useMemo(
+    () =>
+      filtered
+        .slice()
+        .sort(
+          (a, b) =>
+            (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2)
+        ),
+    [filtered]
+  );
 
-    return (
-      <tr key={t.id} className="border-b hover:bg-slate-50">
-        <td className="p-3">
-          <div className="font-medium">{t.title}</div>
-          <div className="text-xs text-slate-500 line-clamp-1 max-w-xs">
-            {t.description}
+  const taskColumns: Column<Record<string, unknown>>[] = [
+    {
+      key: "title",
+      label: "Task",
+      render: (_v: unknown, row: Record<string, unknown>) => {
+        const t = row as unknown as Task;
+        return (
+          <div>
+            <div className="font-medium">{t.title}</div>
+            <div className="text-xs text-slate-500 line-clamp-1 max-w-xs">{t.description}</div>
           </div>
-        </td>
-        <td className="p-3 text-xs">{assignee?.name ?? "—"}</td>
-        <td className="p-3 text-xs">{assigner?.name ?? "—"}</td>
-        <td className="p-3">
+        );
+      },
+    },
+    {
+      key: "assignedToId",
+      label: "Assigned To",
+      render: (v: unknown) => {
+        const assignee = allUsers.find((u) => u.id === v);
+        return <span className="text-xs">{assignee?.name ?? "—"}</span>;
+      },
+    },
+    {
+      key: "assignedById",
+      label: "Assigned By",
+      render: (v: unknown) => {
+        const assigner = allUsers.find((u) => u.id === v);
+        return <span className="text-xs">{assigner?.name ?? "—"}</span>;
+      },
+    },
+    {
+      key: "priority",
+      label: "Priority",
+      render: (v: unknown) => {
+        const p = v as string;
+        return (
+          <Badge variant={p === "URGENT" ? "destructive" : p === "HIGH" ? "warning" : "secondary"}>
+            {p}
+          </Badge>
+        );
+      },
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (v: unknown) => {
+        const s = v as string;
+        return (
           <Badge
             variant={
-              t.priority === "URGENT"
-                ? "destructive"
-                : t.priority === "HIGH"
-                ? "warning"
-                : "secondary"
+              s === "DONE" ? "success" : s === "BLOCKED" ? "destructive" : s === "IN_PROGRESS" ? "default" : "outline"
             }
           >
-            {t.priority}
+            {s.replace(/_/g, " ")}
           </Badge>
-        </td>
-        <td className="p-3">
-          <Badge
-            variant={
-              t.status === "DONE"
-                ? "success"
-                : t.status === "BLOCKED"
-                ? "destructive"
-                : t.status === "IN_PROGRESS"
-                ? "default"
-                : "outline"
-            }
-          >
-            {t.status.replace("_", " ")}
-          </Badge>
-        </td>
-        <td className={`p-3 text-xs ${overdue ? "text-red-600 font-semibold" : ""}`}>
-          {new Date(t.dueDate).toLocaleDateString()}
-          {overdue && " (overdue)"}
-        </td>
-        <td className="p-3">
-          {t.kpiMetric ? (
-            <div className="text-xs">
-              <span className="font-medium">{t.kpiActual ?? 0}/{t.kpiTarget}</span>{" "}
-              <span className="text-slate-500">{t.kpiMetric}</span>
-              {progress !== null && (
-                <div className="mt-1 h-1 bg-slate-100 rounded-full overflow-hidden w-16">
-                  <div
-                    className={`h-full ${
-                      progress >= 100
-                        ? "bg-emerald-500"
-                        : progress >= 60
-                        ? "bg-blue-500"
-                        : "bg-amber-500"
-                    }`}
-                    style={{ width: `${Math.min(progress, 100)}%` }}
-                  />
-                </div>
-              )}
-            </div>
-          ) : (
-            <span className="text-slate-300">—</span>
-          )}
-        </td>
-        <td className="p-3 text-right">
+        );
+      },
+    },
+    {
+      key: "dueDate",
+      label: "Due",
+      render: (_v: unknown, row: Record<string, unknown>) => {
+        const t = row as unknown as Task;
+        const overdue = t.dueDate < new Date().toISOString().slice(0, 10) && t.status !== "DONE";
+        return (
+          <span className={`text-xs ${overdue ? "text-red-600 font-semibold" : ""}`}>
+            {new Date(t.dueDate).toLocaleDateString()}
+            {overdue && " (overdue)"}
+          </span>
+        );
+      },
+    },
+    {
+      key: "kpiMetric",
+      label: "KPI",
+      render: (_v: unknown, row: Record<string, unknown>) => {
+        const t = row as unknown as Task;
+        if (!t.kpiMetric) return <span className="text-slate-300">{"—"}</span>;
+        const progress = t.kpiTarget ? Math.round(((t.kpiActual ?? 0) / t.kpiTarget) * 100) : null;
+        return (
+          <div className="text-xs">
+            <span className="font-medium">{t.kpiActual ?? 0}/{t.kpiTarget}</span>{" "}
+            <span className="text-slate-500">{t.kpiMetric}</span>
+            {progress !== null && (
+              <div className="mt-1 h-1 bg-slate-100 rounded-full overflow-hidden w-16">
+                <div
+                  className={`h-full ${
+                    progress >= 100 ? "bg-emerald-500" : progress >= 60 ? "bg-blue-500" : "bg-amber-500"
+                  }`}
+                  style={{ width: `${Math.min(progress, 100)}%` }}
+                />
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: "_actions",
+      label: "",
+      className: "text-right",
+      render: (_v: unknown, row: Record<string, unknown>) => {
+        const t = row as unknown as Task;
+        return (
           <EditDeleteMenu
             onEdit={() => handleEdit(t)}
             onDelete={() => handleDelete(t)}
             itemLabel={t.title}
             extraItems={[
               ...(t.status !== "DONE"
-                ? [
-                    {
-                      label: "Mark Done",
-                      onClick: () => handleMarkStatus(t, "DONE"),
-                      icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
-                    },
-                  ]
+                ? [{ label: "Mark Done", onClick: () => handleMarkStatus(t, "DONE"), icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" /> }]
                 : []),
               ...(t.status === "TODO"
-                ? [
-                    {
-                      label: "Start",
-                      onClick: () => handleMarkStatus(t, "IN_PROGRESS"),
-                      icon: <Circle className="h-4 w-4 text-blue-600" />,
-                    },
-                  ]
+                ? [{ label: "Start", onClick: () => handleMarkStatus(t, "IN_PROGRESS"), icon: <Circle className="h-4 w-4 text-blue-600" /> }]
                 : []),
             ]}
           />
-        </td>
-      </tr>
-    );
-  }
+        );
+      },
+    },
+  ];
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Tasks & KPIs"
-        description="Manage tasks and key performance indicators. Superiors can assign tasks with KPI targets to their team."
+        title={t("task.title")}
+        description={t("task.manageTasks")}
         actions={
           canAssign && (
             <Button onClick={handleCreate}>
@@ -415,45 +447,18 @@ export default function TasksPage() {
               { key: "buId", label: "Business Unit", type: "select", options: buOptions },
             ]}
             values={filters}
-            onChange={setFilters}
+            onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))}
             collapsible
           />
 
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">Task</th>
-                      <th className="text-left p-3">Assigned To</th>
-                      <th className="text-left p-3">Assigned By</th>
-                      <th className="text-left p-3">Priority</th>
-                      <th className="text-left p-3">Status</th>
-                      <th className="text-left p-3">Due</th>
-                      <th className="text-left p-3">KPI</th>
-                      <th className="text-right p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.length === 0 && (
-                      <tr>
-                        <td colSpan={8} className="p-8 text-center text-slate-500">
-                          No tasks match your filters.
-                        </td>
-                      </tr>
-                    )}
-                    {filtered
-                      .slice()
-                      .sort(
-                        (a, b) =>
-                          (priorityOrder[a.priority] ?? 2) -
-                          (priorityOrder[b.priority] ?? 2)
-                      )
-                      .map(renderTaskRow)}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={taskColumns}
+                data={sortedFiltered as unknown as Record<string, unknown>[]}
+                
+                exportable exportFilename="tasks.csv" emptyMessage="No tasks match your filters."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -489,45 +494,18 @@ export default function TasksPage() {
                 },
               ]}
               values={filters}
-              onChange={setFilters}
+              onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))}
               collapsible
             />
 
             <Card>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                      <tr>
-                        <th className="text-left p-3">Task</th>
-                        <th className="text-left p-3">Assigned To</th>
-                        <th className="text-left p-3">Assigned By</th>
-                        <th className="text-left p-3">Priority</th>
-                        <th className="text-left p-3">Status</th>
-                        <th className="text-left p-3">Due</th>
-                        <th className="text-left p-3">KPI</th>
-                        <th className="text-right p-3">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.length === 0 && (
-                        <tr>
-                          <td colSpan={8} className="p-8 text-center text-slate-500">
-                            No tasks assigned by you yet.
-                          </td>
-                        </tr>
-                      )}
-                      {filtered
-                        .slice()
-                        .sort(
-                          (a, b) =>
-                            (priorityOrder[a.priority] ?? 2) -
-                            (priorityOrder[b.priority] ?? 2)
-                        )
-                        .map(renderTaskRow)}
-                    </tbody>
-                  </table>
-                </div>
+                <DataTable
+                  columns={taskColumns}
+                  data={sortedFiltered as unknown as Record<string, unknown>[]}
+                  
+                  exportable exportFilename="tasks.csv" emptyMessage="No tasks assigned by you yet."
+                />
               </CardContent>
             </Card>
           </TabsContent>

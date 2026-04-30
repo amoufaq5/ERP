@@ -3,11 +3,15 @@
 import { useState } from "react";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { useDataStore } from "@/lib/data-store";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Package, Truck, Factory, Search, Plus, Download, Filter,
@@ -17,92 +21,61 @@ import {
   Eye, Calendar, Users, Anchor, CircleDot,
 } from "lucide-react";
 
-const kpis = [
-  { label: "Total Suppliers", value: "145", icon: Factory, color: "text-blue-600", bg: "bg-blue-100" },
-  { label: "Active POs", value: "67", icon: ShoppingCart, color: "text-purple-600", bg: "bg-purple-100" },
-  { label: "On-Time Delivery", value: "94.3%", icon: Clock, color: "text-green-600", bg: "bg-green-100" },
-  { label: "Fill Rate", value: "97.8%", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-100" },
-  { label: "Avg Lead Time", value: "12d", icon: TrendingUp, color: "text-amber-600", bg: "bg-amber-100" },
-  { label: "Inventory Turns", value: "8.4x", icon: RefreshCw, color: "text-cyan-600", bg: "bg-cyan-100" },
-  { label: "Procurement Cost", value: "4.2%", icon: DollarSign, color: "text-orange-600", bg: "bg-orange-100" },
-  { label: "Supply Risk", value: "Low", icon: ShieldCheck, color: "text-green-600", bg: "bg-green-100" },
+/* kpis are computed inside the component to access store data */
+
+const INITIAL_PURCHASE_ORDERS = [
+  { id: "PO-4501", supplier: "Sun Pharma API", items: 24, total: "EGP 1,420,000", ordered: "Mar 18, 2026", eta: "Apr 08, 2026", status: "In Transit", priority: "High" },
+  { id: "PO-4502", supplier: "BASF Pharma Solutions", items: 12, total: "EGP 620,000", ordered: "Mar 20, 2026", eta: "Apr 12, 2026", status: "Confirmed", priority: "Medium" },
+  { id: "PO-4503", supplier: "Schott Glass", items: 8, total: "EGP 340,000", ordered: "Mar 15, 2026", eta: "Apr 05, 2026", status: "In Transit", priority: "High" },
+  { id: "PO-4504", supplier: "Egyptian Lab Reagents", items: 15, total: "EGP 92,000", ordered: "Mar 22, 2026", eta: "Apr 14, 2026", status: "Pending Approval", priority: "Low" },
+  { id: "PO-4505", supplier: "Bormioli Pharma", items: 6, total: "EGP 275,000", ordered: "Mar 25, 2026", eta: "Apr 18, 2026", status: "Confirmed", priority: "Medium" },
+  { id: "PO-4506", supplier: "Sun Pharma API", items: 30, total: "EGP 850,000", ordered: "Mar 12, 2026", eta: "Apr 02, 2026", status: "Delivered", priority: "High" },
+  { id: "PO-4507", supplier: "BASF Pharma Solutions", items: 18, total: "EGP 310,000", ordered: "Mar 28, 2026", eta: "Apr 20, 2026", status: "Pending Approval", priority: "Medium" },
+  { id: "PO-4508", supplier: "Schott Glass", items: 42, total: "EGP 170,000", ordered: "Mar 30, 2026", eta: "Apr 10, 2026", status: "Confirmed", priority: "Low" },
+  { id: "PO-4509", supplier: "Bormioli Pharma", items: 9, total: "EGP 135,000", ordered: "Mar 14, 2026", eta: "Apr 04, 2026", status: "In Transit", priority: "High" },
+  { id: "PO-4510", supplier: "Egyptian Lab Reagents", items: 20, total: "EGP 46,000", ordered: "Apr 01, 2026", eta: "Apr 22, 2026", status: "Draft", priority: "Low" },
 ];
 
-const purchaseOrders = [
-  { id: "PO-4501", supplier: "Apex Materials Co.", items: 24, total: "$128,450", ordered: "Mar 18, 2026", eta: "Apr 08, 2026", status: "In Transit", priority: "High" },
-  { id: "PO-4502", supplier: "GlobalTech Components", items: 12, total: "$67,200", ordered: "Mar 20, 2026", eta: "Apr 12, 2026", status: "Confirmed", priority: "Medium" },
-  { id: "PO-4503", supplier: "SteelWorks International", items: 8, total: "$245,000", ordered: "Mar 15, 2026", eta: "Apr 05, 2026", status: "In Transit", priority: "High" },
-  { id: "PO-4504", supplier: "ChemPro Industries", items: 15, total: "$34,800", ordered: "Mar 22, 2026", eta: "Apr 14, 2026", status: "Pending Approval", priority: "Low" },
-  { id: "PO-4505", supplier: "Pacific Logistics Ltd.", items: 6, total: "$89,300", ordered: "Mar 25, 2026", eta: "Apr 18, 2026", status: "Confirmed", priority: "Medium" },
-  { id: "PO-4506", supplier: "NordicParts AB", items: 30, total: "$156,700", ordered: "Mar 12, 2026", eta: "Apr 02, 2026", status: "Delivered", priority: "High" },
-  { id: "PO-4507", supplier: "RawMat Suppliers Inc.", items: 18, total: "$72,100", ordered: "Mar 28, 2026", eta: "Apr 20, 2026", status: "Pending Approval", priority: "Medium" },
-  { id: "PO-4508", supplier: "Precision Fasteners Co.", items: 42, total: "$19,850", ordered: "Mar 30, 2026", eta: "Apr 10, 2026", status: "Confirmed", priority: "Low" },
-  { id: "PO-4509", supplier: "ElectroParts Global", items: 9, total: "$203,600", ordered: "Mar 14, 2026", eta: "Apr 04, 2026", status: "In Transit", priority: "High" },
-  { id: "PO-4510", supplier: "BioPlastics Corp.", items: 20, total: "$41,500", ordered: "Apr 01, 2026", eta: "Apr 22, 2026", status: "Draft", priority: "Low" },
-];
-
-const suppliers = [
-  { id: "SUP-001", name: "Apex Materials Co.", category: "Raw Materials", location: "Houston, TX", rating: 4.8, onTime: "96%", spend: "$2.4M", status: "Preferred", risk: "Low" },
-  { id: "SUP-002", name: "GlobalTech Components", category: "Electronics", location: "Shenzhen, China", rating: 4.5, onTime: "91%", spend: "$1.8M", status: "Approved", risk: "Medium" },
-  { id: "SUP-003", name: "SteelWorks International", category: "Metals", location: "Pittsburgh, PA", rating: 4.9, onTime: "98%", spend: "$3.1M", status: "Preferred", risk: "Low" },
-  { id: "SUP-004", name: "ChemPro Industries", category: "Chemicals", location: "Basel, Switzerland", rating: 4.3, onTime: "89%", spend: "$890K", status: "Approved", risk: "Medium" },
-  { id: "SUP-005", name: "Pacific Logistics Ltd.", category: "Logistics", location: "Singapore", rating: 4.6, onTime: "93%", spend: "$1.2M", status: "Approved", risk: "Low" },
-  { id: "SUP-006", name: "NordicParts AB", category: "Mechanical Parts", location: "Stockholm, Sweden", rating: 4.7, onTime: "95%", spend: "$1.5M", status: "Preferred", risk: "Low" },
-  { id: "SUP-007", name: "RawMat Suppliers Inc.", category: "Raw Materials", location: "Detroit, MI", rating: 4.1, onTime: "87%", spend: "$670K", status: "Conditional", risk: "High" },
-  { id: "SUP-008", name: "Precision Fasteners Co.", category: "Hardware", location: "Osaka, Japan", rating: 4.8, onTime: "97%", spend: "$420K", status: "Preferred", risk: "Low" },
-  { id: "SUP-009", name: "ElectroParts Global", category: "Electronics", location: "Taipei, Taiwan", rating: 4.4, onTime: "90%", spend: "$2.1M", status: "Approved", risk: "Medium" },
-  { id: "SUP-010", name: "BioPlastics Corp.", category: "Polymers", location: "Rotterdam, Netherlands", rating: 4.2, onTime: "92%", spend: "$560K", status: "Approved", risk: "Low" },
-];
+/* Suppliers are derived from store.vendors inside the component */
 
 const shipments = [
-  { id: "SHP-7801", origin: "Shenzhen, China", destination: "Los Angeles, CA", carrier: "Maersk Line", mode: "Ocean Freight", departed: "Mar 10, 2026", eta: "Apr 06, 2026", status: "In Transit", weight: "12,400 kg" },
-  { id: "SHP-7802", origin: "Stockholm, Sweden", destination: "Newark, NJ", carrier: "DHL Global", mode: "Air Freight", departed: "Mar 28, 2026", eta: "Apr 03, 2026", status: "In Transit", weight: "840 kg" },
-  { id: "SHP-7803", origin: "Houston, TX", destination: "Chicago, IL", carrier: "FedEx Freight", mode: "Ground", departed: "Mar 31, 2026", eta: "Apr 04, 2026", status: "In Transit", weight: "5,200 kg" },
-  { id: "SHP-7804", origin: "Osaka, Japan", destination: "Seattle, WA", carrier: "NYK Line", mode: "Ocean Freight", departed: "Mar 05, 2026", eta: "Apr 01, 2026", status: "Delivered", weight: "8,900 kg" },
-  { id: "SHP-7805", origin: "Basel, Switzerland", destination: "Houston, TX", carrier: "UPS Supply Chain", mode: "Air Freight", departed: "Apr 01, 2026", eta: "Apr 05, 2026", status: "In Transit", weight: "320 kg" },
-  { id: "SHP-7806", origin: "Detroit, MI", destination: "Atlanta, GA", carrier: "XPO Logistics", mode: "Ground", departed: "Apr 02, 2026", eta: "Apr 06, 2026", status: "Dispatched", weight: "3,100 kg" },
-  { id: "SHP-7807", origin: "Taipei, Taiwan", destination: "San Francisco, CA", carrier: "Evergreen Marine", mode: "Ocean Freight", departed: "Mar 15, 2026", eta: "Apr 08, 2026", status: "In Transit", weight: "15,600 kg" },
-  { id: "SHP-7808", origin: "Rotterdam, Netherlands", destination: "Savannah, GA", carrier: "Hapag-Lloyd", mode: "Ocean Freight", departed: "Mar 20, 2026", eta: "Apr 10, 2026", status: "In Transit", weight: "9,750 kg" },
+  { id: "SHP-7801", origin: "Mumbai, India", destination: "Cairo, Egypt", carrier: "Maersk Line", mode: "Ocean Freight", departed: "Mar 10, 2026", eta: "Apr 06, 2026", status: "In Transit", weight: "12,400 kg" },
+  { id: "SHP-7802", origin: "Ludwigshafen, Germany", destination: "Alexandria, Egypt", carrier: "DHL Global", mode: "Air Freight", departed: "Mar 28, 2026", eta: "Apr 03, 2026", status: "In Transit", weight: "840 kg" },
+  { id: "SHP-7803", origin: "Mainz, Germany", destination: "10th of Ramadan, Egypt", carrier: "FedEx Freight", mode: "Ground", departed: "Mar 31, 2026", eta: "Apr 04, 2026", status: "In Transit", weight: "5,200 kg" },
+  { id: "SHP-7804", origin: "Parma, Italy", destination: "Cairo, Egypt", carrier: "MSC", mode: "Ocean Freight", departed: "Mar 05, 2026", eta: "Apr 01, 2026", status: "Delivered", weight: "8,900 kg" },
+  { id: "SHP-7805", origin: "Mumbai, India", destination: "Port Said, Egypt", carrier: "UPS Supply Chain", mode: "Air Freight", departed: "Apr 01, 2026", eta: "Apr 05, 2026", status: "In Transit", weight: "320 kg" },
+  { id: "SHP-7806", origin: "Alexandria, Egypt", destination: "6th October, Egypt", carrier: "Local Freight Co.", mode: "Ground", departed: "Apr 02, 2026", eta: "Apr 06, 2026", status: "Dispatched", weight: "3,100 kg" },
+  { id: "SHP-7807", origin: "Ludwigshafen, Germany", destination: "Cairo, Egypt", carrier: "Evergreen Marine", mode: "Ocean Freight", departed: "Mar 15, 2026", eta: "Apr 08, 2026", status: "In Transit", weight: "15,600 kg" },
+  { id: "SHP-7808", origin: "Mainz, Germany", destination: "10th of Ramadan, Egypt", carrier: "Hapag-Lloyd", mode: "Ocean Freight", departed: "Mar 20, 2026", eta: "Apr 10, 2026", status: "In Transit", weight: "9,750 kg" },
 ];
 
-const inventoryItems = [
-  { sku: "SKU-10201", name: "Carbon Steel Plate 10mm", category: "Raw Materials", onHand: 2400, reorder: 800, max: 5000, unit: "sheets", location: "WH-A", status: "Adequate" },
-  { sku: "SKU-10202", name: "PCB Assembly Module v3", category: "Electronics", onHand: 340, reorder: 500, max: 2000, unit: "units", location: "WH-B", status: "Low Stock" },
-  { sku: "SKU-10203", name: "Hydraulic Cylinder HX-40", category: "Mechanical", onHand: 890, reorder: 300, max: 1500, unit: "units", location: "WH-A", status: "Adequate" },
-  { sku: "SKU-10204", name: "Industrial Epoxy Resin 5L", category: "Chemicals", onHand: 120, reorder: 200, max: 800, unit: "drums", location: "WH-C", status: "Low Stock" },
-  { sku: "SKU-10205", name: "Stainless Bolts M12x50", category: "Hardware", onHand: 15000, reorder: 5000, max: 30000, unit: "pcs", location: "WH-A", status: "Adequate" },
-  { sku: "SKU-10206", name: "Copper Wire 2.5mm AWG", category: "Electrical", onHand: 4500, reorder: 2000, max: 10000, unit: "meters", location: "WH-B", status: "Adequate" },
-  { sku: "SKU-10207", name: "HDPE Pellets Grade A", category: "Polymers", onHand: 60, reorder: 100, max: 500, unit: "bags", location: "WH-C", status: "Critical" },
-  { sku: "SKU-10208", name: "Servo Motor SM-200", category: "Electronics", onHand: 210, reorder: 150, max: 600, unit: "units", location: "WH-B", status: "Adequate" },
-  { sku: "SKU-10209", name: "Aluminum Extrusion 6061", category: "Metals", onHand: 1800, reorder: 1000, max: 4000, unit: "bars", location: "WH-A", status: "Adequate" },
-  { sku: "SKU-10210", name: "Safety Valve SV-100", category: "Mechanical", onHand: 75, reorder: 100, max: 400, unit: "units", location: "WH-A", status: "Low Stock" },
-];
+/* Inventory items are derived from store.products inside the component */
 
 const warehouses = [
-  { id: "WH-A", name: "Central Distribution Hub", location: "Dallas, TX", capacity: 50000, used: 38500, zones: 12, staff: 45, temp: "Ambient", status: "Operational" },
-  { id: "WH-B", name: "Electronics Storage Facility", location: "San Jose, CA", capacity: 25000, used: 21200, zones: 8, staff: 28, temp: "Climate Controlled", status: "Operational" },
-  { id: "WH-C", name: "Chemical & Hazmat Warehouse", location: "Houston, TX", capacity: 15000, used: 9800, zones: 6, staff: 18, temp: "Regulated", status: "Operational" },
-  { id: "WH-D", name: "Overflow & Returns Center", location: "Memphis, TN", capacity: 35000, used: 12400, zones: 10, staff: 22, temp: "Ambient", status: "Maintenance" },
+  { id: "WH-A", name: "Main Pharma Warehouse", location: "10th of Ramadan, Egypt", capacity: 50000, used: 38500, zones: 12, staff: 45, temp: "Climate Controlled", status: "Operational" },
+  { id: "WH-B", name: "Cold Chain Storage", location: "6th October, Egypt", capacity: 25000, used: 21200, zones: 8, staff: 28, temp: "Regulated", status: "Operational" },
+  { id: "WH-C", name: "API & Raw Materials Depot", location: "Cairo, Egypt", capacity: 15000, used: 9800, zones: 6, staff: 18, temp: "Climate Controlled", status: "Operational" },
+  { id: "WH-D", name: "Packaging & Finished Goods", location: "Alexandria, Egypt", capacity: 35000, used: 12400, zones: 10, staff: 22, temp: "Ambient", status: "Maintenance" },
 ];
 
 const contracts = [
-  { id: "CTR-301", supplier: "Apex Materials Co.", type: "Master Supply Agreement", value: "$4.8M", start: "Jan 01, 2026", end: "Dec 31, 2027", status: "Active", renewal: "Auto" },
-  { id: "CTR-302", supplier: "SteelWorks International", type: "Volume Purchase Agreement", value: "$6.2M", start: "Mar 01, 2026", end: "Feb 28, 2028", status: "Active", renewal: "Manual" },
-  { id: "CTR-303", supplier: "GlobalTech Components", type: "Framework Agreement", value: "$3.5M", start: "Jun 01, 2025", end: "May 31, 2026", status: "Expiring Soon", renewal: "Auto" },
-  { id: "CTR-304", supplier: "Pacific Logistics Ltd.", type: "Service Level Agreement", value: "$1.8M", start: "Jan 01, 2026", end: "Dec 31, 2026", status: "Active", renewal: "Auto" },
-  { id: "CTR-305", supplier: "NordicParts AB", type: "Blanket Purchase Order", value: "$2.9M", start: "Apr 01, 2026", end: "Mar 31, 2027", status: "Active", renewal: "Manual" },
-  { id: "CTR-306", supplier: "ElectroParts Global", type: "Master Supply Agreement", value: "$4.1M", start: "Feb 01, 2026", end: "Jan 31, 2028", status: "Active", renewal: "Auto" },
-  { id: "CTR-307", supplier: "ChemPro Industries", type: "Hazmat Handling Agreement", value: "$1.2M", start: "Sep 01, 2025", end: "Aug 31, 2026", status: "Under Review", renewal: "Manual" },
-  { id: "CTR-308", supplier: "RawMat Suppliers Inc.", type: "Framework Agreement", value: "$950K", start: "Nov 01, 2025", end: "Oct 31, 2026", status: "Active", renewal: "Manual" },
+  { id: "CTR-301", supplier: "Sun Pharma API", type: "Master Supply Agreement", value: "EGP 4.8M", start: "Jan 01, 2026", end: "Dec 31, 2027", status: "Active", renewal: "Auto" },
+  { id: "CTR-302", supplier: "Schott Glass", type: "Volume Purchase Agreement", value: "EGP 6.2M", start: "Mar 01, 2026", end: "Feb 28, 2028", status: "Active", renewal: "Manual" },
+  { id: "CTR-303", supplier: "BASF Pharma Solutions", type: "Framework Agreement", value: "EGP 3.5M", start: "Jun 01, 2025", end: "May 31, 2026", status: "Expiring Soon", renewal: "Auto" },
+  { id: "CTR-304", supplier: "Bormioli Pharma", type: "Service Level Agreement", value: "EGP 1.8M", start: "Jan 01, 2026", end: "Dec 31, 2026", status: "Active", renewal: "Auto" },
+  { id: "CTR-305", supplier: "Egyptian Lab Reagents", type: "Blanket Purchase Order", value: "EGP 920K", start: "Apr 01, 2026", end: "Mar 31, 2027", status: "Active", renewal: "Manual" },
+  { id: "CTR-306", supplier: "Sun Pharma API", type: "API Quality Agreement", value: "EGP 4.1M", start: "Feb 01, 2026", end: "Jan 31, 2028", status: "Active", renewal: "Auto" },
+  { id: "CTR-307", supplier: "Schott Glass", type: "Packaging Supply Agreement", value: "EGP 1.2M", start: "Sep 01, 2025", end: "Aug 31, 2026", status: "Under Review", renewal: "Manual" },
+  { id: "CTR-308", supplier: "BASF Pharma Solutions", type: "Excipient Framework Agreement", value: "EGP 950K", start: "Nov 01, 2025", end: "Oct 31, 2026", status: "Active", renewal: "Manual" },
 ];
 
 const spendCategories = [
-  { category: "Raw Materials", spend: "$4.8M", pct: 32, trend: "+2.1%", suppliers: 28 },
-  { category: "Electronics & Components", spend: "$3.9M", pct: 26, trend: "-1.4%", suppliers: 19 },
-  { category: "Logistics & Freight", spend: "$2.3M", pct: 15, trend: "+4.7%", suppliers: 12 },
-  { category: "Chemicals & Polymers", spend: "$1.5M", pct: 10, trend: "+0.8%", suppliers: 8 },
-  { category: "Mechanical Parts", spend: "$1.2M", pct: 8, trend: "-0.3%", suppliers: 15 },
-  { category: "Services & MRO", spend: "$1.3M", pct: 9, trend: "+1.9%", suppliers: 22 },
+  { category: "API Suppliers", spend: "EGP 4.8M", pct: 32, trend: "+2.1%", suppliers: 3 },
+  { category: "Excipients", spend: "EGP 3.9M", pct: 26, trend: "-1.4%", suppliers: 2 },
+  { category: "Primary Packaging", spend: "EGP 2.3M", pct: 15, trend: "+4.7%", suppliers: 2 },
+  { category: "Lab Reagents", spend: "EGP 1.5M", pct: 10, trend: "+0.8%", suppliers: 1 },
+  { category: "Logistics & Freight", spend: "EGP 1.2M", pct: 8, trend: "-0.3%", suppliers: 5 },
+  { category: "Services & MRO", spend: "EGP 1.3M", pct: 9, trend: "+1.9%", suppliers: 4 },
 ];
 
 function poStatusBadge(status: string) {
@@ -151,34 +124,19 @@ function contractStatusBadge(status: string) {
   }
 }
 
-const poFields: EntityField[] = [
-  { name: "supplier", label: "Supplier", type: "text", required: true },
-  { name: "items", label: "Number of Items", type: "number", required: true },
-  { name: "totalValue", label: "Total Value ($)", type: "number", required: true, placeholder: "0" },
-  { name: "expectedDelivery", label: "Expected Delivery", type: "date", required: true },
-  { name: "buyer", label: "Buyer", type: "text", required: true },
-  { name: "priority", label: "Priority", type: "select", defaultValue: "Medium", options: [
-    { label: "High", value: "High" }, { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
-  ]},
-  { name: "status", label: "Status", type: "select", defaultValue: "Draft", options: [
-    { label: "Draft", value: "Draft" }, { label: "Pending Approval", value: "Pending Approval" },
-    { label: "Confirmed", value: "Confirmed" }, { label: "In Transit", value: "In Transit" },
-    { label: "Delivered", value: "Delivered" },
-  ]},
-];
+/* poFields is built inside the component to access store.vendors */
 
 const supplierFields: EntityField[] = [
-  { name: "name", label: "Supplier Name", type: "text", required: true },
+  { name: "name", label: "Supplier Name", type: "text", required: true, fullWidth: true },
   { name: "category", label: "Category", type: "select", required: true, options: [
-    { label: "Raw Materials", value: "Raw Materials" }, { label: "Electronics", value: "Electronics" },
-    { label: "Metals", value: "Metals" }, { label: "Chemicals", value: "Chemicals" },
-    { label: "Logistics", value: "Logistics" }, { label: "Mechanical Parts", value: "Mechanical Parts" },
-    { label: "Hardware", value: "Hardware" }, { label: "Polymers", value: "Polymers" },
+    { label: "API Supplier", value: "API Supplier" }, { label: "Excipient Supplier", value: "Excipient Supplier" },
+    { label: "Packaging Supplier", value: "Packaging Supplier" }, { label: "Lab Reagents", value: "Lab Reagents" },
+    { label: "Equipment", value: "Equipment" }, { label: "Logistics", value: "Logistics" },
   ]},
   { name: "location", label: "Location", type: "text", required: true },
-  { name: "rating", label: "Rating (1-5)", type: "number", min: 1, max: 5, step: 0.1 },
-  { name: "onTime", label: "On-Time Delivery %", type: "text" },
-  { name: "spend", label: "Annual Spend", type: "text" },
+  { name: "rating", label: "Rating (1-5)", type: "number", min: 1, max: 5 },
+  { name: "onTime", label: "On-Time %", type: "text", placeholder: "95%" },
+  { name: "spend", label: "Annual Spend", type: "text", placeholder: "EGP 1.2M" },
   { name: "status", label: "Status", type: "select", defaultValue: "Approved", options: [
     { label: "Preferred", value: "Preferred" }, { label: "Approved", value: "Approved" },
     { label: "Conditional", value: "Conditional" },
@@ -186,17 +144,197 @@ const supplierFields: EntityField[] = [
   { name: "risk", label: "Risk Level", type: "select", defaultValue: "Low", options: [
     { label: "Low", value: "Low" }, { label: "Medium", value: "Medium" }, { label: "High", value: "High" },
   ]},
+  { name: "phone", label: "Phone", type: "text" },
+  { name: "email", label: "Email", type: "email" },
 ];
 
-type ModalMode = { type: "po"; editing: typeof purchaseOrders[0] | null } | { type: "supplier"; editing: typeof suppliers[0] | null } | null;
+/* contractFields is built inside the component to access store.vendors */
+
+const shipmentFields: EntityField[] = [
+  { name: "origin", label: "Origin", type: "text", required: true },
+  { name: "destination", label: "Destination", type: "text", required: true },
+  { name: "carrier", label: "Carrier", type: "text", required: true },
+  { name: "mode", label: "Mode", type: "select", required: true, options: [
+    { label: "Ocean Freight", value: "Ocean Freight" }, { label: "Air Freight", value: "Air Freight" },
+    { label: "Ground", value: "Ground" }, { label: "Rail", value: "Rail" },
+  ]},
+  { name: "departed", label: "Departed", type: "date", required: true },
+  { name: "eta", label: "ETA", type: "date", required: true },
+  { name: "weight", label: "Weight", type: "text", required: true, placeholder: "e.g. 1,200 kg" },
+  { name: "status", label: "Status", type: "select", defaultValue: "Dispatched", options: [
+    { label: "Dispatched", value: "Dispatched" }, { label: "In Transit", value: "In Transit" },
+    { label: "Delivered", value: "Delivered" },
+  ]},
+];
+
+/* inventoryFields is built inside the component to access store.products */
+
+const warehouseFields: EntityField[] = [
+  { name: "name", label: "Warehouse Name", type: "text", required: true, fullWidth: true },
+  { name: "location", label: "Location", type: "text", required: true },
+  { name: "capacity", label: "Total Capacity (sqft)", type: "number", required: true, min: 0 },
+  { name: "used", label: "Used Capacity (sqft)", type: "number", required: true, min: 0 },
+  { name: "zones", label: "Zones", type: "number", required: true, min: 1 },
+  { name: "staff", label: "Staff", type: "number", required: true, min: 0 },
+  { name: "temp", label: "Temp Control", type: "select", required: true, options: [
+    { label: "Ambient", value: "Ambient" }, { label: "Climate Controlled", value: "Climate Controlled" },
+    { label: "Regulated", value: "Regulated" },
+  ]},
+  { name: "status", label: "Status", type: "select", defaultValue: "Operational", options: [
+    { label: "Operational", value: "Operational" }, { label: "Maintenance", value: "Maintenance" },
+    { label: "Closed", value: "Closed" },
+  ]},
+];
+
+interface SupplierRow {
+  id: string;
+  name: string;
+  category: string;
+  location: string;
+  rating: number;
+  onTime: string;
+  spend: string;
+  status: string;
+  risk: string;
+  gmpCertified: boolean;
+  phone: string;
+  email: string;
+}
+
+interface InventoryRow {
+  sku: string;
+  productId: string;
+  name: string;
+  category: string;
+  onHand: number;
+  reorder: number;
+  max: number;
+  unit: string;
+  location: string;
+  status: string;
+}
+
+type ModalMode =
+  | { type: "po"; editing: typeof INITIAL_PURCHASE_ORDERS[0] | null }
+  | { type: "supplier"; editing: SupplierRow | null }
+  | { type: "contract"; editing: typeof contracts[0] | null }
+  | { type: "shipment"; editing: typeof shipments[0] | null }
+  | { type: "inventory"; editing: InventoryRow | null }
+  | { type: "warehouse"; editing: typeof warehouses[0] | null }
+  | null;
 
 export default function SupplyChainPage() {
+  const store = useDataStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [modal, setModal] = useState<ModalMode>(null);
-  const [pos, setPos] = useState(purchaseOrders);
-  const [supplierList, setSupplierList] = useState(suppliers);
+  const [pos, setPos] = useState(INITIAL_PURCHASE_ORDERS);
+  const [contractList, setContractList] = useState(contracts);
+  const [shipmentList, setShipmentList] = useState(shipments);
+  const [warehouseList, setWarehouseList] = useState(warehouses);
+  const [supplierList, setSupplierList] = useState<SupplierRow[]>(() =>
+    store.vendors.map((v) => ({
+      id: v.code,
+      name: v.name,
+      category: v.category,
+      location: v.address,
+      rating: v.gmpCertified ? 4.7 : 4.0,
+      onTime: v.gmpCertified ? "95%" : "88%",
+      spend: `EGP ${(v.outstanding / 1000).toFixed(0)}K`,
+      status: v.gmpCertified ? "Preferred" : "Approved",
+      risk: v.gmpCertified ? "Low" : "Medium",
+      gmpCertified: v.gmpCertified,
+      phone: v.phone,
+      email: v.email,
+    }))
+  );
+  const [inventoryList, setInventoryList] = useState<InventoryRow[]>(() =>
+    store.products.map((p, idx) => {
+      const baseStock = Math.round(p.pricePerUnit * 20);
+      const reorder = Math.round(baseStock * 0.3);
+      const max = baseStock * 2;
+      const onHand = Math.round(baseStock * (0.5 + Math.random() * 0.8));
+      const stockStatus = onHand <= reorder * 0.5 ? "Critical" : onHand <= reorder ? "Low Stock" : "Adequate";
+      const locations = ["WH-A", "WH-B", "WH-C", "WH-D"];
+      return {
+        sku: p.code,
+        productId: p.id,
+        name: `${p.name} ${p.strength}`,
+        category: p.therapeuticArea,
+        onHand,
+        reorder,
+        max,
+        unit: p.form === "Syrup" ? "bottles" : p.form === "Injection" ? "vials" : "boxes",
+        location: locations[idx % locations.length],
+        status: stockStatus,
+      };
+    })
+  );
   const [poFilters, setPoFilters] = useState<FilterState>({});
   const [supFilters, setSupFilters] = useState<FilterState>({});
+  const [viewPO, setViewPO] = useState<typeof INITIAL_PURCHASE_ORDERS[0] | null>(null);
+  const [viewSupplier, setViewSupplier] = useState<SupplierRow | null>(null);
+
+  // Build poFields with store.vendors as supplier options
+  const poFields: EntityField[] = [
+    { name: "supplier", label: "Supplier", type: "select" as const, required: true, options: store.vendors.map(v => ({ label: v.name, value: v.name })) },
+    { name: "items", label: "Number of Items", type: "number" as const, required: true },
+    { name: "totalValue", label: "Total Value (EGP)", type: "number" as const, required: true, placeholder: "0" },
+    { name: "expectedDelivery", label: "Expected Delivery", type: "date" as const, required: true },
+    { name: "buyer", label: "Buyer", type: "text" as const, required: true },
+    { name: "priority", label: "Priority", type: "select" as const, defaultValue: "Medium", options: [
+      { label: "High", value: "High" }, { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
+    ]},
+    { name: "status", label: "Status", type: "select" as const, defaultValue: "Draft", options: [
+      { label: "Draft", value: "Draft" }, { label: "Pending Approval", value: "Pending Approval" },
+      { label: "Confirmed", value: "Confirmed" }, { label: "In Transit", value: "In Transit" },
+      { label: "Delivered", value: "Delivered" },
+    ]},
+  ];
+
+  const contractFields: EntityField[] = [
+    { name: "title", label: "Type", type: "text" as const, required: true, fullWidth: true, placeholder: "e.g. Master Supply Agreement" },
+    { name: "supplier", label: "Supplier", type: "select" as const, required: true, options: store.vendors.map(v => ({ label: v.name, value: v.name })) },
+    { name: "startDate", label: "Start Date", type: "date" as const, required: true },
+    { name: "endDate", label: "End Date", type: "date" as const, required: true },
+    { name: "value", label: "Value (EGP)", type: "number" as const, required: true, placeholder: "0" },
+    { name: "status", label: "Status", type: "select" as const, defaultValue: "Active", options: [
+      { label: "Active", value: "Active" }, { label: "Expiring Soon", value: "Expiring Soon" },
+      { label: "Under Review", value: "Under Review" }, { label: "Expired", value: "Expired" },
+    ]},
+    { name: "renewal", label: "Renewal", type: "select" as const, defaultValue: "Manual", options: [
+      { label: "Auto", value: "Auto" }, { label: "Manual", value: "Manual" },
+    ]},
+  ];
+
+  const inventoryFields: EntityField[] = [
+    { name: "product", label: "Product", type: "select" as const, required: true, options: store.products.map(p => ({ label: `${p.code} - ${p.name}`, value: p.name })) },
+    { name: "name", label: "Item Name", type: "text" as const, required: true, fullWidth: true },
+    { name: "category", label: "Therapeutic Area", type: "text" as const, required: true },
+    { name: "onHand", label: "On Hand", type: "number" as const, required: true, min: 0 },
+    { name: "reorder", label: "Reorder Point", type: "number" as const, required: true, min: 0 },
+    { name: "max", label: "Max Qty", type: "number" as const, required: true, min: 0 },
+    { name: "unit", label: "Unit", type: "text" as const, required: true, placeholder: "e.g. boxes, vials, bottles" },
+    { name: "location", label: "Location", type: "select" as const, required: true, options: [
+      { label: "WH-A", value: "WH-A" }, { label: "WH-B", value: "WH-B" },
+      { label: "WH-C", value: "WH-C" }, { label: "WH-D", value: "WH-D" },
+    ]},
+    { name: "status", label: "Status", type: "select" as const, defaultValue: "Adequate", options: [
+      { label: "Adequate", value: "Adequate" }, { label: "Low Stock", value: "Low Stock" },
+      { label: "Critical", value: "Critical" },
+    ]},
+  ];
+
+  // Dynamic KPI values
+  const kpis = [
+    { label: "Total Suppliers", value: String(store.vendors.length), icon: Factory, color: "text-blue-600", bg: "bg-blue-100" },
+    { label: "Active POs", value: String(pos.filter(p => p.status !== "Delivered" && p.status !== "Draft").length), icon: ShoppingCart, color: "text-purple-600", bg: "bg-purple-100" },
+    { label: "On-Time Delivery", value: "94.3%", icon: Clock, color: "text-green-600", bg: "bg-green-100" },
+    { label: "Fill Rate", value: "97.8%", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-100" },
+    { label: "Avg Lead Time", value: "12d", icon: TrendingUp, color: "text-amber-600", bg: "bg-amber-100" },
+    { label: "Products Tracked", value: String(store.products.length), icon: RefreshCw, color: "text-cyan-600", bg: "bg-cyan-100" },
+    { label: "Vendor Outstanding", value: `EGP ${(store.vendors.reduce((s, v) => s + v.outstanding, 0) / 1_000_000).toFixed(1)}M`, icon: DollarSign, color: "text-orange-600", bg: "bg-orange-100" },
+    { label: "Supply Risk", value: store.vendors.every(v => v.gmpCertified) ? "Low" : "Medium", icon: ShieldCheck, color: "text-green-600", bg: "bg-green-100" },
+  ];
 
   return (
     <div className="space-y-6 p-6">
@@ -299,7 +437,7 @@ export default function SupplyChainPage() {
               ]},
             ]}
             values={poFilters}
-            onChange={setPoFilters}
+            onChange={(k, v) => setPoFilters(f => ({ ...f, [k]: v }))}
             rightSlot={<Button size="sm" onClick={() => setModal({ type: "po", editing: null })}><Plus className="mr-2 h-4 w-4" />Add PO</Button>}
           />
           <Card>
@@ -308,55 +446,41 @@ export default function SupplyChainPage() {
               <CardDescription>Manage and track all procurement activities</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">PO #</th>
-                      <th className="pb-3 font-medium">Supplier</th>
-                      <th className="pb-3 font-medium">Items</th>
-                      <th className="pb-3 font-medium">Total</th>
-                      <th className="pb-3 font-medium">Ordered</th>
-                      <th className="pb-3 font-medium">ETA</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Priority</th>
-                      <th className="pb-3 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pos
-                      .filter(po => !searchTerm || po.id.toLowerCase().includes(searchTerm.toLowerCase()) || po.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
-                      .filter(po => !poFilters.status || po.status === poFilters.status)
-                      .filter(po => !poFilters.priority || po.priority === poFilters.priority)
-                      .map((po) => {
-                        const statusFlow: Record<string, string> = { "Draft": "Pending Approval", "Pending Approval": "Confirmed", "Confirmed": "In Transit", "In Transit": "Delivered" };
-                        const nextStatus = statusFlow[po.status];
-                        return (
-                          <tr key={po.id} className="border-b last:border-0">
-                            <td className="py-3 font-medium">{po.id}</td>
-                            <td className="py-3">{po.supplier}</td>
-                            <td className="py-3">{po.items}</td>
-                            <td className="py-3">{po.total}</td>
-                            <td className="py-3">{po.ordered}</td>
-                            <td className="py-3">{po.eta}</td>
-                            <td className="py-3">{poStatusBadge(po.status)}</td>
-                            <td className="py-3">
-                              <Badge variant={po.priority === "High" ? "destructive" : po.priority === "Medium" ? "secondary" : "outline"}>{po.priority}</Badge>
-                            </td>
-                            <td className="py-3">
-                              <EditDeleteMenu
-                                onEdit={() => setModal({ type: "po", editing: po })}
-                                onDelete={() => setPos(prev => prev.filter(p => p.id !== po.id))}
-                                itemLabel={po.id}
-                                extraItems={nextStatus ? [{ label: `→ ${nextStatus}`, onClick: () => setPos(prev => prev.map(p => p.id === po.id ? { ...p, status: nextStatus } : p)) }] : []}
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "PO #", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "supplier", label: "Supplier" },
+                  { key: "items", label: "Items" },
+                  { key: "total", label: "Total" },
+                  { key: "ordered", label: "Ordered" },
+                  { key: "eta", label: "ETA" },
+                  { key: "status", label: "Status", render: (v: string) => poStatusBadge(v) },
+                  { key: "priority", label: "Priority", render: (v: string) => (
+                    <Badge variant={v === "High" ? "destructive" : v === "Medium" ? "secondary" : "outline"}>{v}</Badge>
+                  )},
+                  { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                    const po = row as unknown as typeof pos[0];
+                    const statusFlow: Record<string, string> = { "Draft": "Pending Approval", "Pending Approval": "Confirmed", "Confirmed": "In Transit", "In Transit": "Delivered" };
+                    const nextStatus = statusFlow[po.status];
+                    return (
+                      <EditDeleteMenu
+                        onView={() => setViewPO(po)}
+                        canView
+                        onEdit={() => setModal({ type: "po", editing: po })}
+                        onDelete={() => setPos(prev => prev.filter(p => p.id !== po.id))}
+                        itemLabel={po.id}
+                        extraItems={nextStatus ? [{ label: `→ ${nextStatus}`, onClick: () => setPos(prev => prev.map(p => p.id === po.id ? { ...p, status: nextStatus } : p)) }] : []}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={pos
+                  .filter(po => !searchTerm || po.id.toLowerCase().includes(searchTerm.toLowerCase()) || po.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
+                  .filter(po => !poFilters.status || po.status === poFilters.status)
+                  .filter(po => !poFilters.priority || po.priority === poFilters.priority) as unknown as Record<string, unknown>[]}
+                
+                exportable exportFilename="supply-chain.csv" emptyMessage="No purchase orders found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -376,61 +500,48 @@ export default function SupplyChainPage() {
               ]},
             ]}
             values={supFilters}
-            onChange={setSupFilters}
-            rightSlot={<Button size="sm" onClick={() => setModal({ type: "supplier", editing: null })}><Plus className="mr-2 h-4 w-4" />Add Supplier</Button>}
+            onChange={(k, v) => setSupFilters(f => ({ ...f, [k]: v }))}
+            rightSlot={<span className="text-xs text-muted-foreground">Synced from vendor master</span>}
           />
           <Card>
             <CardHeader>
               <CardTitle>Supplier Directory</CardTitle>
-              <CardDescription>Approved vendor list with performance ratings</CardDescription>
+              <CardDescription>Vendors from the central data store with performance ratings</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Supplier</th>
-                      <th className="pb-3 font-medium">Category</th>
-                      <th className="pb-3 font-medium">Location</th>
-                      <th className="pb-3 font-medium">Rating</th>
-                      <th className="pb-3 font-medium">On-Time</th>
-                      <th className="pb-3 font-medium">Annual Spend</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Risk</th>
-                      <th className="pb-3 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {supplierList
-                      .filter(s => !supFilters._search || s.name.toLowerCase().includes(supFilters._search.toLowerCase()) || s.id.toLowerCase().includes(supFilters._search.toLowerCase()))
-                      .filter(s => !supFilters.status || s.status === supFilters.status)
-                      .filter(s => !supFilters.risk || s.risk === supFilters.risk)
-                      .map((s) => (
-                      <tr key={s.id} className="border-b last:border-0">
-                        <td className="py-3 font-medium">{s.id}</td>
-                        <td className="py-3">{s.name}</td>
-                        <td className="py-3">{s.category}</td>
-                        <td className="py-3">{s.location}</td>
-                        <td className="py-3">
-                          <span className={s.rating >= 4.5 ? "text-green-600 font-medium" : "text-amber-600 font-medium"}>{s.rating}/5</span>
-                        </td>
-                        <td className="py-3">{s.onTime}</td>
-                        <td className="py-3">{s.spend}</td>
-                        <td className="py-3">{supplierStatusBadge(s.status)}</td>
-                        <td className="py-3">{riskBadge(s.risk)}</td>
-                        <td className="py-3">
-                          <EditDeleteMenu
-                            onEdit={() => setModal({ type: "supplier", editing: s })}
-                            onDelete={() => setSupplierList(prev => prev.filter(x => x.id !== s.id))}
-                            itemLabel={s.name}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "name", label: "Supplier" },
+                  { key: "category", label: "Category" },
+                  { key: "location", label: "Location" },
+                  { key: "gmpCertified", label: "GMP", render: (v: boolean) => (
+                    <Badge variant={v ? "default" : "secondary"}>{v ? "Certified" : "No"}</Badge>
+                  )},
+                  { key: "onTime", label: "On-Time" },
+                  { key: "spend", label: "Outstanding" },
+                  { key: "status", label: "Status", render: (v: string) => supplierStatusBadge(v) },
+                  { key: "risk", label: "Risk", render: (v: string) => riskBadge(v) },
+                  { key: "actions", label: "", render: (_: unknown, row: Record<string, unknown>) => {
+                    const s = row as unknown as SupplierRow;
+                    return (
+                      <EditDeleteMenu
+                        onView={() => setViewSupplier(s)}
+                        canView
+                        onEdit={() => setViewSupplier(s)}
+                        onDelete={() => {}}
+                        itemLabel={s.name}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={supplierList
+                  .filter(s => !supFilters._search || s.name.toLowerCase().includes(supFilters._search.toLowerCase()) || s.id.toLowerCase().includes(supFilters._search.toLowerCase()))
+                  .filter(s => !supFilters.status || s.status === supFilters.status)
+                  .filter(s => !supFilters.risk || s.risk === supFilters.risk) as unknown as Record<string, unknown>[]}
+                
+                exportable exportFilename="supply-chain.csv" emptyMessage="No suppliers found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -443,6 +554,7 @@ export default function SupplyChainPage() {
               <Input placeholder="Search shipments..." className="pl-8" />
             </div>
             <Button variant="outline" size="sm"><Filter className="mr-2 h-4 w-4" />Filter</Button>
+            <Button size="sm" onClick={() => setModal({ type: "shipment", editing: null })}><Plus className="mr-2 h-4 w-4" />Add Shipment</Button>
           </div>
           <Card>
             <CardHeader>
@@ -450,40 +562,34 @@ export default function SupplyChainPage() {
               <CardDescription>Real-time visibility of inbound and outbound shipments</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">Shipment #</th>
-                      <th className="pb-3 font-medium">Origin</th>
-                      <th className="pb-3 font-medium">Destination</th>
-                      <th className="pb-3 font-medium">Carrier</th>
-                      <th className="pb-3 font-medium">Mode</th>
-                      <th className="pb-3 font-medium">Departed</th>
-                      <th className="pb-3 font-medium">ETA</th>
-                      <th className="pb-3 font-medium">Weight</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shipments.map((s) => (
-                      <tr key={s.id} className="border-b last:border-0">
-                        <td className="py-3 font-medium">{s.id}</td>
-                        <td className="py-3">{s.origin}</td>
-                        <td className="py-3">{s.destination}</td>
-                        <td className="py-3">{s.carrier}</td>
-                        <td className="py-3">{s.mode}</td>
-                        <td className="py-3">{s.departed}</td>
-                        <td className="py-3">{s.eta}</td>
-                        <td className="py-3">{s.weight}</td>
-                        <td className="py-3">
-                          <Badge variant={s.status === "Delivered" ? "default" : s.status === "In Transit" ? "secondary" : "outline"}>{s.status}</Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Shipment #", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "origin", label: "Origin" },
+                  { key: "destination", label: "Destination" },
+                  { key: "carrier", label: "Carrier" },
+                  { key: "mode", label: "Mode" },
+                  { key: "departed", label: "Departed" },
+                  { key: "eta", label: "ETA" },
+                  { key: "weight", label: "Weight" },
+                  { key: "status", label: "Status", render: (v: string) => (
+                    <Badge variant={v === "Delivered" ? "default" : v === "In Transit" ? "secondary" : "outline"}>{v}</Badge>
+                  )},
+                  { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                    const s = row as unknown as typeof shipmentList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ type: "shipment", editing: s })}
+                        onDelete={() => setShipmentList(prev => prev.filter(x => x.id !== s.id))}
+                        itemLabel={s.id}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={shipmentList as unknown as Record<string, unknown>[]}
+
+                exportable exportFilename="supply-chain.csv" emptyMessage="No shipments found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -498,55 +604,53 @@ export default function SupplyChainPage() {
             <div className="flex gap-2">
               <Button variant="outline" size="sm"><RefreshCw className="mr-2 h-4 w-4" />Sync Stock</Button>
               <Button variant="outline" size="sm"><Download className="mr-2 h-4 w-4" />Export</Button>
+              <Button size="sm" onClick={() => setModal({ type: "inventory", editing: null })}><Plus className="mr-2 h-4 w-4" />Add Item</Button>
             </div>
           </div>
           <Card>
             <CardHeader>
               <CardTitle>Inventory Levels</CardTitle>
-              <CardDescription>Current stock positions and reorder planning</CardDescription>
+              <CardDescription>Stock positions derived from the product catalog with reorder planning</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">SKU</th>
-                      <th className="pb-3 font-medium">Item Name</th>
-                      <th className="pb-3 font-medium">Category</th>
-                      <th className="pb-3 font-medium">On Hand</th>
-                      <th className="pb-3 font-medium">Reorder Point</th>
-                      <th className="pb-3 font-medium">Max</th>
-                      <th className="pb-3 font-medium">Unit</th>
-                      <th className="pb-3 font-medium">Location</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inventoryItems.map((item) => (
-                      <tr key={item.sku} className="border-b last:border-0">
-                        <td className="py-3 font-medium">{item.sku}</td>
-                        <td className="py-3">{item.name}</td>
-                        <td className="py-3">{item.category}</td>
-                        <td className="py-3 font-medium">{item.onHand.toLocaleString()}</td>
-                        <td className="py-3">{item.reorder.toLocaleString()}</td>
-                        <td className="py-3">{item.max.toLocaleString()}</td>
-                        <td className="py-3">{item.unit}</td>
-                        <td className="py-3">{item.location}</td>
-                        <td className="py-3">{stockBadge(item.status)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "sku", label: "SKU", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "name", label: "Item Name" },
+                  { key: "category", label: "Category" },
+                  { key: "onHand", label: "On Hand", render: (v: number) => <span className="font-medium">{v.toLocaleString()}</span> },
+                  { key: "reorder", label: "Reorder Point", render: (v: number) => <>{v.toLocaleString()}</> },
+                  { key: "max", label: "Max", render: (v: number) => <>{v.toLocaleString()}</> },
+                  { key: "unit", label: "Unit" },
+                  { key: "location", label: "Location" },
+                  { key: "status", label: "Status", render: (v: string) => stockBadge(v) },
+                  { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof inventoryList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ type: "inventory", editing: item })}
+                        onDelete={() => setInventoryList(prev => prev.filter(x => x.sku !== item.sku))}
+                        itemLabel={item.name}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={inventoryList as unknown as Record<string, unknown>[]}
+                exportable exportFilename="supply-chain.csv" emptyMessage="No inventory items found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Warehousing Tab */}
         <TabsContent value="warehousing" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Warehouses</h2>
+            <Button size="sm" onClick={() => setModal({ type: "warehouse", editing: null })}><Plus className="mr-2 h-4 w-4" />Add Warehouse</Button>
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
-            {warehouses.map((wh) => {
-              const utilization = Math.round((wh.used / wh.capacity) * 100);
+            {warehouseList.map((wh) => {
+              const utilization = wh.capacity > 0 ? Math.round((wh.used / wh.capacity) * 100) : 0;
               return (
                 <Card key={wh.id}>
                   <CardHeader>
@@ -555,7 +659,14 @@ export default function SupplyChainPage() {
                         <CardTitle className="text-lg">{wh.name}</CardTitle>
                         <CardDescription>{wh.id} | {wh.location}</CardDescription>
                       </div>
-                      <Badge variant={wh.status === "Operational" ? "default" : "secondary"}>{wh.status}</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={wh.status === "Operational" ? "default" : "secondary"}>{wh.status}</Badge>
+                        <EditDeleteMenu
+                          onEdit={() => setModal({ type: "warehouse", editing: wh })}
+                          onDelete={() => setWarehouseList(prev => prev.filter(x => x.id !== wh.id))}
+                          itemLabel={wh.name}
+                        />
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -600,7 +711,7 @@ export default function SupplyChainPage() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search contracts..." className="pl-8" />
             </div>
-            <Button size="sm"><Plus className="mr-2 h-4 w-4" />New Contract</Button>
+            <Button size="sm" onClick={() => setModal({ type: "contract", editing: null })}><Plus className="mr-2 h-4 w-4" />New Contract</Button>
           </div>
           <Card>
             <CardHeader>
@@ -608,36 +719,31 @@ export default function SupplyChainPage() {
               <CardDescription>Active agreements and contract lifecycle management</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">Contract #</th>
-                      <th className="pb-3 font-medium">Supplier</th>
-                      <th className="pb-3 font-medium">Type</th>
-                      <th className="pb-3 font-medium">Value</th>
-                      <th className="pb-3 font-medium">Start</th>
-                      <th className="pb-3 font-medium">End</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Renewal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {contracts.map((c) => (
-                      <tr key={c.id} className="border-b last:border-0">
-                        <td className="py-3 font-medium">{c.id}</td>
-                        <td className="py-3">{c.supplier}</td>
-                        <td className="py-3">{c.type}</td>
-                        <td className="py-3">{c.value}</td>
-                        <td className="py-3">{c.start}</td>
-                        <td className="py-3">{c.end}</td>
-                        <td className="py-3">{contractStatusBadge(c.status)}</td>
-                        <td className="py-3"><Badge variant="outline">{c.renewal}</Badge></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Contract #", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "supplier", label: "Supplier" },
+                  { key: "type", label: "Type" },
+                  { key: "value", label: "Value" },
+                  { key: "start", label: "Start" },
+                  { key: "end", label: "End" },
+                  { key: "status", label: "Status", render: (v: string) => contractStatusBadge(v) },
+                  { key: "renewal", label: "Renewal", render: (v: string) => <Badge variant="outline">{v}</Badge> },
+                  { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                    const c = row as unknown as typeof contractList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => setModal({ type: "contract", editing: c })}
+                        onDelete={() => setContractList(prev => prev.filter(x => x.id !== c.id))}
+                        itemLabel={c.id}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={contractList as unknown as Record<string, unknown>[]}
+
+                exportable exportFilename="supply-chain.csv" emptyMessage="No contracts found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -650,7 +756,7 @@ export default function SupplyChainPage() {
                 <CardTitle className="text-sm font-medium">Total Annual Spend</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">$15.0M</div>
+                <div className="text-2xl font-bold">EGP 15.0M</div>
                 <p className="text-xs text-muted-foreground mt-1">+3.2% vs. prior year</p>
               </CardContent>
             </Card>
@@ -659,7 +765,7 @@ export default function SupplyChainPage() {
                 <CardTitle className="text-sm font-medium">Cost Savings YTD</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">$1.24M</div>
+                <div className="text-2xl font-bold text-green-600">EGP 1.24M</div>
                 <p className="text-xs text-muted-foreground mt-1">8.3% savings rate achieved</p>
               </CardContent>
             </Card>
@@ -703,20 +809,20 @@ export default function SupplyChainPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Top Suppliers by Spend</CardTitle>
+                <CardTitle>Top Vendors by Outstanding</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {suppliers.sort((a, b) => parseFloat(b.spend.replace(/[$MK,]/g, "")) - parseFloat(a.spend.replace(/[$MK,]/g, ""))).slice(0, 5).map((s, i) => (
-                    <div key={s.id} className="flex items-center justify-between border-b pb-2 last:border-0">
+                  {[...store.vendors].sort((a, b) => b.outstanding - a.outstanding).slice(0, 5).map((v, i) => (
+                    <div key={v.id} className="flex items-center justify-between border-b pb-2 last:border-0">
                       <div className="flex items-center gap-3">
                         <span className="text-muted-foreground text-sm w-5">{i + 1}.</span>
                         <div>
-                          <p className="font-medium text-sm">{s.name}</p>
-                          <p className="text-xs text-muted-foreground">{s.category}</p>
+                          <p className="font-medium text-sm">{v.name}</p>
+                          <p className="text-xs text-muted-foreground">{v.category}</p>
                         </div>
                       </div>
-                      <span className="font-medium text-sm">{s.spend}</span>
+                      <span className="font-medium text-sm">EGP {v.outstanding.toLocaleString()}</span>
                     </div>
                   ))}
                 </div>
@@ -769,7 +875,7 @@ export default function SupplyChainPage() {
           initialData={modal.editing ? {
             supplier: modal.editing.supplier,
             items: modal.editing.items,
-            totalValue: parseFloat(modal.editing.total.replace(/[$,]/g, "")) || 0,
+            totalValue: parseFloat(modal.editing.total.replace(/[^0-9.]/g, "")) || 0,
             expectedDelivery: modal.editing.eta,
             buyer: "",
             priority: modal.editing.priority,
@@ -782,7 +888,7 @@ export default function SupplyChainPage() {
                 ...p,
                 supplier: String(data.supplier),
                 items: Number(data.items) || p.items,
-                total: `$${Number(data.totalValue).toLocaleString()}`,
+                total: `EGP ${Number(data.totalValue).toLocaleString()}`,
                 eta: String(data.expectedDelivery),
                 priority: String(data.priority) || p.priority,
                 status: String(data.status) || p.status,
@@ -790,10 +896,10 @@ export default function SupplyChainPage() {
             } else {
               const today = new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
               setPos(prev => [{
-                id: `PO-${4510 + prev.length + 1}`,
+                id: `PO-${Date.now().toString(36)}`,
                 supplier: String(data.supplier),
                 items: Number(data.items) || 1,
-                total: `$${Number(data.totalValue).toLocaleString()}`,
+                total: `EGP ${Number(data.totalValue).toLocaleString()}`,
                 ordered: today,
                 eta: String(data.expectedDelivery),
                 status: "Draft",
@@ -836,20 +942,342 @@ export default function SupplyChainPage() {
               } : s));
             } else {
               setSupplierList(prev => [{
-                id: `SUP-${String(prev.length + 1).padStart(3, "0")}`,
+                id: `SUP-${Date.now().toString(36)}`,
                 name: String(data.name),
                 category: String(data.category),
                 location: String(data.location),
                 rating: Number(data.rating) || 0,
                 onTime: String(data.onTime) || "0%",
-                spend: String(data.spend) || "$0",
+                spend: String(data.spend) || "EGP 0",
                 status: String(data.status) || "Approved",
                 risk: String(data.risk) || "Low",
+                gmpCertified: false,
+                phone: String(data.phone) || "",
+                email: String(data.email) || "",
               }, ...prev]);
             }
           }}
         />
       )}
+      {/* Contract Modal */}
+      {modal?.type === "contract" && (
+        <EntityFormModal
+          open
+          onOpenChange={() => setModal(null)}
+          title={modal.editing ? `Edit ${modal.editing.id}` : "New Contract"}
+          fields={contractFields}
+          initialData={modal.editing ? {
+            title: modal.editing.type,
+            supplier: modal.editing.supplier,
+            startDate: modal.editing.start,
+            endDate: modal.editing.end,
+            value: parseFloat(modal.editing.value.replace(/[^0-9.]/g, "")) || 0,
+            status: modal.editing.status,
+            renewal: modal.editing.renewal,
+          } : undefined}
+          submitLabel={modal.editing ? "Update" : "Create"}
+          onSubmit={(data) => {
+            if (modal.editing) {
+              setContractList(prev => prev.map(c => c.id === modal.editing!.id ? {
+                ...c,
+                supplier: String(data.supplier),
+                type: String(data.title),
+                value: `EGP ${Number(data.value).toLocaleString()}`,
+                start: String(data.startDate),
+                end: String(data.endDate),
+                status: String(data.status) || c.status,
+                renewal: String(data.renewal) || c.renewal,
+              } : c));
+            } else {
+              setContractList(prev => [{
+                id: `CTR-${Date.now().toString(36)}`,
+                supplier: String(data.supplier),
+                type: String(data.title),
+                value: `EGP ${Number(data.value).toLocaleString()}`,
+                start: String(data.startDate),
+                end: String(data.endDate),
+                status: String(data.status) || "Active",
+                renewal: String(data.renewal) || "Manual",
+              }, ...prev]);
+            }
+          }}
+        />
+      )}
+      {/* Shipment Modal */}
+      {modal?.type === "shipment" && (
+        <EntityFormModal
+          open
+          onOpenChange={() => setModal(null)}
+          title={modal.editing ? `Edit ${modal.editing.id}` : "Add Shipment"}
+          fields={shipmentFields}
+          initialData={modal.editing ? {
+            origin: modal.editing.origin,
+            destination: modal.editing.destination,
+            carrier: modal.editing.carrier,
+            mode: modal.editing.mode,
+            departed: modal.editing.departed,
+            eta: modal.editing.eta,
+            weight: modal.editing.weight,
+            status: modal.editing.status,
+          } : undefined}
+          submitLabel={modal.editing ? "Update" : "Create"}
+          onSubmit={(data) => {
+            if (modal.editing) {
+              setShipmentList(prev => prev.map(s => s.id === modal.editing!.id ? {
+                ...s,
+                origin: String(data.origin),
+                destination: String(data.destination),
+                carrier: String(data.carrier),
+                mode: String(data.mode),
+                departed: String(data.departed),
+                eta: String(data.eta),
+                weight: String(data.weight),
+                status: String(data.status) || s.status,
+              } : s));
+            } else {
+              setShipmentList(prev => [{
+                id: `SHP-${Date.now().toString(36)}`,
+                origin: String(data.origin),
+                destination: String(data.destination),
+                carrier: String(data.carrier),
+                mode: String(data.mode),
+                departed: String(data.departed),
+                eta: String(data.eta),
+                weight: String(data.weight),
+                status: String(data.status) || "Dispatched",
+              }, ...prev]);
+            }
+          }}
+        />
+      )}
+      {/* Inventory Modal */}
+      {modal?.type === "inventory" && (
+        <EntityFormModal
+          open
+          onOpenChange={() => setModal(null)}
+          title={modal.editing ? `Edit ${modal.editing.name}` : "Add Inventory Item"}
+          fields={inventoryFields}
+          initialData={modal.editing ? {
+            name: modal.editing.name,
+            category: modal.editing.category,
+            onHand: modal.editing.onHand,
+            reorder: modal.editing.reorder,
+            max: modal.editing.max,
+            unit: modal.editing.unit,
+            location: modal.editing.location,
+            status: modal.editing.status,
+          } : undefined}
+          submitLabel={modal.editing ? "Update" : "Create"}
+          onSubmit={(data) => {
+            if (modal.editing) {
+              setInventoryList(prev => prev.map(item => item.sku === modal.editing!.sku ? {
+                ...item,
+                name: String(data.name),
+                category: String(data.category),
+                onHand: Number(data.onHand) || 0,
+                reorder: Number(data.reorder) || 0,
+                max: Number(data.max) || 0,
+                unit: String(data.unit),
+                location: String(data.location),
+                status: String(data.status) || item.status,
+              } : item));
+            } else {
+              setInventoryList(prev => [{
+                sku: `SKU-${Date.now().toString(36)}`,
+                productId: `prod-${Date.now().toString(36)}`,
+                name: String(data.name),
+                category: String(data.category),
+                onHand: Number(data.onHand) || 0,
+                reorder: Number(data.reorder) || 0,
+                max: Number(data.max) || 0,
+                unit: String(data.unit),
+                location: String(data.location),
+                status: String(data.status) || "Adequate",
+              }, ...prev]);
+            }
+          }}
+        />
+      )}
+      {/* Warehouse Modal */}
+      {modal?.type === "warehouse" && (
+        <EntityFormModal
+          open
+          onOpenChange={() => setModal(null)}
+          title={modal.editing ? `Edit ${modal.editing.name}` : "Add Warehouse"}
+          fields={warehouseFields}
+          initialData={modal.editing ? {
+            name: modal.editing.name,
+            location: modal.editing.location,
+            capacity: modal.editing.capacity,
+            used: modal.editing.used,
+            zones: modal.editing.zones,
+            staff: modal.editing.staff,
+            temp: modal.editing.temp,
+            status: modal.editing.status,
+          } : undefined}
+          submitLabel={modal.editing ? "Update" : "Create"}
+          onSubmit={(data) => {
+            if (modal.editing) {
+              setWarehouseList(prev => prev.map(wh => wh.id === modal.editing!.id ? {
+                ...wh,
+                name: String(data.name),
+                location: String(data.location),
+                capacity: Number(data.capacity) || 0,
+                used: Number(data.used) || 0,
+                zones: Number(data.zones) || 0,
+                staff: Number(data.staff) || 0,
+                temp: String(data.temp),
+                status: String(data.status) || wh.status,
+              } : wh));
+            } else {
+              setWarehouseList(prev => [{
+                id: `WH-${Date.now().toString(36).toUpperCase()}`,
+                name: String(data.name),
+                location: String(data.location),
+                capacity: Number(data.capacity) || 0,
+                used: Number(data.used) || 0,
+                zones: Number(data.zones) || 0,
+                staff: Number(data.staff) || 0,
+                temp: String(data.temp) || "Ambient",
+                status: String(data.status) || "Operational",
+              }, ...prev]);
+            }
+          }}
+        />
+      )}
+
+      {/* ── Purchase Order Detail Dialog ── */}
+      <Dialog open={!!viewPO} onOpenChange={(o) => !o && setViewPO(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Purchase Order {viewPO?.id}</DialogTitle>
+          </DialogHeader>
+          {viewPO && (() => {
+            const vendor = store.vendors.find(v => v.name === viewPO.supplier);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">PO Number</span><p className="font-medium font-mono">{viewPO.id}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Supplier</span><p className="font-medium">{viewPO.supplier}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Items</span><p className="font-medium">{viewPO.items}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Total</span><p className="font-semibold text-lg">{viewPO.total}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Order Date</span><p className="font-medium">{viewPO.ordered}</p></div>
+                  <div><span className="text-sm text-muted-foreground">ETA</span><p className="font-medium">{viewPO.eta}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p>{poStatusBadge(viewPO.status)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Priority</span><p><Badge variant={viewPO.priority === "High" ? "destructive" : viewPO.priority === "Medium" ? "secondary" : "outline"}>{viewPO.priority}</Badge></p></div>
+                </div>
+                {vendor && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Vendor Details (from store)</h4>
+                    <div className="border rounded-lg p-3 grid grid-cols-2 gap-3 text-sm">
+                      <div><span className="text-muted-foreground">Code</span><p className="font-mono font-medium">{vendor.code}</p></div>
+                      <div><span className="text-muted-foreground">Category</span><p className="font-medium">{vendor.category}</p></div>
+                      <div><span className="text-muted-foreground">GMP Certified</span><p><Badge variant={vendor.gmpCertified ? "default" : "secondary"}>{vendor.gmpCertified ? "Yes" : "No"}</Badge></p></div>
+                      <div><span className="text-muted-foreground">Payment Terms</span><p className="font-medium">{vendor.paymentTerms}</p></div>
+                      <div><span className="text-muted-foreground">Outstanding</span><p className="font-medium">EGP {vendor.outstanding.toLocaleString()}</p></div>
+                      <div><span className="text-muted-foreground">Contact</span><p className="font-medium">{vendor.email}</p></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Supplier Detail Dialog ── */}
+      <Dialog open={!!viewSupplier} onOpenChange={(o) => !o && setViewSupplier(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewSupplier?.name}</DialogTitle>
+          </DialogHeader>
+          {viewSupplier && (() => {
+            const vendor = store.vendors.find(v => v.name === viewSupplier.name);
+            const supplierPOs = pos.filter(po => po.supplier === viewSupplier.name);
+            const relatedPayments = vendor ? store.payments.filter(p => p.vendorId === vendor.id) : [];
+            const supplierContracts = contractList.filter(c => c.supplier === viewSupplier.name);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Vendor Code</span><p className="font-medium font-mono">{viewSupplier.id}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Name</span><p className="font-medium">{viewSupplier.name}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{viewSupplier.category}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Location</span><p className="font-medium">{viewSupplier.location}</p></div>
+                  <div><span className="text-sm text-muted-foreground">GMP Certified</span><p><Badge variant={viewSupplier.gmpCertified ? "default" : "secondary"}>{viewSupplier.gmpCertified ? "Yes" : "No"}</Badge></p></div>
+                  <div><span className="text-sm text-muted-foreground">On-Time Delivery</span><p className="font-medium">{viewSupplier.onTime}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Outstanding</span><p className="font-medium">{viewSupplier.spend}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p>{supplierStatusBadge(viewSupplier.status)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Risk Level</span><p>{riskBadge(viewSupplier.risk)}</p></div>
+                  {vendor && (
+                    <>
+                      <div><span className="text-sm text-muted-foreground">Payment Terms</span><p className="font-medium">{vendor.paymentTerms}</p></div>
+                      <div><span className="text-sm text-muted-foreground">Phone</span><p className="font-medium">{vendor.phone}</p></div>
+                      <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{vendor.email}</p></div>
+                    </>
+                  )}
+                </div>
+                {supplierPOs.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Purchase Orders ({supplierPOs.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {supplierPOs.map((po) => (
+                        <div key={po.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className="font-mono text-xs font-medium">{po.id}</span>
+                            <span className="text-muted-foreground ml-2">{po.items} items</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{po.total}</span>
+                            {poStatusBadge(po.status)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {relatedPayments.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Payments from Store ({relatedPayments.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {relatedPayments.map((p) => (
+                        <div key={p.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className="font-mono text-xs font-medium">{p.reference}</span>
+                            <span className="text-muted-foreground ml-2">{p.method}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">EGP {p.amount.toLocaleString()}</span>
+                            <span className="text-xs text-muted-foreground">{p.date.split("T")[0]}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {supplierContracts.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Active Contracts ({supplierContracts.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {supplierContracts.map((c) => (
+                        <div key={c.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className="font-mono text-xs font-medium">{c.id}</span>
+                            <span className="text-muted-foreground ml-2">{c.type}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{c.value}</span>
+                            {contractStatusBadge(c.status)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

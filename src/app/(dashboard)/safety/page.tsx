@@ -4,10 +4,13 @@ import { useState } from "react";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ShieldCheck, AlertTriangle, FileText, ClipboardList, GraduationCap,
@@ -127,11 +130,95 @@ const incidentFields: EntityField[] = [
   { name: "desc", label: "Description", type: "textarea", required: true, fullWidth: true, placeholder: "Describe the incident..." },
 ];
 
+const riskFields: EntityField[] = [
+  { name: "category", label: "Category", type: "select", required: true, options: [
+    { label: "Chemical", value: "Chemical" }, { label: "Physical", value: "Physical" },
+    { label: "Ergonomic", value: "Ergonomic" }, { label: "Biological", value: "Biological" },
+    { label: "Psychosocial", value: "Psychosocial" },
+  ]},
+  { name: "desc", label: "Description", type: "textarea", required: true, fullWidth: true, placeholder: "Describe the risk..." },
+  { name: "likelihood", label: "Likelihood (1-5)", type: "number", required: true },
+  { name: "impact", label: "Impact (1-5)", type: "number", required: true },
+  { name: "mitigation", label: "Mitigation", type: "textarea", fullWidth: true, placeholder: "Mitigation measures..." },
+  { name: "owner", label: "Owner", type: "text", required: true, placeholder: "Name" },
+];
+
+const inspectionFields: EntityField[] = [
+  { name: "type", label: "Type", type: "select", required: true, options: [
+    { label: "Fire Safety", value: "Fire Safety" }, { label: "Equipment", value: "Equipment" },
+    { label: "Workplace", value: "Workplace" }, { label: "Environmental", value: "Environmental" },
+    { label: "PPE", value: "PPE" },
+  ]},
+  { name: "area", label: "Area", type: "text", required: true, placeholder: "e.g. Building A - All Floors" },
+  { name: "inspector", label: "Inspector", type: "text", required: true, placeholder: "Inspector name" },
+  { name: "findings", label: "Findings Count", type: "number" },
+  { name: "followUp", label: "Follow-up Actions", type: "textarea", fullWidth: true, placeholder: "Actions required..." },
+];
+
+const trainingFields: EntityField[] = [
+  { name: "name", label: "Training Name", type: "text", required: true, fullWidth: true },
+  { name: "desc", label: "Description", type: "textarea", fullWidth: true, placeholder: "Training description..." },
+  { name: "type", label: "Type", type: "select", required: true, options: [
+    { label: "Mandatory", value: "Mandatory" }, { label: "Optional", value: "Optional" },
+  ]},
+  { name: "completion", label: "Completion %", type: "number", min: 0, max: 100 },
+  { name: "due", label: "Due Date", type: "text", placeholder: "e.g. Apr 15, 2026" },
+  { name: "participants", label: "Participants", type: "number", min: 0 },
+  { name: "status", label: "Status", type: "select", options: [
+    { label: "Active", value: "Active" }, { label: "Completed", value: "Completed" },
+    { label: "Expired", value: "Expired" },
+  ]},
+];
+
+const emergencyEquipmentFields: EntityField[] = [
+  { name: "name", label: "Equipment Name", type: "text", required: true },
+  { name: "count", label: "Count", type: "number", required: true, min: 0 },
+  { name: "lastInspection", label: "Last Inspection", type: "text", placeholder: "e.g. Mar 15, 2026" },
+  { name: "nextInspection", label: "Next Inspection", type: "text", placeholder: "e.g. Sep 15, 2026" },
+];
+
+const permitFields: EntityField[] = [
+  { name: "type", label: "Permit Type", type: "select", required: true, options: [
+    { label: "Hot Work", value: "Hot Work" }, { label: "Confined Space", value: "Confined Space" },
+    { label: "Heights", value: "Heights" }, { label: "Electrical", value: "Electrical" },
+    { label: "Excavation", value: "Excavation" },
+  ]},
+  { name: "location", label: "Location", type: "text", required: true, placeholder: "e.g. Warehouse B - Roof" },
+  { name: "requestor", label: "Requestor", type: "text", required: true },
+  { name: "approver", label: "Approver", type: "text", required: true },
+  { name: "validFrom", label: "Valid From", type: "date", required: true },
+  { name: "validTo", label: "Valid To", type: "date", required: true },
+  { name: "conditions", label: "Conditions", type: "textarea", fullWidth: true, placeholder: "Safety conditions..." },
+];
+
 export default function SafetyPage() {
   const [showIncidentForm, setShowIncidentForm] = useState(false);
   const [editingIncident, setEditingIncident] = useState<typeof incidents[0] | null>(null);
   const [incidentList, setIncidentList] = useState(incidents);
   const [incFilters, setIncFilters] = useState<FilterState>({});
+
+  const [riskList, setRiskList] = useState(risks);
+  const [showRiskForm, setShowRiskForm] = useState(false);
+  const [editingRisk, setEditingRisk] = useState<typeof risks[0] | null>(null);
+
+  const [inspectionList, setInspectionList] = useState(inspections);
+  const [showInspectionForm, setShowInspectionForm] = useState(false);
+  const [editingInspection, setEditingInspection] = useState<typeof inspections[0] | null>(null);
+
+  const [permitList, setPermitList] = useState(permits);
+  const [showPermitForm, setShowPermitForm] = useState(false);
+  const [editingPermit, setEditingPermit] = useState<typeof permits[0] | null>(null);
+
+  const [trainingList, setTrainingList] = useState(trainings);
+  const [showTrainingForm, setShowTrainingForm] = useState(false);
+  const [editingTraining, setEditingTraining] = useState<typeof trainings[0] | null>(null);
+
+  const [equipmentList, setEquipmentList] = useState(emergencyEquipment);
+  const [showEquipmentForm, setShowEquipmentForm] = useState(false);
+  const [editingEquipment, setEditingEquipment] = useState<typeof emergencyEquipment[0] | null>(null);
+
+  const [viewItem, setViewItem] = useState<any>(null);
+  const [viewType, setViewType] = useState<"incident" | "risk" | "inspection" | "permit" | null>(null);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -226,99 +313,138 @@ export default function SafetyPage() {
               ]},
             ]}
             values={incFilters}
-            onChange={setIncFilters}
+            onChange={(k, v) => setIncFilters(f => ({ ...f, [k]: v }))}
           />
           <Card><CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Date", "Type", "Location", "Severity", "Status", "Assigned To", "Description", "Actions"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-              <tbody>{incidentList
-                .filter(i => !incFilters._search || i.desc.toLowerCase().includes(incFilters._search.toLowerCase()) || i.id.toLowerCase().includes(incFilters._search.toLowerCase()))
-                .filter(i => !incFilters.severity || i.severity === incFilters.severity)
-                .filter(i => !incFilters.status || i.status === incFilters.status)
-                .filter(i => !incFilters.type || i.type === incFilters.type)
-                .map(inc => {
+            <DataTable
+              columns={[
+                { key: "id", label: "ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                { key: "date", label: "Date", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "type", label: "Type", render: (v: string) => <Badge variant="outline" className="text-xs">{v}</Badge> },
+                { key: "location", label: "Location", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "severity", label: "Severity", render: (v: string) => <span className="inline-flex items-center gap-1 text-xs"><span className={`h-2 w-2 rounded-full ${sevColor[v]}`} />{v}</span> },
+                { key: "status", label: "Status", render: (v: string) => <Badge variant={statusColor[v] || "secondary"} className="text-xs">{v}</Badge> },
+                { key: "assignee", label: "Assigned To", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "desc", label: "Description", render: (v: string) => <span className="text-xs text-muted-foreground max-w-[200px] truncate block">{v}</span> },
+                { key: "actions", label: "Actions", render: (_: unknown, row: Record<string, unknown>) => {
+                  const inc = row as unknown as typeof incidentList[0];
                   const flow: Record<string, string> = { "Open": "Investigating", "Investigating": "Resolved", "Resolved": "Closed" };
                   const next = flow[inc.status];
                   return (
-                    <tr key={inc.id} className="border-b last:border-0 hover:bg-muted/50">
-                      <td className="p-3 font-mono text-xs">{inc.id}</td>
-                      <td className="p-3 text-xs">{inc.date}</td>
-                      <td className="p-3"><Badge variant="outline" className="text-xs">{inc.type}</Badge></td>
-                      <td className="p-3 text-xs">{inc.location}</td>
-                      <td className="p-3"><span className="inline-flex items-center gap-1 text-xs"><span className={`h-2 w-2 rounded-full ${sevColor[inc.severity]}`} />{inc.severity}</span></td>
-                      <td className="p-3"><Badge variant={statusColor[inc.status] || "secondary"} className="text-xs">{inc.status}</Badge></td>
-                      <td className="p-3 text-xs">{inc.assignee}</td>
-                      <td className="p-3 text-xs text-muted-foreground max-w-[200px] truncate">{inc.desc}</td>
-                      <td className="p-3">
-                        <EditDeleteMenu
-                          onEdit={() => { setEditingIncident(inc); setShowIncidentForm(true); }}
-                          onDelete={() => setIncidentList(prev => prev.filter(x => x.id !== inc.id))}
-                          itemLabel={inc.id}
-                          extraItems={next ? [{ label: `→ ${next}`, onClick: () => setIncidentList(prev => prev.map(x => x.id === inc.id ? { ...x, status: next } : x)) }] : []}
-                        />
-                      </td>
-                    </tr>
+                    <EditDeleteMenu
+                      onView={() => { setViewItem(inc); setViewType("incident"); }}
+                      onEdit={() => { setEditingIncident(inc); setShowIncidentForm(true); }}
+                      onDelete={() => setIncidentList(prev => prev.filter(x => x.id !== inc.id))}
+                      itemLabel={inc.id}
+                      extraItems={next ? [{ label: `→ ${next}`, onClick: () => setIncidentList(prev => prev.map(x => x.id === inc.id ? { ...x, status: next } : x)) }] : []}
+                    />
                   );
-                })}</tbody>
-            </table>
+                }},
+              ] as Column<Record<string, unknown>>[]}
+              data={incidentList
+                .filter(i => !incFilters._search || i.desc.toLowerCase().includes(incFilters._search.toLowerCase()) || i.id.toLowerCase().includes(incFilters._search.toLowerCase()))
+                .filter(i => !incFilters.severity || i.severity === incFilters.severity)
+                .filter(i => !incFilters.status || i.status === incFilters.status)
+                .filter(i => !incFilters.type || i.type === incFilters.type) as unknown as Record<string, unknown>[]}
+              exportable
+              exportFilename="safety-incidents.csv"
+              emptyMessage="No incidents found."
+            />
           </CardContent></Card>
         </TabsContent>
 
         {/* ── Risk Assessment ── */}
         <TabsContent value="risks" className="space-y-4">
+          <div className="flex justify-end"><Button size="sm" className="gap-1.5" onClick={() => { setEditingRisk(null); setShowRiskForm(true); }}><Plus className="h-4 w-4" />Add Risk</Button></div>
           <Card><CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b text-xs text-muted-foreground">{["Risk ID", "Category", "Description", "L", "I", "Score", "Mitigation", "Status", "Owner"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-              <tbody>{risks.map(r => {
-                const rs = riskScore(r.likelihood, r.impact);
-                return (
-                  <tr key={r.id} className="border-b last:border-0 hover:bg-muted/50">
-                    <td className="p-3 font-mono text-xs">{r.id}</td>
-                    <td className="p-3"><Badge variant="outline" className="text-xs">{r.category}</Badge></td>
-                    <td className="p-3 text-xs max-w-[200px]">{r.desc}</td>
-                    <td className="p-3 text-xs text-center">{r.likelihood}</td>
-                    <td className="p-3 text-xs text-center">{r.impact}</td>
-                    <td className="p-3"><span className={`inline-flex items-center justify-center h-7 w-7 rounded text-xs font-bold ${rs.color}`}>{rs.score}</span></td>
-                    <td className="p-3 text-xs max-w-[200px] text-muted-foreground">{r.mitigation}</td>
-                    <td className="p-3"><Badge variant={statusColor[r.status] || "secondary"} className="text-xs">{r.status}</Badge></td>
-                    <td className="p-3 text-xs">{r.owner}</td>
-                  </tr>
-                );
-              })}</tbody>
-            </table>
+            <DataTable
+              columns={[
+                { key: "id", label: "Risk ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                { key: "category", label: "Category", render: (v: string) => <Badge variant="outline" className="text-xs">{v}</Badge> },
+                { key: "desc", label: "Description", render: (v: string) => <span className="text-xs max-w-[200px] block">{v}</span> },
+                { key: "likelihood", label: "L", render: (v: number) => <span className="text-xs">{v}</span> },
+                { key: "impact", label: "I", render: (v: number) => <span className="text-xs">{v}</span> },
+                { key: "score", label: "Score", render: (_: unknown, row: Record<string, unknown>) => {
+                  const r = row as unknown as typeof riskList[0];
+                  const rs = riskScore(r.likelihood, r.impact);
+                  return <span className={`inline-flex items-center justify-center h-7 w-7 rounded text-xs font-bold ${rs.color}`}>{rs.score}</span>;
+                }},
+                { key: "mitigation", label: "Mitigation", render: (v: string) => <span className="text-xs max-w-[200px] text-muted-foreground block">{v}</span> },
+                { key: "status", label: "Status", render: (v: string) => <Badge variant={statusColor[v] || "secondary"} className="text-xs">{v}</Badge> },
+                { key: "owner", label: "Owner", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "actions", label: "", render: (_: unknown, row: Record<string, unknown>) => {
+                  const r = row as unknown as typeof riskList[0];
+                  return (
+                    <EditDeleteMenu
+                      onView={() => { setViewItem(r); setViewType("risk"); }}
+                      onEdit={() => { setEditingRisk(r); setShowRiskForm(true); }}
+                      onDelete={() => setRiskList(prev => prev.filter(x => x.id !== r.id))}
+                      itemLabel={r.id}
+                    />
+                  );
+                }},
+              ] as Column<Record<string, unknown>>[]}
+              data={riskList as unknown as Record<string, unknown>[]}
+              exportable
+              exportFilename="risk-assessments.csv"
+              emptyMessage="No risks found."
+            />
           </CardContent></Card>
         </TabsContent>
 
         {/* ── Inspections ── */}
         <TabsContent value="inspections" className="space-y-4">
+          <div className="flex justify-end"><Button size="sm" className="gap-1.5" onClick={() => { setEditingInspection(null); setShowInspectionForm(true); }}><Plus className="h-4 w-4" />Schedule Inspection</Button></div>
           <Card><CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Type", "Area", "Inspector", "Date", "Findings", "Status", "Follow-up Actions"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-              <tbody>{inspections.map(ins => (
-                <tr key={ins.id} className="border-b last:border-0 hover:bg-muted/50">
-                  <td className="p-3 font-mono text-xs">{ins.id}</td>
-                  <td className="p-3"><Badge variant="outline" className="text-xs">{ins.type}</Badge></td>
-                  <td className="p-3 text-xs">{ins.area}</td>
-                  <td className="p-3 text-xs">{ins.inspector}</td>
-                  <td className="p-3 text-xs">{ins.date}</td>
-                  <td className="p-3 text-xs text-center">{ins.findings}</td>
-                  <td className="p-3"><Badge variant={statusColor[ins.status] || "secondary"} className="text-xs">{ins.status}</Badge></td>
-                  <td className="p-3 text-xs text-muted-foreground max-w-[200px]">{ins.followUp}</td>
-                </tr>
-              ))}</tbody>
-            </table>
+            <DataTable
+              columns={[
+                { key: "id", label: "ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                { key: "type", label: "Type", render: (v: string) => <Badge variant="outline" className="text-xs">{v}</Badge> },
+                { key: "area", label: "Area", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "inspector", label: "Inspector", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "date", label: "Date", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "findings", label: "Findings", render: (v: number) => <span className="text-xs">{v}</span> },
+                { key: "status", label: "Status", render: (v: string) => <Badge variant={statusColor[v] || "secondary"} className="text-xs">{v}</Badge> },
+                { key: "followUp", label: "Follow-up Actions", render: (v: string) => <span className="text-xs text-muted-foreground max-w-[200px] block">{v}</span> },
+                { key: "actions", label: "", render: (_: unknown, row: Record<string, unknown>) => {
+                  const ins = row as unknown as typeof inspectionList[0];
+                  return (
+                    <EditDeleteMenu
+                      onView={() => { setViewItem(ins); setViewType("inspection"); }}
+                      onEdit={() => { setEditingInspection(ins); setShowInspectionForm(true); }}
+                      onDelete={() => setInspectionList(prev => prev.filter(x => x.id !== ins.id))}
+                      itemLabel={ins.id}
+                    />
+                  );
+                }},
+              ] as Column<Record<string, unknown>>[]}
+              data={inspectionList as unknown as Record<string, unknown>[]}
+              exportable
+              exportFilename="safety-inspections.csv"
+              emptyMessage="No inspections found."
+            />
           </CardContent></Card>
         </TabsContent>
 
         {/* ── Training ── */}
         <TabsContent value="training" className="space-y-4">
+          <div className="flex justify-end">
+            <Button size="sm" className="gap-1.5" onClick={() => { setEditingTraining(null); setShowTrainingForm(true); }}><Plus className="h-4 w-4" />Add Training</Button>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            {trainings.map(t => (
+            {trainingList.map(t => (
               <Card key={t.name} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <CardTitle className="text-sm font-semibold leading-tight">{t.name}</CardTitle>
-                    <Badge variant={t.type === "Mandatory" ? "destructive" : "secondary"} className="text-[10px] shrink-0">{t.type}</Badge>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Badge variant={t.type === "Mandatory" ? "destructive" : "secondary"} className="text-[10px]">{t.type}</Badge>
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingTraining(t); setShowTrainingForm(true); }}
+                        onDelete={() => setTrainingList(prev => prev.filter(x => x.name !== t.name))}
+                        itemLabel={t.name}
+                      />
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -339,23 +465,39 @@ export default function SafetyPage() {
 
         {/* ── Work Permits ── */}
         <TabsContent value="permits" className="space-y-4">
+          <div className="flex justify-end"><Button size="sm" className="gap-1.5" onClick={() => { setEditingPermit(null); setShowPermitForm(true); }}><Plus className="h-4 w-4" />New Permit</Button></div>
           <Card><CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b text-xs text-muted-foreground">{["Permit ID", "Type", "Location", "Requestor", "Approver", "Valid From", "Valid To", "Status", "Conditions"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-              <tbody>{permits.map(p => (
-                <tr key={p.id} className="border-b last:border-0 hover:bg-muted/50">
-                  <td className="p-3 font-mono text-xs">{p.id}</td>
-                  <td className="p-3"><Badge variant="outline" className="text-xs">{p.type}</Badge></td>
-                  <td className="p-3 text-xs">{p.location}</td>
-                  <td className="p-3 text-xs">{p.requestor}</td>
-                  <td className="p-3 text-xs">{p.approver}</td>
-                  <td className="p-3 text-xs">{p.validFrom}</td>
-                  <td className="p-3 text-xs">{p.validTo}</td>
-                  <td className="p-3"><Badge variant={statusColor[p.status] || "secondary"} className="text-xs">{p.status}</Badge></td>
-                  <td className="p-3 text-xs text-muted-foreground max-w-[200px]">{p.conditions}</td>
-                </tr>
-              ))}</tbody>
-            </table>
+            <DataTable
+              columns={[
+                { key: "id", label: "Permit ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                { key: "type", label: "Type", render: (v: string) => <Badge variant="outline" className="text-xs">{v}</Badge> },
+                { key: "location", label: "Location", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "requestor", label: "Requestor", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "approver", label: "Approver", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "validFrom", label: "Valid From", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "validTo", label: "Valid To", render: (v: string) => <span className="text-xs">{v}</span> },
+                { key: "status", label: "Status", render: (v: string) => <Badge variant={statusColor[v] || "secondary"} className="text-xs">{v}</Badge> },
+                { key: "conditions", label: "Conditions", render: (v: string) => <span className="text-xs text-muted-foreground max-w-[200px] block">{v}</span> },
+                { key: "actions", label: "", render: (_: unknown, row: Record<string, unknown>) => {
+                  const p = row as unknown as typeof permitList[0];
+                  const flow: Record<string, string> = { Pending: "Active", Active: "Expired" };
+                  const next = flow[p.status];
+                  return (
+                    <EditDeleteMenu
+                      onView={() => { setViewItem(p); setViewType("permit"); }}
+                      onEdit={() => { setEditingPermit(p); setShowPermitForm(true); }}
+                      onDelete={() => setPermitList(prev => prev.filter(x => x.id !== p.id))}
+                      itemLabel={p.id}
+                      extraItems={next ? [{ label: `→ ${next}`, onClick: () => setPermitList(prev => prev.map(x => x.id === p.id ? { ...x, status: next } : x)) }] : []}
+                    />
+                  );
+                }},
+              ] as Column<Record<string, unknown>>[]}
+              data={permitList as unknown as Record<string, unknown>[]}
+              exportable
+              exportFilename="work-permits.csv"
+              emptyMessage="No permits found."
+            />
           </CardContent></Card>
         </TabsContent>
 
@@ -377,19 +519,34 @@ export default function SafetyPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="text-base">Emergency Equipment</CardTitle></CardHeader>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Emergency Equipment</CardTitle>
+                  <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { setEditingEquipment(null); setShowEquipmentForm(true); }}><Plus className="h-4 w-4" />Add</Button>
+                </div>
+              </CardHeader>
               <CardContent className="p-0">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b text-xs text-muted-foreground"><th className="text-left p-3 font-medium">Equipment</th><th className="text-center p-3 font-medium">Count</th><th className="text-left p-3 font-medium">Last Inspection</th><th className="text-left p-3 font-medium">Next Inspection</th></tr></thead>
-                  <tbody>{emergencyEquipment.map(e => (
-                    <tr key={e.name} className="border-b last:border-0">
-                      <td className="p-3 text-sm font-medium">{e.name}</td>
-                      <td className="p-3 text-center font-bold">{e.count}</td>
-                      <td className="p-3 text-xs text-muted-foreground">{e.lastInspection}</td>
-                      <td className="p-3 text-xs text-muted-foreground">{e.nextInspection}</td>
-                    </tr>
-                  ))}</tbody>
-                </table>
+                <DataTable
+                  columns={[
+                    { key: "name", label: "Equipment", render: (v: string) => <span className="text-sm font-medium">{v}</span> },
+                    { key: "count", label: "Count", render: (v: number) => <span className="font-bold">{v}</span> },
+                    { key: "lastInspection", label: "Last Inspection", render: (v: string) => <span className="text-xs text-muted-foreground">{v}</span> },
+                    { key: "nextInspection", label: "Next Inspection", render: (v: string) => <span className="text-xs text-muted-foreground">{v}</span> },
+                    { key: "actions", label: "", render: (_: unknown, row: Record<string, unknown>) => {
+                      const eq = row as unknown as typeof equipmentList[0];
+                      return (
+                        <EditDeleteMenu
+                          onEdit={() => { setEditingEquipment(eq); setShowEquipmentForm(true); }}
+                          onDelete={() => setEquipmentList(prev => prev.filter(x => x.name !== eq.name))}
+                          itemLabel={eq.name}
+                        />
+                      );
+                    }},
+                  ] as Column<Record<string, unknown>>[]}
+                  data={equipmentList as unknown as Record<string, unknown>[]}
+
+                  emptyMessage="No equipment found."
+                />
               </CardContent>
             </Card>
           </div>
@@ -418,6 +575,58 @@ export default function SafetyPage() {
         </TabsContent>
       </Tabs>
 
+      <Dialog open={!!viewItem} onOpenChange={(o) => { if (!o) { setViewItem(null); setViewType(null); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewItem?.id} {viewItem?.type ? `- ${viewItem.type}` : ""}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            {viewType === "incident" && (<>
+              <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewItem?.date}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem?.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Location</span><p className="font-medium">{viewItem?.location}</p></div>
+              <div><span className="text-sm text-muted-foreground">Severity</span><p className="font-medium">{viewItem?.severity}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Assigned To</span><p className="font-medium">{viewItem?.assignee}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewItem?.desc}</p></div>
+            </>)}
+            {viewType === "risk" && (<>
+              <div><span className="text-sm text-muted-foreground">Risk ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{viewItem?.category}</p></div>
+              <div><span className="text-sm text-muted-foreground">Likelihood</span><p className="font-medium">{viewItem?.likelihood}</p></div>
+              <div><span className="text-sm text-muted-foreground">Impact</span><p className="font-medium">{viewItem?.impact}</p></div>
+              <div><span className="text-sm text-muted-foreground">Risk Score</span><p className="font-medium">{viewItem?.likelihood * viewItem?.impact}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Owner</span><p className="font-medium">{viewItem?.owner}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewItem?.desc}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Mitigation</span><p className="font-medium">{viewItem?.mitigation}</p></div>
+            </>)}
+            {viewType === "inspection" && (<>
+              <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem?.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Area</span><p className="font-medium">{viewItem?.area}</p></div>
+              <div><span className="text-sm text-muted-foreground">Inspector</span><p className="font-medium">{viewItem?.inspector}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewItem?.date}</p></div>
+              <div><span className="text-sm text-muted-foreground">Findings</span><p className="font-medium">{viewItem?.findings}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Follow-up Actions</span><p className="font-medium">{viewItem?.followUp}</p></div>
+            </>)}
+            {viewType === "permit" && (<>
+              <div><span className="text-sm text-muted-foreground">Permit ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem?.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Location</span><p className="font-medium">{viewItem?.location}</p></div>
+              <div><span className="text-sm text-muted-foreground">Requestor</span><p className="font-medium">{viewItem?.requestor}</p></div>
+              <div><span className="text-sm text-muted-foreground">Approver</span><p className="font-medium">{viewItem?.approver}</p></div>
+              <div><span className="text-sm text-muted-foreground">Valid From</span><p className="font-medium">{viewItem?.validFrom}</p></div>
+              <div><span className="text-sm text-muted-foreground">Valid To</span><p className="font-medium">{viewItem?.validTo}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Conditions</span><p className="font-medium">{viewItem?.conditions}</p></div>
+            </>)}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <EntityFormModal
         open={showIncidentForm}
         onOpenChange={(v) => { setShowIncidentForm(v); if (!v) setEditingIncident(null); }}
@@ -444,7 +653,7 @@ export default function SafetyPage() {
             } : i));
           } else {
             setIncidentList(prev => [{
-              id: `INC-${String(prev.length + 1).padStart(3, "0")}`,
+              id: `INC-${Date.now().toString(36)}`,
               date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
               type: String(data.type),
               location: String(data.location),
@@ -453,6 +662,126 @@ export default function SafetyPage() {
               assignee: String(data.assignee),
               desc: String(data.desc),
             }, ...prev]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showRiskForm}
+        onOpenChange={(v) => { setShowRiskForm(v); if (!v) setEditingRisk(null); }}
+        title={editingRisk ? `Edit ${editingRisk.id}` : "Add Risk Assessment"}
+        fields={riskFields}
+        initialData={editingRisk ? { category: editingRisk.category, desc: editingRisk.desc, likelihood: editingRisk.likelihood, impact: editingRisk.impact, mitigation: editingRisk.mitigation, owner: editingRisk.owner } : undefined}
+        onSubmit={(data) => {
+          if (editingRisk) {
+            setRiskList(prev => prev.map(r => r.id === editingRisk.id ? { ...r, category: String(data.category), desc: String(data.desc), likelihood: Number(data.likelihood), impact: Number(data.impact), mitigation: String(data.mitigation || ""), owner: String(data.owner) } : r));
+          } else {
+            setRiskList(prev => [{ id: `RSK-${Date.now().toString(36)}`, category: String(data.category), desc: String(data.desc), likelihood: Math.min(5, Math.max(1, Number(data.likelihood))), impact: Math.min(5, Math.max(1, Number(data.impact))), mitigation: String(data.mitigation || ""), status: "Active", owner: String(data.owner) }, ...prev]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showInspectionForm}
+        onOpenChange={(v) => { setShowInspectionForm(v); if (!v) setEditingInspection(null); }}
+        title={editingInspection ? `Edit ${editingInspection.id}` : "Schedule Inspection"}
+        fields={inspectionFields}
+        initialData={editingInspection ? { type: editingInspection.type, area: editingInspection.area, inspector: editingInspection.inspector, findings: editingInspection.findings, followUp: editingInspection.followUp } : undefined}
+        onSubmit={(data) => {
+          if (editingInspection) {
+            setInspectionList(prev => prev.map(i => i.id === editingInspection.id ? { ...i, type: String(data.type), area: String(data.area), inspector: String(data.inspector), findings: Number(data.findings || 0), followUp: String(data.followUp || "None required") } : i));
+          } else {
+            setInspectionList(prev => [{ id: `INS-${Date.now().toString(36)}`, type: String(data.type), area: String(data.area), inspector: String(data.inspector), date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), findings: Number(data.findings || 0), status: "Passed", followUp: String(data.followUp || "None required") }, ...prev]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showPermitForm}
+        onOpenChange={(v) => { setShowPermitForm(v); if (!v) setEditingPermit(null); }}
+        title={editingPermit ? `Edit ${editingPermit.id}` : "New Work Permit"}
+        fields={permitFields}
+        initialData={editingPermit ? { type: editingPermit.type, location: editingPermit.location, requestor: editingPermit.requestor, approver: editingPermit.approver, validFrom: editingPermit.validFrom, validTo: editingPermit.validTo, conditions: editingPermit.conditions } : undefined}
+        onSubmit={(data) => {
+          if (editingPermit) {
+            setPermitList(prev => prev.map(p => p.id === editingPermit.id ? { ...p, type: String(data.type), location: String(data.location), requestor: String(data.requestor), approver: String(data.approver), validFrom: String(data.validFrom), validTo: String(data.validTo), conditions: String(data.conditions || "") } : p));
+          } else {
+            setPermitList(prev => [{ id: `WP-${Date.now().toString(36)}`, type: String(data.type), location: String(data.location), requestor: String(data.requestor), approver: String(data.approver), validFrom: String(data.validFrom), validTo: String(data.validTo), status: "Pending", conditions: String(data.conditions || "") }, ...prev]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showTrainingForm}
+        onOpenChange={(v) => { setShowTrainingForm(v); if (!v) setEditingTraining(null); }}
+        title={editingTraining ? `Edit ${editingTraining.name}` : "Add Training Program"}
+        description={editingTraining ? undefined : "Create a new safety training program."}
+        fields={trainingFields}
+        initialData={editingTraining ? {
+          name: editingTraining.name,
+          desc: editingTraining.desc,
+          type: editingTraining.type,
+          completion: editingTraining.completion,
+          due: editingTraining.due,
+          participants: editingTraining.participants,
+          status: editingTraining.status,
+        } : undefined}
+        submitLabel={editingTraining ? "Update" : "Add Training"}
+        onSubmit={(data) => {
+          if (editingTraining) {
+            setTrainingList(prev => prev.map(t => t.name === editingTraining.name ? {
+              ...t,
+              name: String(data.name),
+              desc: String(data.desc) || t.desc,
+              type: String(data.type) || t.type,
+              completion: Number(data.completion) ?? t.completion,
+              due: String(data.due) || t.due,
+              participants: Number(data.participants) ?? t.participants,
+              status: String(data.status) || t.status,
+            } : t));
+          } else {
+            setTrainingList([{
+              name: String(data.name),
+              desc: String(data.desc) || "",
+              type: String(data.type) || "Optional",
+              completion: Number(data.completion) || 0,
+              due: String(data.due) || "",
+              participants: Number(data.participants) || 0,
+              status: String(data.status) || "Active",
+            }, ...trainingList]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showEquipmentForm}
+        onOpenChange={(v) => { setShowEquipmentForm(v); if (!v) setEditingEquipment(null); }}
+        title={editingEquipment ? `Edit ${editingEquipment.name}` : "Add Emergency Equipment"}
+        description={editingEquipment ? undefined : "Add new emergency equipment to the inventory."}
+        fields={emergencyEquipmentFields}
+        initialData={editingEquipment ? {
+          name: editingEquipment.name,
+          count: editingEquipment.count,
+          lastInspection: editingEquipment.lastInspection,
+          nextInspection: editingEquipment.nextInspection,
+        } : undefined}
+        submitLabel={editingEquipment ? "Update" : "Add Equipment"}
+        onSubmit={(data) => {
+          if (editingEquipment) {
+            setEquipmentList(prev => prev.map(e => e.name === editingEquipment.name ? {
+              ...e,
+              name: String(data.name),
+              count: Number(data.count) || e.count,
+              lastInspection: String(data.lastInspection) || e.lastInspection,
+              nextInspection: String(data.nextInspection) || e.nextInspection,
+            } : e));
+          } else {
+            setEquipmentList([{
+              name: String(data.name),
+              count: Number(data.count) || 0,
+              lastInspection: String(data.lastInspection) || new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+              nextInspection: String(data.nextInspection) || "",
+            }, ...equipmentList]);
           }
         }}
       />

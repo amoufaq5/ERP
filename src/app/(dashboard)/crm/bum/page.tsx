@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Crown, Users, DollarSign, TrendingUp, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
@@ -11,6 +12,8 @@ import StatusBadge from "@/components/shared/status-badge";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 const HIERARCHY = [
   {
@@ -51,12 +54,12 @@ const PERFORMANCE = [
 ];
 
 const STRATEGIC_APPROVALS = [
-  { id: "SREQ-001", from: "Khaled Sherif (Marketeer)", type: "Doctor Sponsorship", description: "Dr. Walid Fathy Int'l Oncology Congress - Tokyo", value: "$8,500", justification: "Top KOL, 40% market influence", decision: "Approved", date: "2026-03-25" },
-  { id: "SREQ-002", from: "Hossam Bahgat (Marketeer)", type: "Strategic Investment", description: "New product launch event - Cairo", value: "$25,000", justification: "Q2 launch critical", decision: "Approved", date: "2026-03-22" },
-  { id: "SREQ-003", from: "Mariam Adly (Marketeer)", type: "Conference Booth", description: "International Pharma Expo", value: "$12,000", justification: "Brand visibility", decision: "Pending", date: "2026-03-20" },
-  { id: "SREQ-004", from: "Yasmine Galal (Marketeer)", type: "KOL Program", description: "Annual KOL summit West region", value: "$18,000", justification: "10 top KOLs engagement", decision: "Pending", date: "2026-03-18" },
-  { id: "SREQ-005", from: "Khaled Sherif (Marketeer)", type: "Strategic Investment", description: "Cardiology Clinical Study Sponsorship", value: "$45,000", justification: "Real-world evidence", decision: "Pending", date: "2026-03-15" },
-  { id: "SREQ-006", from: "Hossam Bahgat (Marketeer)", type: "Doctor Sponsorship", description: "Multi-doctor international conference", value: "$15,000", justification: "Build prescriber base", decision: "Rejected", date: "2026-03-12" },
+  { id: "SREQ-001", from: "Khaled Sherif (Marketeer)", type: "Doctor Sponsorship", description: "Dr. Walid Fathy Int'l Oncology Congress - Tokyo", value: "EGP 8,500", justification: "Top KOL, 40% market influence", decision: "Approved", date: "2026-03-25" },
+  { id: "SREQ-002", from: "Hossam Bahgat (Marketeer)", type: "Strategic Investment", description: "New product launch event - Cairo", value: "EGP 25,000", justification: "Q2 launch critical", decision: "Approved", date: "2026-03-22" },
+  { id: "SREQ-003", from: "Mariam Adly (Marketeer)", type: "Conference Booth", description: "International Pharma Expo", value: "EGP 12,000", justification: "Brand visibility", decision: "Pending", date: "2026-03-20" },
+  { id: "SREQ-004", from: "Yasmine Galal (Marketeer)", type: "KOL Program", description: "Annual KOL summit West region", value: "EGP 18,000", justification: "10 top KOLs engagement", decision: "Pending", date: "2026-03-18" },
+  { id: "SREQ-005", from: "Khaled Sherif (Marketeer)", type: "Strategic Investment", description: "Cardiology Clinical Study Sponsorship", value: "EGP 45,000", justification: "Real-world evidence", decision: "Pending", date: "2026-03-15" },
+  { id: "SREQ-006", from: "Hossam Bahgat (Marketeer)", type: "Doctor Sponsorship", description: "Multi-doctor international conference", value: "EGP 15,000", justification: "Build prescriber base", decision: "Rejected", date: "2026-03-12" },
 ];
 
 const FIELD_VISITS = [
@@ -74,15 +77,15 @@ const REGIONAL_COMPARISON = [
 ];
 
 const visitFields: EntityField[] = [
-  { key: "region", label: "Region", type: "select", options: ["North", "South", "East", "West"].map(r => ({ label: `${r} Region`, value: `${r} Region` })) },
-  { key: "accompanied", label: "Accompanied", type: "text", required: true },
-  { key: "doctor", label: "Doctor/KOL", type: "text", required: true },
-  { key: "date", label: "Date", type: "date", required: true },
-  { key: "purpose", label: "Purpose", type: "select", options: [
+  { name: "region", label: "Region", type: "select", options: ["North", "South", "East", "West"].map(r => ({ label: `${r} Region`, value: `${r} Region` })) },
+  { name: "accompanied", label: "Accompanied", type: "text", required: true },
+  { name: "doctor", label: "Doctor/KOL", type: "text", required: true },
+  { name: "date", label: "Date", type: "date", required: true },
+  { name: "purpose", label: "Purpose", type: "select", options: [
     "KOL Management", "Strategic Account", "Launch Event", "Performance Review",
   ].map(p => ({ label: p, value: p })) },
-  { key: "notes", label: "Notes", type: "textarea" },
-  { key: "actions", label: "Action Items", type: "textarea" },
+  { name: "notes", label: "Notes", type: "textarea" },
+  { name: "actions", label: "Action Items", type: "textarea" },
 ];
 
 export default function BUMPage() {
@@ -92,6 +95,8 @@ export default function BUMPage() {
   const [showVisit, setShowVisit] = useState(false);
   const [approvalFilters, setApprovalFilters] = useState<FilterState>({ _search: "", decision: "" });
   const [visitFilters, setVisitFilters] = useState<FilterState>({ _search: "", region: "" });
+  const [viewApproval, setViewApproval] = useState<(typeof STRATEGIC_APPROVALS)[0] | null>(null);
+  const [viewVisit, setViewVisit] = useState<(typeof FIELD_VISITS)[0] | null>(null);
 
   const filteredApprovals = approvals.filter((a) => {
     if (approvalFilters.decision && a.decision !== approvalFilters.decision) return false;
@@ -172,27 +177,21 @@ export default function BUMPage() {
           <Card>
             <CardHeader><CardTitle>Marketeer Performance</CardTitle><CardDescription>Regional KPIs</CardDescription></CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Marketeer</th><th className="p-3">Region</th><th className="p-3">Team Size</th><th className="p-3">Call Rate</th><th className="p-3">Compliance</th><th className="p-3">Sales Achievement</th><th className="p-3">Budget Used</th><th className="p-3">Rating</th></tr>
-                  </thead>
-                  <tbody>
-                    {PERFORMANCE.map((p, i) => (
-                      <tr key={i} className="border-t">
-                        <td className="p-3 font-medium">{p.marketeer}</td>
-                        <td className="p-3">{p.region}</td>
-                        <td className="p-3">{p.teamSize}</td>
-                        <td className="p-3">{p.callRate}</td>
-                        <td className="p-3">{p.compliance}</td>
-                        <td className="p-3 font-semibold">{p.sales}</td>
-                        <td className="p-3">{p.budget}</td>
-                        <td className="p-3"><StatusBadge status={p.rating === "A" ? "Excellent" : "Good"} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "marketeer", label: "Marketeer", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "region", label: "Region" },
+                  { key: "teamSize", label: "Team Size" },
+                  { key: "callRate", label: "Call Rate" },
+                  { key: "compliance", label: "Compliance" },
+                  { key: "sales", label: "Sales Achievement", render: (v) => <span className="font-semibold">{v as string}</span> },
+                  { key: "budget", label: "Budget Used" },
+                  { key: "rating", label: "Rating", render: (_v, row) => <StatusBadge status={(row as unknown as (typeof PERFORMANCE)[0]).rating === "A" ? "Excellent" : "Good"} /> },
+                ] as Column<Record<string, unknown>>[]}
+                data={PERFORMANCE as unknown as Record<string, unknown>[]}
+                
+                exportable exportFilename="crm-bum.csv" emptyMessage="No performance data available."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -213,37 +212,35 @@ export default function BUMPage() {
               />
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Request#</th><th className="p-3">From</th><th className="p-3">Type</th><th className="p-3">Description</th><th className="p-3">Value</th><th className="p-3">Justification</th><th className="p-3">Decision</th><th className="p-3"></th></tr>
-                  </thead>
-                  <tbody>
-                    {filteredApprovals.map(a => (
-                      <tr key={a.id} className="border-t">
-                        <td className="p-3 font-mono">{a.id}</td>
-                        <td className="p-3">{a.from}</td>
-                        <td className="p-3">{a.type}</td>
-                        <td className="p-3 max-w-xs truncate">{a.description}</td>
-                        <td className="p-3 font-bold">{a.value}</td>
-                        <td className="p-3 max-w-xs truncate text-muted-foreground">{a.justification}</td>
-                        <td className="p-3"><StatusBadge status={a.decision} /></td>
-                        <td className="p-3">
-                          <EditDeleteMenu
-                            onDelete={() => setApprovals(prev => prev.filter(x => x.id !== a.id))}
-                            itemLabel={a.id}
-                            canEdit={false}
-                            extraItems={a.decision === "Pending" ? [
-                              { label: "Approve", onClick: () => setApprovals(prev => prev.map(x => x.id === a.id ? { ...x, decision: "Approved" } : x)) },
-                              { label: "Reject", onClick: () => setApprovals(prev => prev.map(x => x.id === a.id ? { ...x, decision: "Rejected" } : x)), destructive: true },
-                            ] : []}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Request#", render: (v) => <span className="font-mono">{v as string}</span> },
+                  { key: "from", label: "From" },
+                  { key: "type", label: "Type" },
+                  { key: "description", label: "Description", className: "max-w-xs truncate" },
+                  { key: "value", label: "Value", render: (v) => <span className="font-bold">{v as string}</span> },
+                  { key: "justification", label: "Justification", className: "max-w-xs truncate", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
+                  { key: "decision", label: "Decision", render: (v) => <StatusBadge status={v as string} /> },
+                  { key: "_actions", label: "", render: (_v, row) => {
+                    const a = row as unknown as (typeof STRATEGIC_APPROVALS)[0];
+                    return (
+                      <EditDeleteMenu
+                        onView={() => setViewApproval(a)}
+                        onDelete={() => setApprovals(prev => prev.filter(x => x.id !== a.id))}
+                        itemLabel={a.id}
+                        canEdit={false}
+                        extraItems={a.decision === "Pending" ? [
+                          { label: "Approve", onClick: () => setApprovals(prev => prev.map(x => x.id === a.id ? { ...x, decision: "Approved" } : x)) },
+                          { label: "Reject", onClick: () => setApprovals(prev => prev.map(x => x.id === a.id ? { ...x, decision: "Rejected" } : x)), destructive: true },
+                        ] : []}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredApprovals as unknown as Record<string, unknown>[]}
+                
+                exportable exportFilename="crm-bum.csv" emptyMessage="No strategic approvals."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -265,33 +262,31 @@ export default function BUMPage() {
                 values={visitFilters}
                 onChange={(k, v) => setVisitFilters((f) => ({ ...f, [k]: v }))}
               />
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Visit#</th><th className="p-3">Region</th><th className="p-3">Accompanied</th><th className="p-3">Doctor/KOL</th><th className="p-3">Date</th><th className="p-3">Purpose</th><th className="p-3">Notes</th><th className="p-3"></th></tr>
-                  </thead>
-                  <tbody>
-                    {filteredVisits.map(v => (
-                      <tr key={v.id} className="border-t">
-                        <td className="p-3 font-mono">{v.id}</td>
-                        <td className="p-3">{v.region}</td>
-                        <td className="p-3 font-medium">{v.accompanied}</td>
-                        <td className="p-3">{v.doctor}</td>
-                        <td className="p-3">{v.date}</td>
-                        <td className="p-3"><StatusBadge status={v.purpose} /></td>
-                        <td className="p-3 max-w-xs truncate">{v.notes}</td>
-                        <td className="p-3">
-                          <EditDeleteMenu
-                            onEdit={() => { setEditingVisit(v); setShowVisit(true); }}
-                            onDelete={() => setVisits(prev => prev.filter(x => x.id !== v.id))}
-                            itemLabel={v.id}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Visit#", render: (v) => <span className="font-mono">{v as string}</span> },
+                  { key: "region", label: "Region" },
+                  { key: "accompanied", label: "Accompanied", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "doctor", label: "Doctor/KOL" },
+                  { key: "date", label: "Date" },
+                  { key: "purpose", label: "Purpose", render: (v) => <StatusBadge status={v as string} /> },
+                  { key: "notes", label: "Notes", className: "max-w-xs truncate" },
+                  { key: "_actions", label: "", render: (_v, row) => {
+                    const v = row as unknown as (typeof FIELD_VISITS)[0];
+                    return (
+                      <EditDeleteMenu
+                        onView={() => setViewVisit(v)}
+                        onEdit={() => { setEditingVisit(v); setShowVisit(true); }}
+                        onDelete={() => setVisits(prev => prev.filter(x => x.id !== v.id))}
+                        itemLabel={v.id}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredVisits as unknown as Record<string, unknown>[]}
+                
+                exportable exportFilename="crm-bum.csv" emptyMessage="No field visits found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -325,13 +320,55 @@ export default function BUMPage() {
                   <div className="flex justify-between"><span className="text-muted-foreground">Avg Tenure</span><span className="font-bold">3.8 yrs</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Top Region</span><span className="font-bold text-green-600">North</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Bottom Region</span><span className="font-bold text-red-600">West</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">YTD Sales</span><span className="font-bold">$4.2M</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">YTD Sales</span><span className="font-bold">EGP 4.2M</span></div>
                 </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Strategic Approval Detail Dialog */}
+      <Dialog open={!!viewApproval} onOpenChange={(open) => { if (!open) setViewApproval(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewApproval?.id} — {viewApproval?.type}</DialogTitle>
+          </DialogHeader>
+          {viewApproval && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Request ID</span><p className="font-medium">{viewApproval.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">From</span><p className="font-medium">{viewApproval.from}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewApproval.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Value</span><p className="font-medium">{viewApproval.value}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewApproval.description}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Justification</span><p className="font-medium">{viewApproval.justification}</p></div>
+              <div><span className="text-sm text-muted-foreground">Decision</span><p className="font-medium">{viewApproval.decision}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewApproval.date}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Field Visit Detail Dialog */}
+      <Dialog open={!!viewVisit} onOpenChange={(open) => { if (!open) setViewVisit(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewVisit?.id} — {viewVisit?.doctor}</DialogTitle>
+          </DialogHeader>
+          {viewVisit && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Visit ID</span><p className="font-medium">{viewVisit.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Region</span><p className="font-medium">{viewVisit.region}</p></div>
+              <div><span className="text-sm text-muted-foreground">Accompanied</span><p className="font-medium">{viewVisit.accompanied}</p></div>
+              <div><span className="text-sm text-muted-foreground">Doctor/KOL</span><p className="font-medium">{viewVisit.doctor}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewVisit.date}</p></div>
+              <div><span className="text-sm text-muted-foreground">Purpose</span><p className="font-medium">{viewVisit.purpose}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Notes</span><p className="font-medium">{viewVisit.notes}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Action Items</span><p className="font-medium">{viewVisit.actions}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <EntityFormModal
         open={showVisit}
@@ -343,7 +380,7 @@ export default function BUMPage() {
           if (editingVisit) {
             setVisits(prev => prev.map(v => v.id === editingVisit.id ? { ...v, region: (d.region as string) || v.region, accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || v.purpose, notes: (d.notes as string) || "", actions: (d.actions as string) || "" } : v));
           } else {
-            setVisits(prev => [{ id: `BV-${String(prev.length + 1).padStart(3, "0")}`, region: (d.region as string) || "North Region", accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || "KOL Management", notes: (d.notes as string) || "", actions: (d.actions as string) || "" }, ...prev]);
+            setVisits(prev => [{ id: `BV-${Date.now().toString(36)}`, region: (d.region as string) || "North Region", accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || "KOL Management", notes: (d.notes as string) || "", actions: (d.actions as string) || "" }, ...prev]);
           }
           setShowVisit(false);
           setEditingVisit(null);

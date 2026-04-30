@@ -1,12 +1,27 @@
 "use client"
 
 import { useState } from "react"
-import { Monitor, Wrench, DollarSign, AlertTriangle, Plus } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Monitor, Wrench, DollarSign, Plus } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
+import DataTable from "@/components/shared/data-table"
+import type { Column } from "@/components/shared/data-table"
+
+const assetFields: EntityField[] = [
+  { name: "name", label: "Asset Name", type: "text", required: true },
+  { name: "category", label: "Category", type: "select", options: [
+    { label: "Laptop", value: "Laptop" }, { label: "Monitor", value: "Monitor" },
+    { label: "Printer", value: "Printer" }, { label: "Network", value: "Network" },
+    { label: "Furniture", value: "Furniture" }, { label: "Other", value: "Other" },
+  ]},
+  { name: "purchasePrice", label: "Purchase Price", type: "number", required: true },
+  { name: "location", label: "Location", type: "text" },
+  { name: "assignedTo", label: "Assigned To", type: "text" },
+];
 
 const statusColor: Record<string, string> = {
   ACTIVE: "bg-green-100 text-green-800", MAINTENANCE: "bg-yellow-100 text-yellow-800",
@@ -34,36 +49,28 @@ const maintenanceRecords = [
 export default function AssetsPage() {
   const [tab, setTab] = useState("registry")
   const [assets, setAssets] = useState(initialAssets)
-  const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState({ name: "", category: "", purchasePrice: "", location: "" })
+  const [editing, setEditing] = useState<typeof initialAssets[0] | null>(null)
+  const [showModal, setShowModal] = useState(false)
+  const [filters, setFilters] = useState<FilterState>({ _search: "", status: "" })
+  const [detailAsset, setDetailAsset] = useState<typeof initialAssets[0] | null>(null)
 
-  const fmt = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n)
+  const fmt = (n: number) => `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   const totalValue = assets.reduce((s, a) => s + a.currentValue, 0)
 
-  const addAsset = () => {
-    if (!form.name) return
-    setAssets(p => [...p, { id: String(p.length + 1), name: form.name, assetTag: `AST-${String(p.length + 1).padStart(3, "0")}`, category: form.category || "Other", status: "ACTIVE", purchaseDate: new Date().toISOString().split("T")[0], purchasePrice: Number(form.purchasePrice) || 0, currentValue: Number(form.purchasePrice) || 0, location: form.location || "Office", assignedTo: "Unassigned", warrantyExpiry: "2027-01-01" }])
-    setForm({ name: "", category: "", purchasePrice: "", location: "" })
-    setShowAdd(false)
-  }
+  const filtered = assets.filter((a) => {
+    if (filters.status && a.status !== filters.status) return false
+    if (filters._search) {
+      const q = filters._search.toLowerCase()
+      return a.name.toLowerCase().includes(q) || a.assetTag.toLowerCase().includes(q) || a.category.toLowerCase().includes(q)
+    }
+    return true
+  })
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h1 className="text-2xl font-bold text-gray-900">Asset Management</h1><p className="text-gray-500">Track and manage company assets and maintenance schedules</p></div>
-        <Dialog open={showAdd} onOpenChange={setShowAdd}>
-          <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Asset</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Register New Asset</DialogTitle></DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div><Label>Asset Name</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
-              <div><Label>Category</Label><Input value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} placeholder="Laptop, Monitor, etc." /></div>
-              <div><Label>Purchase Price</Label><Input type="number" value={form.purchasePrice} onChange={e => setForm(p => ({ ...p, purchasePrice: e.target.value }))} /></div>
-              <div><Label>Location</Label><Input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} /></div>
-            </div>
-            <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button onClick={addAsset}>Register</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => { setEditing(null); setShowModal(true) }}><Plus className="h-4 w-4 mr-2" />Add Asset</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -82,34 +89,145 @@ export default function AssetsPage() {
       </div>
 
       {tab === "registry" && (
-        <Card><CardContent className="pt-6">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b bg-gray-50">
-              <th className="text-left p-3 font-medium">Asset</th><th className="text-left p-3 font-medium">Tag</th><th className="text-left p-3 font-medium">Category</th><th className="text-left p-3 font-medium">Location</th><th className="text-left p-3 font-medium">Assigned To</th><th className="text-right p-3 font-medium">Value</th><th className="text-left p-3 font-medium">Warranty</th><th className="text-left p-3 font-medium">Status</th>
-            </tr></thead>
-            <tbody>{assets.map(a => (
-              <tr key={a.id} className="border-b hover:bg-gray-50">
-                <td className="p-3 font-medium">{a.name}</td><td className="p-3 text-gray-500">{a.assetTag}</td><td className="p-3">{a.category}</td><td className="p-3">{a.location}</td><td className="p-3">{a.assignedTo}</td><td className="p-3 text-right">{fmt(a.currentValue)}</td><td className="p-3">{a.warrantyExpiry}</td><td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[a.status]}`}>{a.status}</span></td>
-              </tr>
-            ))}</tbody>
-          </table>
+        <Card><CardContent className="pt-6 space-y-4">
+          <FilterBar
+            searchValue={filters._search}
+            onSearchChange={(v) => setFilters((f) => ({ ...f, _search: v }))}
+            fields={[{ key: "status", label: "Status", type: "select", options: [
+              { label: "Active", value: "ACTIVE" }, { label: "Maintenance", value: "MAINTENANCE" },
+              { label: "Retired", value: "RETIRED" }, { label: "Disposed", value: "DISPOSED" },
+            ]}]}
+            values={filters}
+            onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
+          />
+          <DataTable
+            columns={[
+              { key: "name", label: "Asset", render: (v) => <span className="font-medium">{v as string}</span> },
+              { key: "assetTag", label: "Tag", className: "text-gray-500" },
+              { key: "category", label: "Category" },
+              { key: "location", label: "Location" },
+              { key: "assignedTo", label: "Assigned To" },
+              { key: "currentValue", label: "Value", className: "text-right", render: (v) => fmt(v as number) },
+              { key: "warrantyExpiry", label: "Warranty" },
+              { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
+              { key: "id", label: "", render: (_v, row) => {
+                const a = row as unknown as typeof initialAssets[0];
+                return (
+                  <EditDeleteMenu
+                    onEdit={() => { setEditing(a); setShowModal(true) }}
+                    onDelete={() => setAssets(prev => prev.filter(x => x.id !== a.id))}
+                    onView={() => setDetailAsset(a)}
+                    canView
+                    itemLabel={a.name}
+                    extraItems={(() => {
+                      const flow: Record<string, string> = { ACTIVE: "MAINTENANCE", MAINTENANCE: "ACTIVE", RETIRED: "DISPOSED" }
+                      const next = flow[a.status]
+                      if (!next) return []
+                      return [{ label: `Set ${next}`, onClick: () => setAssets(prev => prev.map(x => x.id === a.id ? { ...x, status: next } : x)) }]
+                    })()}
+                  />
+                );
+              }},
+            ] satisfies Column<Record<string, unknown>>[]}
+            data={filtered as unknown as Record<string, unknown>[]}
+            
+            exportable exportFilename="erp-assets.csv" emptyMessage="No assets match your filters."
+          />
         </CardContent></Card>
       )}
 
       {tab === "maintenance" && (
         <Card><CardContent className="pt-6">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b bg-gray-50">
-              <th className="text-left p-3 font-medium">Asset</th><th className="text-left p-3 font-medium">Type</th><th className="text-left p-3 font-medium">Description</th><th className="text-left p-3 font-medium">Scheduled</th><th className="text-left p-3 font-medium">Completed</th><th className="text-right p-3 font-medium">Cost</th><th className="text-left p-3 font-medium">Status</th>
-            </tr></thead>
-            <tbody>{maintenanceRecords.map(m => (
-              <tr key={m.id} className="border-b hover:bg-gray-50">
-                <td className="p-3 font-medium">{m.asset}</td><td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${m.type === "PREVENTIVE" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"}`}>{m.type}</span></td><td className="p-3">{m.description}</td><td className="p-3">{m.scheduledDate}</td><td className="p-3">{m.completedDate || "—"}</td><td className="p-3 text-right">{m.cost > 0 ? fmt(m.cost) : "—"}</td><td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[m.status]}`}>{m.status}</span></td>
-              </tr>
-            ))}</tbody>
-          </table>
+          <DataTable
+            columns={[
+              { key: "asset", label: "Asset", render: (v) => <span className="font-medium">{v as string}</span> },
+              { key: "type", label: "Type", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${(v as string) === "PREVENTIVE" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"}`}>{v as string}</span> },
+              { key: "description", label: "Description" },
+              { key: "scheduledDate", label: "Scheduled" },
+              { key: "completedDate", label: "Completed", render: (v) => <>{(v as string | null) || "—"}</> },
+              { key: "cost", label: "Cost", className: "text-right", render: (v) => <>{(v as number) > 0 ? fmt(v as number) : "—"}</> },
+              { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
+            ] satisfies Column<Record<string, unknown>>[]}
+            data={maintenanceRecords as unknown as Record<string, unknown>[]}
+            
+            exportable exportFilename="erp-assets.csv" emptyMessage="No maintenance records found."
+          />
         </CardContent></Card>
       )}
+      <EntityFormModal
+        open={showModal}
+        onOpenChange={(open) => { setShowModal(open); if (!open) setEditing(null); }}
+        title={editing ? "Edit Asset" : "Register New Asset"}
+        fields={assetFields}
+        initialData={editing ? { name: editing.name, category: editing.category, purchasePrice: editing.purchasePrice, location: editing.location, assignedTo: editing.assignedTo } : undefined}
+        onSubmit={(data) => {
+          if (editing) {
+            setAssets(prev => prev.map(a => a.id === editing.id ? { ...a, name: data.name as string, category: (data.category as string) || a.category, purchasePrice: (data.purchasePrice as number) || a.purchasePrice, location: (data.location as string) || a.location, assignedTo: (data.assignedTo as string) || a.assignedTo } : a))
+          } else {
+            setAssets(prev => { const uid = Date.now().toString(36); return [...prev, { id: uid, name: data.name as string, assetTag: `AST-${uid}`, category: (data.category as string) || "Other", status: "ACTIVE", purchaseDate: new Date().toISOString().split("T")[0], purchasePrice: (data.purchasePrice as number) || 0, currentValue: (data.purchasePrice as number) || 0, location: (data.location as string) || "Office", assignedTo: (data.assignedTo as string) || "Unassigned", warrantyExpiry: "2027-01-01" }]})
+          }
+          setShowModal(false); setEditing(null)
+        }}
+      />
+
+      {/* ── Asset Detail Dialog ── */}
+      <Dialog open={!!detailAsset} onOpenChange={(open) => { if (!open) setDetailAsset(null) }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailAsset?.name}</DialogTitle>
+          </DialogHeader>
+          {detailAsset && (() => {
+            const depreciationPct = detailAsset.purchasePrice > 0 ? Math.round((detailAsset.currentValue / detailAsset.purchasePrice) * 100) : 0;
+            const warrantyActive = new Date(detailAsset.warrantyExpiry) > new Date();
+            const relatedMaintenance = maintenanceRecords.filter(m => m.asset === detailAsset.name);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Asset Tag</span><p className="font-medium font-mono">{detailAsset.assetTag}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{detailAsset.category}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[detailAsset.status]}`}>{detailAsset.status}</span></p></div>
+                  <div><span className="text-sm text-muted-foreground">Location</span><p className="font-medium">{detailAsset.location}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Assigned To</span><p className="font-medium">{detailAsset.assignedTo}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Purchase Date</span><p className="font-medium">{detailAsset.purchaseDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Purchase Price</span><p className="font-medium">{fmt(detailAsset.purchasePrice)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Current Value</span><p className="font-medium">{fmt(detailAsset.currentValue)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Warranty Expiry</span><p className={`font-medium ${warrantyActive ? "text-green-600" : "text-red-600"}`}>{detailAsset.warrantyExpiry} {warrantyActive ? "(Active)" : "(Expired)"}</p></div>
+                </div>
+                {/* Depreciation Bar */}
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">Remaining Value</span>
+                    <span className="font-medium">{depreciationPct}% &mdash; {fmt(detailAsset.currentValue)} / {fmt(detailAsset.purchasePrice)}</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${depreciationPct >= 60 ? "bg-green-500" : depreciationPct >= 30 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${depreciationPct}%` }} />
+                  </div>
+                </div>
+                {/* Related Maintenance */}
+                {relatedMaintenance.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Maintenance History ({relatedMaintenance.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {relatedMaintenance.map((m) => (
+                        <div key={m.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium">{m.description}</span>
+                            <span className="text-muted-foreground ml-2 text-xs">{m.type}</span>
+                          </div>
+                          <div className="flex items-center gap-2 ml-2 shrink-0">
+                            <span className="text-xs text-muted-foreground">{m.scheduledDate}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColor[m.status]}`}>{m.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

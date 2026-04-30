@@ -4,16 +4,18 @@ import { useState } from "react";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Scale, Shield, FileText, Search, Plus, Eye, Calendar, Users, Clock,
-  CheckCircle2, XCircle, AlertTriangle, BarChart3, Download, Globe,
-  Lock, BookOpen, Gavel, Building2, Leaf, CreditCard, UserCheck,
-  FileCheck, AlertCircle, TrendingUp,
+  Scale, Shield, FileText, Plus, Eye, Users,
+  AlertTriangle, Download,
+  Lock, Building2, Leaf, CreditCard,
+  AlertCircle,
 } from "lucide-react";
 
 const kpis = [
@@ -76,7 +78,7 @@ const policies = [
 const violations = [
   { id: "VIO-001", type: "Non-Compliance", regulation: "GDPR", desc: "Customer data retention exceeded 3-year limit", severity: "Major", detected: "Mar 20, 2026", status: "Investigating", deadline: "Apr 20, 2026", assignee: "CISO", fine: "€50,000" },
   { id: "VIO-002", type: "Process Violation", regulation: "SOX", desc: "Missing sign-off on Q4 journal entries", severity: "Minor", detected: "Mar 15, 2026", status: "Remediated", deadline: "Apr 15, 2026", assignee: "Controller", fine: "—" },
-  { id: "VIO-003", type: "Safety Violation", regulation: "OSHA", desc: "Blocked emergency exit in Warehouse B", severity: "Major", detected: "Mar 5, 2026", status: "Closed", deadline: "Mar 10, 2026", assignee: "Safety Mgr", fine: "$7,000" },
+  { id: "VIO-003", type: "Safety Violation", regulation: "OSHA", desc: "Blocked emergency exit in Warehouse B", severity: "Major", detected: "Mar 5, 2026", status: "Closed", deadline: "Mar 10, 2026", assignee: "Safety Mgr", fine: "EGP 7,000" },
   { id: "VIO-004", type: "Environmental", regulation: "EPA", desc: "Wastewater discharge slightly above limits", severity: "Minor", detected: "Feb 28, 2026", status: "Remediated", deadline: "Mar 28, 2026", assignee: "Env. Officer", fine: "—" },
   { id: "VIO-005", type: "Data Breach", regulation: "PCI DSS", desc: "Unencrypted credit card data in test environment", severity: "Critical", detected: "Mar 25, 2026", status: "Open", deadline: "Apr 10, 2026", assignee: "CISO", fine: "TBD" },
   { id: "VIO-006", type: "Labor Violation", regulation: "FLSA", desc: "Overtime calculation error for 3 employees", severity: "Minor", detected: "Mar 1, 2026", status: "Closed", deadline: "Mar 15, 2026", assignee: "HR Director", fine: "—" },
@@ -130,13 +132,163 @@ const regulationFields: EntityField[] = [
   { name: "dept", label: "Department", type: "text" },
 ];
 
+const auditFields: EntityField[] = [
+  { name: "type", label: "Type", type: "select", required: true, options: [
+    { label: "Internal", value: "Internal" }, { label: "External", value: "External" }, { label: "Regulatory", value: "Regulatory" },
+  ]},
+  { name: "scope", label: "Scope", type: "text", required: true },
+  { name: "auditor", label: "Auditor", type: "text", required: true },
+  { name: "start", label: "Start Date", type: "text", required: true },
+  { name: "end", label: "End Date", type: "text", required: true },
+  { name: "status", label: "Status", type: "select", options: [
+    { label: "Planned", value: "Planned" }, { label: "In Progress", value: "In Progress" },
+    { label: "Completed", value: "Completed" }, { label: "Follow-up", value: "Follow-up" },
+  ]},
+  { name: "findings", label: "Findings", type: "number", min: 0 },
+  { name: "risk", label: "Risk Level", type: "select", options: [
+    { label: "High", value: "High" }, { label: "Medium", value: "Medium" }, { label: "Low", value: "Low" },
+  ]},
+];
+
+const policyFields: EntityField[] = [
+  { name: "name", label: "Policy Name", type: "text", required: true },
+  { name: "version", label: "Version", type: "text", required: true },
+  { name: "category", label: "Category", type: "select", required: true, options: [
+    { label: "Legal", value: "Legal" }, { label: "IT", value: "IT" },
+    { label: "HR", value: "HR" }, { label: "Finance", value: "Finance" },
+    { label: "Operations", value: "Operations" },
+  ]},
+  { name: "owner", label: "Owner", type: "text", required: true },
+  { name: "updated", label: "Last Updated", type: "text" },
+  { name: "review", label: "Next Review", type: "text" },
+  { name: "status", label: "Status", type: "select", options: [
+    { label: "Active", value: "Active" }, { label: "Under Review", value: "Under Review" },
+    { label: "Expired", value: "Expired" },
+  ]},
+  { name: "ack", label: "Acknowledgment %", type: "number", min: 0, max: 100 },
+];
+
+const riskFields: EntityField[] = [
+  { name: "category", label: "Category", type: "select", required: true, options: [
+    { label: "Data Privacy", value: "Data Privacy" }, { label: "Financial", value: "Financial" },
+    { label: "Regulatory", value: "Regulatory" }, { label: "Operational", value: "Operational" },
+    { label: "Sanctions", value: "Sanctions" }, { label: "Anti-Corruption", value: "Anti-Corruption" },
+    { label: "IT Security", value: "IT Security" }, { label: "Labor", value: "Labor" },
+  ]},
+  { name: "desc", label: "Description", type: "textarea", required: true, fullWidth: true },
+  { name: "inherent", label: "Inherent Risk Score", type: "number", required: true, min: 1, max: 25 },
+  { name: "controls", label: "Controls", type: "textarea", fullWidth: true },
+  { name: "residual", label: "Residual Risk Score", type: "number", required: true, min: 1, max: 25 },
+  { name: "owner", label: "Owner", type: "text", required: true },
+  { name: "lastAssess", label: "Last Assessed", type: "text" },
+  { name: "nextReview", label: "Next Review", type: "text" },
+];
+
 export default function CompliancePage() {
   const [showForm, setShowForm] = useState(false);
   const [editingReg, setEditingReg] = useState<typeof regulations[0] | null>(null);
   const [regs, setRegs] = useState(regulations);
   const [viols, setViols] = useState(violations);
+  const [auditList, setAuditList] = useState(audits);
+  const [showAuditForm, setShowAuditForm] = useState(false);
+  const [editingAudit, setEditingAudit] = useState<typeof audits[0] | null>(null);
+  const [policyList, setPolicyList] = useState(policies);
+  const [showPolicyForm, setShowPolicyForm] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState<typeof policies[0] | null>(null);
+  const [riskList, setRiskList] = useState(complianceRisks);
+  const [showRiskForm, setShowRiskForm] = useState(false);
+  const [editingRisk, setEditingRisk] = useState<typeof complianceRisks[0] | null>(null);
   const [regFilters, setRegFilters] = useState<FilterState>({});
   const [violFilters, setViolFilters] = useState<FilterState>({});
+  const [viewItem, setViewItem] = useState<any>(null);
+  const [viewType, setViewType] = useState<"regulation" | "audit" | "violation" | "risk" | null>(null);
+
+  const regulationColumns: Column<Record<string, unknown>>[] = [
+    { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
+    { key: "name", label: "Regulation", render: (v) => <span className="text-xs font-medium">{String(v)}</span> },
+    { key: "authority", label: "Authority", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "category", label: "Category", render: (v) => <Badge variant="outline" className="text-xs">{String(v)}</Badge> },
+    { key: "jurisdiction", label: "Jurisdiction", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "effective", label: "Effective", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "status", label: "Status", render: (v) => <Badge variant={statusBadge[String(v)] || "secondary"} className="text-xs">{String(v)}</Badge> },
+    { key: "impact", label: "Impact", render: (v) => <Badge variant={v === "High" ? "destructive" : "secondary"} className="text-xs">{String(v)}</Badge> },
+    { key: "dept", label: "Dept", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "actions", label: "Actions", render: (_v, row) => (
+      <EditDeleteMenu
+        onView={() => { setViewItem(row); setViewType("regulation"); }}
+        onEdit={() => { setEditingReg(row as unknown as typeof regulations[0]); setShowForm(true); }}
+        onDelete={() => setRegs(prev => prev.filter(x => x.id !== row.id))}
+        itemLabel={String(row.name)}
+      />
+    )},
+  ];
+
+  const violationColumns: Column<Record<string, unknown>>[] = [
+    { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
+    { key: "type", label: "Type", render: (v) => <Badge variant="outline" className="text-xs">{String(v)}</Badge> },
+    { key: "regulation", label: "Regulation", render: (v) => <span className="text-xs font-medium">{String(v)}</span> },
+    { key: "desc", label: "Description", className: "max-w-[180px]", render: (v) => <span className="text-xs truncate block">{String(v)}</span> },
+    { key: "severity", label: "Severity", render: (v) => <Badge variant={sevBadge[String(v)] || "secondary"} className="text-xs">{String(v)}</Badge> },
+    { key: "detected", label: "Detected", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "status", label: "Status", render: (v) => <Badge variant={statusBadge[String(v)] || "secondary"} className="text-xs">{String(v)}</Badge> },
+    { key: "deadline", label: "Deadline", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "assignee", label: "Assigned", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "fine", label: "Fine", render: (v) => <span className="text-xs font-medium">{String(v)}</span> },
+    { key: "actions", label: "Actions", render: (_v, row) => {
+      const flow: Record<string, string> = { "Open": "Investigating", "Investigating": "Remediated", "Remediated": "Closed" };
+      const next = flow[String(row.status)];
+      return (
+        <EditDeleteMenu
+          onView={() => { setViewItem(row); setViewType("violation"); }}
+          onEdit={() => {}}
+          onDelete={() => setViols(prev => prev.filter(x => x.id !== row.id))}
+          canEdit={false}
+          itemLabel={String(row.id)}
+          extraItems={next ? [{ label: `→ ${next}`, onClick: () => setViols(prev => prev.map(x => x.id === row.id ? { ...x, status: next } : x)) }] : []}
+        />
+      );
+    }},
+  ];
+
+  const auditColumns: Column<Record<string, unknown>>[] = [
+    { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
+    { key: "type", label: "Type", render: (v) => <Badge variant="outline" className="text-xs">{String(v)}</Badge> },
+    { key: "scope", label: "Scope", render: (v) => <span className="text-xs font-medium">{String(v)}</span> },
+    { key: "auditor", label: "Auditor", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "start", label: "Start", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "end", label: "End", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "status", label: "Status", render: (v) => <Badge variant={statusBadge[String(v)] || "secondary"} className="text-xs">{String(v)}</Badge> },
+    { key: "findings", label: "Findings", render: (v) => <span className="text-xs text-center">{String(v)}</span> },
+    { key: "risk", label: "Risk", render: (v) => <Badge variant={v === "High" ? "destructive" : v === "Medium" ? "default" : "secondary"} className="text-xs">{String(v)}</Badge> },
+    { key: "actions", label: "Actions", render: (_v, row) => (
+      <EditDeleteMenu
+        onView={() => { setViewItem(row); setViewType("audit"); }}
+        onEdit={() => { setEditingAudit(row as unknown as typeof audits[0]); setShowAuditForm(true); }}
+        onDelete={() => setAuditList(prev => prev.filter(x => x.id !== row.id))}
+        itemLabel={String(row.scope)}
+      />
+    )},
+  ];
+
+  const riskColumns: Column<Record<string, unknown>>[] = [
+    { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
+    { key: "category", label: "Category", render: (v) => <Badge variant="outline" className="text-xs">{String(v)}</Badge> },
+    { key: "desc", label: "Description", className: "max-w-[180px]", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "inherent", label: "Inherent Risk", render: (v) => <span className={`inline-flex items-center justify-center h-7 w-7 rounded text-xs font-bold ${riskColor(Number(v))}`}>{String(v)}</span> },
+    { key: "controls", label: "Controls", className: "max-w-[180px]", render: (v) => <span className="text-xs text-muted-foreground">{String(v)}</span> },
+    { key: "residual", label: "Residual Risk", render: (v) => <span className={`inline-flex items-center justify-center h-7 w-7 rounded text-xs font-bold ${riskColor(Number(v))}`}>{String(v)}</span> },
+    { key: "owner", label: "Owner", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "lastAssess", label: "Last Assessed", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "nextReview", label: "Next Review", render: (v) => <span className="text-xs">{String(v)}</span> },
+    { key: "actions", label: "Actions", render: (_v, row) => (
+      <EditDeleteMenu
+        onView={() => { setViewItem(row); setViewType("risk"); }}
+        onEdit={() => { setEditingRisk(row as unknown as typeof complianceRisks[0]); setShowRiskForm(true); }}
+        onDelete={() => setRiskList(prev => prev.filter(x => x.id !== row.id))}
+        itemLabel={String(row.desc)}
+      />
+    )},
+  ];
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -192,45 +344,49 @@ export default function CompliancePage() {
               ]},
             ]}
             values={regFilters}
-            onChange={setRegFilters}
+            onChange={(k, v) => setRegFilters(f => ({ ...f, [k]: v }))}
             rightSlot={<Button size="sm" onClick={() => { setEditingReg(null); setShowForm(true); }}><Plus className="mr-2 h-4 w-4" />Add</Button>}
           />
-          <Card><CardContent className="p-0"><table className="w-full text-sm">
-            <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Regulation", "Authority", "Category", "Jurisdiction", "Effective", "Status", "Impact", "Dept", "Actions"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-            <tbody>{regs
-              .filter(r => !regFilters._search || r.name.toLowerCase().includes(regFilters._search.toLowerCase()))
-              .filter(r => !regFilters.category || r.category === regFilters.category)
-              .filter(r => !regFilters.impact || r.impact === regFilters.impact)
-              .map(r => (
-              <tr key={r.id} className="border-b last:border-0 hover:bg-muted/50">
-                <td className="p-3 font-mono text-xs">{r.id}</td><td className="p-3 text-xs font-medium">{r.name}</td><td className="p-3 text-xs">{r.authority}</td><td className="p-3"><Badge variant="outline" className="text-xs">{r.category}</Badge></td><td className="p-3 text-xs">{r.jurisdiction}</td><td className="p-3 text-xs">{r.effective}</td><td className="p-3"><Badge variant={statusBadge[r.status] || "secondary"} className="text-xs">{r.status}</Badge></td><td className="p-3"><Badge variant={r.impact === "High" ? "destructive" : "secondary"} className="text-xs">{r.impact}</Badge></td><td className="p-3 text-xs">{r.dept}</td>
-                <td className="p-3">
-                  <EditDeleteMenu
-                    onEdit={() => { setEditingReg(r); setShowForm(true); }}
-                    onDelete={() => setRegs(prev => prev.filter(x => x.id !== r.id))}
-                    itemLabel={r.name}
-                  />
-                </td>
-              </tr>
-            ))}</tbody>
-          </table></CardContent></Card>
+          <Card><CardContent className="p-0">
+            <DataTable
+              columns={regulationColumns}
+              data={regs
+                .filter(r => !regFilters._search || r.name.toLowerCase().includes(regFilters._search.toLowerCase()))
+                .filter(r => !regFilters.category || r.category === regFilters.category)
+                .filter(r => !regFilters.impact || r.impact === regFilters.impact) as unknown as Record<string, unknown>[]}
+              exportable
+              exportFilename="regulations.csv"
+              emptyMessage="No regulations found."
+            />
+          </CardContent></Card>
         </TabsContent>
 
         <TabsContent value="audits" className="space-y-4">
-          <Card><CardContent className="p-0"><table className="w-full text-sm">
-            <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Type", "Scope", "Auditor", "Start", "End", "Status", "Findings", "Risk"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-            <tbody>{audits.map(a => (
-              <tr key={a.id} className="border-b last:border-0 hover:bg-muted/50">
-                <td className="p-3 font-mono text-xs">{a.id}</td><td className="p-3"><Badge variant="outline" className="text-xs">{a.type}</Badge></td><td className="p-3 text-xs font-medium">{a.scope}</td><td className="p-3 text-xs">{a.auditor}</td><td className="p-3 text-xs">{a.start}</td><td className="p-3 text-xs">{a.end}</td><td className="p-3"><Badge variant={statusBadge[a.status] || "secondary"} className="text-xs">{a.status}</Badge></td><td className="p-3 text-xs text-center">{a.findings}</td><td className="p-3"><Badge variant={a.risk === "High" ? "destructive" : a.risk === "Medium" ? "default" : "secondary"} className="text-xs">{a.risk}</Badge></td>
-              </tr>
-            ))}</tbody>
-          </table></CardContent></Card>
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => { setEditingAudit(null); setShowAuditForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Audit</Button>
+          </div>
+          <Card><CardContent className="p-0">
+            <DataTable
+              columns={auditColumns}
+              data={auditList as unknown as Record<string, unknown>[]}
+              exportable
+              exportFilename="audits.csv"
+              emptyMessage="No audits found."
+            />
+          </CardContent></Card>
         </TabsContent>
 
         <TabsContent value="policies" className="space-y-4">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => { setEditingPolicy(null); setShowPolicyForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Policy</Button>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {policies.map(p => (
-              <Card key={p.name} className="hover:shadow-md transition-shadow"><CardHeader className="pb-2"><div className="flex items-start justify-between"><CardTitle className="text-sm font-semibold leading-tight">{p.name}</CardTitle><Badge variant={statusBadge[p.status] || "secondary"} className="text-xs shrink-0">{p.status}</Badge></div><CardDescription className="text-xs">v{p.version} · {p.category} · {p.owner}</CardDescription></CardHeader>
+            {policyList.map(p => (
+              <Card key={p.name} className="hover:shadow-md transition-shadow"><CardHeader className="pb-2"><div className="flex items-start justify-between"><CardTitle className="text-sm font-semibold leading-tight">{p.name}</CardTitle><div className="flex items-center gap-1"><Badge variant={statusBadge[p.status] || "secondary"} className="text-xs shrink-0">{p.status}</Badge><EditDeleteMenu
+                onEdit={() => { setEditingPolicy(p); setShowPolicyForm(true); }}
+                onDelete={() => setPolicyList(prev => prev.filter(x => x.name !== p.name))}
+                itemLabel={p.name}
+              /></div></div><CardDescription className="text-xs">v{p.version} · {p.category} · {p.owner}</CardDescription></CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex justify-between text-xs"><span className="text-muted-foreground">Last Updated</span><span>{p.updated}</span></div>
                 <div className="flex justify-between text-xs"><span className="text-muted-foreground">Next Review</span><span>{p.review}</span></div>
@@ -255,44 +411,35 @@ export default function CompliancePage() {
               ]},
             ]}
             values={violFilters}
-            onChange={setViolFilters}
+            onChange={(k, v) => setViolFilters(f => ({ ...f, [k]: v }))}
           />
-          <Card><CardContent className="p-0"><table className="w-full text-sm">
-            <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Type", "Regulation", "Description", "Severity", "Detected", "Status", "Deadline", "Assigned", "Fine", "Actions"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-            <tbody>{viols
-              .filter(v => !violFilters._search || v.desc.toLowerCase().includes(violFilters._search.toLowerCase()) || v.regulation.toLowerCase().includes(violFilters._search.toLowerCase()))
-              .filter(v => !violFilters.severity || v.severity === violFilters.severity)
-              .filter(v => !violFilters.status || v.status === violFilters.status)
-              .map(v => {
-                const flow: Record<string, string> = { "Open": "Investigating", "Investigating": "Remediated", "Remediated": "Closed" };
-                const next = flow[v.status];
-                return (
-                  <tr key={v.id} className="border-b last:border-0 hover:bg-muted/50">
-                    <td className="p-3 font-mono text-xs">{v.id}</td><td className="p-3"><Badge variant="outline" className="text-xs">{v.type}</Badge></td><td className="p-3 text-xs font-medium">{v.regulation}</td><td className="p-3 text-xs max-w-[180px] truncate">{v.desc}</td><td className="p-3"><Badge variant={sevBadge[v.severity] || "secondary"} className="text-xs">{v.severity}</Badge></td><td className="p-3 text-xs">{v.detected}</td><td className="p-3"><Badge variant={statusBadge[v.status] || "secondary"} className="text-xs">{v.status}</Badge></td><td className="p-3 text-xs">{v.deadline}</td><td className="p-3 text-xs">{v.assignee}</td><td className="p-3 text-xs font-medium">{v.fine}</td>
-                    <td className="p-3">
-                      <EditDeleteMenu
-                        onEdit={() => {}}
-                        onDelete={() => setViols(prev => prev.filter(x => x.id !== v.id))}
-                        canEdit={false}
-                        itemLabel={v.id}
-                        extraItems={next ? [{ label: `→ ${next}`, onClick: () => setViols(prev => prev.map(x => x.id === v.id ? { ...x, status: next } : x)) }] : []}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}</tbody>
-          </table></CardContent></Card>
+          <Card><CardContent className="p-0">
+            <DataTable
+              columns={violationColumns}
+              data={viols
+                .filter(v => !violFilters._search || v.desc.toLowerCase().includes(violFilters._search.toLowerCase()) || v.regulation.toLowerCase().includes(violFilters._search.toLowerCase()))
+                .filter(v => !violFilters.severity || v.severity === violFilters.severity)
+                .filter(v => !violFilters.status || v.status === violFilters.status) as unknown as Record<string, unknown>[]}
+              exportable
+              exportFilename="violations.csv"
+              emptyMessage="No violations found."
+            />
+          </CardContent></Card>
         </TabsContent>
 
         <TabsContent value="risks" className="space-y-4">
-          <Card><CardContent className="p-0"><table className="w-full text-sm">
-            <thead><tr className="border-b text-xs text-muted-foreground">{["ID", "Category", "Description", "Inherent Risk", "Controls", "Residual Risk", "Owner", "Last Assessed", "Next Review"].map(h => <th key={h} className="text-left p-3 font-medium">{h}</th>)}</tr></thead>
-            <tbody>{complianceRisks.map(r => (
-              <tr key={r.id} className="border-b last:border-0 hover:bg-muted/50">
-                <td className="p-3 font-mono text-xs">{r.id}</td><td className="p-3"><Badge variant="outline" className="text-xs">{r.category}</Badge></td><td className="p-3 text-xs max-w-[180px]">{r.desc}</td><td className="p-3"><span className={`inline-flex items-center justify-center h-7 w-7 rounded text-xs font-bold ${riskColor(r.inherent)}`}>{r.inherent}</span></td><td className="p-3 text-xs max-w-[180px] text-muted-foreground">{r.controls}</td><td className="p-3"><span className={`inline-flex items-center justify-center h-7 w-7 rounded text-xs font-bold ${riskColor(r.residual)}`}>{r.residual}</span></td><td className="p-3 text-xs">{r.owner}</td><td className="p-3 text-xs">{r.lastAssess}</td><td className="p-3 text-xs">{r.nextReview}</td>
-              </tr>
-            ))}</tbody>
-          </table></CardContent></Card>
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => { setEditingRisk(null); setShowRiskForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Risk</Button>
+          </div>
+          <Card><CardContent className="p-0">
+            <DataTable
+              columns={riskColumns}
+              data={riskList as unknown as Record<string, unknown>[]}
+              exportable
+              exportFilename="compliance-risks.csv"
+              emptyMessage="No compliance risks found."
+            />
+          </CardContent></Card>
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
@@ -308,6 +455,60 @@ export default function CompliancePage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!viewItem} onOpenChange={(o) => { if (!o) { setViewItem(null); setViewType(null); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewItem?.name || viewItem?.id}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            {viewType === "regulation" && (<>
+              <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Authority</span><p className="font-medium">{viewItem?.authority}</p></div>
+              <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{viewItem?.category}</p></div>
+              <div><span className="text-sm text-muted-foreground">Jurisdiction</span><p className="font-medium">{viewItem?.jurisdiction}</p></div>
+              <div><span className="text-sm text-muted-foreground">Effective</span><p className="font-medium">{viewItem?.effective}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Impact</span><p className="font-medium">{viewItem?.impact}</p></div>
+              <div><span className="text-sm text-muted-foreground">Department</span><p className="font-medium">{viewItem?.dept}</p></div>
+            </>)}
+            {viewType === "violation" && (<>
+              <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem?.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Regulation</span><p className="font-medium">{viewItem?.regulation}</p></div>
+              <div><span className="text-sm text-muted-foreground">Severity</span><p className="font-medium">{viewItem?.severity}</p></div>
+              <div><span className="text-sm text-muted-foreground">Detected</span><p className="font-medium">{viewItem?.detected}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Deadline</span><p className="font-medium">{viewItem?.deadline}</p></div>
+              <div><span className="text-sm text-muted-foreground">Assigned To</span><p className="font-medium">{viewItem?.assignee}</p></div>
+              <div><span className="text-sm text-muted-foreground">Fine</span><p className="font-medium">{viewItem?.fine}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewItem?.desc}</p></div>
+            </>)}
+            {viewType === "audit" && (<>
+              <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem?.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Scope</span><p className="font-medium">{viewItem?.scope}</p></div>
+              <div><span className="text-sm text-muted-foreground">Auditor</span><p className="font-medium">{viewItem?.auditor}</p></div>
+              <div><span className="text-sm text-muted-foreground">Start Date</span><p className="font-medium">{viewItem?.start}</p></div>
+              <div><span className="text-sm text-muted-foreground">End Date</span><p className="font-medium">{viewItem?.end}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem?.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Findings</span><p className="font-medium">{viewItem?.findings}</p></div>
+              <div><span className="text-sm text-muted-foreground">Risk Level</span><p className="font-medium">{viewItem?.risk}</p></div>
+            </>)}
+            {viewType === "risk" && (<>
+              <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium">{viewItem?.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{viewItem?.category}</p></div>
+              <div><span className="text-sm text-muted-foreground">Inherent Risk</span><p className="font-medium">{viewItem?.inherent}</p></div>
+              <div><span className="text-sm text-muted-foreground">Residual Risk</span><p className="font-medium">{viewItem?.residual}</p></div>
+              <div><span className="text-sm text-muted-foreground">Owner</span><p className="font-medium">{viewItem?.owner}</p></div>
+              <div><span className="text-sm text-muted-foreground">Last Assessed</span><p className="font-medium">{viewItem?.lastAssess}</p></div>
+              <div><span className="text-sm text-muted-foreground">Next Review</span><p className="font-medium">{viewItem?.nextReview}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewItem?.desc}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Controls</span><p className="font-medium">{viewItem?.controls}</p></div>
+            </>)}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <EntityFormModal
         open={showForm}
@@ -332,7 +533,7 @@ export default function CompliancePage() {
             } : r));
           } else {
             setRegs(prev => [{
-              id: `REG-${String(prev.length + 1).padStart(3, "0")}`,
+              id: `REG-${Date.now().toString(36)}`,
               name: String(data.name), authority: String(data.authority),
               category: String(data.category) || "Financial",
               jurisdiction: String(data.jurisdiction) || "—",
@@ -340,6 +541,102 @@ export default function CompliancePage() {
               status: "Active",
               impact: String(data.impact) || "Medium",
               dept: String(data.dept) || "—",
+            }, ...prev]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showAuditForm}
+        onOpenChange={(v) => { setShowAuditForm(v); if (!v) setEditingAudit(null); }}
+        title={editingAudit ? `Edit ${editingAudit.scope}` : "New Audit"}
+        fields={auditFields}
+        initialData={editingAudit ? {
+          type: editingAudit.type, scope: editingAudit.scope, auditor: editingAudit.auditor,
+          start: editingAudit.start, end: editingAudit.end, status: editingAudit.status,
+          findings: editingAudit.findings, risk: editingAudit.risk,
+        } : undefined}
+        submitLabel={editingAudit ? "Update" : "Add"}
+        onSubmit={(data) => {
+          if (editingAudit) {
+            setAuditList(prev => prev.map(a => a.id === editingAudit.id ? {
+              ...a, type: String(data.type) || a.type, scope: String(data.scope),
+              auditor: String(data.auditor), start: String(data.start) || a.start,
+              end: String(data.end) || a.end, status: String(data.status) || a.status,
+              findings: Number(data.findings) || 0, risk: String(data.risk) || a.risk,
+            } : a));
+          } else {
+            setAuditList(prev => [{
+              id: `AUD-${Date.now().toString(36)}`,
+              type: String(data.type) || "Internal", scope: String(data.scope),
+              auditor: String(data.auditor), start: String(data.start) || "—",
+              end: String(data.end) || "—", status: String(data.status) || "Planned",
+              findings: Number(data.findings) || 0, risk: String(data.risk) || "Medium",
+            }, ...prev]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showPolicyForm}
+        onOpenChange={(v) => { setShowPolicyForm(v); if (!v) setEditingPolicy(null); }}
+        title={editingPolicy ? `Edit ${editingPolicy.name}` : "New Policy"}
+        fields={policyFields}
+        initialData={editingPolicy ? {
+          name: editingPolicy.name, version: editingPolicy.version,
+          category: editingPolicy.category, owner: editingPolicy.owner,
+          updated: editingPolicy.updated, review: editingPolicy.review,
+          status: editingPolicy.status, ack: editingPolicy.ack,
+        } : undefined}
+        submitLabel={editingPolicy ? "Update" : "Add"}
+        onSubmit={(data) => {
+          if (editingPolicy) {
+            setPolicyList(prev => prev.map(p => p.name === editingPolicy.name ? {
+              ...p, name: String(data.name), version: String(data.version) || p.version,
+              category: String(data.category) || p.category, owner: String(data.owner) || p.owner,
+              updated: String(data.updated) || p.updated, review: String(data.review) || p.review,
+              status: String(data.status) || p.status, ack: Number(data.ack) ?? p.ack,
+            } : p));
+          } else {
+            setPolicyList(prev => [{
+              name: String(data.name), version: String(data.version) || "1.0",
+              category: String(data.category) || "Legal", owner: String(data.owner) || "—",
+              updated: String(data.updated) || new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+              review: String(data.review) || "—",
+              status: String(data.status) || "Active", ack: Number(data.ack) || 0,
+            }, ...prev]);
+          }
+        }}
+      />
+
+      <EntityFormModal
+        open={showRiskForm}
+        onOpenChange={(v) => { setShowRiskForm(v); if (!v) setEditingRisk(null); }}
+        title={editingRisk ? `Edit ${editingRisk.id}` : "New Compliance Risk"}
+        fields={riskFields}
+        initialData={editingRisk ? {
+          category: editingRisk.category, desc: editingRisk.desc,
+          inherent: editingRisk.inherent, controls: editingRisk.controls,
+          residual: editingRisk.residual, owner: editingRisk.owner,
+          lastAssess: editingRisk.lastAssess, nextReview: editingRisk.nextReview,
+        } : undefined}
+        submitLabel={editingRisk ? "Update" : "Add"}
+        onSubmit={(data) => {
+          if (editingRisk) {
+            setRiskList(prev => prev.map(r => r.id === editingRisk.id ? {
+              ...r, category: String(data.category) || r.category, desc: String(data.desc),
+              inherent: Number(data.inherent) || r.inherent, controls: String(data.controls) || r.controls,
+              residual: Number(data.residual) || r.residual, owner: String(data.owner) || r.owner,
+              lastAssess: String(data.lastAssess) || r.lastAssess, nextReview: String(data.nextReview) || r.nextReview,
+            } : r));
+          } else {
+            setRiskList(prev => [{
+              id: `CR-${Date.now().toString(36)}`,
+              category: String(data.category) || "Operational", desc: String(data.desc),
+              inherent: Number(data.inherent) || 10, controls: String(data.controls) || "—",
+              residual: Number(data.residual) || 5, owner: String(data.owner) || "—",
+              lastAssess: String(data.lastAssess) || new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+              nextReview: String(data.nextReview) || "—",
             }, ...prev]);
           }
         }}

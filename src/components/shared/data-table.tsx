@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, type ReactNode } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, type ReactNode } from "react";
 import {
   ChevronUp,
   ChevronDown,
@@ -10,7 +10,9 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Download,
 } from "lucide-react";
+import { downloadCSV } from "@/lib/download";
 import {
   Table,
   TableBody,
@@ -20,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 export interface Column<T = any> {
   key: string;
@@ -38,6 +41,12 @@ interface SortState {
 
 const PAGE_SIZE = 10;
 
+export interface BulkAction {
+  key: string;
+  label: string;
+  variant?: "default" | "destructive";
+}
+
 export interface DataTableProps<T = any> {
   columns: Column<T>[];
   data: T[];
@@ -48,6 +57,11 @@ export interface DataTableProps<T = any> {
   emptyMessage?: string;
   className?: string;
   isLoading?: boolean;
+  exportable?: boolean;
+  exportFilename?: string;
+  selectable?: boolean;
+  onBulkAction?: (action: string, selectedRows: T[]) => void;
+  bulkActions?: BulkAction[];
 }
 
 export function DataTable<T extends Record<string, any> = Record<string, any>>({
@@ -60,10 +74,23 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
   emptyMessage = "No records found.",
   className,
   isLoading = false,
+  exportable = false,
+  exportFilename = "export.csv",
+  selectable = false,
+  onBulkAction,
+  bulkActions = [],
 }: DataTableProps<T>) {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortState, setSortState] = useState<SortState>({ key: null, direction: null });
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  // Clear selection when data or page changes
+  useEffect(() => {
+    setSelectedRows(new Set());
+  }, [currentPage, data]);
 
   // Search / filter
   const filteredData = useMemo(() => {
@@ -119,6 +146,47 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
     setCurrentPage(1);
   }, []);
 
+  const handleExport = useCallback(() => {
+    const csvColumns = columns.map((col) => ({ key: col.key as keyof T, label: col.label || col.key }));
+    downloadCSV(exportFilename, sortedData as unknown as Record<string, unknown>[], csvColumns as { key: keyof Record<string, unknown>; label: string }[]);
+  }, [columns, sortedData, exportFilename]);
+
+  // Select-all indeterminate state
+  const allOnPageSelected = selectable && paginatedData.length > 0 && paginatedData.every((_, i) => selectedRows.has(i));
+  const someOnPageSelected = selectable && paginatedData.some((_, i) => selectedRows.has(i));
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someOnPageSelected && !allOnPageSelected;
+    }
+  }, [someOnPageSelected, allOnPageSelected]);
+
+  const handleSelectAll = useCallback(() => {
+    if (allOnPageSelected) {
+      setSelectedRows(new Set());
+    } else {
+      setSelectedRows(new Set(paginatedData.map((_, i) => i)));
+    }
+  }, [allOnPageSelected, paginatedData]);
+
+  const handleSelectRow = useCallback((index: number) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleBulkAction = useCallback((actionKey: string) => {
+    const selectedItems = Array.from(selectedRows).sort().map((i) => paginatedData[i]);
+    onBulkAction?.(actionKey, selectedItems);
+    setSelectedRows(new Set());
+  }, [selectedRows, paginatedData, onBulkAction]);
+
   function SortIcon({ columnKey }: { columnKey: string }) {
     if (sortState.key !== columnKey) return <ChevronsUpDown className="h-3.5 w-3.5 opacity-40" />;
     if (sortState.direction === "asc") return <ChevronUp className="h-3.5 w-3.5 text-primary" />;
@@ -127,16 +195,48 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
-      {searchable && (
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <input
-            type="search"
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="h-9 w-full pl-9 pr-4 text-sm rounded-md border border-input bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 transition-shadow"
-          />
+      {(searchable || exportable) && (
+        <div className="flex items-center gap-2">
+          {searchable && (
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <input
+                type="search"
+                placeholder={t("table.search")}
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="h-9 w-full pl-9 pr-4 text-sm rounded-md border border-input bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 transition-shadow"
+              />
+            </div>
+          )}
+          {exportable && sortedData.length > 0 && (
+            <button onClick={handleExport} className="inline-flex items-center gap-1.5 h-9 px-3 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+              <Download className="h-4 w-4" />
+              {t("table.exportCsv")}
+            </button>
+          )}
+        </div>
+      )}
+
+      {selectable && selectedRows.size > 0 && bulkActions.length > 0 && (
+        <div className="flex items-center justify-between p-2 bg-primary/5 border border-primary/20 rounded-lg">
+          <span className="text-sm font-medium">{selectedRows.size} {t("table.selected")}</span>
+          <div className="flex gap-2">
+            {bulkActions.map((action) => (
+              <button
+                key={action.key}
+                onClick={() => handleBulkAction(action.key)}
+                className={cn(
+                  "inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                  action.variant === "destructive"
+                    ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90"
+                )}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -144,6 +244,17 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
+              {selectable && (
+                <TableHead className="w-10">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={allOnPageSelected && paginatedData.length > 0}
+                    onChange={handleSelectAll}
+                    className="h-4 w-4 rounded border-gray-300 accent-primary cursor-pointer"
+                  />
+                </TableHead>
+              )}
               {columns.map((col) => (
                 <TableHead key={col.key} className={col.className}>
                   {col.sortable ? (
@@ -166,6 +277,11 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i} className="hover:bg-transparent">
+                  {selectable && (
+                    <TableCell>
+                      <div className="h-4 w-4 rounded bg-muted animate-pulse" />
+                    </TableCell>
+                  )}
                   {columns.map((col) => (
                     <TableCell key={col.key}>
                       <div className="h-4 w-full max-w-[180px] rounded bg-muted animate-pulse" />
@@ -175,7 +291,7 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
               ))
             ) : paginatedData.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground text-sm">
+                <TableCell colSpan={columns.length + (selectable ? 1 : 0)} className="h-32 text-center text-muted-foreground text-sm">
                   {emptyMessage}
                 </TableCell>
               </TableRow>
@@ -184,8 +300,22 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
                 <TableRow
                   key={rowIndex}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={cn(onRowClick && "cursor-pointer")}
+                  className={cn(
+                    onRowClick && "cursor-pointer",
+                    selectable && selectedRows.has(rowIndex) && "bg-primary/5"
+                  )}
                 >
+                  {selectable && (
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        checked={selectedRows.has(rowIndex)}
+                        onChange={() => handleSelectRow(rowIndex)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-4 w-4 rounded border-gray-300 accent-primary cursor-pointer"
+                      />
+                    </TableCell>
+                  )}
                   {columns.map((col) => (
                     <TableCell key={col.key} className={col.className}>
                       {col.render
@@ -205,7 +335,7 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
       {pagination && sortedData.length > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
           <p>
-            Showing{" "}
+            {t("table.showing")}{" "}
             <span className="font-medium text-foreground">
               {Math.min((currentPage - 1) * PAGE_SIZE + 1, sortedData.length)}
             </span>
@@ -213,9 +343,9 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
             <span className="font-medium text-foreground">
               {Math.min(currentPage * PAGE_SIZE, sortedData.length)}
             </span>{" "}
-            of{" "}
+            {t("table.of")}{" "}
             <span className="font-medium text-foreground">{sortedData.length}</span>{" "}
-            result{sortedData.length !== 1 ? "s" : ""}
+            {t("table.results")}
           </p>
 
           <div className="flex items-center gap-1">

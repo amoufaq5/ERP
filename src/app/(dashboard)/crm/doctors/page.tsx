@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import { Stethoscope, Plus, MapPin, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
@@ -29,6 +31,7 @@ export default function DoctorsPage() {
   const [filters, setFilters] = useState<FilterState>({});
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Doctor | null>(null);
+  const [viewDoctor, setViewDoctor] = useState<Doctor | null>(null);
 
   const repsUnderMe = getReportsOf(user.id).map((u) => u.id);
   const scoped = useMemo(
@@ -158,6 +161,9 @@ export default function DoctorsPage() {
         classification: payload.classification!,
         visitFrequency: payload.visitFrequency!,
         assignedRepId: payload.assignedRepId ?? null,
+        isKOL: payload.isKOL ?? false,
+        buyingLadderStage: payload.buyingLadderStage ?? "Unaware",
+        linkedPharmacyIds: payload.linkedPharmacyIds ?? [],
         createdAt: new Date().toISOString(),
       });
     }
@@ -210,82 +216,128 @@ export default function DoctorsPage() {
           { key: "assignedRepId", label: "Assigned Rep", type: "select", options: repOptions },
         ]}
         values={filters}
-        onChange={setFilters}
+        onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))}
         collapsible
       />
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                <tr>
-                  <th className="text-left p-3">Doctor</th>
-                  <th className="text-left p-3">Specialty</th>
-                  <th className="text-left p-3">Hospital</th>
-                  <th className="text-left p-3">City</th>
-                  <th className="text-left p-3">Class</th>
-                  <th className="text-left p-3">Assigned Rep</th>
-                  <th className="text-left p-3">BU</th>
-                  <th className="text-left p-3">Last Visit</th>
-                  <th className="text-right p-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="p-8 text-center text-slate-500">
-                      No doctors match your filters.
-                    </td>
-                  </tr>
-                )}
-                {filtered.map((d) => {
-                  const rep = allUsers.find((u) => u.id === d.assignedRepId);
-                  const bu = d.buId ? store.businessUnits.find((b) => b.id === d.buId) : null;
-                  return (
-                    <tr key={d.id} className="border-b hover:bg-slate-50">
-                      <td className="p-3">
-                        <div className="font-medium">{d.name}</div>
-                        <div className="text-[11px] text-slate-500">{d.phone}</div>
-                      </td>
-                      <td className="p-3">{d.specialty}</td>
-                      <td className="p-3">{d.hospital}</td>
-                      <td className="p-3">{d.city}</td>
-                      <td className="p-3">
-                        <Badge variant={d.classification === "A" ? "success" : d.classification === "B" ? "default" : "secondary"}>
-                          {d.classification}
-                        </Badge>
-                      </td>
-                      <td className="p-3 text-xs">{rep?.name ?? "—"}</td>
-                      <td className="p-3 text-xs">
-                        {bu ? (
-                          <Badge variant="outline" style={{ borderColor: bu.color, color: bu.color }}>
-                            {bu.code}
-                          </Badge>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="p-3 text-xs">
-                        {d.lastVisitAt ? new Date(d.lastVisitAt).toLocaleDateString() : "Never"}
-                      </td>
-                      <td className="p-3 text-right">
-                        <EditDeleteMenu
-                          onEdit={() => handleEdit(d)}
-                          onDelete={canEdit ? () => handleDelete(d) : undefined}
-                          canDelete={canEdit}
-                          itemLabel={d.name}
-                          compact
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      <DataTable
+        columns={[
+          {
+            key: "name",
+            label: "Doctor",
+            render: (_v: unknown, row: unknown) => {
+              const d = row as Doctor;
+              return (
+                <div>
+                  <div className="font-medium">{d.name}</div>
+                  <div className="text-[11px] text-slate-500">{d.phone}</div>
+                </div>
+              );
+            },
+          },
+          { key: "specialty", label: "Specialty" },
+          { key: "hospital", label: "Hospital" },
+          { key: "city", label: "City" },
+          {
+            key: "classification",
+            label: "Class",
+            render: (_v: unknown, row: unknown) => {
+              const d = row as Doctor;
+              return (
+                <Badge variant={d.classification === "A" ? "success" : d.classification === "B" ? "default" : "secondary"}>
+                  {d.classification}
+                </Badge>
+              );
+            },
+          },
+          {
+            key: "assignedRepId",
+            label: "Assigned Rep",
+            render: (_v: unknown, row: unknown) => {
+              const d = row as Doctor;
+              const rep = allUsers.find((u) => u.id === d.assignedRepId);
+              return <span className="text-xs">{rep?.name ?? "—"}</span>;
+            },
+          },
+          {
+            key: "buId",
+            label: "BU",
+            render: (_v: unknown, row: unknown) => {
+              const d = row as Doctor;
+              const bu = d.buId ? store.businessUnits.find((b) => b.id === d.buId) : null;
+              return bu ? (
+                <Badge variant="outline" style={{ borderColor: bu.color, color: bu.color }}>
+                  {bu.code}
+                </Badge>
+              ) : (
+                <span className="text-xs">—</span>
+              );
+            },
+          },
+          {
+            key: "lastVisitAt",
+            label: "Last Visit",
+            render: (_v: unknown, row: unknown) => {
+              const d = row as Doctor;
+              return (
+                <span className="text-xs">
+                  {d.lastVisitAt ? new Date(d.lastVisitAt).toLocaleDateString() : "Never"}
+                </span>
+              );
+            },
+          },
+          {
+            key: "actions",
+            label: "Actions",
+            className: "text-right",
+            render: (_v: unknown, row: unknown) => {
+              const d = row as Doctor;
+              return (
+                <EditDeleteMenu
+                  onView={() => setViewDoctor(d)}
+                  onEdit={() => handleEdit(d)}
+                  onDelete={canEdit ? () => handleDelete(d) : undefined}
+                  canDelete={canEdit}
+                  itemLabel={d.name}
+                  compact
+                />
+              );
+            },
+          },
+        ] as Column<Record<string, unknown>>[]}
+        data={filtered as unknown as Record<string, unknown>[]}
+        emptyMessage="No doctors match your filters."
+        exportable
+        exportFilename="doctors.csv"
+      />
+
+      {/* Doctor Detail Dialog */}
+      <Dialog open={!!viewDoctor} onOpenChange={(open) => { if (!open) setViewDoctor(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewDoctor?.name}</DialogTitle>
+          </DialogHeader>
+          {viewDoctor && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Name</span><p className="font-medium">{viewDoctor.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Specialty</span><p className="font-medium">{viewDoctor.specialty}</p></div>
+              <div><span className="text-sm text-muted-foreground">Hospital</span><p className="font-medium">{viewDoctor.hospital}</p></div>
+              <div><span className="text-sm text-muted-foreground">City</span><p className="font-medium">{viewDoctor.city}</p></div>
+              <div><span className="text-sm text-muted-foreground">Phone</span><p className="font-medium">{viewDoctor.phone}</p></div>
+              <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{viewDoctor.email || "—"}</p></div>
+              <div><span className="text-sm text-muted-foreground">Classification</span><p className="font-medium">{viewDoctor.classification}</p></div>
+              <div><span className="text-sm text-muted-foreground">Visit Frequency</span><p className="font-medium">{viewDoctor.visitFrequency} / month</p></div>
+              <div><span className="text-sm text-muted-foreground">Assigned Rep</span><p className="font-medium">{viewDoctor.assignedRepId ? allUsers.find(u => u.id === viewDoctor.assignedRepId)?.name ?? "—" : "—"}</p></div>
+              <div><span className="text-sm text-muted-foreground">Business Unit</span><p className="font-medium">{viewDoctor.buId ? store.businessUnits.find(b => b.id === viewDoctor.buId)?.name ?? "—" : "—"}</p></div>
+              <div><span className="text-sm text-muted-foreground">Last Visit</span><p className="font-medium">{viewDoctor.lastVisitAt ? new Date(viewDoctor.lastVisitAt).toLocaleDateString() : "Never"}</p></div>
+              <div><span className="text-sm text-muted-foreground">Created</span><p className="font-medium">{viewDoctor.createdAt ? new Date(viewDoctor.createdAt).toLocaleDateString() : "—"}</p></div>
+              {viewDoctor.notes && (
+                <div className="col-span-2"><span className="text-sm text-muted-foreground">Notes</span><p className="font-medium">{viewDoctor.notes}</p></div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <EntityFormModal
         open={formOpen}

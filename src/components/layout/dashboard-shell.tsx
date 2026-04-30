@@ -32,7 +32,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <Header onMobileMenuToggle={() => setMobileSidebarOpen((v) => !v)} />
 
         {/* Scrollable page content */}
-        <main className="flex-1 overflow-y-auto bg-slate-50/50">
+        <main className="flex-1 overflow-y-auto bg-slate-50/50 dark:bg-background">
           <AccessGate>{children}</AccessGate>
         </main>
       </div>

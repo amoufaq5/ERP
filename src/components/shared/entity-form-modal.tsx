@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, type FormEvent, type ReactNode } from
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -20,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 export type EntityFieldType =
   | "text"
@@ -107,6 +109,7 @@ export function EntityFormModal({
   size = "lg",
   footerExtra,
 }: EntityFormModalProps) {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<EntityFormData>(() => buildInitial(fields, initialData));
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -162,10 +165,14 @@ export function EntityFormModal({
     const className = hasError ? "border-destructive" : undefined;
 
     if (f.type === "select") {
+      const EMPTY = "__none__";
+      const strVal = (raw as string) ?? "";
+      const hasEmptyOption = f.options?.some((o) => o.value === "");
+      const selectValue = strVal === "" ? (hasEmptyOption ? EMPTY : undefined) : strVal;
       return (
         <Select
-          value={(raw as string) ?? ""}
-          onValueChange={(v) => setValue(f.name, v)}
+          value={selectValue}
+          onValueChange={(v) => setValue(f.name, v === EMPTY ? "" : v)}
           disabled={f.disabled}
         >
           <SelectTrigger className={className}>
@@ -173,7 +180,7 @@ export function EntityFormModal({
           </SelectTrigger>
           <SelectContent>
             {f.options?.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
+              <SelectItem key={opt.value || EMPTY} value={opt.value || EMPTY}>
                 {opt.label}
               </SelectItem>
             ))}
@@ -285,7 +292,7 @@ export function EntityFormModal({
       <DialogContent className={`${sizeClass} max-h-[90vh] overflow-y-auto`}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          {description && <p className="text-sm text-muted-foreground">{description}</p>}
+          <DialogDescription>{description || t("form.fillFields")}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2">
@@ -314,9 +321,9 @@ export function EntityFormModal({
           <DialogFooter className="gap-2 pt-2">
             {footerExtra}
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
-            <Button type="submit">{submitLabel}</Button>
+            <Button type="submit">{submitLabel === "Save" ? t("common.save") : submitLabel}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

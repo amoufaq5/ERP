@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 import {
   Users,
   UserCheck,
@@ -13,6 +14,7 @@ import {
   Building2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -25,22 +27,10 @@ import {
   type EntityField,
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
-
-/* ─── Types ────────────────────────────────────────────────────────── */
-
-interface Employee {
-  id: string;
-  employeeNumber: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  department: string;
-  position: string;
-  hireDate: string;
-  salary: number;
-  status: "ACTIVE" | "ON_LEAVE" | "TERMINATED";
-}
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
+import { downloadCSV } from "@/lib/download";
+import { useDataStore, type Employee } from "@/lib/data-store";
 
 interface LeaveRequest {
   id: string;
@@ -78,17 +68,6 @@ interface Department {
 
 /* ─── Seed Data ────────────────────────────────────────────────────── */
 
-const SEED_EMPLOYEES: Employee[] = [
-  { id: "emp-1", employeeNumber: "EMP001", firstName: "John", lastName: "Smith", email: "john.smith@company.com", phone: "(555) 100-1001", department: "Engineering", position: "Senior Developer", hireDate: "2022-03-15", salary: 95000, status: "ACTIVE" },
-  { id: "emp-2", employeeNumber: "EMP002", firstName: "Sarah", lastName: "Johnson", email: "sarah.j@company.com", phone: "(555) 100-1002", department: "Marketing", position: "Marketing Manager", hireDate: "2021-06-01", salary: 85000, status: "ACTIVE" },
-  { id: "emp-3", employeeNumber: "EMP003", firstName: "Michael", lastName: "Chen", email: "m.chen@company.com", phone: "(555) 100-1003", department: "Finance", position: "Financial Analyst", hireDate: "2023-01-10", salary: 75000, status: "ACTIVE" },
-  { id: "emp-4", employeeNumber: "EMP004", firstName: "Emily", lastName: "Davis", email: "e.davis@company.com", phone: "(555) 100-1004", department: "HR", position: "HR Specialist", hireDate: "2022-08-20", salary: 70000, status: "ON_LEAVE" },
-  { id: "emp-5", employeeNumber: "EMP005", firstName: "Robert", lastName: "Wilson", email: "r.wilson@company.com", phone: "(555) 100-1005", department: "Sales", position: "Sales Rep", hireDate: "2023-04-12", salary: 65000, status: "ACTIVE" },
-  { id: "emp-6", employeeNumber: "EMP006", firstName: "Lisa", lastName: "Anderson", email: "l.anderson@company.com", phone: "(555) 100-1006", department: "Engineering", position: "QA Engineer", hireDate: "2022-11-05", salary: 80000, status: "ACTIVE" },
-  { id: "emp-7", employeeNumber: "EMP007", firstName: "David", lastName: "Martinez", email: "d.martinez@company.com", phone: "(555) 100-1007", department: "Operations", position: "Operations Lead", hireDate: "2021-02-28", salary: 90000, status: "ACTIVE" },
-  { id: "emp-8", employeeNumber: "EMP008", firstName: "Jennifer", lastName: "Taylor", email: "j.taylor@company.com", phone: "(555) 100-1008", department: "Finance", position: "Controller", hireDate: "2020-09-14", salary: 110000, status: "ACTIVE" },
-];
-
 const SEED_LEAVES: LeaveRequest[] = [
   { id: "lv-1", employeeId: "emp-4", employeeName: "Emily Davis", type: "ANNUAL", startDate: "2024-03-25", endDate: "2024-03-29", days: 5, status: "APPROVED", reason: "Family vacation" },
   { id: "lv-2", employeeId: "emp-1", employeeName: "John Smith", type: "SICK", startDate: "2024-03-20", endDate: "2024-03-21", days: 2, status: "APPROVED", reason: "Medical appointment" },
@@ -118,18 +97,24 @@ const SEED_DEPARTMENTS: Department[] = [
 /* ─── Component ────────────────────────────────────────────────────── */
 
 export default function HRPage() {
+  const { t } = useTranslation();
   const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+    `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  // State
-  const [employees, setEmployees] = useState<Employee[]>(SEED_EMPLOYEES);
+  // Data store
+  const store = useDataStore();
+  const employees = store.employees;
+
+  // State (leave & payroll stay local for now)
   const [leaves, setLeaves] = useState<LeaveRequest[]>(SEED_LEAVES);
   const [payroll, setPayroll] = useState<PayrollRecord[]>(SEED_PAYROLL);
   const [departments, setDepartments] = useState<Department[]>(SEED_DEPARTMENTS);
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
+  const [leaveSearch, setLeaveSearch] = useState("");
   const [leaveFilters, setLeaveFilters] = useState<FilterState>({});
+  const [payrollSearch, setPayrollSearch] = useState("");
   const [payrollFilters, setPayrollFilters] = useState<FilterState>({});
 
   const [empFormOpen, setEmpFormOpen] = useState(false);
@@ -141,8 +126,10 @@ export default function HRPage() {
   const [payrollFormOpen, setPayrollFormOpen] = useState(false);
   const [editingPayroll, setEditingPayroll] = useState<PayrollRecord | null>(null);
 
-  let nextId = Date.now();
-  const genId = (prefix: string) => `${prefix}-${(nextId++).toString(36).slice(-6)}`;
+  const [detailEmp, setDetailEmp] = useState<Employee | null>(null);
+  const [detailDept, setDetailDept] = useState<Department | null>(null);
+  const [detailLeave, setDetailLeave] = useState<LeaveRequest | null>(null);
+  const [detailPayroll, setDetailPayroll] = useState<PayrollRecord | null>(null);
 
   // Derived
   const uniqueDepts = Array.from(new Set(employees.map((e) => e.department))).sort();
@@ -153,7 +140,7 @@ export default function HRPage() {
       if (search) {
         const q = search.toLowerCase();
         if (
-          !`${e.firstName} ${e.lastName}`.toLowerCase().includes(q) &&
+          !e.name.toLowerCase().includes(q) &&
           !e.email.toLowerCase().includes(q) &&
           !e.department.toLowerCase().includes(q) &&
           !e.position.toLowerCase().includes(q)
@@ -168,18 +155,26 @@ export default function HRPage() {
 
   const filteredLeaves = useMemo(() => {
     return leaves.filter((l) => {
+      if (leaveSearch) {
+        const q = leaveSearch.toLowerCase();
+        if (!l.employeeName.toLowerCase().includes(q) && !l.reason.toLowerCase().includes(q)) return false;
+      }
       if (leaveFilters.status && l.status !== leaveFilters.status) return false;
       if (leaveFilters.type && l.type !== leaveFilters.type) return false;
       return true;
     });
-  }, [leaves, leaveFilters]);
+  }, [leaves, leaveSearch, leaveFilters]);
 
   const filteredPayroll = useMemo(() => {
     return payroll.filter((p) => {
+      if (payrollSearch) {
+        const q = payrollSearch.toLowerCase();
+        if (!p.employeeName.toLowerCase().includes(q) && !p.period.toLowerCase().includes(q)) return false;
+      }
       if (payrollFilters.status && p.status !== payrollFilters.status) return false;
       return true;
     });
-  }, [payroll, payrollFilters]);
+  }, [payroll, payrollSearch, payrollFilters]);
 
   const pendingLeaves = leaves.filter((l) => l.status === "PENDING");
 
@@ -189,12 +184,12 @@ export default function HRPage() {
 
   /* ─── Employee CRUD ─── */
   const empFields: EntityField[] = [
-    { name: "firstName", label: "First Name", type: "text", required: true },
-    { name: "lastName", label: "Last Name", type: "text", required: true },
+    { name: "name", label: "Full Name", type: "text", required: true },
     { name: "email", label: "Email", type: "email", required: true },
     { name: "phone", label: "Phone", type: "tel" },
     { name: "department", label: "Department", type: "select", required: true, options: uniqueDepts.map((d) => ({ label: d, value: d })) },
     { name: "position", label: "Position", type: "text", required: true },
+    { name: "manager", label: "Manager", type: "text" },
     { name: "hireDate", label: "Hire Date", type: "date", required: true },
     { name: "salary", label: "Annual Salary", type: "number", required: true },
     { name: "status", label: "Status", type: "select", required: true, options: uniqueStatuses.map((s) => ({ label: s, value: s })) },
@@ -204,42 +199,44 @@ export default function HRPage() {
   function handleEditEmp(e: Employee) { setEditingEmp(e); setEmpFormOpen(true); }
   function handleEmpSubmit(data: EntityFormData) {
     if (editingEmp) {
-      setEmployees((prev) =>
-        prev.map((e) =>
-          e.id === editingEmp.id
-            ? { ...e, firstName: String(data.firstName), lastName: String(data.lastName), email: String(data.email), phone: String(data.phone || e.phone), department: String(data.department), position: String(data.position), hireDate: String(data.hireDate), salary: Number(data.salary), status: data.status as Employee["status"] }
-            : e
-        )
-      );
+      store.update("employees", editingEmp.id, {
+        name: String(data.name),
+        email: String(data.email),
+        phone: String(data.phone || editingEmp.phone),
+        department: String(data.department),
+        position: String(data.position),
+        manager: String(data.manager || editingEmp.manager),
+        hireDate: String(data.hireDate),
+        salary: Number(data.salary),
+        status: data.status as Employee["status"],
+      });
     } else {
-      const num = employees.length + 1;
-      setEmployees((prev) => [
-        ...prev,
-        {
-          id: genId("emp"),
-          employeeNumber: `EMP${String(num).padStart(3, "0")}`,
-          firstName: String(data.firstName),
-          lastName: String(data.lastName),
-          email: String(data.email),
-          phone: String(data.phone || ""),
-          department: String(data.department),
-          position: String(data.position),
-          hireDate: String(data.hireDate || new Date().toISOString().split("T")[0]),
-          salary: Number(data.salary) || 60000,
-          status: (data.status as Employee["status"]) || "ACTIVE",
-        },
-      ]);
+      const newId = store.genId("emp");
+      const seqNum = employees.length + 1;
+      store.add("employees", {
+        id: newId,
+        employeeId: `EMP-${String(seqNum).padStart(3, "0")}`,
+        name: String(data.name),
+        email: String(data.email),
+        phone: String(data.phone || ""),
+        department: String(data.department),
+        position: String(data.position),
+        manager: String(data.manager || ""),
+        hireDate: String(data.hireDate || new Date().toISOString().split("T")[0]),
+        salary: Number(data.salary) || 60000,
+        status: (data.status as Employee["status"]) || "ACTIVE",
+      });
     }
     setEmpFormOpen(false);
     setEditingEmp(null);
   }
   function handleDeleteEmp(e: Employee) {
-    setEmployees((prev) => prev.filter((x) => x.id !== e.id));
+    store.remove("employees", e.id);
   }
 
   /* ─── Leave CRUD ─── */
   const leaveFields: EntityField[] = [
-    { name: "employeeId", label: "Employee", type: "select", required: true, options: employees.map((e) => ({ label: `${e.firstName} ${e.lastName}`, value: e.id })) },
+    { name: "employeeId", label: "Employee", type: "select", required: true, options: employees.map((e) => ({ label: e.name, value: e.id })) },
     { name: "type", label: "Type", type: "select", required: true, options: [{ label: "Annual", value: "ANNUAL" }, { label: "Sick", value: "SICK" }, { label: "Personal", value: "PERSONAL" }] },
     { name: "startDate", label: "Start Date", type: "date", required: true },
     { name: "endDate", label: "End Date", type: "date", required: true },
@@ -258,7 +255,7 @@ export default function HRPage() {
       setLeaves((prev) =>
         prev.map((l) =>
           l.id === editingLeave.id
-            ? { ...l, employeeId: String(data.employeeId), employeeName: emp ? `${emp.firstName} ${emp.lastName}` : l.employeeName, type: data.type as LeaveRequest["type"], startDate: String(data.startDate), endDate: String(data.endDate), days, reason: String(data.reason) }
+            ? { ...l, employeeId: String(data.employeeId), employeeName: emp ? emp.name : l.employeeName, type: data.type as LeaveRequest["type"], startDate: String(data.startDate), endDate: String(data.endDate), days, reason: String(data.reason) }
             : l
         )
       );
@@ -266,9 +263,9 @@ export default function HRPage() {
       setLeaves((prev) => [
         ...prev,
         {
-          id: genId("lv"),
+          id: store.genId("lv"),
           employeeId: String(data.employeeId),
-          employeeName: emp ? `${emp.firstName} ${emp.lastName}` : "Unknown",
+          employeeName: emp ? emp.name : "Unknown",
           type: data.type as LeaveRequest["type"],
           startDate: String(data.startDate),
           endDate: String(data.endDate),
@@ -294,7 +291,7 @@ export default function HRPage() {
   /* ─── Department CRUD ─── */
   const deptFields: EntityField[] = [
     { name: "name", label: "Department Name", type: "text", required: true },
-    { name: "managerId", label: "Manager", type: "select", required: true, options: employees.map((e) => ({ label: `${e.firstName} ${e.lastName}`, value: e.id })) },
+    { name: "managerId", label: "Manager", type: "select", required: true, options: employees.map((e) => ({ label: e.name, value: e.id })) },
     { name: "budget", label: "Annual Budget", type: "number", required: true },
   ];
 
@@ -306,14 +303,14 @@ export default function HRPage() {
       setDepartments((prev) =>
         prev.map((d) =>
           d.id === editingDept.id
-            ? { ...d, name: String(data.name), managerId: String(data.managerId), managerName: mgr ? `${mgr.firstName} ${mgr.lastName}` : d.managerName, budget: Number(data.budget) }
+            ? { ...d, name: String(data.name), managerId: String(data.managerId), managerName: mgr ? `${mgr.name}` : d.managerName, budget: Number(data.budget) }
             : d
         )
       );
     } else {
       setDepartments((prev) => [
         ...prev,
-        { id: genId("dept"), name: String(data.name), managerId: String(data.managerId), managerName: mgr ? `${mgr.firstName} ${mgr.lastName}` : "—", budget: Number(data.budget) || 0 },
+        { id: store.genId("dept"), name: String(data.name), managerId: String(data.managerId), managerName: mgr ? `${mgr.name}` : "—", budget: Number(data.budget) || 0 },
       ]);
     }
     setDeptFormOpen(false);
@@ -325,7 +322,7 @@ export default function HRPage() {
 
   /* ─── Payroll CRUD ─── */
   const payrollFields: EntityField[] = [
-    { name: "employeeId", label: "Employee", type: "select", required: true, options: employees.map((e) => ({ label: `${e.firstName} ${e.lastName}`, value: e.id })) },
+    { name: "employeeId", label: "Employee", type: "select", required: true, options: employees.map((e) => ({ label: `${e.name}`, value: e.id })) },
     { name: "period", label: "Period", type: "text", required: true, placeholder: "e.g. Apr 2024" },
     { name: "basicSalary", label: "Basic Salary", type: "number", required: true },
     { name: "overtime", label: "Overtime", type: "number", defaultValue: 0 },
@@ -350,14 +347,14 @@ export default function HRPage() {
       setPayroll((prev) =>
         prev.map((p) =>
           p.id === editingPayroll.id
-            ? { ...p, employeeId: String(data.employeeId), employeeName: emp ? `${emp.firstName} ${emp.lastName}` : p.employeeName, period: String(data.period), basicSalary: basic, overtime: ot, deductions: ded, bonuses: bon, tax, netPay: net, status: data.status as PayrollRecord["status"] }
+            ? { ...p, employeeId: String(data.employeeId), employeeName: emp ? `${emp.name}` : p.employeeName, period: String(data.period), basicSalary: basic, overtime: ot, deductions: ded, bonuses: bon, tax, netPay: net, status: data.status as PayrollRecord["status"] }
             : p
         )
       );
     } else {
       setPayroll((prev) => [
         ...prev,
-        { id: genId("pr"), employeeId: String(data.employeeId), employeeName: emp ? `${emp.firstName} ${emp.lastName}` : "—", period: String(data.period), basicSalary: basic, overtime: ot, deductions: ded, bonuses: bon, tax, netPay: net, status: (data.status as PayrollRecord["status"]) || "DRAFT" },
+        { id: store.genId("pr"), employeeId: String(data.employeeId), employeeName: emp ? `${emp.name}` : "—", period: String(data.period), basicSalary: basic, overtime: ot, deductions: ded, bonuses: bon, tax, netPay: net, status: (data.status as PayrollRecord["status"]) || "DRAFT" },
       ]);
     }
     setPayrollFormOpen(false);
@@ -386,8 +383,8 @@ export default function HRPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="HR & Payroll"
-        description="Manage employees, departments, leave requests, and payroll"
+        title={t("hr2.title")}
+        description={t("hr2.manageHR")}
         actions={
           <Button onClick={handleCreateEmp}>
             <Plus className="h-4 w-4 mr-2" /> Add Employee
@@ -396,18 +393,18 @@ export default function HRPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard icon={Users} title="Total Employees" value={employees.length} iconColor="bg-blue-100 text-blue-600" />
-        <StatsCard icon={Calendar} title="On Leave" value={onLeaveCount} iconColor="bg-yellow-100 text-yellow-600" />
-        <StatsCard icon={UserCheck} title="Departments" value={departments.length} iconColor="bg-green-100 text-green-600" />
-        <StatsCard icon={DollarSign} title="Monthly Payroll" value={fmt(totalPayroll)} iconColor="bg-purple-100 text-purple-600" />
+        <StatsCard icon={Users} title={t("hr2.headcount")} value={employees.length} iconColor="bg-blue-100 text-blue-600" />
+        <StatsCard icon={Calendar} title={t("hr2.onLeave")} value={onLeaveCount} iconColor="bg-yellow-100 text-yellow-600" />
+        <StatsCard icon={UserCheck} title={t("hr2.openPositions")} value={departments.length} iconColor="bg-green-100 text-green-600" />
+        <StatsCard icon={DollarSign} title={t("hr2.monthlyPayroll")} value={fmt(totalPayroll)} iconColor="bg-purple-100 text-purple-600" />
       </div>
 
       <Tabs defaultValue="employees">
         <TabsList>
-          <TabsTrigger value="employees"><Users className="h-3.5 w-3.5 mr-1.5" />Employees ({employees.length})</TabsTrigger>
-          <TabsTrigger value="departments"><Building2 className="h-3.5 w-3.5 mr-1.5" />Departments</TabsTrigger>
-          <TabsTrigger value="leave"><Calendar className="h-3.5 w-3.5 mr-1.5" />Leave ({pendingLeaves.length} pending)</TabsTrigger>
-          <TabsTrigger value="payroll"><DollarSign className="h-3.5 w-3.5 mr-1.5" />Payroll</TabsTrigger>
+          <TabsTrigger value="employees"><Users className="h-3.5 w-3.5 mr-1.5" />{t("hr2.employees")} ({employees.length})</TabsTrigger>
+          <TabsTrigger value="departments"><Building2 className="h-3.5 w-3.5 mr-1.5" />{t("hr2.departments")}</TabsTrigger>
+          <TabsTrigger value="leave"><Calendar className="h-3.5 w-3.5 mr-1.5" />{t("hr2.leaveRequests")} ({pendingLeaves.length} pending)</TabsTrigger>
+          <TabsTrigger value="payroll"><DollarSign className="h-3.5 w-3.5 mr-1.5" />{t("hr2.payroll")}</TabsTrigger>
         </TabsList>
 
         {/* ── Employees ── */}
@@ -421,54 +418,53 @@ export default function HRPage() {
               { key: "status", label: "Status", type: "select", options: uniqueStatuses.map((s) => ({ label: s, value: s })) },
             ]}
             values={filters}
-            onChange={setFilters}
+            onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))}
           />
 
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">Employee</th>
-                      <th className="text-left p-3">Department</th>
-                      <th className="text-left p-3">Position</th>
-                      <th className="text-left p-3">Hire Date</th>
-                      <th className="text-right p-3">Salary</th>
-                      <th className="text-left p-3">Status</th>
-                      <th className="text-right p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredEmployees.length === 0 && (
-                      <tr><td colSpan={7} className="p-8 text-center text-slate-500">No employees match your filters.</td></tr>
-                    )}
-                    {filteredEmployees.map((emp) => (
-                      <tr key={emp.id} className="border-b hover:bg-slate-50">
-                        <td className="p-3">
-                          <div className="font-medium">{emp.firstName} {emp.lastName}</div>
-                          <div className="text-[11px] text-slate-500">{emp.email}</div>
-                        </td>
-                        <td className="p-3">{emp.department}</td>
-                        <td className="p-3">{emp.position}</td>
-                        <td className="p-3">{emp.hireDate}</td>
-                        <td className="p-3 text-right font-medium">{fmt(emp.salary)}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[emp.status]}`}>{emp.status}</span>
-                        </td>
-                        <td className="p-3 text-right">
-                          <EditDeleteMenu
-                            onEdit={() => handleEditEmp(emp)}
-                            onDelete={() => handleDeleteEmp(emp)}
-                            itemLabel={`${emp.firstName} ${emp.lastName}`}
-                            compact
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                selectable
+                bulkActions={[
+                  { key: "export", label: "Export Selected" },
+                ]}
+                onBulkAction={(action, rows) => {
+                  if (action === "export") {
+                    const csvColumns = [
+                      { key: "employeeId" as const, label: "Employee #" },
+                      { key: "name" as const, label: "Name" },
+                      { key: "email" as const, label: "Email" },
+                      { key: "phone" as const, label: "Phone" },
+                      { key: "department" as const, label: "Department" },
+                      { key: "position" as const, label: "Position" },
+                      { key: "hireDate" as const, label: "Hire Date" },
+                      { key: "salary" as const, label: "Salary" },
+                      { key: "status" as const, label: "Status" },
+                    ];
+                    downloadCSV("employees-selected.csv", rows as unknown as Record<string, unknown>[], csvColumns);
+                  }
+                }}
+                columns={[
+                  { key: "name", label: "Employee", render: (_v, row) => {
+                    const r = row as unknown as Employee;
+                    return (<div><div className="font-medium">{r.name}</div><div className="text-[11px] text-slate-500">{r.email}</div></div>);
+                  }},
+                  { key: "department", label: "Department" },
+                  { key: "position", label: "Position" },
+                  { key: "hireDate", label: "Hire Date" },
+                  { key: "salary", label: "Salary", className: "text-right", render: (v) => <span className="font-medium">{fmt(v as number)}</span> },
+                  { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
+                  { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
+                    const r = row as unknown as Employee;
+                    return (<EditDeleteMenu onEdit={() => handleEditEmp(r)} onDelete={() => handleDeleteEmp(r)} onView={() => setDetailEmp(r)} canView itemLabel={`${r.name}`} compact />);
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={filteredEmployees as unknown as Record<string, unknown>[]}
+                
+                emptyMessage="No employees match your filters."
+                exportable
+                exportFilename="employees.csv"
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -492,6 +488,8 @@ export default function HRPage() {
                       <EditDeleteMenu
                         onEdit={() => handleEditDept(dept)}
                         onDelete={() => handleDeleteDept(dept)}
+                        onView={() => setDetailDept(dept)}
+                        canView
                         itemLabel={dept.name}
                         compact
                       />
@@ -510,15 +508,15 @@ export default function HRPage() {
         {/* ── Leave ── */}
         <TabsContent value="leave" className="space-y-3">
           <FilterBar
-            searchPlaceholder=""
-            searchValue=""
-            onSearchChange={() => {}}
+            searchPlaceholder="Search by employee name or reason..."
+            searchValue={leaveSearch}
+            onSearchChange={setLeaveSearch}
             fields={[
               { key: "status", label: "Status", type: "select", options: [{ label: "Pending", value: "PENDING" }, { label: "Approved", value: "APPROVED" }, { label: "Rejected", value: "REJECTED" }] },
               { key: "type", label: "Type", type: "select", options: [{ label: "Annual", value: "ANNUAL" }, { label: "Sick", value: "SICK" }, { label: "Personal", value: "PERSONAL" }] },
             ]}
             values={leaveFilters}
-            onChange={setLeaveFilters}
+            onChange={(k, v) => setLeaveFilters(f => ({ ...f, [k]: v }))}
             rightSlot={
               <Button size="sm" onClick={handleCreateLeave}><Plus className="h-3.5 w-3.5 mr-1" />Request Leave</Button>
             }
@@ -526,54 +524,41 @@ export default function HRPage() {
 
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">Employee</th>
-                      <th className="text-left p-3">Type</th>
-                      <th className="text-left p-3">From</th>
-                      <th className="text-left p-3">To</th>
-                      <th className="text-right p-3">Days</th>
-                      <th className="text-left p-3">Status</th>
-                      <th className="text-left p-3">Reason</th>
-                      <th className="text-right p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredLeaves.length === 0 && (
-                      <tr><td colSpan={8} className="p-8 text-center text-slate-500">No leave requests match your filters.</td></tr>
-                    )}
-                    {filteredLeaves.map((l) => (
-                      <tr key={l.id} className="border-b hover:bg-slate-50">
-                        <td className="p-3 font-medium">{l.employeeName}</td>
-                        <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[l.type]}`}>{l.type}</span></td>
-                        <td className="p-3">{l.startDate}</td>
-                        <td className="p-3">{l.endDate}</td>
-                        <td className="p-3 text-right">{l.days}</td>
-                        <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[l.status]}`}>{l.status}</span></td>
-                        <td className="p-3 text-gray-500 max-w-[200px] truncate">{l.reason}</td>
-                        <td className="p-3 text-right">
-                          <EditDeleteMenu
-                            onEdit={() => handleEditLeave(l)}
-                            onDelete={() => handleDeleteLeave(l)}
-                            itemLabel={`Leave: ${l.employeeName}`}
-                            compact
-                            extraItems={
-                              l.status === "PENDING"
-                                ? [
-                                    { label: "Approve", onClick: () => handleApproveLeave(l), icon: <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> },
-                                    { label: "Reject", onClick: () => handleRejectLeave(l), icon: <XCircle className="h-3.5 w-3.5 text-red-600" /> },
-                                  ]
-                                : undefined
-                            }
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "employeeName", label: "Employee", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "type", label: "Type", render: (v) => <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
+                  { key: "startDate", label: "From" },
+                  { key: "endDate", label: "To" },
+                  { key: "days", label: "Days", className: "text-right" },
+                  { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
+                  { key: "reason", label: "Reason", className: "text-gray-500 max-w-[200px] truncate" },
+                  { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
+                    const l = row as unknown as LeaveRequest;
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => handleEditLeave(l)}
+                        onDelete={() => handleDeleteLeave(l)}
+                        onView={() => setDetailLeave(l)}
+                        itemLabel={`Leave: ${l.employeeName}`}
+                        compact
+                        extraItems={
+                          l.status === "PENDING"
+                            ? [
+                                { label: "Approve", onClick: () => handleApproveLeave(l), icon: <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> },
+                                { label: "Reject", onClick: () => handleRejectLeave(l), icon: <XCircle className="h-3.5 w-3.5 text-red-600" /> },
+                              ]
+                            : undefined
+                        }
+                      />
+                    );
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={filteredLeaves as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="leave-requests.csv"
+                emptyMessage="No leave requests match your filters."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -581,14 +566,14 @@ export default function HRPage() {
         {/* ── Payroll ── */}
         <TabsContent value="payroll" className="space-y-3">
           <FilterBar
-            searchPlaceholder=""
-            searchValue=""
-            onSearchChange={() => {}}
+            searchPlaceholder="Search by employee name or period..."
+            searchValue={payrollSearch}
+            onSearchChange={setPayrollSearch}
             fields={[
               { key: "status", label: "Status", type: "select", options: [{ label: "Draft", value: "DRAFT" }, { label: "Processed", value: "PROCESSED" }, { label: "Paid", value: "PAID" }] },
             ]}
             values={payrollFilters}
-            onChange={setPayrollFilters}
+            onChange={(k, v) => setPayrollFilters(f => ({ ...f, [k]: v }))}
             rightSlot={
               <Button size="sm" onClick={handleCreatePayroll}><Plus className="h-3.5 w-3.5 mr-1" />Add Payroll</Button>
             }
@@ -596,59 +581,37 @@ export default function HRPage() {
 
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">Employee</th>
-                      <th className="text-left p-3">Period</th>
-                      <th className="text-right p-3">Basic</th>
-                      <th className="text-right p-3">Overtime</th>
-                      <th className="text-right p-3">Deductions</th>
-                      <th className="text-right p-3">Tax</th>
-                      <th className="text-right p-3">Net Pay</th>
-                      <th className="text-left p-3">Status</th>
-                      <th className="text-right p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredPayroll.length === 0 && (
-                      <tr><td colSpan={9} className="p-8 text-center text-slate-500">No payroll records match your filters.</td></tr>
-                    )}
-                    {filteredPayroll.map((p) => (
-                      <tr key={p.id} className="border-b hover:bg-slate-50">
-                        <td className="p-3 font-medium">{p.employeeName}</td>
-                        <td className="p-3">{p.period}</td>
-                        <td className="p-3 text-right">{fmt(p.basicSalary)}</td>
-                        <td className="p-3 text-right">{fmt(p.overtime)}</td>
-                        <td className="p-3 text-right text-red-600">-{fmt(p.deductions)}</td>
-                        <td className="p-3 text-right text-red-600">-{fmt(p.tax)}</td>
-                        <td className="p-3 text-right font-semibold">{fmt(p.netPay)}</td>
-                        <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[p.status]}`}>{p.status}</span></td>
-                        <td className="p-3 text-right">
-                          <EditDeleteMenu
-                            onEdit={() => handleEditPayroll(p)}
-                            onDelete={() => handleDeletePayroll(p)}
-                            itemLabel={`Payroll: ${p.employeeName}`}
-                            compact
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                    {filteredPayroll.length > 0 && (
-                      <tr className="border-t-2 bg-slate-50 font-bold text-sm">
-                        <td className="p-3" colSpan={2}>Total</td>
-                        <td className="p-3 text-right">{fmt(filteredPayroll.reduce((s, p) => s + p.basicSalary, 0))}</td>
-                        <td className="p-3 text-right">{fmt(filteredPayroll.reduce((s, p) => s + p.overtime, 0))}</td>
-                        <td className="p-3 text-right text-red-600">-{fmt(filteredPayroll.reduce((s, p) => s + p.deductions, 0))}</td>
-                        <td className="p-3 text-right text-red-600">-{fmt(filteredPayroll.reduce((s, p) => s + p.tax, 0))}</td>
-                        <td className="p-3 text-right">{fmt(filteredPayroll.reduce((s, p) => s + p.netPay, 0))}</td>
-                        <td colSpan={2}></td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "employeeName", label: "Employee", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "period", label: "Period" },
+                  { key: "basicSalary", label: "Basic", className: "text-right", render: (v) => fmt(v as number) },
+                  { key: "overtime", label: "Overtime", className: "text-right", render: (v) => fmt(v as number) },
+                  { key: "deductions", label: "Deductions", className: "text-right", render: (v) => <span className="text-red-600">-{fmt(v as number)}</span> },
+                  { key: "tax", label: "Tax", className: "text-right", render: (v) => <span className="text-red-600">-{fmt(v as number)}</span> },
+                  { key: "netPay", label: "Net Pay", className: "text-right", render: (v) => <span className="font-semibold">{fmt(v as number)}</span> },
+                  { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
+                  { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
+                    const p = row as unknown as PayrollRecord;
+                    return (<EditDeleteMenu onEdit={() => handleEditPayroll(p)} onDelete={() => handleDeletePayroll(p)} onView={() => setDetailPayroll(p)} itemLabel={`Payroll: ${p.employeeName}`} compact />);
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={filteredPayroll as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="payroll.csv"
+                emptyMessage="No payroll records match your filters."
+              />
+              {filteredPayroll.length > 0 && (
+                <div className="border-t-2 bg-slate-50 font-bold text-sm flex">
+                  <div className="p-3 flex-[2]">Total</div>
+                  <div className="p-3 flex-1 text-right">{fmt(filteredPayroll.reduce((s, p) => s + p.basicSalary, 0))}</div>
+                  <div className="p-3 flex-1 text-right">{fmt(filteredPayroll.reduce((s, p) => s + p.overtime, 0))}</div>
+                  <div className="p-3 flex-1 text-right text-red-600">-{fmt(filteredPayroll.reduce((s, p) => s + p.deductions, 0))}</div>
+                  <div className="p-3 flex-1 text-right text-red-600">-{fmt(filteredPayroll.reduce((s, p) => s + p.tax, 0))}</div>
+                  <div className="p-3 flex-1 text-right">{fmt(filteredPayroll.reduce((s, p) => s + p.netPay, 0))}</div>
+                  <div className="p-3 flex-[2]"></div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -658,9 +621,9 @@ export default function HRPage() {
       <EntityFormModal
         open={empFormOpen}
         onOpenChange={setEmpFormOpen}
-        title={editingEmp ? `Edit ${editingEmp.firstName} ${editingEmp.lastName}` : "Add Employee"}
+        title={editingEmp ? `Edit ${editingEmp.name}` : "Add Employee"}
         fields={empFields}
-        initialData={editingEmp ? { firstName: editingEmp.firstName, lastName: editingEmp.lastName, email: editingEmp.email, phone: editingEmp.phone, department: editingEmp.department, position: editingEmp.position, hireDate: editingEmp.hireDate, salary: editingEmp.salary, status: editingEmp.status } : undefined}
+        initialData={editingEmp ? { name: editingEmp.name, email: editingEmp.email, phone: editingEmp.phone, department: editingEmp.department, position: editingEmp.position, hireDate: editingEmp.hireDate, salary: editingEmp.salary, status: editingEmp.status } : undefined}
         onSubmit={handleEmpSubmit}
         submitLabel={editingEmp ? "Save" : "Create"}
         size="lg"
@@ -698,6 +661,187 @@ export default function HRPage() {
         submitLabel={editingPayroll ? "Save" : "Create"}
         size="lg"
       />
+
+      {/* ── Employee Detail Dialog ── */}
+      <Dialog open={!!detailEmp} onOpenChange={(open) => { if (!open) setDetailEmp(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailEmp?.name}</DialogTitle>
+          </DialogHeader>
+          {detailEmp && (() => {
+            const empLeaves = leaves.filter((l) => l.employeeId === detailEmp.id);
+            const empPayroll = payroll.filter((p) => p.employeeId === detailEmp.id);
+            const dept = departments.find((d) => d.name === detailEmp.department);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Employee #</span><p className="font-medium font-mono">{detailEmp.employeeId}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[detailEmp.status]}`}>{detailEmp.status}</span></p></div>
+                  <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{detailEmp.email}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Phone</span><p className="font-medium">{detailEmp.phone}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Department</span><p className="font-medium">{detailEmp.department}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Position</span><p className="font-medium">{detailEmp.position}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Hire Date</span><p className="font-medium">{detailEmp.hireDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Annual Salary</span><p className="font-medium text-lg">{fmt(detailEmp.salary)}</p></div>
+                  {dept && <div><span className="text-sm text-muted-foreground">Department Manager</span><p className="font-medium">{dept.managerName}</p></div>}
+                </div>
+                {/* Leave History */}
+                {empLeaves.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Leave History ({empLeaves.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {empLeaves.map((l) => (
+                        <div key={l.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[l.type]}`}>{l.type}</span>
+                            <span className="text-muted-foreground ml-2">{l.startDate} - {l.endDate}</span>
+                            <span className="text-muted-foreground ml-1">({l.days} days)</span>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[l.status]}`}>{l.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Payroll Records */}
+                {empPayroll.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Payroll Records ({empPayroll.length})</h4>
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left px-3 py-2 font-medium">Period</th>
+                            <th className="text-right px-3 py-2 font-medium">Basic</th>
+                            <th className="text-right px-3 py-2 font-medium">Overtime</th>
+                            <th className="text-right px-3 py-2 font-medium">Net Pay</th>
+                            <th className="text-left px-3 py-2 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {empPayroll.map((p) => (
+                            <tr key={p.id}>
+                              <td className="px-3 py-2">{p.period}</td>
+                              <td className="px-3 py-2 text-right">{fmt(p.basicSalary)}</td>
+                              <td className="px-3 py-2 text-right">{fmt(p.overtime)}</td>
+                              <td className="px-3 py-2 text-right font-semibold">{fmt(p.netPay)}</td>
+                              <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[p.status]}`}>{p.status}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Department Detail Dialog ── */}
+      <Dialog open={!!detailDept} onOpenChange={(open) => { if (!open) setDetailDept(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailDept?.name} Department</DialogTitle>
+          </DialogHeader>
+          {detailDept && (() => {
+            const deptEmployees = employees.filter((e) => e.department === detailDept.name);
+            const totalSalary = deptEmployees.reduce((s, e) => s + e.salary, 0);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Department ID</span><p className="font-medium font-mono">{detailDept.id}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Manager</span><p className="font-medium">{detailDept.managerName}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Headcount</span><p className="font-medium text-lg">{deptEmployees.length}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Annual Budget</span><p className="font-medium text-lg">{fmt(detailDept.budget)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Total Salary Cost</span><p className="font-medium">{fmt(totalSalary)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Budget Utilization (Salary)</span><p className="font-medium">{Math.round((totalSalary / detailDept.budget) * 100)}%</p></div>
+                </div>
+                {/* Budget Bar */}
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">Budget</span>
+                    <span className="font-medium">{fmt(totalSalary)} / {fmt(detailDept.budget)}</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${totalSalary > detailDept.budget ? "bg-red-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(Math.round((totalSalary / detailDept.budget) * 100), 100)}%` }} />
+                  </div>
+                </div>
+                {/* Member List */}
+                {deptEmployees.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Members ({deptEmployees.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {deptEmployees.map((e) => (
+                        <div key={e.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className="font-medium">{e.name} {}</span>
+                            <span className="text-muted-foreground ml-2 text-xs">{e.position}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">{fmt(e.salary)}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[e.status]}`}>{e.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {deptEmployees.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-2">No employees in this department.</p>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Leave Detail Dialog ── */}
+      <Dialog open={!!detailLeave} onOpenChange={(open) => { if (!open) setDetailLeave(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Leave Request — {detailLeave?.employeeName}</DialogTitle>
+          </DialogHeader>
+          {detailLeave && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Employee</span><p className="font-medium">{detailLeave.employeeName}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[detailLeave.status]}`}>{detailLeave.status}</span></p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{detailLeave.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Days</span><p className="font-medium">{detailLeave.days}</p></div>
+              <div><span className="text-sm text-muted-foreground">From</span><p className="font-medium">{detailLeave.startDate}</p></div>
+              <div><span className="text-sm text-muted-foreground">To</span><p className="font-medium">{detailLeave.endDate}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Reason</span><p className="font-medium">{detailLeave.reason || "—"}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Payroll Detail Dialog ── */}
+      <Dialog open={!!detailPayroll} onOpenChange={(open) => { if (!open) setDetailPayroll(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Payroll — {detailPayroll?.employeeName}</DialogTitle>
+          </DialogHeader>
+          {detailPayroll && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div><span className="text-sm text-muted-foreground">Employee</span><p className="font-medium">{detailPayroll.employeeName}</p></div>
+                <div><span className="text-sm text-muted-foreground">Period</span><p className="font-medium">{detailPayroll.period}</p></div>
+                <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[detailPayroll.status]}`}>{detailPayroll.status}</span></p></div>
+              </div>
+              <div className="border rounded-lg divide-y text-sm">
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Basic Salary</span><span className="font-medium">{fmt(detailPayroll.basicSalary)}</span></div>
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Overtime</span><span className="font-medium">{fmt(detailPayroll.overtime)}</span></div>
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Bonuses</span><span className="font-medium">{fmt(detailPayroll.bonuses)}</span></div>
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Deductions</span><span className="font-medium text-red-600">-{fmt(detailPayroll.deductions)}</span></div>
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Tax</span><span className="font-medium text-red-600">-{fmt(detailPayroll.tax)}</span></div>
+                <div className="flex justify-between px-3 py-2 bg-muted/50 font-semibold"><span>Net Pay</span><span>{fmt(detailPayroll.netPay)}</span></div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

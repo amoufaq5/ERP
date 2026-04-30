@@ -2,12 +2,20 @@
 
 import { useMemo, useState } from "react";
 import {
-  Factory, ClipboardList, Play, CheckCircle, Plus, Package, Layers,
+  Factory, ClipboardList, Play, CheckCircle, Plus, Package, Layers, Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
@@ -15,6 +23,9 @@ import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import {
   EntityFormModal, type EntityField, type EntityFormData,
 } from "@/components/shared/entity-form-modal";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
+import { useDataStore } from "@/lib/data-store";
 
 /* ─── Types ─── */
 
@@ -27,12 +38,15 @@ interface BOM {
   materials: BOMItem[];
 }
 
+interface WOMaterial { materialCode: string; materialName: string; requiredQty: number; unit: string; }
+
 interface WorkOrder {
   id: string; bomId: string; bomName: string;
   quantity: number; priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   status: "PLANNED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
   startDate: string; endDate: string;
   assignedTo: string; notes?: string;
+  materials: WOMaterial[];
 }
 
 /* ─── Seed ─── */
@@ -63,12 +77,27 @@ const SEED_BOMS: BOM[] = [
     ] },
 ];
 
+function calcWOMaterials(bom: BOM, quantity: number): WOMaterial[] {
+  const ratio = quantity / bom.batchSize;
+  return bom.materials.map((m) => ({
+    materialCode: m.materialCode,
+    materialName: m.materialName,
+    requiredQty: Math.ceil(m.quantity * ratio * 100) / 100,
+    unit: m.unit,
+  }));
+}
+
 const SEED_WO: WorkOrder[] = [
-  { id: "wo-1", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", quantity: 500000, priority: "HIGH", status: "IN_PROGRESS", startDate: "2026-03-15", endDate: "2026-04-15", assignedTo: "Production Line A" },
-  { id: "wo-2", bomId: "bom-2", bomName: "Amoxicillin 250mg Capsule", quantity: 200000, priority: "MEDIUM", status: "PLANNED", startDate: "2026-04-01", endDate: "2026-05-01", assignedTo: "Production Line B" },
-  { id: "wo-3", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", quantity: 300000, priority: "HIGH", status: "COMPLETED", startDate: "2026-02-01", endDate: "2026-03-01", assignedTo: "Production Line A" },
-  { id: "wo-4", bomId: "bom-4", bomName: "Vitamin C Effervescent 1000mg", quantity: 50000, priority: "MEDIUM", status: "IN_PROGRESS", startDate: "2026-03-10", endDate: "2026-04-10", assignedTo: "Production Line C" },
-  { id: "wo-5", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", quantity: 250000, priority: "LOW", status: "PLANNED", startDate: "2026-05-01", endDate: "2026-05-30", assignedTo: "Production Line A" },
+  { id: "wo-1", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", quantity: 500000, priority: "HIGH", status: "IN_PROGRESS", startDate: "2026-03-15", endDate: "2026-04-15", assignedTo: "Production Line A",
+    materials: calcWOMaterials(SEED_BOMS[0], 500000) },
+  { id: "wo-2", bomId: "bom-2", bomName: "Amoxicillin 250mg Capsule", quantity: 200000, priority: "MEDIUM", status: "PLANNED", startDate: "2026-04-01", endDate: "2026-05-01", assignedTo: "Production Line B",
+    materials: calcWOMaterials(SEED_BOMS[1], 200000) },
+  { id: "wo-3", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", quantity: 300000, priority: "HIGH", status: "COMPLETED", startDate: "2026-02-01", endDate: "2026-03-01", assignedTo: "Production Line A",
+    materials: calcWOMaterials(SEED_BOMS[0], 300000) },
+  { id: "wo-4", bomId: "bom-4", bomName: "Vitamin C Effervescent 1000mg", quantity: 50000, priority: "MEDIUM", status: "IN_PROGRESS", startDate: "2026-03-10", endDate: "2026-04-10", assignedTo: "Production Line C",
+    materials: calcWOMaterials(SEED_BOMS[3], 50000) },
+  { id: "wo-5", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", quantity: 250000, priority: "LOW", status: "PLANNED", startDate: "2026-05-01", endDate: "2026-05-30", assignedTo: "Production Line A",
+    materials: calcWOMaterials(SEED_BOMS[0], 250000) },
 ];
 
 const statusColor: Record<string, string> = {
@@ -78,6 +107,7 @@ const statusColor: Record<string, string> = {
 const priorityColor: Record<string, string> = { LOW: "bg-gray-100 text-gray-800", MEDIUM: "bg-blue-100 text-blue-800", HIGH: "bg-orange-100 text-orange-800", URGENT: "bg-red-100 text-red-800" };
 
 export default function ManufacturingPage() {
+  const store = useDataStore();
   const [boms, setBoms] = useState<BOM[]>(SEED_BOMS);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>(SEED_WO);
   const [filters, setFilters] = useState<FilterState>({});
@@ -87,6 +117,15 @@ export default function ManufacturingPage() {
   const [editingBom, setEditingBom] = useState<BOM | null>(null);
   const [woFormOpen, setWoFormOpen] = useState(false);
   const [editingWo, setEditingWo] = useState<WorkOrder | null>(null);
+
+  /* ─── Detail view state ─── */
+  const [detailWO, setDetailWO] = useState<WorkOrder | null>(null);
+  const [detailBOM, setDetailBOM] = useState<BOM | null>(null);
+
+  /* ─── BOM Materials editor state ─── */
+  const [materialsModalOpen, setMaterialsModalOpen] = useState(false);
+  const [materialsTarget, setMaterialsTarget] = useState<BOM | null>(null);
+  const [editMaterials, setEditMaterials] = useState<BOMItem[]>([]);
 
   let _n = Date.now();
   const genId = (p: string) => `${p}-${(_n++).toString(36).slice(-6)}`;
@@ -101,10 +140,11 @@ export default function ManufacturingPage() {
   }, [workOrders, search, filters]);
 
   /* ─── BOM CRUD ─── */
+  const productOptions = store.products.map((p) => ({ label: `${p.name} ${p.strength} (${p.code})`, value: p.id }));
+
   const bomFields: EntityField[] = [
     { name: "name", label: "BOM Name", type: "text", required: true },
-    { name: "productCode", label: "Product Code", type: "text", required: true },
-    { name: "productName", label: "Product Name", type: "text", required: true },
+    { name: "productId", label: "Product", type: "select", required: true, options: productOptions },
     { name: "version", label: "Version", type: "text", required: true, defaultValue: "1.0" },
     { name: "status", label: "Status", type: "select", required: true, options: [{ label: "Draft", value: "DRAFT" }, { label: "Active", value: "ACTIVE" }, { label: "Obsolete", value: "OBSOLETE" }] },
     { name: "batchSize", label: "Batch Size", type: "number", required: true },
@@ -114,35 +154,89 @@ export default function ManufacturingPage() {
   function handleCreateBom() { setEditingBom(null); setBomFormOpen(true); }
   function handleEditBom(b: BOM) { setEditingBom(b); setBomFormOpen(true); }
   function handleBomSubmit(data: EntityFormData) {
+    const prod = store.products.find((p) => p.id === String(data.productId));
+    const productCode = prod?.code ?? "";
+    const productName = prod ? `${prod.name} ${prod.strength}` : "";
     if (editingBom) {
-      setBoms((prev) => prev.map((b) => b.id === editingBom.id ? { ...b, name: String(data.name), productCode: String(data.productCode), productName: String(data.productName), version: String(data.version), status: data.status as BOM["status"], batchSize: Number(data.batchSize), batchUnit: String(data.batchUnit) } : b));
+      setBoms((prev) => prev.map((b) => b.id === editingBom.id ? { ...b, name: String(data.name), productCode, productName, version: String(data.version), status: data.status as BOM["status"], batchSize: Number(data.batchSize), batchUnit: String(data.batchUnit) } : b));
     } else {
-      setBoms((prev) => [...prev, { id: genId("bom"), name: String(data.name), productCode: String(data.productCode), productName: String(data.productName), version: String(data.version), status: (data.status as BOM["status"]) || "DRAFT", batchSize: Number(data.batchSize), batchUnit: String(data.batchUnit), materials: [] }]);
+      setBoms((prev) => [...prev, { id: genId("bom"), name: String(data.name), productCode, productName, version: String(data.version), status: (data.status as BOM["status"]) || "DRAFT", batchSize: Number(data.batchSize), batchUnit: String(data.batchUnit), materials: [] }]);
     }
     setBomFormOpen(false); setEditingBom(null);
   }
   function handleDeleteBom(b: BOM) { setBoms((prev) => prev.filter((x) => x.id !== b.id)); }
 
-  /* ─── WO CRUD ─── */
-  const woFields: EntityField[] = [
-    { name: "bomId", label: "BOM", type: "select", required: true, options: boms.filter((b) => b.status === "ACTIVE").map((b) => ({ label: b.name, value: b.id })) },
-    { name: "quantity", label: "Quantity", type: "number", required: true },
-    { name: "priority", label: "Priority", type: "select", required: true, options: [{ label: "Low", value: "LOW" }, { label: "Medium", value: "MEDIUM" }, { label: "High", value: "HIGH" }, { label: "Urgent", value: "URGENT" }] },
-    { name: "status", label: "Status", type: "select", required: true, options: [{ label: "Planned", value: "PLANNED" }, { label: "In Progress", value: "IN_PROGRESS" }, { label: "Completed", value: "COMPLETED" }, { label: "Cancelled", value: "CANCELLED" }] },
-    { name: "startDate", label: "Start Date", type: "date", required: true },
-    { name: "endDate", label: "End Date", type: "date" },
-    { name: "assignedTo", label: "Assigned To", type: "text", required: true, placeholder: "Production Line A" },
-    { name: "notes", label: "Notes", type: "textarea", fullWidth: true },
-  ];
+  /* ─── Materials management ─── */
+  function handleOpenMaterials(b: BOM) {
+    setMaterialsTarget(b);
+    setEditMaterials([...b.materials]);
+    setMaterialsModalOpen(true);
+  }
+  function handleAddMaterial() {
+    setEditMaterials((prev) => [...prev, { materialCode: "", materialName: "", quantity: 0, unit: "kg" }]);
+  }
+  function handleAddMaterialFromProduct(productId: string) {
+    const prod = store.products.find((p) => p.id === productId);
+    if (!prod) return;
+    setEditMaterials((prev) => [...prev, { materialCode: prod.code, materialName: `${prod.name} ${prod.strength}`, quantity: 0, unit: "kg" }]);
+  }
+  function handleRemoveMaterial(idx: number) {
+    setEditMaterials((prev) => prev.filter((_, i) => i !== idx));
+  }
+  function handleMaterialChange(idx: number, field: keyof BOMItem, value: string | number) {
+    setEditMaterials((prev) => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m));
+  }
+  function handleSaveMaterials() {
+    if (!materialsTarget) return;
+    setBoms((prev) => prev.map((b) => b.id === materialsTarget.id ? { ...b, materials: editMaterials } : b));
+    setMaterialsModalOpen(false);
+    setMaterialsTarget(null);
+  }
 
-  function handleCreateWO() { setEditingWo(null); setWoFormOpen(true); }
-  function handleEditWO(w: WorkOrder) { setEditingWo(w); setWoFormOpen(true); }
-  function handleWOSubmit(data: EntityFormData) {
-    const bom = boms.find((b) => b.id === String(data.bomId));
+  /* ─── WO CRUD ─── */
+  const [woBomId, setWoBomId] = useState("");
+  const [woQuantity, setWoQuantity] = useState(0);
+  const [woPriority, setWoPriority] = useState<WorkOrder["priority"]>("MEDIUM");
+  const [woStatus, setWoStatus] = useState<WorkOrder["status"]>("PLANNED");
+  const [woStartDate, setWoStartDate] = useState("");
+  const [woEndDate, setWoEndDate] = useState("");
+  const [woAssignedTo, setWoAssignedTo] = useState("");
+  const [woNotes, setWoNotes] = useState("");
+
+  // Live materials preview
+  const woPreviewBom = boms.find((b) => b.id === woBomId);
+  const woPreviewMaterials: WOMaterial[] = useMemo(() => {
+    if (!woPreviewBom || woQuantity <= 0) return [];
+    return calcWOMaterials(woPreviewBom, woQuantity);
+  }, [woBomId, woQuantity, woPreviewBom]);
+
+  function handleCreateWO() {
+    setEditingWo(null);
+    setWoBomId(""); setWoQuantity(0); setWoPriority("MEDIUM"); setWoStatus("PLANNED");
+    setWoStartDate(""); setWoEndDate(""); setWoAssignedTo(""); setWoNotes("");
+    setWoFormOpen(true);
+  }
+  function handleEditWO(w: WorkOrder) {
+    setEditingWo(w);
+    setWoBomId(w.bomId); setWoQuantity(w.quantity); setWoPriority(w.priority); setWoStatus(w.status);
+    setWoStartDate(w.startDate); setWoEndDate(w.endDate); setWoAssignedTo(w.assignedTo); setWoNotes(w.notes || "");
+    setWoFormOpen(true);
+  }
+  function handleWOSubmit() {
+    if (!woBomId || woQuantity <= 0 || !woStartDate || !woAssignedTo) return;
+    const bom = boms.find((b) => b.id === woBomId);
+    const ratio = bom ? woQuantity / bom.batchSize : 1;
+    const materials: WOMaterial[] = bom ? bom.materials.map((m) => ({
+      materialCode: m.materialCode,
+      materialName: m.materialName,
+      requiredQty: Math.ceil(m.quantity * ratio * 100) / 100,
+      unit: m.unit,
+    })) : [];
+
     if (editingWo) {
-      setWorkOrders((prev) => prev.map((w) => w.id === editingWo.id ? { ...w, bomId: String(data.bomId), bomName: bom?.name || w.bomName, quantity: Number(data.quantity), priority: data.priority as WorkOrder["priority"], status: data.status as WorkOrder["status"], startDate: String(data.startDate), endDate: String(data.endDate || ""), assignedTo: String(data.assignedTo), notes: data.notes ? String(data.notes) : undefined } : w));
+      setWorkOrders((prev) => prev.map((w) => w.id === editingWo.id ? { ...w, bomId: woBomId, bomName: bom?.name || w.bomName, quantity: woQuantity, priority: woPriority, status: woStatus, startDate: woStartDate, endDate: woEndDate, assignedTo: woAssignedTo, notes: woNotes || undefined, materials } : w));
     } else {
-      setWorkOrders((prev) => [...prev, { id: genId("wo"), bomId: String(data.bomId), bomName: bom?.name || "—", quantity: Number(data.quantity), priority: (data.priority as WorkOrder["priority"]) || "MEDIUM", status: "PLANNED", startDate: String(data.startDate), endDate: String(data.endDate || ""), assignedTo: String(data.assignedTo), notes: data.notes ? String(data.notes) : undefined }]);
+      setWorkOrders((prev) => [...prev, { id: genId("wo"), bomId: woBomId, bomName: bom?.name || "—", quantity: woQuantity, priority: woPriority, status: "PLANNED", startDate: woStartDate, endDate: woEndDate, assignedTo: woAssignedTo, notes: woNotes || undefined, materials }]);
     }
     setWoFormOpen(false); setEditingWo(null);
   }
@@ -181,7 +275,7 @@ export default function ManufacturingPage() {
                         <h3 className="font-semibold">{b.name}</h3>
                         <p className="text-sm text-gray-500 mt-1">{b.productName} ({b.productCode})</p>
                       </div>
-                      <EditDeleteMenu onEdit={() => handleEditBom(b)} onDelete={() => handleDeleteBom(b)} itemLabel={b.name} compact />
+                      <EditDeleteMenu onEdit={() => handleEditBom(b)} onDelete={() => handleDeleteBom(b)} onView={() => setDetailBOM(b)} canView itemLabel={b.name} compact />
                     </div>
                     <div className="mt-2">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[b.status]}`}>{b.status}</span>
@@ -191,8 +285,11 @@ export default function ManufacturingPage() {
                       <span>{b.materials.length} materials</span>
                       <span>{woCount} orders</span>
                     </div>
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Batch: {b.batchSize.toLocaleString()} {b.batchUnit}
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Batch: {b.batchSize.toLocaleString()} {b.batchUnit}</span>
+                      <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => handleOpenMaterials(b)}>
+                        <Plus className="h-3 w-3 mr-1" />Materials
+                      </Button>
                     </div>
                     {b.materials.length > 0 && (
                       <div className="mt-3 border-t pt-2">
@@ -218,48 +315,35 @@ export default function ManufacturingPage() {
               { key: "status", label: "Status", type: "select", options: [{ label: "Planned", value: "PLANNED" }, { label: "In Progress", value: "IN_PROGRESS" }, { label: "Completed", value: "COMPLETED" }, { label: "Cancelled", value: "CANCELLED" }] },
               { key: "priority", label: "Priority", type: "select", options: [{ label: "Low", value: "LOW" }, { label: "Medium", value: "MEDIUM" }, { label: "High", value: "HIGH" }, { label: "Urgent", value: "URGENT" }] },
             ]}
-            values={filters} onChange={setFilters}
+            values={filters} onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))}
             rightSlot={<Button size="sm" onClick={handleCreateWO}><Plus className="h-3.5 w-3.5 mr-1" />New Work Order</Button>} />
 
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">BOM / Assembly</th>
-                      <th className="text-right p-3">Quantity</th>
-                      <th className="text-left p-3">Priority</th>
-                      <th className="text-left p-3">Assigned To</th>
-                      <th className="text-left p-3">Start</th>
-                      <th className="text-left p-3">End</th>
-                      <th className="text-left p-3">Status</th>
-                      <th className="text-right p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredWO.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-500">No work orders match your filters.</td></tr>}
-                    {filteredWO.map((w) => (
-                      <tr key={w.id} className="border-b hover:bg-slate-50">
-                        <td className="p-3 font-medium">{w.bomName}</td>
-                        <td className="p-3 text-right font-medium">{w.quantity.toLocaleString()}</td>
-                        <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColor[w.priority]}`}>{w.priority}</span></td>
-                        <td className="p-3 text-xs">{w.assignedTo}</td>
-                        <td className="p-3 text-xs">{w.startDate}</td>
-                        <td className="p-3 text-xs">{w.endDate || "—"}</td>
-                        <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[w.status]}`}>{w.status}</span></td>
-                        <td className="p-3 text-right">
-                          <EditDeleteMenu onEdit={() => handleEditWO(w)} onDelete={() => handleDeleteWO(w)} itemLabel={`WO: ${w.bomName}`} compact
-                            extraItems={[
-                              ...(w.status === "PLANNED" ? [{ label: "Start Production", onClick: () => setWorkOrders((prev) => prev.map((x) => x.id === w.id ? { ...x, status: "IN_PROGRESS" as const } : x)), icon: <Play className="h-3.5 w-3.5 text-orange-600" /> }] : []),
-                              ...(w.status === "IN_PROGRESS" ? [{ label: "Mark Complete", onClick: () => setWorkOrders((prev) => prev.map((x) => x.id === w.id ? { ...x, status: "COMPLETED" as const, endDate: new Date().toISOString().split("T")[0] } : x)), icon: <CheckCircle className="h-3.5 w-3.5 text-green-600" /> }] : []),
-                            ]} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "bomName", label: "BOM / Assembly", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "quantity", label: "Quantity", className: "text-right", render: (v) => <span className="font-medium">{(v as number).toLocaleString()}</span> },
+                  { key: "priority", label: "Priority", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColor[v as string]}`}>{v as string}</span> },
+                  { key: "assignedTo", label: "Assigned To", className: "text-xs" },
+                  { key: "startDate", label: "Start", className: "text-xs" },
+                  { key: "endDate", label: "End", className: "text-xs", render: (v) => <>{(v as string) || "—"}</> },
+                  { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
+                  { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
+                    const w = row as unknown as WorkOrder;
+                    return (
+                      <EditDeleteMenu onEdit={() => handleEditWO(w)} onDelete={() => handleDeleteWO(w)} onView={() => setDetailWO(w)} canView itemLabel={`WO: ${w.bomName}`} compact
+                        extraItems={[
+                          ...(w.status === "PLANNED" ? [{ label: "Start Production", onClick: () => setWorkOrders((prev) => prev.map((x) => x.id === w.id ? { ...x, status: "IN_PROGRESS" as const } : x)), icon: <Play className="h-3.5 w-3.5 text-orange-600" /> }] : []),
+                          ...(w.status === "IN_PROGRESS" ? [{ label: "Mark Complete", onClick: () => setWorkOrders((prev) => prev.map((x) => x.id === w.id ? { ...x, status: "COMPLETED" as const, endDate: new Date().toISOString().split("T")[0] } : x)), icon: <CheckCircle className="h-3.5 w-3.5 text-green-600" /> }] : []),
+                        ]} />
+                    );
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={filteredWO as unknown as Record<string, unknown>[]}
+                
+                exportable exportFilename="erp-manufacturing.csv" emptyMessage="No work orders match your filters."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -267,13 +351,349 @@ export default function ManufacturingPage() {
 
       <EntityFormModal open={bomFormOpen} onOpenChange={setBomFormOpen}
         title={editingBom ? `Edit ${editingBom.name}` : "Add Bill of Materials"} fields={bomFields}
-        initialData={editingBom ? { name: editingBom.name, productCode: editingBom.productCode, productName: editingBom.productName, version: editingBom.version, status: editingBom.status, batchSize: editingBom.batchSize, batchUnit: editingBom.batchUnit } : undefined}
+        initialData={editingBom ? { name: editingBom.name, productId: store.products.find((p) => p.code === editingBom.productCode)?.id ?? "", version: editingBom.version, status: editingBom.status, batchSize: editingBom.batchSize, batchUnit: editingBom.batchUnit } : undefined}
         onSubmit={handleBomSubmit} submitLabel={editingBom ? "Save" : "Create"} size="lg" />
 
-      <EntityFormModal open={woFormOpen} onOpenChange={setWoFormOpen}
-        title={editingWo ? "Edit Work Order" : "New Work Order"} fields={woFields}
-        initialData={editingWo ? { bomId: editingWo.bomId, quantity: editingWo.quantity, priority: editingWo.priority, status: editingWo.status, startDate: editingWo.startDate, endDate: editingWo.endDate, assignedTo: editingWo.assignedTo, notes: editingWo.notes || "" } : undefined}
-        onSubmit={handleWOSubmit} submitLabel={editingWo ? "Save" : "Create"} size="lg" />
+      {/* ── WO Form Dialog (with materials preview) ── */}
+      <Dialog open={woFormOpen} onOpenChange={(open) => { setWoFormOpen(open); if (!open) setEditingWo(null); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingWo ? "Edit Work Order" : "New Work Order"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="mb-1.5 block text-sm">BOM</Label>
+                <Select value={woBomId} onValueChange={setWoBomId}>
+                  <SelectTrigger><SelectValue placeholder="Select BOM..." /></SelectTrigger>
+                  <SelectContent>
+                    {boms.filter((b) => b.status === "ACTIVE").map((b) => (
+                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-sm">Quantity</Label>
+                <Input type="number" min={1} value={woQuantity || ""} onChange={(e) => setWoQuantity(Math.max(0, Number(e.target.value)))} placeholder="e.g. 500000" />
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-sm">Priority</Label>
+                <Select value={woPriority} onValueChange={(v) => setWoPriority(v as WorkOrder["priority"])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="LOW">Low</SelectItem>
+                    <SelectItem value="MEDIUM">Medium</SelectItem>
+                    <SelectItem value="HIGH">High</SelectItem>
+                    <SelectItem value="URGENT">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {editingWo && (
+                <div>
+                  <Label className="mb-1.5 block text-sm">Status</Label>
+                  <Select value={woStatus} onValueChange={(v) => setWoStatus(v as WorkOrder["status"])}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PLANNED">Planned</SelectItem>
+                      <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                      <SelectItem value="COMPLETED">Completed</SelectItem>
+                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div>
+                <Label className="mb-1.5 block text-sm">Start Date</Label>
+                <Input type="date" value={woStartDate} onChange={(e) => setWoStartDate(e.target.value)} />
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-sm">End Date</Label>
+                <Input type="date" value={woEndDate} onChange={(e) => setWoEndDate(e.target.value)} />
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-sm">Assigned To</Label>
+                <Input value={woAssignedTo} onChange={(e) => setWoAssignedTo(e.target.value)} placeholder="Production Line A" />
+              </div>
+              <div className="col-span-2">
+                <Label className="mb-1.5 block text-sm">Notes</Label>
+                <Input value={woNotes} onChange={(e) => setWoNotes(e.target.value)} placeholder="Optional notes..." />
+              </div>
+            </div>
+
+            {/* Required Materials Preview */}
+            {woPreviewMaterials.length > 0 && (
+              <div>
+                <Label className="text-sm font-semibold mb-2 block">
+                  Required Materials
+                  {woPreviewBom && <span className="font-normal text-muted-foreground ml-1">(scaled from batch of {woPreviewBom.batchSize.toLocaleString()} to {woQuantity.toLocaleString()})</span>}
+                </Label>
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left px-3 py-2 font-medium">Code</th>
+                        <th className="text-left px-3 py-2 font-medium">Material</th>
+                        <th className="text-right px-3 py-2 font-medium">Required Qty</th>
+                        <th className="text-left px-3 py-2 font-medium">Unit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {woPreviewMaterials.map((m, i) => (
+                        <tr key={i}>
+                          <td className="px-3 py-2 font-mono text-xs">{m.materialCode}</td>
+                          <td className="px-3 py-2">{m.materialName}</td>
+                          <td className="px-3 py-2 text-right font-medium">{m.requiredQty}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{m.unit}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => { setWoFormOpen(false); setEditingWo(null); }}>Cancel</Button>
+            <Button type="button" onClick={handleWOSubmit} disabled={!woBomId || woQuantity <= 0 || !woStartDate || !woAssignedTo}>
+              {editingWo ? "Save" : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Materials modal */}
+      <Dialog open={materialsModalOpen} onOpenChange={setMaterialsModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Materials — {materialsTarget?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Label className="mb-1.5 block text-sm">Add from Product Catalog</Label>
+                <Select onValueChange={(v) => handleAddMaterialFromProduct(v)}>
+                  <SelectTrigger><SelectValue placeholder="Select product..." /></SelectTrigger>
+                  <SelectContent>
+                    {store.products.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name} {p.strength} ({p.code})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={handleAddMaterial}>
+                <Plus className="h-3.5 w-3.5 mr-1" />Custom Material
+              </Button>
+            </div>
+
+            {editMaterials.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">No materials added yet. Use the dropdown or button above to add materials.</p>
+            )}
+
+            {editMaterials.map((m, idx) => (
+              <div key={idx} className="grid grid-cols-[1fr_1fr_100px_80px_auto] gap-2 items-end">
+                <div>
+                  <Label className="text-xs">Code</Label>
+                  <Input value={m.materialCode} onChange={(e) => handleMaterialChange(idx, "materialCode", e.target.value)} placeholder="e.g. API-001" className="h-8 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs">Name</Label>
+                  <Input value={m.materialName} onChange={(e) => handleMaterialChange(idx, "materialName", e.target.value)} placeholder="Material name" className="h-8 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs">Qty</Label>
+                  <Input type="number" value={m.quantity} onChange={(e) => handleMaterialChange(idx, "quantity", Number(e.target.value))} className="h-8 text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs">Unit</Label>
+                  <Input value={m.unit} onChange={(e) => handleMaterialChange(idx, "unit", e.target.value)} className="h-8 text-sm" />
+                </div>
+                <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500" onClick={() => handleRemoveMaterial(idx)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setMaterialsModalOpen(false)}>Cancel</Button>
+            <Button type="button" onClick={handleSaveMaterials}>Save Materials</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Work Order Detail Dialog ── */}
+      <Dialog open={!!detailWO} onOpenChange={(open) => { if (!open) setDetailWO(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Work Order {detailWO?.id}</DialogTitle>
+          </DialogHeader>
+          {detailWO && (() => {
+            const bom = boms.find((b) => b.id === detailWO.bomId);
+            const woStatusSteps: WorkOrder["status"][] = ["PLANNED", "IN_PROGRESS", "COMPLETED"];
+            const currentIdx = woStatusSteps.indexOf(detailWO.status);
+            const startD = new Date(detailWO.startDate);
+            const endD = detailWO.endDate ? new Date(detailWO.endDate) : null;
+            const now = new Date();
+            const totalDuration = endD ? endD.getTime() - startD.getTime() : 0;
+            const elapsed = now.getTime() - startD.getTime();
+            const timelinePct = totalDuration > 0 ? Math.min(Math.max(Math.round((elapsed / totalDuration) * 100), 0), 100) : 0;
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">BOM</span><p className="font-medium">{detailWO.bomName}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Quantity</span><p className="font-medium">{detailWO.quantity.toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Priority</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColor[detailWO.priority]}`}>{detailWO.priority}</span></p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[detailWO.status]}`}>{detailWO.status}</span></p></div>
+                  <div><span className="text-sm text-muted-foreground">Start Date</span><p className="font-medium">{detailWO.startDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">End Date</span><p className="font-medium">{detailWO.endDate || "Not set"}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Assigned To</span><p className="font-medium">{detailWO.assignedTo}</p></div>
+                  {detailWO.notes && <div className="col-span-2"><span className="text-sm text-muted-foreground">Notes</span><p className="font-medium">{detailWO.notes}</p></div>}
+                </div>
+                {/* Status Progression */}
+                <div>
+                  <h4 className="text-sm font-semibold mb-3">Status Progression</h4>
+                  <div className="flex items-center gap-2">
+                    {woStatusSteps.map((step, i) => {
+                      const isActive = detailWO.status === "CANCELLED" ? false : i <= currentIdx;
+                      const isCurrent = step === detailWO.status;
+                      return (
+                        <div key={step} className="flex items-center gap-2 flex-1">
+                          <div className="flex flex-col items-center flex-1">
+                            <div className={`h-3 w-3 rounded-full border-2 ${isCurrent ? "bg-primary border-primary" : isActive ? "bg-primary/60 border-primary/60" : "bg-muted border-muted-foreground/30"}`} />
+                            <span className={`text-[10px] mt-1 text-center ${isCurrent ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{step.replace(/_/g, " ")}</span>
+                          </div>
+                          {i < woStatusSteps.length - 1 && <div className={`h-0.5 flex-1 -mt-4 ${isActive && i < currentIdx ? "bg-primary/60" : "bg-muted"}`} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                {/* Production Timeline */}
+                {detailWO.endDate && (
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-muted-foreground">Production Timeline</span>
+                      <span className="font-medium">{timelinePct}% elapsed</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-primary rounded-full" style={{ width: `${timelinePct}%` }} />
+                    </div>
+                  </div>
+                )}
+                {/* Required Materials (scaled for this WO) */}
+                {detailWO.materials && detailWO.materials.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">
+                      Required Materials ({detailWO.materials.length})
+                      {bom && <span className="font-normal text-muted-foreground ml-1">(scaled from batch of {bom.batchSize.toLocaleString()} to {detailWO.quantity.toLocaleString()})</span>}
+                    </h4>
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left px-3 py-2 font-medium">Code</th>
+                            <th className="text-left px-3 py-2 font-medium">Material</th>
+                            <th className="text-right px-3 py-2 font-medium">Required Qty</th>
+                            <th className="text-left px-3 py-2 font-medium">Unit</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {detailWO.materials.map((m, i) => (
+                            <tr key={i}>
+                              <td className="px-3 py-2 font-mono text-xs">{m.materialCode}</td>
+                              <td className="px-3 py-2">{m.materialName}</td>
+                              <td className="px-3 py-2 text-right font-medium">{m.requiredQty}</td>
+                              <td className="px-3 py-2 text-muted-foreground">{m.unit}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── BOM Detail Dialog ── */}
+      <Dialog open={!!detailBOM} onOpenChange={(open) => { if (!open) setDetailBOM(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{detailBOM?.name}</DialogTitle>
+          </DialogHeader>
+          {detailBOM && (() => {
+            const woForBom = workOrders.filter((w) => w.bomId === detailBOM.id);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">BOM ID</span><p className="font-medium font-mono">{detailBOM.id}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Version</span><p className="font-medium">v{detailBOM.version}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Product</span><p className="font-medium">{detailBOM.productName}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Product Code</span><p className="font-medium font-mono">{detailBOM.productCode}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Batch Size</span><p className="font-medium">{detailBOM.batchSize.toLocaleString()} {detailBOM.batchUnit}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[detailBOM.status]}`}>{detailBOM.status}</span></p></div>
+                </div>
+                {/* Materials Breakdown */}
+                {detailBOM.materials.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Materials Breakdown ({detailBOM.materials.length})</h4>
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left px-3 py-2 font-medium">Code</th>
+                            <th className="text-left px-3 py-2 font-medium">Material</th>
+                            <th className="text-right px-3 py-2 font-medium">Quantity</th>
+                            <th className="text-left px-3 py-2 font-medium">Unit</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {detailBOM.materials.map((m, i) => (
+                            <tr key={i}>
+                              <td className="px-3 py-2 font-mono text-xs">{m.materialCode}</td>
+                              <td className="px-3 py-2">{m.materialName}</td>
+                              <td className="px-3 py-2 text-right font-medium">{m.quantity}</td>
+                              <td className="px-3 py-2 text-muted-foreground">{m.unit}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-2 text-sm text-muted-foreground text-right">
+                      Total materials: {detailBOM.materials.reduce((s, m) => s + m.quantity, 0)} {detailBOM.materials[0]?.unit ?? ""}
+                    </div>
+                  </div>
+                )}
+                {detailBOM.materials.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-2">No materials defined for this BOM yet.</p>
+                )}
+                {/* Related Work Orders */}
+                {woForBom.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Related Work Orders ({woForBom.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {woForBom.map((w) => (
+                        <div key={w.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div>
+                            <span className="font-mono text-xs font-medium">{w.id}</span>
+                            <span className="text-muted-foreground ml-2">{w.quantity.toLocaleString()} units</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${priorityColor[w.priority]}`}>{w.priority}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[w.status]}`}>{w.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

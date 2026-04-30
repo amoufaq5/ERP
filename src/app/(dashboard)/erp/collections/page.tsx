@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 import {
   Banknote,
   Clock,
@@ -21,12 +22,16 @@ import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import {
   EntityFormModal,
   type EntityField,
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useDataStore, type Cheque, type Invoice } from "@/lib/data-store";
+import { CustomerLink } from "@/components/shared/entity-detail-dialog";
 
 /* ─── Payment type ─── */
 interface Payment {
@@ -68,6 +73,7 @@ const SEED_ROUTES: CollectionRoute[] = [
 const COLLECTORS = ["Ahmed Hassan", "Mahmoud Ali", "Karim Saeed", "System"];
 
 export default function CollectionsPage() {
+  const { t } = useTranslation();
   const store = useDataStore();
 
   const [payments, setPayments] = useState<Payment[]>(SEED_PAYMENTS);
@@ -84,6 +90,9 @@ export default function CollectionsPage() {
   const [editingCheque, setEditingCheque] = useState<Cheque | null>(null);
   const [routeFormOpen, setRouteFormOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<CollectionRoute | null>(null);
+  const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
+  const [viewPayment, setViewPayment] = useState<Payment | null>(null);
+  const [viewCheque, setViewCheque] = useState<Cheque | null>(null);
 
   let _nextId = Date.now();
   const genId = (p: string) => `${p}-${(_nextId++).toString(36).slice(-6)}`;
@@ -202,8 +211,8 @@ export default function CollectionsPage() {
 
   /* ─── Cheque CRUD (data store) ─── */
   const chequeFields: EntityField[] = [
-    { name: "number", label: "Cheque Number", type: "text", required: true },
-    { name: "bankName", label: "Bank", type: "text", required: true },
+    { name: "number", label: "Cheque Number", type: "text", placeholder: "Auto-generated if empty", helperText: "Leave blank for auto-generated number" },
+    { name: "bankName", label: "Bank", type: "select", required: true, options: store.bankAccounts.map(ba => ({ label: `${ba.bankName} - ${ba.accountNumber}`, value: ba.bankName })) },
     { name: "type", label: "Type", type: "select", required: true, options: [{ label: "Incoming", value: "INCOMING" }, { label: "Outgoing", value: "OUTGOING" }] },
     { name: "partyName", label: "Party Name", type: "text", required: true },
     { name: "amount", label: "Amount (EGP)", type: "number", required: true },
@@ -229,7 +238,8 @@ export default function CollectionsPage() {
     if (editingCheque) {
       store.update("cheques", editingCheque.id, payload);
     } else {
-      store.add("cheques", { id: store.genId("ch"), ...payload });
+      const number = payload.number.trim() || store.generateChequeNumber();
+      store.add("cheques", { id: store.genId("ch"), ...payload, number });
     }
     setChequeFormOpen(false); setEditingCheque(null);
   }
@@ -309,8 +319,8 @@ export default function CollectionsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Payment Collections"
-        description="Track outstanding invoices, payments, cheque management, and collection routes"
+        title={t("coll.title")}
+        description={t("coll.manageCollections")}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleCreateRoute}>
@@ -324,10 +334,10 @@ export default function CollectionsPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard icon={Banknote} title="Total Outstanding" value={fmt(totalOutstanding)} subtitle={`${outstandingInvoices.length} invoices`} iconColor="bg-blue-100 text-blue-600" />
-        <StatsCard icon={AlertTriangle} title="Overdue" value={fmt(totalOverdue)} subtitle={`${overdueInvoices.length} overdue`} iconColor="bg-red-100 text-red-600" />
-        <StatsCard icon={TrendingUp} title="Collected" value={fmt(totalCollected)} subtitle={`${payments.length} payments`} iconColor="bg-green-100 text-green-600" />
-        <StatsCard icon={CreditCard} title="Bounced Cheques" value={fmt(bouncedTotal)} subtitle={`${chequeStats.bounced.length} cheques`} iconColor="bg-amber-100 text-amber-600" />
+        <StatsCard icon={Banknote} title={t("coll.totalCollected")} value={fmt(totalOutstanding)} subtitle={`${outstandingInvoices.length} invoices`} iconColor="bg-blue-100 text-blue-600" />
+        <StatsCard icon={AlertTriangle} title={t("coll.overdue")} value={fmt(totalOverdue)} subtitle={`${overdueInvoices.length} overdue`} iconColor="bg-red-100 text-red-600" />
+        <StatsCard icon={TrendingUp} title={t("coll.pendingPayments")} value={fmt(totalCollected)} subtitle={`${payments.length} payments`} iconColor="bg-green-100 text-green-600" />
+        <StatsCard icon={CreditCard} title={t("coll.bouncedCheques")} value={fmt(bouncedTotal)} subtitle={`${chequeStats.bounced.length} cheques`} iconColor="bg-amber-100 text-amber-600" />
       </div>
 
       <Tabs defaultValue="outstanding">
@@ -349,64 +359,57 @@ export default function CollectionsPage() {
               { key: "status", label: "Status", type: "select", options: [{ label: "Draft", value: "DRAFT" }, { label: "Sent", value: "SENT" }, { label: "Partial", value: "PARTIAL" }, { label: "Overdue", value: "OVERDUE" }] },
             ]}
             values={filters}
-            onChange={setFilters}
+            onChange={(k, v) => setFilters(f => ({ ...f, [k]: v }))}
           />
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">Invoice</th>
-                      <th className="text-left p-3">Customer</th>
-                      <th className="text-left p-3">Type</th>
-                      <th className="text-right p-3">Total</th>
-                      <th className="text-left p-3">Due Date</th>
-                      <th className="text-left p-3">Status</th>
-                      <th className="text-right p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredInvoices.length === 0 && (
-                      <tr><td colSpan={7} className="p-8 text-center text-slate-500">No outstanding invoices.</td></tr>
-                    )}
-                    {filteredInvoices.map((inv) => {
-                      const cust = customers.find((c) => c.id === inv.customerId);
-                      const overdue = new Date(inv.dueDate) < new Date() && inv.status !== "PAID";
-                      return (
-                        <tr key={inv.id} className={`border-b hover:bg-slate-50 ${overdue ? "bg-red-50/50" : ""}`}>
-                          <td className="p-3 font-mono text-xs font-medium">{inv.number}</td>
-                          <td className="p-3 font-medium">{cust?.name || "—"}</td>
-                          <td className="p-3">
-                            <Badge variant="outline" className="text-xs">{cust?.type || "—"}</Badge>
-                          </td>
-                          <td className="p-3 text-right font-semibold">{fmt(inv.total)}</td>
-                          <td className="p-3 text-xs">{new Date(inv.dueDate).toLocaleDateString()}</td>
-                          <td className="p-3">
-                            <Badge variant={inv.status === "OVERDUE" || overdue ? "destructive" : inv.status === "PARTIAL" ? "warning" : "secondary"} className="text-xs">
-                              {overdue && inv.status !== "OVERDUE" ? "OVERDUE" : inv.status}
-                            </Badge>
-                          </td>
-                          <td className="p-3 text-right">
-                            <EditDeleteMenu
-                              onEdit={() => {
-                                store.update("invoices", inv.id, { status: inv.status === "SENT" ? "PARTIAL" : inv.status });
-                              }}
-                              canDelete={false}
-                              itemLabel={inv.number}
-                              compact
-                              extraItems={[
-                                { label: "Mark Paid", onClick: () => store.update("invoices", inv.id, { status: "PAID" }), icon: <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> },
-                                { label: "Mark Overdue", onClick: () => store.update("invoices", inv.id, { status: "OVERDUE" }), icon: <AlertTriangle className="h-3.5 w-3.5 text-red-600" /> },
-                              ]}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "number", label: "Invoice", render: (v: string) => <span className="font-mono text-xs font-medium">{v}</span> },
+                  { key: "customerId", label: "Customer", render: (_: unknown, row: Record<string, unknown>) => {
+                    const inv = row as unknown as Invoice;
+                    return <CustomerLink customerId={inv.customerId} />;
+                  } },
+                  { key: "customerType", label: "Type", render: (_: unknown, row: Record<string, unknown>) => {
+                    const inv = row as unknown as Invoice;
+                    const cust = customers.find((c) => c.id === inv.customerId);
+                    return <Badge variant="outline" className="text-xs">{cust?.type || "—"}</Badge>;
+                  } },
+                  { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{fmt(v)}</span> },
+                  { key: "dueDate", label: "Due Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
+                  { key: "status", label: "Status", render: (_: unknown, row: Record<string, unknown>) => {
+                    const inv = row as unknown as Invoice;
+                    const overdue = new Date(inv.dueDate) < new Date() && inv.status !== "PAID";
+                    return (
+                      <Badge variant={inv.status === "OVERDUE" || overdue ? "destructive" : inv.status === "PARTIAL" ? "warning" : "secondary"} className="text-xs">
+                        {overdue && inv.status !== "OVERDUE" ? "OVERDUE" : inv.status}
+                      </Badge>
+                    );
+                  } },
+                  { key: "actions", label: "Actions", className: "text-right", render: (_: unknown, row: Record<string, unknown>) => {
+                    const inv = row as unknown as Invoice;
+                    return (
+                      <EditDeleteMenu
+                        onView={() => setViewInvoice(inv)}
+                        canView
+                        onEdit={() => {
+                          store.update("invoices", inv.id, { status: inv.status === "SENT" ? "PARTIAL" : inv.status });
+                        }}
+                        canDelete={false}
+                        itemLabel={inv.number}
+                        compact
+                        extraItems={[
+                          { label: "Mark Paid", onClick: () => store.update("invoices", inv.id, { status: "PAID" }), icon: <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> },
+                          { label: "Mark Overdue", onClick: () => store.update("invoices", inv.id, { status: "OVERDUE" }), icon: <AlertTriangle className="h-3.5 w-3.5 text-red-600" /> },
+                        ]}
+                      />
+                    );
+                  } },
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredInvoices as unknown as Record<string, unknown>[]}
+                
+                exportable exportFilename="erp-collections.csv" emptyMessage="No outstanding invoices."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -422,63 +425,49 @@ export default function CollectionsPage() {
               { key: "verified", label: "Verified", type: "select", options: [{ label: "Yes", value: "true" }, { label: "No", value: "false" }] },
             ]}
             values={paymentFilters}
-            onChange={setPaymentFilters}
+            onChange={(k, v) => setPaymentFilters(f => ({ ...f, [k]: v }))}
             rightSlot={<Button size="sm" onClick={handleCreatePayment}><Plus className="h-3.5 w-3.5 mr-1" />Record Payment</Button>}
           />
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">Customer</th>
-                      <th className="text-right p-3">Amount</th>
-                      <th className="text-left p-3">Method</th>
-                      <th className="text-left p-3">Reference</th>
-                      <th className="text-left p-3">Collector</th>
-                      <th className="text-left p-3">Date</th>
-                      <th className="text-left p-3">Verified</th>
-                      <th className="text-right p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredPayments.length === 0 && (
-                      <tr><td colSpan={8} className="p-8 text-center text-slate-500">No payment records.</td></tr>
-                    )}
-                    {filteredPayments.map((p) => (
-                      <tr key={p.id} className="border-b hover:bg-slate-50">
-                        <td className="p-3 font-medium">{p.customerName}</td>
-                        <td className="p-3 text-right font-semibold text-green-600">{fmt(p.amount)}</td>
-                        <td className="p-3">
-                          <Badge variant="outline" className={`text-xs ${p.method === "Cash" ? "border-green-300 text-green-700" : p.method === "Cheque" ? "border-blue-300 text-blue-700" : "border-purple-300 text-purple-700"}`}>{p.method}</Badge>
-                        </td>
-                        <td className="p-3 font-mono text-xs">{p.reference}</td>
-                        <td className="p-3 text-xs">{p.collector}</td>
-                        <td className="p-3 text-xs">{p.date}</td>
-                        <td className="p-3">
-                          {p.verified ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Clock className="h-4 w-4 text-amber-500" />}
-                        </td>
-                        <td className="p-3 text-right">
-                          <EditDeleteMenu
-                            onEdit={() => handleEditPayment(p)}
-                            onDelete={() => handleDeletePayment(p)}
-                            itemLabel={`Payment ${p.reference}`}
-                            compact
-                            extraItems={!p.verified ? [{ label: "Verify", onClick: () => handleVerifyPayment(p), icon: <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> }] : undefined}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                    {filteredPayments.length > 0 && (
-                      <tr className="border-t-2 bg-slate-50 font-bold">
-                        <td className="p-3">Total</td>
-                        <td className="p-3 text-right text-green-600">{fmt(filteredPayments.reduce((s, p) => s + p.amount, 0))}</td>
-                        <td colSpan={6}></td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "customerName", label: "Customer", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "amount", label: "Amount", className: "text-right", render: (v: number) => <span className="font-semibold text-green-600">{fmt(v)}</span> },
+                  { key: "method", label: "Method", render: (v: string) => (
+                    <Badge variant="outline" className={`text-xs ${v === "Cash" ? "border-green-300 text-green-700" : v === "Cheque" ? "border-blue-300 text-blue-700" : "border-purple-300 text-purple-700"}`}>{v}</Badge>
+                  ) },
+                  { key: "reference", label: "Reference", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "collector", label: "Collector", render: (v: string) => <span className="text-xs">{v}</span> },
+                  { key: "date", label: "Date", render: (v: string) => <span className="text-xs">{v}</span> },
+                  { key: "verified", label: "Verified", render: (v: boolean) => (
+                    v ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Clock className="h-4 w-4 text-amber-500" />
+                  ) },
+                  { key: "actions", label: "Actions", className: "text-right", render: (_: unknown, row: Record<string, unknown>) => {
+                    const p = row as unknown as Payment;
+                    return (
+                      <EditDeleteMenu
+                        onView={() => setViewPayment(p)}
+                        canView
+                        onEdit={() => handleEditPayment(p)}
+                        onDelete={() => handleDeletePayment(p)}
+                        itemLabel={`Payment ${p.reference}`}
+                        compact
+                        extraItems={!p.verified ? [{ label: "Verify", onClick: () => handleVerifyPayment(p), icon: <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> }] : undefined}
+                      />
+                    );
+                  } },
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredPayments as unknown as Record<string, unknown>[]}
+                
+                exportable exportFilename="erp-collections.csv" emptyMessage="No payment records."
+              />
+              {filteredPayments.length > 0 && (
+                <div className="border-t-2 bg-slate-50 font-bold flex text-sm p-3">
+                  <span>Total</span>
+                  <span className="ml-auto text-green-600">{fmt(filteredPayments.reduce((s, p) => s + p.amount, 0))}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -511,7 +500,7 @@ export default function CollectionsPage() {
               { key: "type", label: "Type", type: "select", options: [{ label: "Incoming", value: "INCOMING" }, { label: "Outgoing", value: "OUTGOING" }] },
             ]}
             values={chequeFilters}
-            onChange={setChequeFilters}
+            onChange={(k, v) => setChequeFilters(f => ({ ...f, [k]: v }))}
             rightSlot={<Button size="sm" onClick={handleCreateCheque}><Plus className="h-3.5 w-3.5 mr-1" />Add Cheque</Button>}
           />
 
@@ -534,57 +523,43 @@ export default function CollectionsPage() {
 
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">Cheque #</th>
-                      <th className="text-left p-3">Type</th>
-                      <th className="text-left p-3">Party</th>
-                      <th className="text-left p-3">Bank</th>
-                      <th className="text-right p-3">Amount</th>
-                      <th className="text-left p-3">Issue Date</th>
-                      <th className="text-left p-3">Due Date</th>
-                      <th className="text-left p-3">Status</th>
-                      <th className="text-right p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredCheques.length === 0 && (
-                      <tr><td colSpan={9} className="p-8 text-center text-slate-500">No cheques match your filters.</td></tr>
-                    )}
-                    {filteredCheques.map((c) => (
-                      <tr key={c.id} className={`border-b hover:bg-slate-50 ${c.status === "BOUNCED" ? "bg-red-50/50" : ""}`}>
-                        <td className="p-3 font-mono text-xs">{c.number}</td>
-                        <td className="p-3">
-                          <Badge variant={c.type === "INCOMING" ? "default" : "secondary"} className="text-xs">{c.type}</Badge>
-                        </td>
-                        <td className="p-3 font-medium">{c.partyName}</td>
-                        <td className="p-3 text-xs">{c.bankName}</td>
-                        <td className="p-3 text-right font-semibold">{fmt(c.amount)}</td>
-                        <td className="p-3 text-xs">{new Date(c.issueDate).toLocaleDateString()}</td>
-                        <td className="p-3 text-xs">{new Date(c.dueDate).toLocaleDateString()}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${chequeStatusColor[c.status]}`}>{c.status}</span>
-                        </td>
-                        <td className="p-3 text-right">
-                          <EditDeleteMenu
-                            onEdit={() => handleEditCheque(c)}
-                            onDelete={() => handleDeleteCheque(c)}
-                            itemLabel={c.number}
-                            compact
-                            extraItems={[
-                              ...(c.status === "PENDING" ? [{ label: "Deposit", onClick: () => store.update("cheques", c.id, { status: "DEPOSITED" as const }), icon: <CreditCard className="h-3.5 w-3.5 text-blue-600" /> }] : []),
-                              ...(c.status === "DEPOSITED" ? [{ label: "Mark Cleared", onClick: () => store.update("cheques", c.id, { status: "CLEARED" as const }), icon: <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> }] : []),
-                              ...(c.status !== "BOUNCED" && c.status !== "CANCELLED" ? [{ label: "Mark Bounced", onClick: () => store.update("cheques", c.id, { status: "BOUNCED" as const }), icon: <XCircle className="h-3.5 w-3.5 text-red-600" /> }] : []),
-                            ]}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "number", label: "Cheque #", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "type", label: "Type", render: (v: string) => (
+                    <Badge variant={v === "INCOMING" ? "default" : "secondary"} className="text-xs">{v}</Badge>
+                  ) },
+                  { key: "partyName", label: "Party", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "bankName", label: "Bank", render: (v: string) => <span className="text-xs">{v}</span> },
+                  { key: "amount", label: "Amount", className: "text-right", render: (v: number) => <span className="font-semibold">{fmt(v)}</span> },
+                  { key: "issueDate", label: "Issue Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
+                  { key: "dueDate", label: "Due Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
+                  { key: "status", label: "Status", render: (v: string) => (
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${chequeStatusColor[v]}`}>{v}</span>
+                  ) },
+                  { key: "actions", label: "Actions", className: "text-right", render: (_: unknown, row: Record<string, unknown>) => {
+                    const c = row as unknown as Cheque;
+                    return (
+                      <EditDeleteMenu
+                        onView={() => setViewCheque(c)}
+                        canView
+                        onEdit={() => handleEditCheque(c)}
+                        onDelete={() => handleDeleteCheque(c)}
+                        itemLabel={c.number}
+                        compact
+                        extraItems={[
+                          ...(c.status === "PENDING" ? [{ label: "Deposit", onClick: () => store.update("cheques", c.id, { status: "DEPOSITED" as const }), icon: <CreditCard className="h-3.5 w-3.5 text-blue-600" /> }] : []),
+                          ...(c.status === "DEPOSITED" ? [{ label: "Mark Cleared", onClick: () => store.update("cheques", c.id, { status: "CLEARED" as const }), icon: <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> }] : []),
+                          ...(c.status !== "BOUNCED" && c.status !== "CANCELLED" ? [{ label: "Mark Bounced", onClick: () => store.update("cheques", c.id, { status: "BOUNCED" as const }), icon: <XCircle className="h-3.5 w-3.5 text-red-600" /> }] : []),
+                        ]}
+                      />
+                    );
+                  } },
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredCheques as unknown as Record<string, unknown>[]}
+                
+                exportable exportFilename="erp-collections.csv" emptyMessage="No cheques match your filters."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -597,50 +572,32 @@ export default function CollectionsPage() {
               <CardDescription>Accounts receivable aging analysis by customer</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">Customer</th>
-                      <th className="text-left p-3">Type</th>
-                      <th className="text-right p-3">Current</th>
-                      <th className="text-right p-3">1-30 Days</th>
-                      <th className="text-right p-3">31-60 Days</th>
-                      <th className="text-right p-3">61-90 Days</th>
-                      <th className="text-right p-3">90+ Days</th>
-                      <th className="text-right p-3">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {agingData.length === 0 && (
-                      <tr><td colSpan={8} className="p-8 text-center text-slate-500">No outstanding receivables.</td></tr>
-                    )}
-                    {agingData.map((row) => (
-                      <tr key={row.customer} className="border-b hover:bg-slate-50">
-                        <td className="p-3 font-medium">{row.customer}</td>
-                        <td className="p-3"><Badge variant="outline" className="text-xs">{row.type}</Badge></td>
-                        <td className="p-3 text-right">{row.current > 0 ? fmt(row.current) : "—"}</td>
-                        <td className="p-3 text-right text-amber-600">{row.d30 > 0 ? fmt(row.d30) : "—"}</td>
-                        <td className="p-3 text-right text-orange-600">{row.d60 > 0 ? fmt(row.d60) : "—"}</td>
-                        <td className="p-3 text-right text-red-600">{row.d90 > 0 ? fmt(row.d90) : "—"}</td>
-                        <td className="p-3 text-right text-red-700 font-semibold">{row.over90 > 0 ? fmt(row.over90) : "—"}</td>
-                        <td className="p-3 text-right font-bold">{fmt(row.total)}</td>
-                      </tr>
-                    ))}
-                    {agingData.length > 0 && (
-                      <tr className="border-t-2 bg-slate-50 font-bold">
-                        <td className="p-3" colSpan={2}>Total</td>
-                        <td className="p-3 text-right">{fmt(agingData.reduce((s, r) => s + r.current, 0))}</td>
-                        <td className="p-3 text-right text-amber-600">{fmt(agingData.reduce((s, r) => s + r.d30, 0))}</td>
-                        <td className="p-3 text-right text-orange-600">{fmt(agingData.reduce((s, r) => s + r.d60, 0))}</td>
-                        <td className="p-3 text-right text-red-600">{fmt(agingData.reduce((s, r) => s + r.d90, 0))}</td>
-                        <td className="p-3 text-right text-red-700">{fmt(agingData.reduce((s, r) => s + r.over90, 0))}</td>
-                        <td className="p-3 text-right">{fmt(agingData.reduce((s, r) => s + r.total, 0))}</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "customer", label: "Customer", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "type", label: "Type", render: (v: string) => <Badge variant="outline" className="text-xs">{v}</Badge> },
+                  { key: "current", label: "Current", className: "text-right", render: (v: number) => v > 0 ? fmt(v) : "—" },
+                  { key: "d30", label: "1-30 Days", className: "text-right", render: (v: number) => <span className="text-amber-600">{v > 0 ? fmt(v) : "—"}</span> },
+                  { key: "d60", label: "31-60 Days", className: "text-right", render: (v: number) => <span className="text-orange-600">{v > 0 ? fmt(v) : "—"}</span> },
+                  { key: "d90", label: "61-90 Days", className: "text-right", render: (v: number) => <span className="text-red-600">{v > 0 ? fmt(v) : "—"}</span> },
+                  { key: "over90", label: "90+ Days", className: "text-right", render: (v: number) => <span className="text-red-700 font-semibold">{v > 0 ? fmt(v) : "—"}</span> },
+                  { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-bold">{fmt(v)}</span> },
+                ] as Column<Record<string, unknown>>[]}
+                data={agingData as unknown as Record<string, unknown>[]}
+                
+                exportable exportFilename="erp-collections.csv" emptyMessage="No outstanding receivables."
+              />
+              {agingData.length > 0 && (
+                <div className="border-t-2 bg-slate-50 font-bold grid grid-cols-8 text-sm p-3">
+                  <span className="col-span-2">Total</span>
+                  <span className="text-right">{fmt(agingData.reduce((s, r) => s + r.current, 0))}</span>
+                  <span className="text-right text-amber-600">{fmt(agingData.reduce((s, r) => s + r.d30, 0))}</span>
+                  <span className="text-right text-orange-600">{fmt(agingData.reduce((s, r) => s + r.d60, 0))}</span>
+                  <span className="text-right text-red-600">{fmt(agingData.reduce((s, r) => s + r.d90, 0))}</span>
+                  <span className="text-right text-red-700">{fmt(agingData.reduce((s, r) => s + r.over90, 0))}</span>
+                  <span className="text-right">{fmt(agingData.reduce((s, r) => s + r.total, 0))}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -734,6 +691,77 @@ export default function CollectionsPage() {
         submitLabel={editingRoute ? "Save" : "Create"}
         size="md"
       />
+
+      {/* ── Invoice Detail Dialog ── */}
+      <Dialog open={!!viewInvoice} onOpenChange={(o) => !o && setViewInvoice(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Invoice {viewInvoice?.number}</DialogTitle>
+          </DialogHeader>
+          {viewInvoice && (() => {
+            const cust = customers.find((c) => c.id === viewInvoice.customerId);
+            const overdue = new Date(viewInvoice.dueDate) < new Date() && viewInvoice.status !== "PAID";
+            return (
+              <div className="grid grid-cols-2 gap-4 py-4">
+                <div><span className="text-sm text-muted-foreground">Invoice Number</span><p className="font-medium font-mono">{viewInvoice.number}</p></div>
+                <div><span className="text-sm text-muted-foreground">Customer</span><p className="font-medium">{cust?.name || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Customer Type</span><p className="font-medium">{cust?.type || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Status</span><p><Badge variant={overdue ? "destructive" : "secondary"}>{overdue && viewInvoice.status !== "OVERDUE" ? "OVERDUE" : viewInvoice.status}</Badge></p></div>
+                <div><span className="text-sm text-muted-foreground">Due Date</span><p className="font-medium">{new Date(viewInvoice.dueDate).toLocaleDateString()}</p></div>
+                <div><span className="text-sm text-muted-foreground">Invoice Date</span><p className="font-medium">{new Date(viewInvoice.date).toLocaleDateString()}</p></div>
+                <div><span className="text-sm text-muted-foreground">Subtotal</span><p className="font-medium">{fmt(viewInvoice.subtotal)}</p></div>
+                <div><span className="text-sm text-muted-foreground">Tax</span><p className="font-medium">{fmt(viewInvoice.tax)}</p></div>
+                <div><span className="text-sm text-muted-foreground">Total</span><p className="font-semibold text-lg">{fmt(viewInvoice.total)}</p></div>
+                <div><span className="text-sm text-muted-foreground">Currency</span><p className="font-medium">{viewInvoice.currency}</p></div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Payment Detail Dialog ── */}
+      <Dialog open={!!viewPayment} onOpenChange={(o) => !o && setViewPayment(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Payment {viewPayment?.reference}</DialogTitle>
+          </DialogHeader>
+          {viewPayment && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Reference</span><p className="font-medium font-mono">{viewPayment.reference}</p></div>
+              <div><span className="text-sm text-muted-foreground">Customer</span><p className="font-medium">{viewPayment.customerName}</p></div>
+              <div><span className="text-sm text-muted-foreground">Amount</span><p className="font-semibold text-lg text-green-600">{fmt(viewPayment.amount)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Method</span><p className="font-medium">{viewPayment.method}</p></div>
+              <div><span className="text-sm text-muted-foreground">Collector</span><p className="font-medium">{viewPayment.collector}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewPayment.date}</p></div>
+              <div><span className="text-sm text-muted-foreground">Verified</span><p className="font-medium">{viewPayment.verified ? "Yes" : "No"}</p></div>
+              <div><span className="text-sm text-muted-foreground">Invoice ID</span><p className="font-medium font-mono">{viewPayment.invoiceId}</p></div>
+              {viewPayment.notes && <div className="col-span-2"><span className="text-sm text-muted-foreground">Notes</span><p className="font-medium">{viewPayment.notes}</p></div>}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Cheque Detail Dialog ── */}
+      <Dialog open={!!viewCheque} onOpenChange={(o) => !o && setViewCheque(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Cheque {viewCheque?.number}</DialogTitle>
+          </DialogHeader>
+          {viewCheque && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Cheque Number</span><p className="font-medium font-mono">{viewCheque.number}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewCheque.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Party</span><p className="font-medium">{viewCheque.partyName}</p></div>
+              <div><span className="text-sm text-muted-foreground">Bank</span><p className="font-medium">{viewCheque.bankName}</p></div>
+              <div><span className="text-sm text-muted-foreground">Amount</span><p className="font-semibold text-lg">{fmt(viewCheque.amount)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Currency</span><p className="font-medium">{viewCheque.currency}</p></div>
+              <div><span className="text-sm text-muted-foreground">Issue Date</span><p className="font-medium">{new Date(viewCheque.issueDate).toLocaleDateString()}</p></div>
+              <div><span className="text-sm text-muted-foreground">Due Date</span><p className="font-medium">{new Date(viewCheque.dueDate).toLocaleDateString()}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${chequeStatusColor[viewCheque.status]}`}>{viewCheque.status}</span></p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

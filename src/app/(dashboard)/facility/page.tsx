@@ -4,13 +4,15 @@ import { useState } from "react";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Building2, MapPin, Wrench, Zap, Users, ShieldCheck, Search, Plus,
+  Building2, MapPin, Wrench, Zap, Users, ShieldCheck, Plus,
   Eye, Calendar, Clock, CheckCircle2, AlertTriangle, ArrowUp, ArrowDown,
   Thermometer, Leaf, DoorOpen, Package, TrendingUp, BarChart3, Activity,
   Phone, Mail, Star, CircleDot, Gauge, SquareStack, Fan, Droplets,
@@ -23,7 +25,7 @@ const kpis = [
   { label: "Total Area", value: "485K sqft", icon: MapPin, color: "text-indigo-600", bg: "bg-indigo-100", sub: "Across all sites" },
   { label: "Occupancy Rate", value: "87.3%", icon: Users, color: "text-green-600", bg: "bg-green-100", sub: "+2.4% from last quarter" },
   { label: "Open Work Orders", value: "34", icon: Wrench, color: "text-amber-600", bg: "bg-amber-100", sub: "12 high priority" },
-  { label: "Energy Cost", value: "$124K", icon: Zap, color: "text-yellow-600", bg: "bg-yellow-100", sub: "Monthly average" },
+  { label: "Energy Cost", value: "EGP 124K", icon: Zap, color: "text-yellow-600", bg: "bg-yellow-100", sub: "Monthly average" },
   { label: "Maintenance Score", value: "72%", icon: CheckCircle2, color: "text-teal-600", bg: "bg-teal-100", sub: "Preventive ratio" },
   { label: "System Uptime", value: "99.2%", icon: Activity, color: "text-emerald-600", bg: "bg-emerald-100", sub: "Last 30 days" },
   { label: "Sustainability", value: "B+", icon: Leaf, color: "text-green-700", bg: "bg-green-100", sub: "LEED certified" },
@@ -67,25 +69,25 @@ const workOrders = [
 ];
 
 const facilityAssets = [
-  { id: "FA-001", name: "Trane XR15 Chiller Unit", category: "HVAC", building: "Corporate HQ", location: "Roof - Mechanical Room", installed: "Jun 2018", lastService: "Feb 2026", condition: "Good", value: "$185,000" },
-  { id: "FA-002", name: "Caterpillar 500kW Generator", category: "Power", building: "Data Center", location: "Ground - Generator Pad", installed: "Mar 2021", lastService: "Jan 2026", condition: "Excellent", value: "$320,000" },
-  { id: "FA-003", name: "Otis Gen2 Elevator (x3)", category: "Vertical Transport", building: "Corporate HQ", location: "Core - Shaft A/B/C", installed: "Jun 2018", lastService: "Mar 2026", condition: "Good", value: "$450,000" },
-  { id: "FA-004", name: "Honeywell BMS Controller", category: "Controls", building: "All Buildings", location: "Central Plant", installed: "Sep 2020", lastService: "Mar 2026", condition: "Good", value: "$95,000" },
-  { id: "FA-005", name: "Siemens Fire Alarm Panel", category: "Fire Safety", building: "Corporate HQ", location: "Lobby - Security Desk", installed: "Jun 2018", lastService: "Dec 2025", condition: "Fair", value: "$42,000" },
-  { id: "FA-006", name: "Schneider UPS 200kVA", category: "Power", building: "Data Center", location: "UPS Room B", installed: "Mar 2021", lastService: "Mar 2026", condition: "Good", value: "$78,000" },
-  { id: "FA-007", name: "Carrier AHU 40-Ton (x4)", category: "HVAC", building: "R&D Center", location: "Mechanical Floors 1 & 3", installed: "Aug 2012", lastService: "Nov 2025", condition: "Fair", value: "$220,000" },
-  { id: "FA-008", name: "Grundfos Pumping Station", category: "Plumbing", building: "Warehouse Complex", location: "Basement - Pump Room", installed: "Jan 2020", lastService: "Oct 2025", condition: "Good", value: "$56,000" },
-  { id: "FA-009", name: "Daikin VRV IV Heat Pump", category: "HVAC", building: "Employee Wellness Hub", location: "Roof Level", installed: "Apr 2022", lastService: "Feb 2026", condition: "Excellent", value: "$165,000" },
-  { id: "FA-010", name: "Cummins Transfer Switch", category: "Power", building: "Manufacturing Plant A", location: "Electrical Room", installed: "May 2015", lastService: "Jan 2026", condition: "Good", value: "$38,000" },
+  { id: "FA-001", name: "Trane XR15 Chiller Unit", category: "HVAC", building: "Corporate HQ", location: "Roof - Mechanical Room", installed: "Jun 2018", lastService: "Feb 2026", condition: "Good", value: "EGP 185,000" },
+  { id: "FA-002", name: "Caterpillar 500kW Generator", category: "Power", building: "Data Center", location: "Ground - Generator Pad", installed: "Mar 2021", lastService: "Jan 2026", condition: "Excellent", value: "EGP 320,000" },
+  { id: "FA-003", name: "Otis Gen2 Elevator (x3)", category: "Vertical Transport", building: "Corporate HQ", location: "Core - Shaft A/B/C", installed: "Jun 2018", lastService: "Mar 2026", condition: "Good", value: "EGP 450,000" },
+  { id: "FA-004", name: "Honeywell BMS Controller", category: "Controls", building: "All Buildings", location: "Central Plant", installed: "Sep 2020", lastService: "Mar 2026", condition: "Good", value: "EGP 95,000" },
+  { id: "FA-005", name: "Siemens Fire Alarm Panel", category: "Fire Safety", building: "Corporate HQ", location: "Lobby - Security Desk", installed: "Jun 2018", lastService: "Dec 2025", condition: "Fair", value: "EGP 42,000" },
+  { id: "FA-006", name: "Schneider UPS 200kVA", category: "Power", building: "Data Center", location: "UPS Room B", installed: "Mar 2021", lastService: "Mar 2026", condition: "Good", value: "EGP 78,000" },
+  { id: "FA-007", name: "Carrier AHU 40-Ton (x4)", category: "HVAC", building: "R&D Center", location: "Mechanical Floors 1 & 3", installed: "Aug 2012", lastService: "Nov 2025", condition: "Fair", value: "EGP 220,000" },
+  { id: "FA-008", name: "Grundfos Pumping Station", category: "Plumbing", building: "Warehouse Complex", location: "Basement - Pump Room", installed: "Jan 2020", lastService: "Oct 2025", condition: "Good", value: "EGP 56,000" },
+  { id: "FA-009", name: "Daikin VRV IV Heat Pump", category: "HVAC", building: "Employee Wellness Hub", location: "Roof Level", installed: "Apr 2022", lastService: "Feb 2026", condition: "Excellent", value: "EGP 165,000" },
+  { id: "FA-010", name: "Cummins Transfer Switch", category: "Power", building: "Manufacturing Plant A", location: "Electrical Room", installed: "May 2015", lastService: "Jan 2026", condition: "Good", value: "EGP 38,000" },
 ];
 
 const energyData = [
-  { building: "Corporate HQ", electricity: "$42,300", gas: "$8,100", water: "$3,200", total: "$53,600", change: -4.2, rating: "B+" },
-  { building: "Manufacturing Plant A", electricity: "$28,700", gas: "$12,400", water: "$4,800", total: "$45,900", change: +1.8, rating: "B" },
-  { building: "Warehouse Complex", electricity: "$9,200", gas: "$2,100", water: "$1,400", total: "$12,700", change: -6.1, rating: "A-" },
-  { building: "R&D Center", electricity: "$15,800", gas: "$3,600", water: "$2,100", total: "$21,500", change: +3.2, rating: "B-" },
-  { building: "Data Center", electricity: "$31,400", gas: "$800", water: "$1,900", total: "$34,100", change: -1.5, rating: "C+" },
-  { building: "Employee Wellness Hub", electricity: "$8,100", gas: "$2,800", water: "$2,300", total: "$13,200", change: -8.3, rating: "A" },
+  { building: "Corporate HQ", electricity: "EGP 42,300", gas: "EGP 8,100", water: "EGP 3,200", total: "EGP 53,600", change: -4.2, rating: "B+" },
+  { building: "Manufacturing Plant A", electricity: "EGP 28,700", gas: "EGP 12,400", water: "EGP 4,800", total: "EGP 45,900", change: +1.8, rating: "B" },
+  { building: "Warehouse Complex", electricity: "EGP 9,200", gas: "EGP 2,100", water: "EGP 1,400", total: "EGP 12,700", change: -6.1, rating: "A-" },
+  { building: "R&D Center", electricity: "EGP 15,800", gas: "EGP 3,600", water: "EGP 2,100", total: "EGP 21,500", change: +3.2, rating: "B-" },
+  { building: "Data Center", electricity: "EGP 31,400", gas: "EGP 800", water: "EGP 1,900", total: "EGP 34,100", change: -1.5, rating: "C+" },
+  { building: "Employee Wellness Hub", electricity: "EGP 8,100", gas: "EGP 2,800", water: "EGP 2,300", total: "EGP 13,200", change: -8.3, rating: "A" },
 ];
 
 const visitors = [
@@ -100,14 +102,14 @@ const visitors = [
 ];
 
 const vendors = [
-  { id: "VND-001", name: "CleanPro Services", service: "Janitorial", contract: "Annual", value: "$186,000/yr", rating: 4.5, contact: "Maria Santos", phone: "(555) 100-2001", status: "Active" },
-  { id: "VND-002", name: "Otis Elevator Co", service: "Elevator Maintenance", contract: "3-Year", value: "$72,000/yr", rating: 4.8, contact: "Ahmed Hassan", phone: "(555) 100-2002", status: "Active" },
-  { id: "VND-003", name: "GreenScape LLC", service: "Landscaping & Grounds", contract: "Annual", value: "$48,000/yr", rating: 4.2, contact: "Derek Lawson", phone: "(555) 100-2003", status: "Active" },
-  { id: "VND-004", name: "SecurePoint Systems", service: "Security & Access Control", contract: "2-Year", value: "$210,000/yr", rating: 4.6, contact: "Nina Petrov", phone: "(555) 100-2004", status: "Active" },
-  { id: "VND-005", name: "Comfort Air HVAC", service: "HVAC Maintenance", contract: "Annual", value: "$134,000/yr", rating: 3.9, contact: "Frank Miller", phone: "(555) 100-2005", status: "Under Review" },
-  { id: "VND-006", name: "PestGuard Inc", service: "Pest Control", contract: "Annual", value: "$18,000/yr", rating: 4.3, contact: "Leo Tran", phone: "(555) 100-2006", status: "Active" },
-  { id: "VND-007", name: "Schneider Electric", service: "Electrical & UPS", contract: "3-Year", value: "$96,000/yr", rating: 4.7, contact: "Priya Nair", phone: "(555) 100-2007", status: "Active" },
-  { id: "VND-008", name: "WasteStream Solutions", service: "Waste Management & Recycling", contract: "Annual", value: "$62,000/yr", rating: 4.1, contact: "Brian Owens", phone: "(555) 100-2008", status: "Active" },
+  { id: "VND-001", name: "CleanPro Services", service: "Janitorial", contract: "Annual", value: "EGP 186,000/yr", rating: 4.5, contact: "Maria Santos", phone: "(555) 100-2001", status: "Active" },
+  { id: "VND-002", name: "Otis Elevator Co", service: "Elevator Maintenance", contract: "3-Year", value: "EGP 72,000/yr", rating: 4.8, contact: "Ahmed Hassan", phone: "(555) 100-2002", status: "Active" },
+  { id: "VND-003", name: "GreenScape LLC", service: "Landscaping & Grounds", contract: "Annual", value: "EGP 48,000/yr", rating: 4.2, contact: "Derek Lawson", phone: "(555) 100-2003", status: "Active" },
+  { id: "VND-004", name: "SecurePoint Systems", service: "Security & Access Control", contract: "2-Year", value: "EGP 210,000/yr", rating: 4.6, contact: "Nina Petrov", phone: "(555) 100-2004", status: "Active" },
+  { id: "VND-005", name: "Comfort Air HVAC", service: "HVAC Maintenance", contract: "Annual", value: "EGP 134,000/yr", rating: 3.9, contact: "Frank Miller", phone: "(555) 100-2005", status: "Under Review" },
+  { id: "VND-006", name: "PestGuard Inc", service: "Pest Control", contract: "Annual", value: "EGP 18,000/yr", rating: 4.3, contact: "Leo Tran", phone: "(555) 100-2006", status: "Active" },
+  { id: "VND-007", name: "Schneider Electric", service: "Electrical & UPS", contract: "3-Year", value: "EGP 96,000/yr", rating: 4.7, contact: "Priya Nair", phone: "(555) 100-2007", status: "Active" },
+  { id: "VND-008", name: "WasteStream Solutions", service: "Waste Management & Recycling", contract: "Annual", value: "EGP 62,000/yr", rating: 4.1, contact: "Brian Owens", phone: "(555) 100-2008", status: "Active" },
 ];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -164,11 +166,138 @@ const workOrderFields: EntityField[] = [
   { name: "due", label: "Due Date", type: "date", required: true },
 ];
 
+const buildingFields: EntityField[] = [
+  { name: "name", label: "Building Name", type: "text", required: true },
+  { name: "address", label: "Address", type: "text", required: true },
+  { name: "type", label: "Type", type: "select", required: true, options: [
+    { label: "Office", value: "Office" }, { label: "Manufacturing", value: "Manufacturing" },
+    { label: "Warehouse", value: "Warehouse" }, { label: "Laboratory", value: "Laboratory" },
+    { label: "Data Center", value: "Data Center" }, { label: "Amenity", value: "Amenity" },
+  ]},
+  { name: "area", label: "Area (sqft)", type: "text", required: true },
+  { name: "floors", label: "Floors", type: "number", required: true, min: 1 },
+  { name: "occupancy", label: "Occupancy (%)", type: "number", min: 0, max: 100 },
+  { name: "built", label: "Year Built", type: "number", min: 1900, max: 2100 },
+  { name: "tenants", label: "Occupants", type: "number", min: 0 },
+  { name: "status", label: "Status", type: "select", defaultValue: "Operational", options: [
+    { label: "Operational", value: "Operational" }, { label: "Renovation", value: "Renovation" },
+    { label: "Decommissioned", value: "Decommissioned" },
+  ]},
+];
+
+const spaceFields: EntityField[] = [
+  { name: "name", label: "Space Name", type: "text", required: true },
+  { name: "building", label: "Building", type: "text", required: true },
+  { name: "floor", label: "Floor", type: "number", required: true, min: 1 },
+  { name: "type", label: "Type", type: "select", required: true, options: [
+    { label: "Office", value: "Office" }, { label: "Open Office", value: "Open Office" },
+    { label: "Meeting Room", value: "Meeting Room" }, { label: "Laboratory", value: "Laboratory" },
+    { label: "Server Room", value: "Server Room" }, { label: "Amenity", value: "Amenity" },
+    { label: "Production", value: "Production" }, { label: "Logistics", value: "Logistics" },
+    { label: "Training", value: "Training" }, { label: "Focus Area", value: "Focus Area" },
+  ]},
+  { name: "area", label: "Area (sqft)", type: "text", required: true },
+  { name: "capacity", label: "Capacity", type: "number", min: 0 },
+  { name: "current", label: "Current Occupants", type: "number", min: 0 },
+  { name: "status", label: "Status", type: "select", defaultValue: "Available", options: [
+    { label: "Available", value: "Available" }, { label: "Occupied", value: "Occupied" },
+    { label: "Restricted", value: "Restricted" },
+  ]},
+];
+
+const assetFields: EntityField[] = [
+  { name: "name", label: "Asset Name", type: "text", required: true },
+  { name: "category", label: "Category", type: "select", required: true, options: [
+    { label: "HVAC", value: "HVAC" }, { label: "Power", value: "Power" },
+    { label: "Vertical Transport", value: "Vertical Transport" }, { label: "Controls", value: "Controls" },
+    { label: "Fire Safety", value: "Fire Safety" }, { label: "Plumbing", value: "Plumbing" },
+  ]},
+  { name: "building", label: "Building", type: "text", required: true },
+  { name: "location", label: "Location", type: "text", required: true },
+  { name: "installed", label: "Installed", type: "text" },
+  { name: "lastService", label: "Last Service", type: "text" },
+  { name: "condition", label: "Condition", type: "select", defaultValue: "Good", options: [
+    { label: "Excellent", value: "Excellent" }, { label: "Good", value: "Good" },
+    { label: "Fair", value: "Fair" },
+  ]},
+  { name: "value", label: "Value (EGP)", type: "text" },
+];
+
+const visitorFields: EntityField[] = [
+  { name: "name", label: "Visitor Name", type: "text", required: true },
+  { name: "company", label: "Company", type: "text" },
+  { name: "host", label: "Host", type: "text", required: true },
+  { name: "purpose", label: "Purpose", type: "text" },
+  { name: "building", label: "Building", type: "text" },
+  { name: "checkIn", label: "Check In", type: "text" },
+  { name: "status", label: "Status", type: "select", defaultValue: "Expected", options: [
+    { label: "Expected", value: "Expected" }, { label: "On Site", value: "On Site" },
+    { label: "Checked Out", value: "Checked Out" },
+  ]},
+];
+
+const energyFields: EntityField[] = [
+  { name: "building", label: "Building", type: "text", required: true },
+  { name: "electricity", label: "Electricity (EGP)", type: "text", required: true },
+  { name: "gas", label: "Natural Gas (EGP)", type: "text", required: true },
+  { name: "water", label: "Water (EGP)", type: "text", required: true },
+  { name: "total", label: "Total (EGP)", type: "text", required: true },
+  { name: "change", label: "Change (%)", type: "number", step: 0.1 },
+  { name: "rating", label: "Rating", type: "select", defaultValue: "B", options: [
+    { label: "A", value: "A" }, { label: "A-", value: "A-" },
+    { label: "B+", value: "B+" }, { label: "B", value: "B" },
+    { label: "B-", value: "B-" }, { label: "C+", value: "C+" },
+    { label: "C", value: "C" },
+  ]},
+];
+
+const vendorFields: EntityField[] = [
+  { name: "name", label: "Vendor Name", type: "text", required: true },
+  { name: "service", label: "Service", type: "text", required: true },
+  { name: "contract", label: "Contract Term", type: "select", defaultValue: "Annual", options: [
+    { label: "Annual", value: "Annual" }, { label: "2-Year", value: "2-Year" },
+    { label: "3-Year", value: "3-Year" },
+  ]},
+  { name: "value", label: "Contract Value", type: "text" },
+  { name: "rating", label: "Rating", type: "number", min: 0, max: 5, step: 0.1 },
+  { name: "contact", label: "Contact Person", type: "text" },
+  { name: "phone", label: "Phone", type: "tel" },
+  { name: "status", label: "Status", type: "select", defaultValue: "Active", options: [
+    { label: "Active", value: "Active" }, { label: "Under Review", value: "Under Review" },
+    { label: "Inactive", value: "Inactive" },
+  ]},
+];
+
 export default function FacilityPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingWo, setEditingWo] = useState<typeof workOrders[0] | null>(null);
   const [wos, setWos] = useState(workOrders);
   const [woFilters, setWoFilters] = useState<FilterState>({});
+
+  const [showBuildingForm, setShowBuildingForm] = useState(false);
+  const [editingBuilding, setEditingBuilding] = useState<typeof buildings[0] | null>(null);
+  const [buildingList, setBuildingList] = useState(buildings);
+
+  const [showSpaceForm, setShowSpaceForm] = useState(false);
+  const [editingSpace, setEditingSpace] = useState<typeof spaces[0] | null>(null);
+  const [spaceList, setSpaceList] = useState(spaces);
+
+  const [showAssetModal, setShowAssetModal] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<typeof facilityAssets[0] | null>(null);
+  const [assetList, setAssetList] = useState(facilityAssets);
+
+  const [showEnergyForm, setShowEnergyForm] = useState(false);
+  const [editingEnergy, setEditingEnergy] = useState<typeof energyData[0] | null>(null);
+  const [energyList, setEnergyList] = useState(energyData);
+
+  const [showVisitorModal, setShowVisitorModal] = useState(false);
+  const [editingVisitor, setEditingVisitor] = useState<typeof visitors[0] | null>(null);
+  const [visitorList, setVisitorList] = useState(visitors);
+
+  const [showVendorModal, setShowVendorModal] = useState(false);
+  const [editingVendor, setEditingVendor] = useState<typeof vendors[0] | null>(null);
+  const [vendorList, setVendorList] = useState(vendors);
+  const [viewWorkOrder, setViewWorkOrder] = useState<typeof workOrders[0] | null>(null);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -217,13 +346,23 @@ export default function FacilityPage() {
 
         {/* ── Buildings ─────────────────────────────────────────────── */}
         <TabsContent value="buildings">
+          <div className="flex justify-end mb-4">
+            <Button size="sm" onClick={() => { setEditingBuilding(null); setShowBuildingForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Building</Button>
+          </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {buildings.map((b) => (
+            {buildingList.map((b) => (
               <Card key={b.id}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">{b.name}</CardTitle>
-                    {statusBadge(b.status)}
+                    <div className="flex items-center gap-2">
+                      {statusBadge(b.status)}
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingBuilding(b); setShowBuildingForm(true); }}
+                        onDelete={() => setBuildingList(prev => prev.filter(x => x.id !== b.id))}
+                        itemLabel={b.name}
+                      />
+                    </div>
                   </div>
                   <CardDescription className="flex items-center gap-1"><MapPin className="h-3 w-3" />{b.address}</CardDescription>
                 </CardHeader>
@@ -255,42 +394,40 @@ export default function FacilityPage() {
         <TabsContent value="spaces">
           <Card>
             <CardHeader>
-              <CardTitle>Space Allocation</CardTitle>
-              <CardDescription>Overview of all managed spaces across facilities</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Space Allocation</CardTitle>
+                  <CardDescription>Overview of all managed spaces across facilities</CardDescription>
+                </div>
+                <Button size="sm" onClick={() => { setEditingSpace(null); setShowSpaceForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Space</Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Space Name</th>
-                      <th className="pb-3 font-medium">Building</th>
-                      <th className="pb-3 font-medium">Floor</th>
-                      <th className="pb-3 font-medium">Type</th>
-                      <th className="pb-3 font-medium">Area</th>
-                      <th className="pb-3 font-medium">Capacity</th>
-                      <th className="pb-3 font-medium">Current</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {spaces.map((s) => (
-                      <tr key={s.id} className="border-b last:border-0">
-                        <td className="py-3 font-mono text-xs">{s.id}</td>
-                        <td className="py-3 font-medium">{s.name}</td>
-                        <td className="py-3">{s.building}</td>
-                        <td className="py-3">{s.floor}</td>
-                        <td className="py-3">{s.type}</td>
-                        <td className="py-3">{s.area}</td>
-                        <td className="py-3">{s.capacity}</td>
-                        <td className="py-3">{s.current}</td>
-                        <td className="py-3">{statusBadge(s.status)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "name", label: "Space Name", render: (v) => <span className="font-medium">{v}</span> },
+                  { key: "building", label: "Building" },
+                  { key: "floor", label: "Floor" },
+                  { key: "type", label: "Type" },
+                  { key: "area", label: "Area" },
+                  { key: "capacity", label: "Capacity" },
+                  { key: "current", label: "Current" },
+                  { key: "status", label: "Status", render: (v) => statusBadge(v) },
+                  { key: "actions", label: "Actions", render: (_v, row) => {
+                    const space = row as unknown as typeof spaceList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingSpace(space); setShowSpaceForm(true); }}
+                        onDelete={() => setSpaceList(prev => prev.filter(s => s.id !== space.id))}
+                        itemLabel={space.name}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={spaceList as unknown as Record<string, unknown>[]}
+                exportable exportFilename="facility.csv" emptyMessage="No spaces found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -312,7 +449,7 @@ export default function FacilityPage() {
               ]},
             ]}
             values={woFilters}
-            onChange={setWoFilters}
+            onChange={(k, v) => setWoFilters(f => ({ ...f, [k]: v }))}
             rightSlot={<Button size="sm" onClick={() => { setEditingWo(null); setShowForm(true); }}><Plus className="mr-2 h-4 w-4" />Create Work Order</Button>}
           />
           <Card>
@@ -321,53 +458,39 @@ export default function FacilityPage() {
               <CardDescription>Track and manage facility maintenance requests</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Title</th>
-                      <th className="pb-3 font-medium">Building</th>
-                      <th className="pb-3 font-medium">Priority</th>
-                      <th className="pb-3 font-medium">Category</th>
-                      <th className="pb-3 font-medium">Assignee</th>
-                      <th className="pb-3 font-medium">Due Date</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {wos
-                      .filter(wo => !woFilters._search || wo.title.toLowerCase().includes(woFilters._search.toLowerCase()) || wo.id.toLowerCase().includes(woFilters._search.toLowerCase()))
-                      .filter(wo => !woFilters.priority || wo.priority === woFilters.priority)
-                      .filter(wo => !woFilters.status || wo.status === woFilters.status)
-                      .map((wo) => {
-                        const flow: Record<string, string> = { "Scheduled": "In Progress", "In Progress": "Completed", "Overdue": "In Progress" };
-                        const next = flow[wo.status];
-                        return (
-                          <tr key={wo.id} className="border-b last:border-0">
-                            <td className="py-3 font-mono text-xs">{wo.id}</td>
-                            <td className="py-3 font-medium max-w-[260px] truncate">{wo.title}</td>
-                            <td className="py-3">{wo.building}</td>
-                            <td className="py-3">{priorityBadge(wo.priority)}</td>
-                            <td className="py-3">{wo.category}</td>
-                            <td className="py-3">{wo.assignee}</td>
-                            <td className="py-3">{wo.due}</td>
-                            <td className="py-3">{statusBadge(wo.status)}</td>
-                            <td className="py-3">
-                              <EditDeleteMenu
-                                onEdit={() => { setEditingWo(wo); setShowForm(true); }}
-                                onDelete={() => setWos(prev => prev.filter(w => w.id !== wo.id))}
-                                itemLabel={wo.id}
-                                extraItems={next ? [{ label: `→ ${next}`, onClick: () => setWos(prev => prev.map(w => w.id === wo.id ? { ...w, status: next } : w)) }] : []}
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "title", label: "Title", render: (v) => <span className="font-medium max-w-[260px] truncate block">{v}</span> },
+                  { key: "building", label: "Building" },
+                  { key: "priority", label: "Priority", render: (v) => priorityBadge(v) },
+                  { key: "category", label: "Category" },
+                  { key: "assignee", label: "Assignee" },
+                  { key: "due", label: "Due Date" },
+                  { key: "status", label: "Status", render: (v) => statusBadge(v) },
+                  { key: "actions", label: "Actions", render: (_v, row) => {
+                    const wo = row as unknown as typeof wos[0];
+                    const flow: Record<string, string> = { "Scheduled": "In Progress", "In Progress": "Completed", "Overdue": "In Progress" };
+                    const next = flow[wo.status];
+                    return (
+                      <EditDeleteMenu
+                        onView={() => setViewWorkOrder(wo)}
+                        canView
+                        onEdit={() => { setEditingWo(wo); setShowForm(true); }}
+                        onDelete={() => setWos(prev => prev.filter(w => w.id !== wo.id))}
+                        itemLabel={wo.id}
+                        extraItems={next ? [{ label: `→ ${next}`, onClick: () => setWos(prev => prev.map(w => w.id === wo.id ? { ...w, status: next } : w)) }] : []}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={(wos
+                  .filter(wo => !woFilters._search || wo.title.toLowerCase().includes(woFilters._search.toLowerCase()) || wo.id.toLowerCase().includes(woFilters._search.toLowerCase()))
+                  .filter(wo => !woFilters.priority || wo.priority === woFilters.priority)
+                  .filter(wo => !woFilters.status || wo.status === woFilters.status)
+                ) as unknown as Record<string, unknown>[]}
+                exportable exportFilename="facility.csv" emptyMessage="No work orders found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -381,53 +504,57 @@ export default function FacilityPage() {
                   <CardTitle>Facility Assets</CardTitle>
                   <CardDescription>Critical equipment and infrastructure assets</CardDescription>
                 </div>
-                <Button size="sm"><Plus className="mr-2 h-4 w-4" />Register Asset</Button>
+                <Button size="sm" onClick={() => { setEditingAsset(null); setShowAssetModal(true); }}><Plus className="mr-2 h-4 w-4" />Register Asset</Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Asset Name</th>
-                      <th className="pb-3 font-medium">Category</th>
-                      <th className="pb-3 font-medium">Building</th>
-                      <th className="pb-3 font-medium">Installed</th>
-                      <th className="pb-3 font-medium">Last Service</th>
-                      <th className="pb-3 font-medium">Condition</th>
-                      <th className="pb-3 font-medium">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {facilityAssets.map((a) => (
-                      <tr key={a.id} className="border-b last:border-0">
-                        <td className="py-3 font-mono text-xs">{a.id}</td>
-                        <td className="py-3 font-medium max-w-[220px] truncate">{a.name}</td>
-                        <td className="py-3">{a.category}</td>
-                        <td className="py-3">{a.building}</td>
-                        <td className="py-3">{a.installed}</td>
-                        <td className="py-3">{a.lastService}</td>
-                        <td className="py-3">{conditionBadge(a.condition)}</td>
-                        <td className="py-3 font-medium">{a.value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "name", label: "Asset Name", render: (v) => <span className="font-medium max-w-[220px] truncate block">{v}</span> },
+                  { key: "category", label: "Category" },
+                  { key: "building", label: "Building" },
+                  { key: "installed", label: "Installed" },
+                  { key: "lastService", label: "Last Service" },
+                  { key: "condition", label: "Condition", render: (v) => conditionBadge(v) },
+                  { key: "value", label: "Value", render: (v) => <span className="font-medium">{v}</span> },
+                  { key: "actions", label: "Actions", render: (_v, row) => {
+                    const asset = row as unknown as typeof assetList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingAsset(asset); setShowAssetModal(true); }}
+                        onDelete={() => setAssetList(prev => prev.filter(a => a.id !== asset.id))}
+                        itemLabel={asset.name}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={assetList as unknown as Record<string, unknown>[]}
+                exportable exportFilename="facility.csv" emptyMessage="No assets found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* ── Energy ────────────────────────────────────────────────── */}
         <TabsContent value="energy">
+          <div className="flex justify-end mb-4">
+            <Button size="sm" onClick={() => { setEditingEnergy(null); setShowEnergyForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Energy Record</Button>
+          </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {energyData.map((e) => (
+            {energyList.map((e) => (
               <Card key={e.building}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">{e.building}</CardTitle>
-                    <Badge variant={e.rating.startsWith("A") ? "default" : e.rating.startsWith("B") ? "secondary" : "outline"}>{e.rating}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={e.rating.startsWith("A") ? "default" : e.rating.startsWith("B") ? "secondary" : "outline"}>{e.rating}</Badge>
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingEnergy(e); setShowEnergyForm(true); }}
+                        onDelete={() => setEnergyList(prev => prev.filter(x => x.building !== e.building))}
+                        itemLabel={e.building}
+                      />
+                    </div>
                   </div>
                   <CardDescription>Monthly utility consumption</CardDescription>
                 </CardHeader>
@@ -472,40 +599,34 @@ export default function FacilityPage() {
                   <CardTitle>Visitor Log</CardTitle>
                   <CardDescription>Track visitor check-ins and check-outs across all facilities</CardDescription>
                 </div>
-                <Button size="sm"><Plus className="mr-2 h-4 w-4" />Register Visitor</Button>
+                <Button size="sm" onClick={() => { setEditingVisitor(null); setShowVisitorModal(true); }}><Plus className="mr-2 h-4 w-4" />Register Visitor</Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Visitor</th>
-                      <th className="pb-3 font-medium">Company</th>
-                      <th className="pb-3 font-medium">Host</th>
-                      <th className="pb-3 font-medium">Purpose</th>
-                      <th className="pb-3 font-medium">Check In</th>
-                      <th className="pb-3 font-medium">Check Out</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visitors.map((v) => (
-                      <tr key={v.id} className="border-b last:border-0">
-                        <td className="py-3 font-mono text-xs">{v.id}</td>
-                        <td className="py-3 font-medium">{v.name}</td>
-                        <td className="py-3">{v.company}</td>
-                        <td className="py-3">{v.host}</td>
-                        <td className="py-3">{v.purpose}</td>
-                        <td className="py-3">{v.checkIn}</td>
-                        <td className="py-3">{v.checkOut}</td>
-                        <td className="py-3">{statusBadge(v.status)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "name", label: "Visitor", render: (v) => <span className="font-medium">{v}</span> },
+                  { key: "company", label: "Company" },
+                  { key: "host", label: "Host" },
+                  { key: "purpose", label: "Purpose" },
+                  { key: "checkIn", label: "Check In" },
+                  { key: "checkOut", label: "Check Out" },
+                  { key: "status", label: "Status", render: (v) => statusBadge(v) },
+                  { key: "actions", label: "Actions", render: (_v, row) => {
+                    const visitor = row as unknown as typeof visitorList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingVisitor(visitor); setShowVisitorModal(true); }}
+                        onDelete={() => setVisitorList(prev => prev.filter(v => v.id !== visitor.id))}
+                        itemLabel={visitor.name}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={visitorList as unknown as Record<string, unknown>[]}
+                exportable exportFilename="facility.csv" emptyMessage="No visitors found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -519,53 +640,53 @@ export default function FacilityPage() {
                   <CardTitle>Facility Vendors</CardTitle>
                   <CardDescription>Contracted service providers and supplier management</CardDescription>
                 </div>
-                <Button size="sm"><Plus className="mr-2 h-4 w-4" />Add Vendor</Button>
+                <Button size="sm" onClick={() => { setEditingVendor(null); setShowVendorModal(true); }}><Plus className="mr-2 h-4 w-4" />Add Vendor</Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-3 font-medium">ID</th>
-                      <th className="pb-3 font-medium">Vendor Name</th>
-                      <th className="pb-3 font-medium">Service</th>
-                      <th className="pb-3 font-medium">Contract</th>
-                      <th className="pb-3 font-medium">Value</th>
-                      <th className="pb-3 font-medium">Rating</th>
-                      <th className="pb-3 font-medium">Contact</th>
-                      <th className="pb-3 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vendors.map((v) => (
-                      <tr key={v.id} className="border-b last:border-0">
-                        <td className="py-3 font-mono text-xs">{v.id}</td>
-                        <td className="py-3 font-medium">{v.name}</td>
-                        <td className="py-3">{v.service}</td>
-                        <td className="py-3">{v.contract}</td>
-                        <td className="py-3">{v.value}</td>
-                        <td className="py-3">
-                          <span className="flex items-center gap-1">
-                            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                            {v.rating}
-                          </span>
-                        </td>
-                        <td className="py-3">
-                          <div>{v.contact}</div>
-                          <div className="text-xs text-muted-foreground">{v.phone}</div>
-                        </td>
-                        <td className="py-3">{statusBadge(v.status)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "name", label: "Vendor Name", render: (v) => <span className="font-medium">{v}</span> },
+                  { key: "service", label: "Service" },
+                  { key: "contract", label: "Contract" },
+                  { key: "value", label: "Value" },
+                  { key: "rating", label: "Rating", render: (v) => (
+                    <span className="flex items-center gap-1">
+                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                      {v}
+                    </span>
+                  )},
+                  { key: "contact", label: "Contact", render: (_v, row) => {
+                    const vendor = row as unknown as typeof vendorList[0];
+                    return (
+                      <div>
+                        <div>{vendor.contact}</div>
+                        <div className="text-xs text-muted-foreground">{vendor.phone}</div>
+                      </div>
+                    );
+                  }},
+                  { key: "status", label: "Status", render: (v) => statusBadge(v) },
+                  { key: "actions", label: "Actions", render: (_v, row) => {
+                    const vendor = row as unknown as typeof vendorList[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingVendor(vendor); setShowVendorModal(true); }}
+                        onDelete={() => setVendorList(prev => prev.filter(v => v.id !== vendor.id))}
+                        itemLabel={vendor.name}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={vendorList as unknown as Record<string, unknown>[]}
+                exportable exportFilename="facility.csv" emptyMessage="No vendors found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
+      {/* ── Work Order Form ── */}
       <EntityFormModal
         open={showForm}
         onOpenChange={(v) => { setShowForm(v); if (!v) setEditingWo(null); }}
@@ -594,7 +715,7 @@ export default function FacilityPage() {
           } else {
             const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
             setWos(prev => [{
-              id: `WO-${1010 + prev.length + 1}`,
+              id: `WO-${Date.now().toString(36)}`,
               title: String(data.title),
               building: String(data.building),
               priority: String(data.priority) || "Medium",
@@ -607,6 +728,302 @@ export default function FacilityPage() {
           }
         }}
       />
+
+      {/* ── Building Form ── */}
+      <EntityFormModal
+        open={showBuildingForm}
+        onOpenChange={(v) => { setShowBuildingForm(v); if (!v) setEditingBuilding(null); }}
+        title={editingBuilding ? `Edit ${editingBuilding.name}` : "Add Building"}
+        fields={buildingFields}
+        initialData={editingBuilding ? {
+          name: editingBuilding.name,
+          address: editingBuilding.address,
+          type: editingBuilding.type,
+          area: editingBuilding.area,
+          floors: editingBuilding.floors,
+          occupancy: editingBuilding.occupancy,
+          built: editingBuilding.built,
+          tenants: editingBuilding.tenants,
+          status: editingBuilding.status,
+        } : undefined}
+        submitLabel={editingBuilding ? "Update" : "Add"}
+        onSubmit={(data) => {
+          if (editingBuilding) {
+            setBuildingList(prev => prev.map(b => b.id === editingBuilding.id ? {
+              ...b,
+              name: String(data.name),
+              address: String(data.address),
+              type: String(data.type),
+              area: String(data.area),
+              floors: Number(data.floors) || b.floors,
+              occupancy: Number(data.occupancy) || b.occupancy,
+              built: Number(data.built) || b.built,
+              tenants: Number(data.tenants) || b.tenants,
+              status: String(data.status) || b.status,
+            } : b));
+          } else {
+            setBuildingList(prev => [{
+              id: `BLD-${Date.now().toString(36)}`,
+              name: String(data.name),
+              address: String(data.address),
+              type: String(data.type) || "Office",
+              area: String(data.area),
+              floors: Number(data.floors) || 1,
+              occupancy: Number(data.occupancy) || 0,
+              built: Number(data.built) || new Date().getFullYear(),
+              tenants: Number(data.tenants) || 0,
+              status: String(data.status) || "Operational",
+            }, ...prev]);
+          }
+        }}
+      />
+
+      {/* ── Space Form ── */}
+      <EntityFormModal
+        open={showSpaceForm}
+        onOpenChange={(v) => { setShowSpaceForm(v); if (!v) setEditingSpace(null); }}
+        title={editingSpace ? `Edit ${editingSpace.name}` : "Add Space"}
+        fields={spaceFields}
+        initialData={editingSpace ? {
+          name: editingSpace.name,
+          building: editingSpace.building,
+          floor: editingSpace.floor,
+          type: editingSpace.type,
+          area: editingSpace.area,
+          capacity: editingSpace.capacity,
+          current: editingSpace.current,
+          status: editingSpace.status,
+        } : undefined}
+        submitLabel={editingSpace ? "Update" : "Add"}
+        onSubmit={(data) => {
+          if (editingSpace) {
+            setSpaceList(prev => prev.map(s => s.id === editingSpace.id ? {
+              ...s,
+              name: String(data.name),
+              building: String(data.building),
+              floor: Number(data.floor) || s.floor,
+              type: String(data.type),
+              area: String(data.area),
+              capacity: Number(data.capacity) || s.capacity,
+              current: Number(data.current) || s.current,
+              status: String(data.status) || s.status,
+            } : s));
+          } else {
+            setSpaceList(prev => [{
+              id: `SPC-${Date.now().toString(36)}`,
+              name: String(data.name),
+              building: String(data.building),
+              floor: Number(data.floor) || 1,
+              type: String(data.type) || "Office",
+              area: String(data.area),
+              capacity: Number(data.capacity) || 0,
+              current: Number(data.current) || 0,
+              status: String(data.status) || "Available",
+            }, ...prev]);
+          }
+        }}
+      />
+
+      {/* ── Asset Form ── */}
+      <EntityFormModal
+        open={showAssetModal}
+        onOpenChange={(v) => { setShowAssetModal(v); if (!v) setEditingAsset(null); }}
+        title={editingAsset ? `Edit ${editingAsset.name}` : "Register Asset"}
+        fields={assetFields}
+        initialData={editingAsset ? {
+          name: editingAsset.name,
+          category: editingAsset.category,
+          building: editingAsset.building,
+          location: editingAsset.location,
+          installed: editingAsset.installed,
+          lastService: editingAsset.lastService,
+          condition: editingAsset.condition,
+          value: editingAsset.value,
+        } : undefined}
+        submitLabel={editingAsset ? "Update" : "Register"}
+        onSubmit={(data) => {
+          if (editingAsset) {
+            setAssetList(prev => prev.map(a => a.id === editingAsset.id ? {
+              ...a,
+              name: String(data.name),
+              category: String(data.category) || a.category,
+              building: String(data.building),
+              location: String(data.location),
+              installed: String(data.installed) || a.installed,
+              lastService: String(data.lastService) || a.lastService,
+              condition: String(data.condition) || a.condition,
+              value: String(data.value) || a.value,
+            } : a));
+          } else {
+            const today = new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" });
+            setAssetList(prev => [{
+              id: `FA-${Date.now().toString(36)}`,
+              name: String(data.name),
+              category: String(data.category) || "HVAC",
+              building: String(data.building),
+              location: String(data.location),
+              installed: String(data.installed) || today,
+              lastService: String(data.lastService) || today,
+              condition: String(data.condition) || "Good",
+              value: String(data.value),
+            }, ...prev]);
+          }
+        }}
+      />
+
+      {/* ── Energy Form ── */}
+      <EntityFormModal
+        open={showEnergyForm}
+        onOpenChange={(v) => { setShowEnergyForm(v); if (!v) setEditingEnergy(null); }}
+        title={editingEnergy ? `Edit ${editingEnergy.building}` : "Add Energy Record"}
+        fields={energyFields}
+        initialData={editingEnergy ? {
+          building: editingEnergy.building,
+          electricity: editingEnergy.electricity,
+          gas: editingEnergy.gas,
+          water: editingEnergy.water,
+          total: editingEnergy.total,
+          change: editingEnergy.change,
+          rating: editingEnergy.rating,
+        } : undefined}
+        submitLabel={editingEnergy ? "Update" : "Add"}
+        onSubmit={(data) => {
+          if (editingEnergy) {
+            setEnergyList(prev => prev.map(e => e.building === editingEnergy.building ? {
+              ...e,
+              building: String(data.building),
+              electricity: String(data.electricity),
+              gas: String(data.gas),
+              water: String(data.water),
+              total: String(data.total),
+              change: Number(data.change) || 0,
+              rating: String(data.rating) || e.rating,
+            } : e));
+          } else {
+            setEnergyList(prev => [{
+              building: String(data.building),
+              electricity: String(data.electricity),
+              gas: String(data.gas),
+              water: String(data.water),
+              total: String(data.total),
+              change: Number(data.change) || 0,
+              rating: String(data.rating) || "B",
+            }, ...prev]);
+          }
+        }}
+      />
+
+      {/* ── Visitor Form ── */}
+      <EntityFormModal
+        open={showVisitorModal}
+        onOpenChange={(v) => { setShowVisitorModal(v); if (!v) setEditingVisitor(null); }}
+        title={editingVisitor ? `Edit ${editingVisitor.name}` : "Register Visitor"}
+        fields={visitorFields}
+        initialData={editingVisitor ? {
+          name: editingVisitor.name,
+          company: editingVisitor.company,
+          host: editingVisitor.host,
+          purpose: editingVisitor.purpose,
+          building: editingVisitor.building,
+          checkIn: editingVisitor.checkIn,
+          status: editingVisitor.status,
+        } : undefined}
+        submitLabel={editingVisitor ? "Update" : "Register"}
+        onSubmit={(data) => {
+          if (editingVisitor) {
+            setVisitorList(prev => prev.map(v => v.id === editingVisitor.id ? {
+              ...v,
+              name: String(data.name),
+              company: String(data.company),
+              host: String(data.host),
+              purpose: String(data.purpose),
+              building: String(data.building) || v.building,
+              checkIn: String(data.checkIn) || v.checkIn,
+              status: String(data.status) || v.status,
+            } : v));
+          } else {
+            setVisitorList(prev => [{
+              id: `VIS-${Date.now().toString(36)}`,
+              name: String(data.name),
+              company: String(data.company),
+              host: String(data.host),
+              purpose: String(data.purpose),
+              checkIn: String(data.checkIn),
+              checkOut: "-",
+              building: String(data.building),
+              status: String(data.status) || "Expected",
+            }, ...prev]);
+          }
+        }}
+      />
+
+      {/* ── Vendor Form ── */}
+      <EntityFormModal
+        open={showVendorModal}
+        onOpenChange={(v) => { setShowVendorModal(v); if (!v) setEditingVendor(null); }}
+        title={editingVendor ? `Edit ${editingVendor.name}` : "Add Vendor"}
+        fields={vendorFields}
+        initialData={editingVendor ? {
+          name: editingVendor.name,
+          service: editingVendor.service,
+          contract: editingVendor.contract,
+          value: editingVendor.value,
+          rating: editingVendor.rating,
+          contact: editingVendor.contact,
+          phone: editingVendor.phone,
+          status: editingVendor.status,
+        } : undefined}
+        submitLabel={editingVendor ? "Update" : "Add"}
+        onSubmit={(data) => {
+          if (editingVendor) {
+            setVendorList(prev => prev.map(v => v.id === editingVendor.id ? {
+              ...v,
+              name: String(data.name),
+              service: String(data.service),
+              contract: String(data.contract) || v.contract,
+              value: String(data.value) || v.value,
+              rating: Number(data.rating) || v.rating,
+              contact: String(data.contact),
+              phone: String(data.phone),
+              status: String(data.status) || v.status,
+            } : v));
+          } else {
+            setVendorList(prev => [{
+              id: `VND-${Date.now().toString(36)}`,
+              name: String(data.name),
+              service: String(data.service),
+              contract: String(data.contract) || "Annual",
+              value: String(data.value),
+              rating: Number(data.rating) || 0,
+              contact: String(data.contact),
+              phone: String(data.phone),
+              status: String(data.status) || "Active",
+            }, ...prev]);
+          }
+        }}
+      />
+
+      {/* ── Work Order Detail Dialog ── */}
+      <Dialog open={!!viewWorkOrder} onOpenChange={(o) => !o && setViewWorkOrder(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Work Order {viewWorkOrder?.id}</DialogTitle>
+          </DialogHeader>
+          {viewWorkOrder && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Title</span><p className="font-medium">{viewWorkOrder.title}</p></div>
+              <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium font-mono">{viewWorkOrder.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Building</span><p className="font-medium">{viewWorkOrder.building}</p></div>
+              <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{viewWorkOrder.category}</p></div>
+              <div><span className="text-sm text-muted-foreground">Priority</span><p>{priorityBadge(viewWorkOrder.priority)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Assignee</span><p className="font-medium">{viewWorkOrder.assignee}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p>{statusBadge(viewWorkOrder.status)}</p></div>
+              <div><span className="text-sm text-muted-foreground">Created</span><p className="font-medium">{viewWorkOrder.created}</p></div>
+              <div><span className="text-sm text-muted-foreground">Due Date</span><p className="font-medium">{viewWorkOrder.due}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

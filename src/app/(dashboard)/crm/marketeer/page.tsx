@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Users, Target, DollarSign, MapPin, Plus, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
@@ -11,6 +12,8 @@ import StatusBadge from "@/components/shared/status-badge";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 const DISTRICTS = [
   { dm: "Hany Mansour", district: "Greater Cairo", reps: 8, doctors: 320, callRate: 88, compliance: 91, budget: "62%", rating: "A" },
@@ -27,14 +30,14 @@ const TEAM_PERFORMANCE = [
 ];
 
 const ESCALATED = [
-  { id: "REQ-004", from: "Hany Mansour (DM)", rep: "Fatima Ali", type: "Doctor Sponsorship", description: "Dr. Walid Fathy - Int'l Oncology Congress", cost: "$3,500", recommendation: "Strongly Recommended", decision: "Pending", date: "2026-03-26" },
-  { id: "REQ-010", from: "Lina Habib (DM)", rep: "Hala Samir", type: "Doctor Sponsorship", description: "Dr. Khaled - Urology Symposium", cost: "$1,800", recommendation: "Recommended", decision: "Pending", date: "2026-03-20" },
-  { id: "REQ-015", from: "Reem Saleh (DM)", rep: "Mahmoud Farouk", type: "Conference Sponsorship", description: "Mansoura Medical Conference Booth", cost: "$2,200", recommendation: "Recommended", decision: "Approved", date: "2026-03-18" },
-  { id: "REQ-018", from: "Tamer Wahid (DM)", rep: "Hala Samir", type: "Event Budget", description: "Upper Egypt Symposium", cost: "$2,800", recommendation: "Optional", decision: "Rejected", date: "2026-03-15" },
-  { id: "REQ-021", from: "Hany Mansour (DM)", rep: "Ahmed Hassan", type: "Conference Sponsorship", description: "Cardiology Update 2026", cost: "$1,500", recommendation: "Recommended", decision: "Approved", date: "2026-03-12" },
-  { id: "REQ-024", from: "Lina Habib (DM)", rep: "Sara Mohamed", type: "Doctor Sponsorship", description: "Dr. Ashraf Zaki - International Cardiology", cost: "$4,200", recommendation: "Strongly Recommended", decision: "Pending", date: "2026-03-10" },
-  { id: "REQ-027", from: "Reem Saleh (DM)", rep: "Nour Ibrahim", type: "Promo Material", description: "Custom branded merchandise", cost: "$1,100", recommendation: "Recommended", decision: "Approved", date: "2026-03-08" },
-  { id: "REQ-030", from: "Tamer Wahid (DM)", rep: "Karim Saeed", type: "Travel Request", description: "Multi-city KOL tour", cost: "$1,900", recommendation: "Recommended", decision: "Pending", date: "2026-03-05" },
+  { id: "REQ-004", from: "Hany Mansour (DM)", rep: "Fatima Ali", type: "Doctor Sponsorship", description: "Dr. Walid Fathy - Int'l Oncology Congress", cost: "EGP 3,500", recommendation: "Strongly Recommended", decision: "Pending", date: "2026-03-26" },
+  { id: "REQ-010", from: "Lina Habib (DM)", rep: "Hala Samir", type: "Doctor Sponsorship", description: "Dr. Khaled - Urology Symposium", cost: "EGP 1,800", recommendation: "Recommended", decision: "Pending", date: "2026-03-20" },
+  { id: "REQ-015", from: "Reem Saleh (DM)", rep: "Mahmoud Farouk", type: "Conference Sponsorship", description: "Mansoura Medical Conference Booth", cost: "EGP 2,200", recommendation: "Recommended", decision: "Approved", date: "2026-03-18" },
+  { id: "REQ-018", from: "Tamer Wahid (DM)", rep: "Hala Samir", type: "Event Budget", description: "Upper Egypt Symposium", cost: "EGP 2,800", recommendation: "Optional", decision: "Rejected", date: "2026-03-15" },
+  { id: "REQ-021", from: "Hany Mansour (DM)", rep: "Ahmed Hassan", type: "Conference Sponsorship", description: "Cardiology Update 2026", cost: "EGP 1,500", recommendation: "Recommended", decision: "Approved", date: "2026-03-12" },
+  { id: "REQ-024", from: "Lina Habib (DM)", rep: "Sara Mohamed", type: "Doctor Sponsorship", description: "Dr. Ashraf Zaki - International Cardiology", cost: "EGP 4,200", recommendation: "Strongly Recommended", decision: "Pending", date: "2026-03-10" },
+  { id: "REQ-027", from: "Reem Saleh (DM)", rep: "Nour Ibrahim", type: "Promo Material", description: "Custom branded merchandise", cost: "EGP 1,100", recommendation: "Recommended", decision: "Approved", date: "2026-03-08" },
+  { id: "REQ-030", from: "Tamer Wahid (DM)", rep: "Karim Saeed", type: "Travel Request", description: "Multi-city KOL tour", cost: "EGP 1,900", recommendation: "Recommended", decision: "Pending", date: "2026-03-05" },
 ];
 
 const DOUBLE_VISITS = [
@@ -47,27 +50,27 @@ const DOUBLE_VISITS = [
 ];
 
 const MARKET_ANALYSIS = [
-  { product: "Cardizem 60mg", territory: "Greater Cairo", target: "$120K", actual: "$108K", growth: "+12%", share: "18%", competition: "Strong from generic" },
-  { product: "Augmentin 625mg", territory: "Greater Cairo", target: "$180K", actual: "$192K", growth: "+18%", share: "32%", competition: "Stable" },
-  { product: "Nexium 40mg", territory: "Delta Region", target: "$95K", actual: "$87K", growth: "+5%", share: "22%", competition: "Increasing pressure" },
-  { product: "Voltaren 75mg", territory: "Upper Egypt", target: "$70K", actual: "$58K", growth: "-3%", share: "14%", competition: "Heavy generics" },
-  { product: "Plavix 75mg", territory: "Alexandria & Coast", target: "$140K", actual: "$155K", growth: "+22%", share: "28%", competition: "Stable" },
-  { product: "Crestor 20mg", territory: "Greater Cairo", target: "$160K", actual: "$148K", growth: "+8%", share: "24%", competition: "Generic entry" },
-  { product: "Fucidin H", territory: "Alexandria & Coast", target: "$55K", actual: "$62K", growth: "+15%", share: "35%", competition: "Stable" },
-  { product: "Depakine Chrono", territory: "Greater Cairo", target: "$85K", actual: "$78K", growth: "+4%", share: "19%", competition: "Stable" },
-  { product: "Herceptin", territory: "Greater Cairo", target: "$220K", actual: "$240K", growth: "+25%", share: "42%", competition: "Few competitors" },
-  { product: "Zoloft 50mg", territory: "Delta Region", target: "$45K", actual: "$41K", growth: "+2%", share: "16%", competition: "Generic pressure" },
+  { product: "Cardizem 60mg", territory: "Greater Cairo", target: "EGP 120K", actual: "EGP 108K", growth: "+12%", share: "18%", competition: "Strong from generic" },
+  { product: "Augmentin 625mg", territory: "Greater Cairo", target: "EGP 180K", actual: "EGP 192K", growth: "+18%", share: "32%", competition: "Stable" },
+  { product: "Nexium 40mg", territory: "Delta Region", target: "EGP 95K", actual: "EGP 87K", growth: "+5%", share: "22%", competition: "Increasing pressure" },
+  { product: "Voltaren 75mg", territory: "Upper Egypt", target: "EGP 70K", actual: "EGP 58K", growth: "-3%", share: "14%", competition: "Heavy generics" },
+  { product: "Plavix 75mg", territory: "Alexandria & Coast", target: "EGP 140K", actual: "EGP 155K", growth: "+22%", share: "28%", competition: "Stable" },
+  { product: "Crestor 20mg", territory: "Greater Cairo", target: "EGP 160K", actual: "EGP 148K", growth: "+8%", share: "24%", competition: "Generic entry" },
+  { product: "Fucidin H", territory: "Alexandria & Coast", target: "EGP 55K", actual: "EGP 62K", growth: "+15%", share: "35%", competition: "Stable" },
+  { product: "Depakine Chrono", territory: "Greater Cairo", target: "EGP 85K", actual: "EGP 78K", growth: "+4%", share: "19%", competition: "Stable" },
+  { product: "Herceptin", territory: "Greater Cairo", target: "EGP 220K", actual: "EGP 240K", growth: "+25%", share: "42%", competition: "Few competitors" },
+  { product: "Zoloft 50mg", territory: "Delta Region", target: "EGP 45K", actual: "EGP 41K", growth: "+2%", share: "16%", competition: "Generic pressure" },
 ];
 
 const visitFields: EntityField[] = [
-  { key: "accompanied", label: "Accompanied (DM/Rep)", type: "text", required: true },
-  { key: "doctor", label: "Doctor Visited", type: "text", required: true },
-  { key: "date", label: "Date", type: "date", required: true },
-  { key: "purpose", label: "Purpose", type: "select", options: [
+  { name: "accompanied", label: "Accompanied (DM/Rep)", type: "text", required: true },
+  { name: "doctor", label: "Doctor Visited", type: "text", required: true },
+  { name: "date", label: "Date", type: "date", required: true },
+  { name: "purpose", label: "Purpose", type: "select", options: [
     "KOL Engagement", "Coaching", "Strategic Account", "New Product Launch", "Performance Review",
   ].map(p => ({ label: p, value: p })) },
-  { key: "observations", label: "Key Observations", type: "textarea" },
-  { key: "followUp", label: "Follow-up Actions", type: "textarea" },
+  { name: "observations", label: "Key Observations", type: "textarea" },
+  { name: "followUp", label: "Follow-up Actions", type: "textarea" },
 ];
 
 export default function MarketeerPage() {
@@ -77,6 +80,8 @@ export default function MarketeerPage() {
   const [showVisit, setShowVisit] = useState(false);
   const [approvalFilters, setApprovalFilters] = useState<FilterState>({ _search: "", decision: "" });
   const [visitFilters, setVisitFilters] = useState<FilterState>({ _search: "", purpose: "" });
+  const [viewEscalated, setViewEscalated] = useState<(typeof ESCALATED)[0] | null>(null);
+  const [viewVisit, setViewVisit] = useState<(typeof DOUBLE_VISITS)[0] | null>(null);
 
   const filteredEscalated = escalated.filter((e) => {
     if (approvalFilters.decision && e.decision !== approvalFilters.decision) return false;
@@ -151,27 +156,22 @@ export default function MarketeerPage() {
           <Card>
             <CardHeader><CardTitle>District Manager Performance</CardTitle><CardDescription>Aggregated team metrics</CardDescription></CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">DM Name</th><th className="p-3">District</th><th className="p-3">Team Size</th><th className="p-3">Call Rate</th><th className="p-3">Compliance</th><th className="p-3">Pending</th><th className="p-3">Budget</th><th className="p-3">Rating</th></tr>
-                  </thead>
-                  <tbody>
-                    {TEAM_PERFORMANCE.map((t, i) => (
-                      <tr key={i} className="border-t">
-                        <td className="p-3 font-medium">{t.dm}</td>
-                        <td className="p-3">{t.district}</td>
-                        <td className="p-3">{t.teamSize}</td>
-                        <td className="p-3">{t.callRate}</td>
-                        <td className="p-3">{t.compliance}</td>
-                        <td className="p-3">{t.pending}</td>
-                        <td className="p-3">{t.budget}</td>
-                        <td className="p-3"><StatusBadge status={t.rating === "A" ? "Excellent" : "Good"} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "dm", label: "DM Name" },
+                  { key: "district", label: "District" },
+                  { key: "teamSize", label: "Team Size" },
+                  { key: "callRate", label: "Call Rate" },
+                  { key: "compliance", label: "Compliance" },
+                  { key: "pending", label: "Pending" },
+                  { key: "budget", label: "Budget" },
+                  { key: "rating", label: "Rating", render: (_v, row) => <StatusBadge status={(row as unknown as (typeof TEAM_PERFORMANCE)[0]).rating === "A" ? "Excellent" : "Good"} /> },
+                ] as Column<Record<string, unknown>>[]}
+                data={TEAM_PERFORMANCE as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="team-performance.csv"
+                emptyMessage="No performance data available."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -192,38 +192,37 @@ export default function MarketeerPage() {
               />
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Request#</th><th className="p-3">From DM</th><th className="p-3">Rep</th><th className="p-3">Type</th><th className="p-3">Description</th><th className="p-3">Cost</th><th className="p-3">DM Recommendation</th><th className="p-3">Decision</th><th className="p-3"></th></tr>
-                  </thead>
-                  <tbody>
-                    {filteredEscalated.map(e => (
-                      <tr key={e.id} className="border-t">
-                        <td className="p-3 font-mono">{e.id}</td>
-                        <td className="p-3">{e.from}</td>
-                        <td className="p-3">{e.rep}</td>
-                        <td className="p-3">{e.type}</td>
-                        <td className="p-3 max-w-xs truncate">{e.description}</td>
-                        <td className="p-3 font-medium">{e.cost}</td>
-                        <td className="p-3">{e.recommendation}</td>
-                        <td className="p-3"><StatusBadge status={e.decision} /></td>
-                        <td className="p-3">
-                          <EditDeleteMenu
-                            onDelete={() => setEscalated(prev => prev.filter(x => x.id !== e.id))}
-                            itemLabel={e.id}
-                            canEdit={false}
-                            extraItems={e.decision === "Pending" ? [
-                              { label: "Approve", onClick: () => setEscalated(prev => prev.map(x => x.id === e.id ? { ...x, decision: "Approved" } : x)) },
-                              { label: "Reject", onClick: () => setEscalated(prev => prev.map(x => x.id === e.id ? { ...x, decision: "Rejected" } : x)), destructive: true },
-                            ] : []}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Request#", render: (v) => <span className="font-mono">{v as string}</span> },
+                  { key: "from", label: "From DM" },
+                  { key: "rep", label: "Rep" },
+                  { key: "type", label: "Type" },
+                  { key: "description", label: "Description", className: "max-w-xs truncate" },
+                  { key: "cost", label: "Cost", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "recommendation", label: "DM Recommendation" },
+                  { key: "decision", label: "Decision", render: (v) => <StatusBadge status={v as string} /> },
+                  { key: "_actions", label: "", render: (_v, row) => {
+                    const e = row as unknown as (typeof ESCALATED)[0];
+                    return (
+                      <EditDeleteMenu
+                        onView={() => setViewEscalated(e)}
+                        onDelete={() => setEscalated(prev => prev.filter(x => x.id !== e.id))}
+                        itemLabel={e.id}
+                        canEdit={false}
+                        extraItems={e.decision === "Pending" ? [
+                          { label: "Approve", onClick: () => setEscalated(prev => prev.map(x => x.id === e.id ? { ...x, decision: "Approved" } : x)) },
+                          { label: "Reject", onClick: () => setEscalated(prev => prev.map(x => x.id === e.id ? { ...x, decision: "Rejected" } : x)), destructive: true },
+                        ] : []}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredEscalated as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="escalated-requests.csv"
+                emptyMessage="No escalated requests."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -247,33 +246,32 @@ export default function MarketeerPage() {
                 values={visitFilters}
                 onChange={(k, v) => setVisitFilters((f) => ({ ...f, [k]: v }))}
               />
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Visit#</th><th className="p-3">Accompanied</th><th className="p-3">Doctor</th><th className="p-3">Date</th><th className="p-3">Purpose</th><th className="p-3">Observations</th><th className="p-3">Follow-up</th><th className="p-3"></th></tr>
-                  </thead>
-                  <tbody>
-                    {filteredVisits.map(v => (
-                      <tr key={v.id} className="border-t">
-                        <td className="p-3 font-mono">{v.id}</td>
-                        <td className="p-3 font-medium">{v.accompanied}</td>
-                        <td className="p-3">{v.doctor}</td>
-                        <td className="p-3">{v.date}</td>
-                        <td className="p-3"><StatusBadge status={v.purpose} /></td>
-                        <td className="p-3 max-w-xs truncate">{v.observations}</td>
-                        <td className="p-3 max-w-xs truncate">{v.followUp}</td>
-                        <td className="p-3">
-                          <EditDeleteMenu
-                            onEdit={() => { setEditing(v); setShowVisit(true); }}
-                            onDelete={() => setDoubleVisits(prev => prev.filter(x => x.id !== v.id))}
-                            itemLabel={v.id}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Visit#", render: (v) => <span className="font-mono">{v as string}</span> },
+                  { key: "accompanied", label: "Accompanied", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "doctor", label: "Doctor" },
+                  { key: "date", label: "Date" },
+                  { key: "purpose", label: "Purpose", render: (v) => <StatusBadge status={v as string} /> },
+                  { key: "observations", label: "Observations", className: "max-w-xs truncate" },
+                  { key: "followUp", label: "Follow-up", className: "max-w-xs truncate" },
+                  { key: "_actions", label: "", render: (_v, row) => {
+                    const v = row as unknown as (typeof DOUBLE_VISITS)[0];
+                    return (
+                      <EditDeleteMenu
+                        onView={() => setViewVisit(v)}
+                        onEdit={() => { setEditing(v); setShowVisit(true); }}
+                        onDelete={() => setDoubleVisits(prev => prev.filter(x => x.id !== v.id))}
+                        itemLabel={v.id}
+                      />
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredVisits as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="field-visits.csv"
+                emptyMessage="No visits found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -282,33 +280,28 @@ export default function MarketeerPage() {
           <Card>
             <CardHeader><CardTitle>Product Performance by Territory</CardTitle><CardDescription>Market share and growth analysis</CardDescription></CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                    <tr><th className="p-3">Product</th><th className="p-3">Territory</th><th className="p-3">Target</th><th className="p-3">Actual</th><th className="p-3">Growth</th><th className="p-3">Market Share</th><th className="p-3">Competition</th></tr>
-                  </thead>
-                  <tbody>
-                    {MARKET_ANALYSIS.map((m, i) => (
-                      <tr key={i} className="border-t">
-                        <td className="p-3 font-medium">{m.product}</td>
-                        <td className="p-3">{m.territory}</td>
-                        <td className="p-3">{m.target}</td>
-                        <td className="p-3 font-semibold">{m.actual}</td>
-                        <td className={`p-3 ${m.growth.startsWith("+") ? "text-green-600" : "text-red-600"}`}>{m.growth}</td>
-                        <td className="p-3">{m.share}</td>
-                        <td className="p-3 text-muted-foreground">{m.competition}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "product", label: "Product", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "territory", label: "Territory" },
+                  { key: "target", label: "Target" },
+                  { key: "actual", label: "Actual", render: (v) => <span className="font-semibold">{v as string}</span> },
+                  { key: "growth", label: "Growth", render: (v) => <span className={(v as string).startsWith("+") ? "text-green-600" : "text-red-600"}>{v as string}</span> },
+                  { key: "share", label: "Market Share" },
+                  { key: "competition", label: "Competition", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
+                ] as Column<Record<string, unknown>>[]}
+                data={MARKET_ANALYSIS as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="market-analysis.csv"
+                emptyMessage="No market analysis data."
+              />
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="reports">
           <div className="grid gap-4 md:grid-cols-3">
-            <Card><CardHeader><CardTitle className="text-sm">YTD Sales</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">$4.2M</div><div className="text-xs text-green-600 mt-1">+14% vs LY</div></CardContent></Card>
+            <Card><CardHeader><CardTitle className="text-sm">YTD Sales</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">EGP 4.2M</div><div className="text-xs text-green-600 mt-1">+14% vs LY</div></CardContent></Card>
             <Card><CardHeader><CardTitle className="text-sm">Target Achievement</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">92%</div><div className="text-xs text-muted-foreground mt-1">YTD</div></CardContent></Card>
             <Card><CardHeader><CardTitle className="text-sm">Field Force ROI</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">3.8x</div><div className="text-xs text-green-600 mt-1">Above benchmark</div></CardContent></Card>
           </div>
@@ -333,6 +326,49 @@ export default function MarketeerPage() {
         </TabsContent>
       </Tabs>
 
+      {/* Escalated Request Detail Dialog */}
+      <Dialog open={!!viewEscalated} onOpenChange={(open) => { if (!open) setViewEscalated(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewEscalated?.id} — {viewEscalated?.type}</DialogTitle>
+          </DialogHeader>
+          {viewEscalated && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Request ID</span><p className="font-medium">{viewEscalated.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">From DM</span><p className="font-medium">{viewEscalated.from}</p></div>
+              <div><span className="text-sm text-muted-foreground">Rep</span><p className="font-medium">{viewEscalated.rep}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewEscalated.type}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewEscalated.description}</p></div>
+              <div><span className="text-sm text-muted-foreground">Cost</span><p className="font-medium">{viewEscalated.cost}</p></div>
+              <div><span className="text-sm text-muted-foreground">DM Recommendation</span><p className="font-medium">{viewEscalated.recommendation}</p></div>
+              <div><span className="text-sm text-muted-foreground">Decision</span><p className="font-medium">{viewEscalated.decision}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewEscalated.date}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Double Visit Detail Dialog */}
+      <Dialog open={!!viewVisit} onOpenChange={(open) => { if (!open) setViewVisit(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewVisit?.id} — {viewVisit?.doctor}</DialogTitle>
+          </DialogHeader>
+          {viewVisit && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Visit ID</span><p className="font-medium">{viewVisit.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Accompanied</span><p className="font-medium">{viewVisit.accompanied}</p></div>
+              <div><span className="text-sm text-muted-foreground">Doctor</span><p className="font-medium">{viewVisit.doctor}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewVisit.date}</p></div>
+              <div><span className="text-sm text-muted-foreground">Purpose</span><p className="font-medium">{viewVisit.purpose}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewVisit.status}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Observations</span><p className="font-medium">{viewVisit.observations}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Follow-up Actions</span><p className="font-medium">{viewVisit.followUp}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <EntityFormModal
         open={showVisit}
         onOpenChange={(open) => { if (!open) { setShowVisit(false); setEditing(null); } }}
@@ -343,7 +379,7 @@ export default function MarketeerPage() {
           if (editing) {
             setDoubleVisits(prev => prev.map(v => v.id === editing.id ? { ...v, accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || v.purpose, observations: (d.observations as string) || "", followUp: (d.followUp as string) || "" } : v));
           } else {
-            setDoubleVisits(prev => [{ id: `MV-${String(prev.length + 1).padStart(3, "0")}`, accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || "KOL Engagement", observations: (d.observations as string) || "", followUp: (d.followUp as string) || "", status: "Completed" }, ...prev]);
+            setDoubleVisits(prev => [{ id: `MV-${Date.now().toString(36)}`, accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || "KOL Engagement", observations: (d.observations as string) || "", followUp: (d.followUp as string) || "", status: "Completed" }, ...prev]);
           }
           setShowVisit(false);
           setEditing(null);

@@ -1,20 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Calendar, Clock, CheckCircle, Star, Plus, Search,
-} from "lucide-react";
+import { useState, useMemo } from "react";
+import { Calendar, Clock, CheckCircle, Star, Plus } from "lucide-react";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
+import { useDataStore } from "@/lib/data-store";
 
 interface Interview {
   id: number;
@@ -72,24 +69,59 @@ function StarRating({ rating }: { rating: number | null }) {
   );
 }
 
+// INTERVIEW_FIELDS is now computed inside the component to use store data
+
+const FILTER_FIELDS = [
+  { key: "status", label: "Status", type: "select" as const, options: [
+    { label: "Scheduled", value: "SCHEDULED" }, { label: "Completed", value: "COMPLETED" },
+    { label: "Cancelled", value: "CANCELLED" }, { label: "No Show", value: "NO_SHOW" },
+  ]},
+  { key: "type", label: "Type", type: "select" as const, options: [
+    { label: "Technical", value: "TECHNICAL" }, { label: "Phone Screen", value: "PHONE_SCREEN" },
+    { label: "Panel", value: "PANEL" }, { label: "Behavioral", value: "BEHAVIORAL" },
+    { label: "Field Assessment", value: "FIELD_ASSESSMENT" }, { label: "Lab Test", value: "PRACTICAL_LAB" },
+  ]},
+];
+
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 const WEEK_DATES = ["2026-04-13", "2026-04-14", "2026-04-15", "2026-04-16", "2026-04-17"];
 
 export default function InterviewsPage() {
+  const store = useDataStore();
   const [interviews, setInterviews] = useState<Interview[]>(INITIAL_INTERVIEWS);
-  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", type: "" });
   const [view, setView] = useState<"table" | "calendar">("table");
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    candidate: "", job: "", type: "TECHNICAL", interviewer: "", interviewerRole: "", date: "", time: "", duration: "60",
-  });
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState<Interview | null>(null);
+  const [detailInterview, setDetailInterview] = useState<Interview | null>(null);
 
-  const filtered = interviews.filter(
-    (i) =>
-      i.candidate.toLowerCase().includes(search.toLowerCase()) ||
-      i.job.toLowerCase().includes(search.toLowerCase()) ||
-      i.interviewer.toLowerCase().includes(search.toLowerCase())
-  );
+  const interviewFields: EntityField[] = useMemo(() => [
+    { name: "candidate", label: "Candidate", type: "select" as const, required: true, options: store.candidates.map(c => ({ label: c.name, value: c.name })) },
+    { name: "job", label: "Position", type: "select" as const, required: true, options: store.jobs.filter(j => j.status === "OPEN").map(j => ({ label: j.title, value: j.title })) },
+    { name: "type", label: "Interview Type", type: "select" as const, defaultValue: "TECHNICAL", options: [
+      { label: "Phone Screen", value: "PHONE_SCREEN" }, { label: "Technical", value: "TECHNICAL" },
+      { label: "Behavioral", value: "BEHAVIORAL" }, { label: "Panel", value: "PANEL" },
+      { label: "Field Assessment", value: "FIELD_ASSESSMENT" }, { label: "Practical Lab Test", value: "PRACTICAL_LAB" },
+      { label: "Case Study / PV", value: "CASE_STUDY" }, { label: "Plant Visit", value: "PLANT_VISIT" },
+    ]},
+    { name: "interviewer", label: "Interviewer", type: "text" as const, placeholder: "Interviewer name" },
+    { name: "interviewerRole", label: "Interviewer Role", type: "text" as const, placeholder: "e.g. QC Lab Manager", fullWidth: true },
+    { name: "date", label: "Date", type: "text" as const, placeholder: "YYYY-MM-DD" },
+    { name: "time", label: "Time", type: "text" as const, placeholder: "HH:MM" },
+    { name: "duration", label: "Duration (min)", type: "select" as const, defaultValue: "60", options: [
+      { label: "30 minutes", value: "30" }, { label: "45 minutes", value: "45" },
+      { label: "60 minutes", value: "60" }, { label: "90 minutes", value: "90" },
+      { label: "120 minutes (Lab/Plant)", value: "120" },
+    ]},
+  ], [store.candidates, store.jobs]);
+
+  const filtered = interviews.filter((i) => {
+    const q = (filters._search || "").toLowerCase();
+    const matchesSearch = !q || i.candidate.toLowerCase().includes(q) || i.job.toLowerCase().includes(q) || i.interviewer.toLowerCase().includes(q);
+    const matchesStatus = !filters.status || i.status === filters.status;
+    const matchesType = !filters.type || i.type === filters.type;
+    return matchesSearch && matchesStatus && matchesType;
+  });
 
   const scheduledToday = interviews.filter((i) => i.date === "2026-04-14" && i.status === "SCHEDULED").length;
   const scheduledWeek = interviews.filter((i) => i.status === "SCHEDULED").length;
@@ -100,24 +132,7 @@ export default function InterviewsPage() {
     return (rated.reduce((s, i) => s + (i.rating ?? 0), 0) / rated.length).toFixed(1);
   })();
 
-  function handleAdd() {
-    if (!form.candidate || !form.job) return;
-    setInterviews([...interviews, {
-      id: interviews.length + 1,
-      candidate: form.candidate,
-      job: form.job,
-      type: form.type,
-      interviewer: form.interviewer,
-      interviewerRole: form.interviewerRole,
-      date: form.date,
-      time: form.time,
-      duration: parseInt(form.duration),
-      status: "SCHEDULED",
-      rating: null,
-    }]);
-    setForm({ candidate: "", job: "", type: "TECHNICAL", interviewer: "", interviewerRole: "", date: "", time: "", duration: "60" });
-    setOpen(false);
-  }
+  const statusFlow: Record<string, string> = { SCHEDULED: "COMPLETED" };
 
   return (
     <div className="p-6 space-y-6">
@@ -125,18 +140,18 @@ export default function InterviewsPage() {
         <div className="flex items-center gap-2">
           <Button variant={view === "table" ? "default" : "outline"} size="sm" onClick={() => setView("table")}>Table</Button>
           <Button variant={view === "calendar" ? "default" : "outline"} size="sm" onClick={() => setView("calendar")}>Week View</Button>
-          <Button onClick={() => setOpen(true)}>
+          <Button onClick={() => { setEditing(null); setShowModal(true); }}>
             <Plus className="h-4 w-4 mr-2" />
             Schedule Interview
           </Button>
         </div>
       </PageHeader>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatsCard title="Scheduled Today" value={scheduledToday} icon={<Calendar className="h-5 w-5" />} />
-        <StatsCard title="This Week" value={scheduledWeek} icon={<Clock className="h-5 w-5" />} />
-        <StatsCard title="Completed" value={completed} icon={<CheckCircle className="h-5 w-5" />} trend={{ value: 12.5, label: "vs last week" }} />
-        <StatsCard title="Avg Rating" value={avgRating} icon={<Star className="h-5 w-5" />} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard title="Scheduled Today" value={scheduledToday} icon={Calendar} />
+        <StatsCard title="This Week" value={scheduledWeek} icon={Clock} />
+        <StatsCard title="Completed" value={completed} icon={CheckCircle} change={12.5} changeLabel="vs last week" />
+        <StatsCard title="Avg Rating" value={avgRating} icon={Star} />
       </div>
 
       {view === "calendar" ? (
@@ -144,7 +159,7 @@ export default function InterviewsPage() {
           <div className="p-4 border-b border-border">
             <h2 className="font-semibold text-foreground">Week of Apr 13 – Apr 17, 2026</h2>
           </div>
-          <div className="grid grid-cols-5 divide-x divide-border">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-border">
             {DAYS.map((day, idx) => {
               const date = WEEK_DATES[idx];
               const dayInterviews = interviews.filter((i) => i.date === date);
@@ -171,141 +186,206 @@ export default function InterviewsPage() {
         </div>
       ) : (
         <div className="rounded-lg border border-border bg-card shadow-sm">
-          <div className="p-4 border-b border-border flex items-center gap-3">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by candidate, position, interviewer..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="border-0 shadow-none focus-visible:ring-0 p-0 h-auto"
+          <div className="p-4 border-b border-border">
+            <FilterBar
+              searchValue={filters._search}
+              onSearchChange={(v) => setFilters((f) => ({ ...f, _search: v }))}
+              fields={FILTER_FIELDS}
+              values={filters}
+              onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
             />
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Candidate</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Position</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Type</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Interviewer</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date / Time</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Duration</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Rating</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((iv) => (
-                  <tr key={iv.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 font-medium text-foreground">{iv.candidate}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{iv.job}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TYPE_COLORS[iv.type] ?? ""}`}>
-                        {iv.type.replace(/_/g, " ")}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
+          <DataTable
+            columns={[
+              {
+                key: "candidate",
+                label: "Candidate",
+                render: (v: unknown) => <span className="font-medium text-foreground">{v as string}</span>,
+              },
+              { key: "job", label: "Position" },
+              {
+                key: "type",
+                label: "Type",
+                render: (_v: unknown, row: unknown) => {
+                  const iv = row as Interview;
+                  return (
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TYPE_COLORS[iv.type] ?? ""}`}>
+                      {iv.type.replace(/_/g, " ")}
+                    </span>
+                  );
+                },
+              },
+              {
+                key: "interviewer",
+                label: "Interviewer",
+                render: (_v: unknown, row: unknown) => {
+                  const iv = row as Interview;
+                  return (
+                    <div>
                       <div className="text-foreground">{iv.interviewer}</div>
                       <div className="text-xs text-muted-foreground">{iv.interviewerRole}</div>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{iv.date} {iv.time}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{iv.duration} min</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[iv.status] ?? ""}`}>
-                        {iv.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3"><StarRating rating={iv.rating} /></td>
-                  </tr>
-                ))}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">No interviews found.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "date",
+                label: "Date / Time",
+                render: (_v: unknown, row: unknown) => {
+                  const iv = row as Interview;
+                  return <span className="text-muted-foreground">{iv.date} {iv.time}</span>;
+                },
+              },
+              {
+                key: "duration",
+                label: "Duration",
+                render: (v: unknown) => <span className="text-muted-foreground">{v as number} min</span>,
+              },
+              {
+                key: "status",
+                label: "Status",
+                render: (_v: unknown, row: unknown) => {
+                  const iv = row as Interview;
+                  return (
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[iv.status] ?? ""}`}>
+                      {iv.status}
+                    </span>
+                  );
+                },
+              },
+              {
+                key: "rating",
+                label: "Rating",
+                render: (_v: unknown, row: unknown) => {
+                  const iv = row as Interview;
+                  return <StarRating rating={iv.rating} />;
+                },
+              },
+              {
+                key: "actions",
+                label: "",
+                render: (_v: unknown, row: unknown) => {
+                  const iv = row as Interview;
+                  return (
+                    <EditDeleteMenu
+                      onEdit={() => { setEditing(iv); setShowModal(true); }}
+                      onDelete={() => setInterviews((prev) => prev.filter((x) => x.id !== iv.id))}
+                      onView={() => setDetailInterview(iv)}
+                      canView
+                      itemLabel={`${iv.candidate} interview`}
+                      extraItems={[
+                        ...(statusFlow[iv.status] ? [{ label: `Mark ${statusFlow[iv.status]}`, onClick: () => setInterviews((prev) => prev.map((x) => x.id === iv.id ? { ...x, status: statusFlow[iv.status] } : x)) }] : []),
+                        ...(iv.status === "SCHEDULED" ? [{ label: "Cancel", onClick: () => setInterviews((prev) => prev.map((x) => x.id === iv.id ? { ...x, status: "CANCELLED" } : x)) }] : []),
+                      ]}
+                    />
+                  );
+                },
+              },
+            ] as Column<Record<string, unknown>>[]}
+            data={filtered as unknown as Record<string, unknown>[]}
+            emptyMessage="No interviews found."
+            exportable
+            exportFilename="interviews.csv"
+          />
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
+      <EntityFormModal
+        open={showModal}
+        onOpenChange={(open) => { setShowModal(open); if (!open) setEditing(null); }}
+        title={editing ? "Edit Interview" : "Schedule Pharma Interview"}
+        fields={interviewFields}
+        initialData={editing ? { candidate: editing.candidate, job: editing.job, type: editing.type, interviewer: editing.interviewer, interviewerRole: editing.interviewerRole, date: editing.date, time: editing.time, duration: String(editing.duration) } : undefined}
+        onSubmit={(data) => {
+          if (editing) {
+            setInterviews((prev) => prev.map((i) => i.id === editing.id ? {
+              ...i,
+              candidate: data.candidate as string,
+              job: (data.job as string) || i.job,
+              type: (data.type as string) || i.type,
+              interviewer: (data.interviewer as string) || i.interviewer,
+              interviewerRole: (data.interviewerRole as string) || i.interviewerRole,
+              date: (data.date as string) || i.date,
+              time: (data.time as string) || i.time,
+              duration: parseInt(data.duration as string) || i.duration,
+            } : i));
+          } else {
+            setInterviews((prev) => [...prev, {
+              id: Date.now(),
+              candidate: data.candidate as string,
+              job: (data.job as string) || "",
+              type: (data.type as string) || "TECHNICAL",
+              interviewer: (data.interviewer as string) || "",
+              interviewerRole: (data.interviewerRole as string) || "",
+              date: (data.date as string) || "",
+              time: (data.time as string) || "",
+              duration: parseInt(data.duration as string) || 60,
+              status: "SCHEDULED",
+              rating: null,
+            }]);
+          }
+          setShowModal(false);
+          setEditing(null);
+        }}
+      />
+
+      {/* ── Interview Detail Dialog ── */}
+      <Dialog open={!!detailInterview} onOpenChange={(open) => { if (!open) setDetailInterview(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Schedule Pharma Interview</DialogTitle>
+            <DialogTitle>{detailInterview?.candidate} &mdash; Interview</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>Candidate</Label>
-                <Input placeholder="Dr. Ahmed Mohamed" value={form.candidate} onChange={(e) => setForm({ ...form, candidate: e.target.value })} />
+          {detailInterview && (
+            <div className="space-y-5">
+              {/* Prominent date/time banner */}
+              <div className="rounded-lg bg-primary/5 border border-primary/20 p-4 flex items-center gap-4">
+                <Calendar className="h-8 w-8 text-primary" />
+                <div>
+                  <p className="text-lg font-semibold text-foreground">{detailInterview.date} at {detailInterview.time}</p>
+                  <p className="text-sm text-muted-foreground">{detailInterview.duration} minutes &middot; {detailInterview.type.replace(/_/g, " ")}</p>
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label>Position</Label>
-                <Select value={form.job} onValueChange={(v) => setForm({ ...form, job: v })}>
-                  <SelectTrigger><SelectValue placeholder="Select position" /></SelectTrigger>
-                  <SelectContent>
-                    {["Medical Representative", "District Sales Manager", "Quality Control Analyst", "Production Pharmacist", "R&D Formulation Scientist", "Regulatory Affairs Specialist", "Pharmacovigilance Officer", "Clinical Research Associate"].map(p => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div><span className="text-sm text-muted-foreground">Candidate</span><p className="font-medium">{detailInterview.candidate}</p></div>
+                <div><span className="text-sm text-muted-foreground">Position</span><p className="font-medium">{detailInterview.job}</p></div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Interview Type</span>
+                  <p><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TYPE_COLORS[detailInterview.type] ?? ""}`}>{detailInterview.type.replace(/_/g, " ")}</span></p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <p><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[detailInterview.status] ?? ""}`}>{detailInterview.status}</span></p>
+                </div>
+                <div><span className="text-sm text-muted-foreground">Interviewer</span><p className="font-medium">{detailInterview.interviewer}</p></div>
+                <div><span className="text-sm text-muted-foreground">Interviewer Role</span><p className="font-medium">{detailInterview.interviewerRole}</p></div>
+                <div><span className="text-sm text-muted-foreground">Duration</span><p className="font-medium">{detailInterview.duration} minutes</p></div>
               </div>
+              {/* Rating */}
+              <div>
+                <span className="text-sm text-muted-foreground">Rating</span>
+                <div className="mt-1">
+                  <StarRating rating={detailInterview.rating} />
+                </div>
+              </div>
+              {/* Cross-reference: Candidate status from ATS store */}
+              {(() => {
+                const storeCandidate = store.candidates.find(c => c.name === detailInterview.candidate);
+                if (!storeCandidate) return null;
+                return (
+                  <div className="rounded-lg bg-muted/50 border border-border p-3 space-y-1">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">ATS Candidate Record</span>
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="text-foreground font-medium">{storeCandidate.name}</span>
+                      <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-xs font-semibold">
+                        {storeCandidate.status}
+                      </span>
+                      <span className="text-muted-foreground">Applied for: {storeCandidate.appliedFor}</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>Interview Type</Label>
-                <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PHONE_SCREEN">Phone Screen</SelectItem>
-                    <SelectItem value="TECHNICAL">Technical</SelectItem>
-                    <SelectItem value="BEHAVIORAL">Behavioral</SelectItem>
-                    <SelectItem value="PANEL">Panel</SelectItem>
-                    <SelectItem value="FIELD_ASSESSMENT">Field Assessment</SelectItem>
-                    <SelectItem value="PRACTICAL_LAB">Practical Lab Test</SelectItem>
-                    <SelectItem value="CASE_STUDY">Case Study / PV</SelectItem>
-                    <SelectItem value="PLANT_VISIT">Plant Visit</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Interviewer</Label>
-                <Input placeholder="Interviewer name" value={form.interviewer} onChange={(e) => setForm({ ...form, interviewer: e.target.value })} />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label>Interviewer Role</Label>
-              <Input placeholder="e.g. QC Lab Manager, Sales Director" value={form.interviewerRole} onChange={(e) => setForm({ ...form, interviewerRole: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1 col-span-2">
-                <Label>Date</Label>
-                <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label>Time</Label>
-                <Input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label>Duration (minutes)</Label>
-              <Select value={form.duration} onValueChange={(v) => setForm({ ...form, duration: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="30">30 minutes</SelectItem>
-                  <SelectItem value="45">45 minutes</SelectItem>
-                  <SelectItem value="60">60 minutes</SelectItem>
-                  <SelectItem value="90">90 minutes</SelectItem>
-                  <SelectItem value="120">120 minutes (Lab/Plant)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleAdd} disabled={!form.candidate || !form.job}>Schedule</Button>
-          </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </div>

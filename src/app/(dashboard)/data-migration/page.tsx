@@ -27,9 +27,12 @@ import {
   RotateCcw,
   Plus,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 interface MigrationJob {
   id: string;
@@ -139,26 +142,26 @@ const statusConfig = {
 };
 
 const jobFields: EntityField[] = [
-  { key: "name", label: "Job Name", type: "text", required: true },
-  { key: "source", label: "Source", type: "text", required: true },
-  { key: "destination", label: "Destination", type: "select", required: true, options: [
+  { name: "name", label: "Job Name", type: "text", required: true },
+  { name: "source", label: "Source", type: "text", required: true },
+  { name: "destination", label: "Destination", type: "select", required: true, options: [
     { label: "CRM Contacts", value: "CRM Contacts" },
     { label: "Inventory Module", value: "Inventory Module" },
     { label: "HR & Payroll", value: "HR & Payroll" },
     { label: "Finance Module", value: "Finance Module" },
     { label: "Procurement", value: "Procurement" },
   ]},
-  { key: "recordsTotal", label: "Estimated Records", type: "number" },
+  { name: "recordsTotal", label: "Estimated Records", type: "number" },
 ];
 
 const sourceFields: EntityField[] = [
-  { key: "name", label: "Source Name", type: "text", required: true },
-  { key: "type", label: "Connection Type", type: "select", required: true, options: [
+  { name: "name", label: "Source Name", type: "text", required: true },
+  { name: "type", label: "Connection Type", type: "select", required: true, options: [
     { label: "File Upload", value: "File Upload" },
     { label: "API Connection", value: "API Connection" },
     { label: "Integration", value: "Integration" },
   ]},
-  { key: "recordCount", label: "Record Count", type: "number" },
+  { name: "recordCount", label: "Record Count", type: "number" },
 ];
 
 type ModalMode =
@@ -177,6 +180,7 @@ export default function DataMigrationPage() {
   const [sources, setSources] = useState(dataSources);
   const [modal, setModal] = useState<ModalMode>(null);
   const [jobFilters, setJobFilters] = useState<FilterState>({ _search: "", status: "" });
+  const [viewItem, setViewItem] = useState<any>(null);
 
   const filteredJobs = jobs.filter((j) => {
     if (jobFilters.status && j.status !== jobFilters.status) return false;
@@ -278,57 +282,77 @@ export default function DataMigrationPage() {
           />
         </CardHeader>
         <CardContent className="p-0">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b text-xs text-muted-foreground">
-                <th className="text-left p-3 font-medium">Job</th>
-                <th className="text-left p-3 font-medium">Source → Destination</th>
-                <th className="text-left p-3 font-medium">Status</th>
-                <th className="text-left p-3 font-medium">Progress</th>
-                <th className="text-left p-3 font-medium">Records</th>
-                <th className="text-left p-3 font-medium">Duration</th>
-                <th className="text-left p-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredJobs.map((job) => {
-                const config = statusConfig[job.status];
-                const StatusIcon = config.icon;
-                return (
-                  <tr key={job.id} className="border-b last:border-0 hover:bg-muted/50">
-                    <td className="p-3">
+          <DataTable
+            columns={[
+              {
+                key: "name",
+                label: "Job",
+                render: (_v: unknown, row: Record<string, unknown>) => {
+                  const job = row as unknown as MigrationJob;
+                  return (
+                    <div>
                       <p className="text-sm font-medium">{job.name}</p>
                       <p className="text-xs text-muted-foreground font-mono">{job.id}</p>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="text-muted-foreground">{job.source}</span>
-                        <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                        <span className="font-medium">{job.destination}</span>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "source",
+                label: "Source → Destination",
+                render: (_v: unknown, row: Record<string, unknown>) => {
+                  const job = row as unknown as MigrationJob;
+                  return (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-muted-foreground">{job.source}</span>
+                      <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="font-medium">{job.destination}</span>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "status",
+                label: "Status",
+                render: (_v: unknown, row: Record<string, unknown>) => {
+                  const job = row as unknown as MigrationJob;
+                  const config = statusConfig[job.status];
+                  const StatusIcon = config.icon;
+                  return (
+                    <div className="flex items-center gap-1.5">
+                      <StatusIcon className={`h-3.5 w-3.5 ${config.color} ${job.status === "running" ? "animate-spin" : ""}`} />
+                      <Badge variant={config.badgeVariant} className="text-xs">{config.label}</Badge>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "progress",
+                label: "Progress",
+                render: (_v: unknown, row: Record<string, unknown>) => {
+                  const job = row as unknown as MigrationJob;
+                  return (
+                    <div className="flex items-center gap-2">
+                      <div className="w-24 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            job.status === "failed" ? "bg-red-500" : job.status === "completed" ? "bg-green-500" : "bg-blue-500"
+                          }`}
+                          style={{ width: `${job.progress}%` }}
+                        />
                       </div>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-1.5">
-                        <StatusIcon className={`h-3.5 w-3.5 ${config.color} ${job.status === "running" ? "animate-spin" : ""}`} />
-                        <Badge variant={config.badgeVariant} className="text-xs">
-                          {config.label}
-                        </Badge>
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-24 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              job.status === "failed" ? "bg-red-500" : job.status === "completed" ? "bg-green-500" : "bg-blue-500"
-                            }`}
-                            style={{ width: `${job.progress}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-muted-foreground">{job.progress}%</span>
-                      </div>
-                    </td>
-                    <td className="p-3 text-xs">
+                      <span className="text-xs text-muted-foreground">{job.progress}%</span>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "recordsMigrated",
+                label: "Records",
+                render: (_v: unknown, row: Record<string, unknown>) => {
+                  const job = row as unknown as MigrationJob;
+                  return (
+                    <div className="text-xs">
                       <span className="font-medium">{job.recordsMigrated.toLocaleString()}</span>
                       <span className="text-muted-foreground"> / {job.recordsTotal.toLocaleString()}</span>
                       {job.errors > 0 && (
@@ -337,34 +361,49 @@ export default function DataMigrationPage() {
                           <span>{job.errors} errors</span>
                         </div>
                       )}
-                    </td>
-                    <td className="p-3 text-xs text-muted-foreground">{job.duration}</td>
-                    <td className="p-3">
-                      <EditDeleteMenu
-                        onEdit={() => setModal({ kind: "job", editing: job })}
-                        onDelete={() => setJobs((prev) => prev.filter((j) => j.id !== job.id))}
-                        itemLabel={job.name}
-                        extraItems={(() => {
-                          const flow: Record<string, { label: string; status: MigrationJob["status"]; progress?: number }> = {
-                            pending: { label: "Start Job", status: "running" },
-                            running: { label: "Pause Job", status: "pending" },
-                            failed: { label: "Retry Job", status: "running", progress: 0 },
-                          };
-                          const next = flow[job.status];
-                          if (!next) return [];
-                          return [{
-                            label: next.label,
-                            icon: job.status === "pending" ? <Play className="h-4 w-4" /> : job.status === "running" ? <Pause className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />,
-                            onClick: () => setJobs((prev) => prev.map((j) => j.id === job.id ? { ...j, status: next.status, ...(next.progress !== undefined ? { progress: next.progress } : {}) } : j)),
-                          }];
-                        })()}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "duration",
+                label: "Duration",
+                render: (v: unknown) => <span className="text-xs text-muted-foreground">{String(v)}</span>,
+              },
+              {
+                key: "id",
+                label: "Actions",
+                render: (_v: unknown, row: Record<string, unknown>) => {
+                  const job = row as unknown as MigrationJob;
+                  return (
+                    <EditDeleteMenu
+                      onView={() => setViewItem({ _kind: "job", ...job })}
+                      onEdit={() => setModal({ kind: "job", editing: job })}
+                      onDelete={() => setJobs((prev) => prev.filter((j) => j.id !== job.id))}
+                      itemLabel={job.name}
+                      extraItems={(() => {
+                        const flow: Record<string, { label: string; status: MigrationJob["status"]; progress?: number }> = {
+                          pending: { label: "Start Job", status: "running" },
+                          running: { label: "Pause Job", status: "pending" },
+                          failed: { label: "Retry Job", status: "running", progress: 0 },
+                        };
+                        const next = flow[job.status];
+                        if (!next) return [];
+                        return [{
+                          label: next.label,
+                          icon: job.status === "pending" ? <Play className="h-4 w-4" /> : job.status === "running" ? <Pause className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />,
+                          onClick: () => setJobs((prev) => prev.map((j) => j.id === job.id ? { ...j, status: next.status, ...(next.progress !== undefined ? { progress: next.progress } : {}) } : j)),
+                        }];
+                      })()}
+                    />
+                  );
+                },
+              },
+            ] as Column<Record<string, unknown>>[]}
+            data={filteredJobs as unknown as Record<string, unknown>[]}
+            
+            exportable exportFilename="data-migration.csv" emptyMessage="No migration jobs found."
+          />
         </CardContent>
       </Card>
 
@@ -397,6 +436,7 @@ export default function DataMigrationPage() {
                         {source.status === "connected" ? "Connected" : "Disconnected"}
                       </Badge>
                       <EditDeleteMenu
+                        onView={() => setViewItem({ _kind: "source", ...source })}
                         onEdit={() => setModal({ kind: "source", editing: source })}
                         onDelete={() => setSources((prev) => prev.filter((s) => s.id !== source.id))}
                         itemLabel={source.name}
@@ -436,7 +476,7 @@ export default function DataMigrationPage() {
             setJobs((prev) => prev.map((j) => j.id === modal.editing!.id ? { ...j, name: data.name as string, source: data.source as string, destination: data.destination as string, recordsTotal: (data.recordsTotal as number) || j.recordsTotal } : j));
           } else {
             const newJob: MigrationJob = {
-              id: `MIG-${String(jobs.length + 1).padStart(3, "0")}`,
+              id: `MIG-${Date.now().toString(36)}`,
               name: data.name as string,
               source: data.source as string,
               destination: data.destination as string,
@@ -470,7 +510,7 @@ export default function DataMigrationPage() {
             setSources((prev) => prev.map((s) => s.id === modal.editing!.id ? { ...s, name: data.name as string, type: data.type as string, recordCount: (data.recordCount as number) || s.recordCount, icon: sourceIcons[data.type as string] || <Database className="h-5 w-5" /> } : s));
           } else {
             const newSource: DataSource = {
-              id: `ds-${sources.length + 1}`,
+              id: `ds-${Date.now().toString(36)}`,
               name: data.name as string,
               type: data.type as string,
               icon: sourceIcons[data.type as string] || <Database className="h-5 w-5" />,
@@ -483,6 +523,38 @@ export default function DataMigrationPage() {
           setModal(null);
         }}
       />
+
+      {/* Detail View Dialog */}
+      <Dialog open={!!viewItem} onOpenChange={(o) => !o && setViewItem(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewItem?.name}</DialogTitle>
+          </DialogHeader>
+          {viewItem?._kind === "job" && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Job ID</span><p className="font-medium">{viewItem.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Job Name</span><p className="font-medium">{viewItem.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Source</span><p className="font-medium">{viewItem.source}</p></div>
+              <div><span className="text-sm text-muted-foreground">Destination</span><p className="font-medium">{viewItem.destination}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium capitalize">{viewItem.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Progress</span><p className="font-medium">{viewItem.progress}%</p></div>
+              <div><span className="text-sm text-muted-foreground">Records Migrated</span><p className="font-medium">{Number(viewItem.recordsMigrated).toLocaleString()} / {Number(viewItem.recordsTotal).toLocaleString()}</p></div>
+              <div><span className="text-sm text-muted-foreground">Errors</span><p className="font-medium">{viewItem.errors}</p></div>
+              <div><span className="text-sm text-muted-foreground">Started At</span><p className="font-medium">{viewItem.startedAt}</p></div>
+              <div><span className="text-sm text-muted-foreground">Duration</span><p className="font-medium">{viewItem.duration}</p></div>
+            </div>
+          )}
+          {viewItem?._kind === "source" && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Source Name</span><p className="font-medium">{viewItem.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Connection Type</span><p className="font-medium">{viewItem.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium capitalize">{viewItem.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Record Count</span><p className="font-medium">{viewItem.recordCount > 0 ? Number(viewItem.recordCount).toLocaleString() : "—"}</p></div>
+              <div><span className="text-sm text-muted-foreground">Last Sync</span><p className="font-medium">{viewItem.lastSync}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

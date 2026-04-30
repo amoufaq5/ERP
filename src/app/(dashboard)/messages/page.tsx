@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useDataStore, type Message } from "@/lib/data-store";
+import { useCurrentUser, DEMO_USERS } from "@/lib/user-context";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
+import { DataTable, type Column } from "@/components/shared/data-table";
+import { FilterBar, type FilterField, type FilterState } from "@/components/shared/filter-bar";
 import {
   Card,
   CardContent,
@@ -9,226 +13,291 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   MessageSquare,
-  Search,
   Send,
   Plus,
   Star,
-  Archive,
   Trash2,
-  Paperclip,
-  Users,
-  Clock,
-  Check,
-  CheckCheck,
+  Reply,
+  Inbox,
+  Mail,
 } from "lucide-react";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
-interface Message {
-  id: string;
-  sender: string;
-  avatar: string;
-  subject: string;
-  preview: string;
-  time: string;
-  unread: boolean;
-  starred: boolean;
-  channel: string;
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Map a userId to a display name, falling back to the raw id. */
+function userName(userId: string): string {
+  const u = DEMO_USERS.find((u) => u.id === userId);
+  return u ? u.name : userId;
 }
 
-interface Conversation {
-  id: string;
-  messages: {
-    sender: string;
-    content: string;
-    time: string;
-    isMe: boolean;
-    status: "sent" | "delivered" | "read";
-  }[];
+/** Build initials from a display name. */
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 }
 
-const messagesData: Message[] = [
-  {
-    id: "1",
-    sender: "Sarah Johnson",
-    avatar: "SJ",
-    subject: "Q1 Financial Report Review",
-    preview: "Hi team, I've completed the Q1 financial report. Please review the attached document and share your feedback by EOD Friday.",
-    time: "10:32 AM",
-    unread: true,
-    starred: true,
-    channel: "Finance",
-  },
-  {
-    id: "2",
-    sender: "DevOps Team",
-    avatar: "DT",
-    subject: "Server Migration Update",
-    preview: "The database migration to the new cluster has been completed successfully. All services are back online.",
-    time: "9:15 AM",
-    unread: true,
-    starred: false,
-    channel: "Engineering",
-  },
-  {
-    id: "3",
-    sender: "Marcus Chen",
-    avatar: "MC",
-    subject: "New Candidate Pipeline",
-    preview: "We've received 45 new applications for the Senior Developer position. I've shortlisted 12 for initial screening.",
-    time: "Yesterday",
-    unread: false,
-    starred: false,
-    channel: "Hiring",
-  },
-  {
-    id: "4",
-    sender: "Priya Nair",
-    avatar: "PN",
-    subject: "Client Onboarding - Acme Corp",
-    preview: "The onboarding process for Acme Corp is progressing well. They've completed the initial setup and are now in the training phase.",
-    time: "Yesterday",
-    unread: false,
-    starred: true,
-    channel: "CRM",
-  },
-  {
-    id: "5",
-    sender: "Lisa Park",
-    avatar: "LP",
-    subject: "Employee Benefits Update",
-    preview: "Please review the updated benefits package for 2026. We've added dental coverage and increased the wellness stipend.",
-    time: "Apr 1",
-    unread: false,
-    starred: false,
-    channel: "HR",
-  },
-  {
-    id: "6",
-    sender: "Operations",
-    avatar: "OP",
-    subject: "Warehouse Inventory Alert",
-    preview: "Stock levels for SKU-2847 have fallen below the minimum threshold. Please initiate a reorder.",
-    time: "Apr 1",
-    unread: false,
-    starred: false,
-    channel: "Inventory",
-  },
-  {
-    id: "7",
-    sender: "Jordan Mitchell",
-    avatar: "JM",
-    subject: "Sprint Retrospective Notes",
-    preview: "Here are the action items from yesterday's retrospective. Top priority: improve CI/CD pipeline speed.",
-    time: "Mar 31",
-    unread: false,
-    starred: false,
-    channel: "Engineering",
-  },
-  {
-    id: "8",
-    sender: "Amara Osei",
-    avatar: "AO",
-    subject: "Design System v3 Proposal",
-    preview: "I've put together a proposal for updating our design system. Key changes include new color tokens and spacing scales.",
-    time: "Mar 30",
-    unread: false,
-    starred: true,
-    channel: "Design",
-  },
-];
+/** Format an ISO date string to a friendly short form. */
+function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffMs / 86_400_000);
 
-const conversationData: Conversation = {
-  id: "1",
-  messages: [
-    {
-      sender: "Sarah Johnson",
-      content: "Hi team, I've completed the Q1 financial report. Please review the attached document and share your feedback by EOD Friday.",
-      time: "10:32 AM",
-      isMe: false,
-      status: "read",
-    },
-    {
-      sender: "Sarah Johnson",
-      content: "Key highlights:\n- Revenue up 12.5% QoQ\n- Operating margins improved to 23%\n- Customer acquisition cost decreased by 8%",
-      time: "10:33 AM",
-      isMe: false,
-      status: "read",
-    },
-    {
-      sender: "You",
-      content: "Thanks Sarah, I'll review it this afternoon. The margin improvement looks promising.",
-      time: "10:45 AM",
-      isMe: true,
-      status: "read",
-    },
-    {
-      sender: "Sarah Johnson",
-      content: "Great! Also, I've flagged a few items that need CFO approval on page 12. Let me know if you have questions.",
-      time: "10:48 AM",
-      isMe: false,
-      status: "read",
-    },
-  ],
-};
+  if (diffDays === 0) {
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return d.toLocaleDateString([], { weekday: "short" });
+  return d.toLocaleDateString([], { month: "short", day: "numeric" });
+}
 
-const channels = ["All", "Finance", "Engineering", "Hiring", "CRM", "HR", "Inventory", "Design"];
+// ── Folder type ──────────────────────────────────────────────────────────────
 
-const messageFields: EntityField[] = [
-  { key: "recipient", label: "Recipient", type: "text", required: true },
-  { key: "subject", label: "Subject", type: "text", required: true },
-  { key: "channel", label: "Channel", type: "select", options: [
-    { label: "Finance", value: "Finance" }, { label: "Engineering", value: "Engineering" },
-    { label: "Hiring", value: "Hiring" }, { label: "CRM", value: "CRM" },
-    { label: "HR", value: "HR" }, { label: "Inventory", value: "Inventory" },
-    { label: "Design", value: "Design" },
-  ]},
-  { key: "message", label: "Message", type: "textarea", required: true },
-];
+type Folder = "inbox" | "sent" | "starred";
+
+// ── Component ────────────────────────────────────────────────────────────────
 
 export default function MessagesPage() {
-  const [selectedMessageId, setSelectedMessageId] = useState<string>("1");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeChannel, setActiveChannel] = useState("All");
-  const [composeMessage, setComposeMessage] = useState("");
-  const [messages, setMessages] = useState(messagesData);
-  const [showForm, setShowForm] = useState(false);
+  const store = useDataStore();
+  const { user, allUsers } = useCurrentUser();
+  const { t } = useTranslation();
+  const currentUserId = user.id;
 
-  const filteredMessages = messages.filter((m) => {
-    const matchesSearch =
-      m.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.sender.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.preview.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesChannel = activeChannel === "All" || m.channel === activeChannel;
-    return matchesSearch && matchesChannel;
-  });
+  // UI state
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  const [folder, setFolder] = useState<Folder>("inbox");
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<FilterState>({});
+  const [showCompose, setShowCompose] = useState(false);
+  const [showReply, setShowReply] = useState(false);
 
-  const selectedMessage = messages.find((m) => m.id === selectedMessageId);
-  const unreadCount = messages.filter((m) => m.unread).length;
+  // ── Derived data ───────────────────────────────────────────────────────────
 
-  function handleStarToggle(id: string) {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, starred: !m.starred } : m))
+  const myMessages = useMemo(() => {
+    return store.messages.filter(
+      (m) => m.toUserId === currentUserId || m.fromUserId === currentUserId
     );
+  }, [store.messages, currentUserId]);
+
+  const folderMessages = useMemo(() => {
+    switch (folder) {
+      case "inbox":
+        return myMessages.filter((m) => m.toUserId === currentUserId);
+      case "sent":
+        return myMessages.filter((m) => m.fromUserId === currentUserId);
+      case "starred":
+        return myMessages.filter((m) => m.starred);
+      default:
+        return myMessages;
+    }
+  }, [myMessages, folder, currentUserId]);
+
+  const filteredMessages = useMemo(() => {
+    let list = folderMessages;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (m) =>
+          m.subject.toLowerCase().includes(q) ||
+          m.body.toLowerCase().includes(q) ||
+          userName(m.fromUserId).toLowerCase().includes(q) ||
+          userName(m.toUserId).toLowerCase().includes(q)
+      );
+    }
+    // sort newest first
+    return [...list].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [folderMessages, search]);
+
+  const selectedMessage = useMemo(
+    () => store.messages.find((m) => m.id === selectedMessageId) ?? null,
+    [store.messages, selectedMessageId]
+  );
+
+  const unreadCount = useMemo(
+    () => store.messages.filter((m) => m.toUserId === currentUserId && !m.read).length,
+    [store.messages, currentUserId]
+  );
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+
+  function handleSelectMessage(msg: Message) {
+    setSelectedMessageId(msg.id);
+    // Mark as read if it is addressed to the current user and unread
+    if (msg.toUserId === currentUserId && !msg.read) {
+      store.update("messages", msg.id, { read: true });
+    }
   }
 
-  function handleSelectMessage(id: string) {
-    setSelectedMessageId(id);
-    setMessages((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, unread: false } : m))
-    );
+  function handleStar(id: string) {
+    const msg = store.messages.find((m) => m.id === id);
+    if (msg) {
+      store.update("messages", id, { starred: !msg.starred });
+    }
   }
+
+  function handleDelete(id: string) {
+    store.remove("messages", id);
+    if (selectedMessageId === id) setSelectedMessageId(null);
+  }
+
+  // ── Compose form fields ────────────────────────────────────────────────────
+
+  const recipientOptions = allUsers
+    .filter((u) => u.id !== currentUserId)
+    .map((u) => ({ label: `${u.name} (${u.role})`, value: u.id }));
+
+  const composeFields: EntityField[] = [
+    {
+      name: "toUserId",
+      label: "Recipient",
+      type: "select",
+      required: true,
+      options: recipientOptions,
+    },
+    { name: "subject", label: "Subject", type: "text", required: true },
+    { name: "body", label: "Message", type: "textarea", required: true, fullWidth: true },
+  ];
+
+  const replyFields: EntityField[] = [
+    {
+      name: "toUserId",
+      label: "Recipient",
+      type: "select",
+      required: true,
+      options: recipientOptions,
+      disabled: true,
+    },
+    { name: "subject", label: "Subject", type: "text", required: true },
+    { name: "body", label: "Message", type: "textarea", required: true, fullWidth: true },
+  ];
+
+  // ── DataTable columns ─────────────────────────────────────────────────────
+
+  const columns: Column<Message>[] = [
+    {
+      key: "starred",
+      label: "",
+      className: "w-10",
+      render: (_val: boolean, row: Message) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleStar(row.id);
+          }}
+        >
+          <Star
+            className={`h-4 w-4 ${
+              row.starred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40"
+            }`}
+          />
+        </button>
+      ),
+    },
+    {
+      key: "fromUserId",
+      label: folder === "sent" ? "To" : "From",
+      sortable: true,
+      className: "w-48",
+      render: (_val: string, row: Message) => {
+        const displayUserId = folder === "sent" ? row.toUserId : row.fromUserId;
+        const name = userName(displayUserId);
+        return (
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold">
+              {initials(name)}
+            </div>
+            <span className={`text-sm truncate ${!row.read && row.toUserId === currentUserId ? "font-semibold" : ""}`}>
+              {name}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      key: "subject",
+      label: "Subject",
+      sortable: true,
+      render: (_val: string, row: Message) => (
+        <div className="min-w-0">
+          <span className={`text-sm ${!row.read && row.toUserId === currentUserId ? "font-semibold" : ""}`}>
+            {row.subject}
+          </span>
+          <p className="text-xs text-muted-foreground truncate max-w-md mt-0.5">
+            {row.body.length > 80 ? row.body.slice(0, 80) + "..." : row.body}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: "read",
+      label: "Status",
+      className: "w-24",
+      render: (_val: boolean, row: Message) => {
+        if (row.toUserId !== currentUserId) {
+          return <Badge variant="outline" className="text-[10px]">Sent</Badge>;
+        }
+        return row.read ? (
+          <Badge variant="secondary" className="text-[10px]">Read</Badge>
+        ) : (
+          <Badge variant="default" className="text-[10px]">New</Badge>
+        );
+      },
+    },
+    {
+      key: "createdAt",
+      label: "Date",
+      sortable: true,
+      className: "w-28",
+      render: (val: string) => <span className="text-xs text-muted-foreground">{fmtDate(val)}</span>,
+    },
+    {
+      key: "id",
+      label: "",
+      className: "w-10",
+      render: (_val: string, row: Message) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDelete(row.id);
+          }}
+          className="opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+        </button>
+      ),
+    },
+  ];
+
+  // ── Filter bar config ─────────────────────────────────────────────────────
+
+  const filterFields: FilterField[] = [];
+
+  // ── Folder counts ─────────────────────────────────────────────────────────
+
+  const inboxCount = myMessages.filter((m) => m.toUserId === currentUserId).length;
+  const sentCount = myMessages.filter((m) => m.fromUserId === currentUserId).length;
+  const starredCount = myMessages.filter((m) => m.starred).length;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
+    <div className="flex flex-col gap-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 pb-4">
+      <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
             <MessageSquare className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Messages</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{t("msg.title")}</h1>
             {unreadCount > 0 && (
               <Badge variant="destructive" className="text-xs">
                 {unreadCount} new
@@ -236,197 +305,198 @@ export default function MessagesPage() {
             )}
           </div>
           <p className="text-muted-foreground text-sm mt-1">
-            Internal messaging and team communication
+            {t("msg.manageMessages")}
           </p>
         </div>
-        <Button size="sm" className="gap-1.5" onClick={() => setShowForm(true)}>
+        <Button size="sm" className="gap-1.5" onClick={() => setShowCompose(true)}>
           <Plus className="h-4 w-4" />
           New Message
         </Button>
       </div>
 
-      {/* Channel Tabs */}
-      <div className="flex gap-1.5 px-6 pb-3 overflow-x-auto">
-        {channels.map((channel) => (
-          <Button
-            key={channel}
-            variant={activeChannel === channel ? "default" : "outline"}
-            size="sm"
-            className="text-xs shrink-0"
-            onClick={() => setActiveChannel(channel)}
-          >
-            {channel}
-          </Button>
-        ))}
-      </div>
-
-      {/* Main Content */}
-      <div className="flex flex-1 min-h-0 px-6 pb-6 gap-4">
-        {/* Message List */}
-        <Card className="w-96 shrink-0 flex flex-col">
-          <CardHeader className="py-3 px-4">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Search messages..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 h-8 text-sm"
-              />
-            </div>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto p-0">
-            {filteredMessages.map((msg) => (
+      {/* Main layout */}
+      <div className="flex gap-6 min-h-0">
+        {/* Sidebar: Folders */}
+        <Card className="w-52 shrink-0">
+          <CardContent className="p-2 space-y-1">
+            {([
+              { key: "inbox" as Folder, label: "Inbox", icon: Inbox, count: inboxCount, badge: unreadCount },
+              { key: "sent" as Folder, label: "Sent", icon: Send, count: sentCount, badge: 0 },
+              { key: "starred" as Folder, label: "Starred", icon: Star, count: starredCount, badge: 0 },
+            ]).map((f) => (
               <button
-                key={msg.id}
-                className={`w-full text-left px-4 py-3 border-b border-border/50 hover:bg-muted/50 transition-colors ${
-                  selectedMessageId === msg.id ? "bg-muted" : ""
-                } ${msg.unread ? "bg-blue-50/50" : ""}`}
-                onClick={() => handleSelectMessage(msg.id)}
+                key={f.key}
+                onClick={() => { setFolder(f.key); setSelectedMessageId(null); }}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
+                  folder === f.key
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "hover:bg-muted text-muted-foreground"
+                }`}
               >
-                <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                    {msg.avatar}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`text-sm truncate ${msg.unread ? "font-semibold" : "font-medium"}`}>
-                        {msg.sender}
-                      </span>
-                      <span className="text-xs text-muted-foreground shrink-0">{msg.time}</span>
-                    </div>
-                    <p className={`text-xs truncate mt-0.5 ${msg.unread ? "font-medium text-foreground" : "text-muted-foreground"}`}>
-                      {msg.subject}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{msg.preview}</p>
-                  </div>
-                  <button
-                    className="shrink-0 mt-0.5"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleStarToggle(msg.id);
-                    }}
-                  >
-                    <Star
-                      className={`h-3.5 w-3.5 ${msg.starred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/40"}`}
-                    />
-                  </button>
-                </div>
+                <f.icon className="h-4 w-4" />
+                <span className="flex-1 text-left">{f.label}</span>
+                {f.badge > 0 && (
+                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                    {f.badge}
+                  </Badge>
+                )}
+                {f.badge === 0 && f.count > 0 && (
+                  <span className="text-xs text-muted-foreground">{f.count}</span>
+                )}
               </button>
             ))}
-            {filteredMessages.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <MessageSquare className="h-8 w-8 opacity-40 mb-2" />
-                <p className="text-sm">No messages found</p>
-              </div>
-            )}
           </CardContent>
         </Card>
 
-        {/* Conversation View */}
-        <Card className="flex-1 flex flex-col min-w-0">
+        {/* Right side: table + detail */}
+        <div className="flex-1 flex flex-col gap-4 min-w-0">
+          {/* Search */}
+          <FilterBar
+            searchPlaceholder="Search messages..."
+            searchValue={search}
+            onSearchChange={setSearch}
+            fields={filterFields}
+            values={filters}
+            onChange={(k, v) => setFilters((prev) => ({ ...prev, [k]: v }))}
+          />
+
+          {/* Detail pane (if a message is selected) */}
           {selectedMessage ? (
-            <>
-              <CardHeader className="py-3 px-5 border-b">
-                <div className="flex items-center justify-between">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-semibold">
-                      {selectedMessage.avatar}
+                      {initials(userName(selectedMessage.fromUserId))}
                     </div>
                     <div>
-                      <CardTitle className="text-sm font-semibold">{selectedMessage.sender}</CardTitle>
-                      <p className="text-xs text-muted-foreground">{selectedMessage.subject}</p>
+                      <CardTitle className="text-sm font-semibold">
+                        {userName(selectedMessage.fromUserId)}
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground">
+                        To: {userName(selectedMessage.toUserId)} &middot; {fmtDate(selectedMessage.createdAt)}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <Archive className="h-4 w-4" />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => handleStar(selectedMessage.id)}
+                      title={selectedMessage.starred ? "Unstar" : "Star"}
+                    >
+                      <Star
+                        className={`h-4 w-4 ${
+                          selectedMessage.starred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
+                        }`}
+                      />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    {selectedMessage.fromUserId !== currentUserId && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 gap-1"
+                        onClick={() => setShowReply(true)}
+                      >
+                        <Reply className="h-4 w-4" />
+                        Reply
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDelete(selectedMessage.id)}
+                      title="Delete"
+                    >
                       <Trash2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs ml-2"
+                      onClick={() => setSelectedMessageId(null)}
+                    >
+                      Back to list
                     </Button>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="flex-1 overflow-y-auto p-5 space-y-4">
-                {conversationData.messages.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.isMe ? "justify-end" : "justify-start"}`}>
-                    <div
-                      className={`max-w-[70%] rounded-lg px-4 py-2.5 ${
-                        msg.isMe
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
-                      }`}
-                    >
-                      <p className="text-sm whitespace-pre-line">{msg.content}</p>
-                      <div className={`flex items-center justify-end gap-1 mt-1 ${msg.isMe ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                        <span className="text-[10px]">{msg.time}</span>
-                        {msg.isMe && (
-                          msg.status === "read" ? (
-                            <CheckCheck className="h-3 w-3" />
-                          ) : (
-                            <Check className="h-3 w-3" />
-                          )
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <CardContent>
+                <h3 className="font-semibold mb-3">{selectedMessage.subject}</h3>
+                <p className="text-sm whitespace-pre-line leading-relaxed text-foreground/80">
+                  {selectedMessage.body}
+                </p>
               </CardContent>
-              <div className="p-4 border-t">
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0 shrink-0">
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
-                  <Input
-                    placeholder="Type a message..."
-                    value={composeMessage}
-                    onChange={(e) => setComposeMessage(e.target.value)}
-                    className="h-9 text-sm"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && composeMessage.trim()) {
-                        setComposeMessage("");
-                      }
-                    }}
-                  />
-                  <Button size="sm" className="h-9 w-9 p-0 shrink-0" disabled={!composeMessage.trim()}>
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </>
+            </Card>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <MessageSquare className="h-12 w-12 mx-auto opacity-30 mb-3" />
-                <p className="text-sm font-medium">Select a message to view</p>
-                <p className="text-xs mt-1">Choose a conversation from the list</p>
-              </div>
-            </div>
+            /* Message table */
+            <DataTable<Message>
+              columns={columns}
+              data={filteredMessages}
+              onRowClick={handleSelectMessage}
+              exportable exportFilename="messages.csv" emptyMessage="No messages in this folder."
+              pagination
+            />
           )}
-        </Card>
+        </div>
       </div>
+
+      {/* Compose modal */}
       <EntityFormModal
-        open={showForm}
-        onOpenChange={setShowForm}
+        open={showCompose}
+        onOpenChange={setShowCompose}
         title="New Message"
-        fields={messageFields}
+        description="Send a message to a team member"
+        fields={composeFields}
+        submitLabel="Send"
         onSubmit={(data) => {
-          const initials = (data.recipient as string).split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
-          const newMsg: Message = {
-            id: String(messages.length + 1),
-            sender: data.recipient as string,
-            avatar: initials || "??",
+          const msg: Message = {
+            id: store.genId("msg"),
+            fromUserId: currentUserId,
+            toUserId: data.toUserId as string,
             subject: data.subject as string,
-            preview: data.message as string,
-            time: "Just now",
-            unread: false,
+            body: data.body as string,
+            read: false,
             starred: false,
-            channel: (data.channel as string) || "HR",
+            createdAt: new Date().toISOString(),
           };
-          setMessages((prev) => [newMsg, ...prev]);
+          store.add("messages", msg);
         }}
       />
+
+      {/* Reply modal */}
+      {selectedMessage && (
+        <EntityFormModal
+          open={showReply}
+          onOpenChange={setShowReply}
+          title="Reply"
+          description={`Replying to ${userName(selectedMessage.fromUserId)}`}
+          fields={replyFields}
+          initialData={{
+            toUserId: selectedMessage.fromUserId,
+            subject: selectedMessage.subject.startsWith("Re: ")
+              ? selectedMessage.subject
+              : `Re: ${selectedMessage.subject}`,
+            body: "",
+          }}
+          submitLabel="Send Reply"
+          onSubmit={(data) => {
+            const msg: Message = {
+              id: store.genId("msg"),
+              fromUserId: currentUserId,
+              toUserId: data.toUserId as string,
+              subject: data.subject as string,
+              body: data.body as string,
+              read: false,
+              starred: false,
+              createdAt: new Date().toISOString(),
+            };
+            store.add("messages", msg);
+          }}
+        />
+      )}
     </div>
   );
 }

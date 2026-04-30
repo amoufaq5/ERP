@@ -1,49 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Users, UserCheck, Star, TrendingUp, Plus, Search, GraduationCap } from "lucide-react";
+import { Users, UserCheck, Star, GraduationCap, Plus } from "lucide-react";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import DataTable, { Column } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-
-interface Candidate {
-  id: number;
-  name: string;
-  email: string;
-  degree: string;
-  currentCompany: string;
-  appliedFor: string;
-  experience: string;
-  source: string;
-  status: string;
-  rating: number;
-  appliedDate: string;
-}
-
-const initialCandidates: Candidate[] = [
-  { id: 1, name: "Dr. Amira Hassan", email: "amira.h@email.com", degree: "BSc Pharmacy, Ain Shams", currentCompany: "Hikma Pharmaceuticals", appliedFor: "District Sales Manager", experience: "6 yrs pharma sales", source: "LinkedIn", status: "INTERVIEW", rating: 5, appliedDate: "2026-03-01" },
-  { id: 2, name: "Mohamed El-Sayed", email: "mohamed.e@email.com", degree: "BSc Pharmacy, Cairo Univ", currentCompany: "EIPICO", appliedFor: "Medical Representative", experience: "2 yrs pharma sales", source: "Referral", status: "SCREENING", rating: 4, appliedDate: "2026-03-05" },
-  { id: 3, name: "Dr. Fatima Khaled", email: "fatima.k@email.com", degree: "MSc Analytical Chemistry", currentCompany: "Pharco Pharmaceuticals", appliedFor: "Quality Control Analyst", experience: "4 yrs QC lab", source: "Company Site", status: "OFFER", rating: 5, appliedDate: "2026-03-02" },
-  { id: 4, name: "Ahmed Mansour", email: "ahmed.m@email.com", degree: "BSc Pharmacy, Alex Univ", currentCompany: "Novartis Egypt", appliedFor: "Regulatory Affairs Specialist", experience: "5 yrs regulatory", source: "LinkedIn", status: "INTERVIEW", rating: 4, appliedDate: "2026-03-08" },
-  { id: 5, name: "Sara Ibrahim", email: "sara.i@email.com", degree: "BSc Pharmacy, Tanta Univ", currentCompany: "Fresh Graduate", appliedFor: "Medical Representative", experience: "Internship only", source: "University Career Fair", status: "APPLIED", rating: 3, appliedDate: "2026-03-10" },
-  { id: 6, name: "Dr. Khaled Nabil", email: "khaled.n@email.com", degree: "PhD Pharmaceutics", currentCompany: "GSK Egypt", appliedFor: "R&D Formulation Scientist", experience: "8 yrs R&D", source: "LinkedIn", status: "INTERVIEW", rating: 5, appliedDate: "2026-03-09" },
-  { id: 7, name: "Noura Youssef", email: "noura.y@email.com", degree: "BSc Pharmacy, Mansoura", currentCompany: "Amoun Pharmaceutical", appliedFor: "Production Pharmacist", experience: "3 yrs manufacturing", source: "Indeed", status: "SCREENING", rating: 4, appliedDate: "2026-03-12" },
-  { id: 8, name: "Dr. Tarek Abdel-Fattah", email: "tarek.a@email.com", degree: "MD, MSc Pharmacology", currentCompany: "Pfizer Egypt", appliedFor: "Pharmacovigilance Officer", experience: "4 yrs PV", source: "Referral", status: "OFFER", rating: 5, appliedDate: "2026-03-06" },
-  { id: 9, name: "Yasser Reda", email: "yasser.r@email.com", degree: "BSc + MBA", currentCompany: "Bayer Egypt", appliedFor: "Supply Chain Manager", experience: "9 yrs supply chain", source: "LinkedIn", status: "APPLIED", rating: 4, appliedDate: "2026-03-14" },
-  { id: 10, name: "Heba Mostafa", email: "heba.m@email.com", degree: "BSc Pharmacy, Zagazig", currentCompany: "Sedico Pharma", appliedFor: "Medical Representative", experience: "1 yr pharma sales", source: "Indeed", status: "REJECTED", rating: 2, appliedDate: "2026-02-28" },
-  { id: 11, name: "Omar Farouk", email: "omar.f@email.com", degree: "BSc Chemistry", currentCompany: "National Org for Drug Control", appliedFor: "Quality Control Analyst", experience: "6 yrs analytical", source: "Company Site", status: "INTERVIEW", rating: 4, appliedDate: "2026-03-15" },
-  { id: 12, name: "Dina Samy", email: "dina.s@email.com", degree: "BSc Pharmacy, Cairo Univ", currentCompany: "AstraZeneca Egypt", appliedFor: "Clinical Research Associate", experience: "3 yrs CRA, GCP certified", source: "LinkedIn", status: "SCREENING", rating: 4, appliedDate: "2026-03-16" },
-];
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
+import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import { useDataStore, type Candidate } from "@/lib/data-store";
 
 const statusColors: Record<string, string> = {
   APPLIED: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
@@ -53,6 +21,26 @@ const statusColors: Record<string, string> = {
   HIRED: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
   REJECTED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 };
+
+const SOURCE_OPTIONS = [
+  { label: "LinkedIn", value: "LinkedIn" }, { label: "Indeed", value: "Indeed" },
+  { label: "Referral", value: "Referral" }, { label: "Company Site", value: "Company Site" },
+  { label: "University Career Fair", value: "University Career Fair" },
+  { label: "Recruitment Agency", value: "Recruitment Agency" },
+];
+
+const FILTER_FIELDS = [
+  { key: "status", label: "Status", type: "select" as const, options: [
+    { label: "Applied", value: "APPLIED" }, { label: "Screening", value: "SCREENING" },
+    { label: "Interview", value: "INTERVIEW" }, { label: "Offer", value: "OFFER" },
+    { label: "Hired", value: "HIRED" }, { label: "Rejected", value: "REJECTED" },
+  ]},
+  { key: "source", label: "Source", type: "select" as const, options: [
+    { label: "LinkedIn", value: "LinkedIn" }, { label: "Indeed", value: "Indeed" },
+    { label: "Referral", value: "Referral" }, { label: "Company Site", value: "Company Site" },
+    { label: "University Career Fair", value: "University Career Fair" },
+  ]},
+];
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -68,38 +56,42 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 export default function CandidatesPage() {
-  const [candidates, setCandidates] = useState<Candidate[]>(initialCandidates);
-  const [search, setSearch] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newCandidate, setNewCandidate] = useState({
-    name: "", email: "", degree: "", currentCompany: "", appliedFor: "", experience: "", source: "LinkedIn",
+  const store = useDataStore();
+  const candidates = store.candidates;
+  const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", source: "" });
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState<Candidate | null>(null);
+  const [detailCandidate, setDetailCandidate] = useState<Candidate | null>(null);
+
+  const filtered = candidates.filter((c) => {
+    const q = (filters._search || "").toLowerCase();
+    const matchesSearch = !q || c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.appliedFor.toLowerCase().includes(q) || c.degree.toLowerCase().includes(q);
+    const matchesStatus = !filters.status || c.status === filters.status;
+    const matchesSource = !filters.source || c.source === filters.source;
+    return matchesSearch && matchesStatus && matchesSource;
   });
-
-  const filtered = candidates.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.email.toLowerCase().includes(search.toLowerCase()) ||
-      c.appliedFor.toLowerCase().includes(search.toLowerCase()) ||
-      c.degree.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const handleAdd = () => {
-    if (!newCandidate.name || !newCandidate.email) return;
-    const candidate: Candidate = {
-      id: candidates.length + 1,
-      ...newCandidate,
-      status: "APPLIED",
-      rating: 3,
-      appliedDate: new Date().toISOString().split("T")[0],
-    };
-    setCandidates([candidate, ...candidates]);
-    setNewCandidate({ name: "", email: "", degree: "", currentCompany: "", appliedFor: "", experience: "", source: "LinkedIn" });
-    setIsDialogOpen(false);
-  };
 
   const inInterview = candidates.filter((c) => c.status === "INTERVIEW").length;
   const offersSent = candidates.filter((c) => c.status === "OFFER").length;
   const pharmacyDegrees = candidates.filter((c) => c.degree.toLowerCase().includes("pharmacy") || c.degree.toLowerCase().includes("phd")).length;
+
+  const statusFlow: Record<string, string> = {
+    APPLIED: "SCREENING", SCREENING: "INTERVIEW", INTERVIEW: "OFFER", OFFER: "HIRED",
+  };
+
+  const jobOptions = store.jobs
+    .filter(j => j.status === "OPEN")
+    .map(j => ({ label: j.title, value: j.title }));
+
+  const candidateFields: EntityField[] = [
+    { name: "name", label: "Full Name", type: "text", placeholder: "Dr. Ahmed Mohamed", required: true },
+    { name: "email", label: "Email", type: "email", placeholder: "ahmed@email.com", required: true },
+    { name: "degree", label: "Qualification / Degree", type: "text", placeholder: "BSc Pharmacy, Cairo University", fullWidth: true },
+    { name: "currentCompany", label: "Current Employer", type: "text", placeholder: "Current company" },
+    { name: "appliedFor", label: "Applying For", type: "select", options: jobOptions.length > 0 ? jobOptions : [{ label: "No open positions", value: "" }] },
+    { name: "experience", label: "Experience", type: "text", placeholder: "3 yrs pharma sales" },
+    { name: "source", label: "Source", type: "select", defaultValue: "LinkedIn", options: SOURCE_OPTIONS },
+  ];
 
   const columns: Column<Candidate>[] = [
     {
@@ -117,23 +109,11 @@ export default function CandidatesPage() {
         </div>
       ),
     },
-    {
-      key: "degree",
-      label: "Qualification",
-      render: (val) => <span className="text-xs">{String(val)}</span>,
-    },
+    { key: "degree", label: "Qualification", render: (val) => <span className="text-xs">{String(val)}</span> },
     { key: "currentCompany", label: "Current Employer" },
     { key: "appliedFor", label: "Applied For" },
-    {
-      key: "experience",
-      label: "Experience",
-      render: (val) => <span className="text-xs text-muted-foreground">{String(val)}</span>,
-    },
-    {
-      key: "source",
-      label: "Source",
-      render: (val) => <Badge variant="outline">{String(val)}</Badge>,
-    },
+    { key: "experience", label: "Experience", render: (val) => <span className="text-xs text-muted-foreground">{String(val)}</span> },
+    { key: "source", label: "Source", render: (val) => <Badge variant="outline">{String(val)}</Badge> },
     {
       key: "status",
       label: "Status",
@@ -143,18 +123,34 @@ export default function CandidatesPage() {
         </span>
       ),
     },
-    {
-      key: "rating",
-      label: "Rating",
-      render: (val) => <StarRating rating={Number(val)} />,
-    },
+    { key: "rating", label: "Rating", render: (val) => <StarRating rating={Number(val)} /> },
     { key: "appliedDate", label: "Applied" },
+    {
+      key: "id",
+      label: "",
+      render: (_, row) => {
+        const next = statusFlow[row.status];
+        return (
+          <EditDeleteMenu
+            onEdit={() => { setEditing(row); setShowModal(true); }}
+            onDelete={() => store.remove("candidates", row.id)}
+            onView={() => setDetailCandidate(row)}
+            canView
+            itemLabel={row.name}
+            extraItems={[
+              ...(next ? [{ label: `Move to ${next}`, onClick: () => store.update("candidates", row.id, { status: next }) }] : []),
+              ...(row.status !== "REJECTED" && row.status !== "HIRED" ? [{ label: "Reject", onClick: () => store.update("candidates", row.id, { status: "REJECTED" }) }] : []),
+            ]}
+          />
+        );
+      },
+    },
   ];
 
   return (
     <div className="p-6">
       <PageHeader title="Pharmaceutical Candidates" description="Track applicants for pharma positions — sales, QA, manufacturing, R&D, regulatory">
-        <Button onClick={() => setIsDialogOpen(true)}>
+        <Button onClick={() => { setEditing(null); setShowModal(true); }}>
           <Plus className="h-4 w-4 mr-2" />
           Add Candidate
         </Button>
@@ -168,79 +164,120 @@ export default function CandidatesPage() {
       </div>
 
       <div className="rounded-lg border border-border bg-card shadow-sm">
-        <div className="flex items-center gap-3 p-4 border-b border-border">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name, qualification, position..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+        <div className="p-4 border-b border-border">
+          <FilterBar
+            searchValue={filters._search}
+            onSearchChange={(v) => setFilters((f) => ({ ...f, _search: v }))}
+            fields={FILTER_FIELDS}
+            values={filters}
+            onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))}
+          />
         </div>
-        <DataTable columns={columns} data={filtered} emptyMessage="No candidates found." />
+        <DataTable columns={columns} data={filtered} emptyMessage="No candidates found." exportable exportFilename="candidates.csv" />
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-lg">
+      <EntityFormModal
+        open={showModal}
+        onOpenChange={(open) => { if (!open) { setShowModal(false); setEditing(null); } }}
+        title={editing ? "Edit Candidate" : "Add Pharmaceutical Candidate"}
+        fields={candidateFields}
+        initialData={editing ? { name: editing.name, email: editing.email, degree: editing.degree, currentCompany: editing.currentCompany, appliedFor: editing.appliedFor, experience: editing.experience, source: editing.source } : undefined}
+        onSubmit={(data) => {
+          if (editing) {
+            store.update("candidates", editing.id, {
+              name: data.name as string,
+              email: data.email as string,
+              degree: (data.degree as string) || editing.degree,
+              currentCompany: (data.currentCompany as string) || editing.currentCompany,
+              appliedFor: (data.appliedFor as string) || editing.appliedFor,
+              experience: (data.experience as string) || editing.experience,
+              source: (data.source as string) || editing.source,
+            });
+          } else {
+            store.add("candidates", {
+              id: store.genId("cand"),
+              name: data.name as string,
+              email: data.email as string,
+              degree: (data.degree as string) || "",
+              currentCompany: (data.currentCompany as string) || "",
+              appliedFor: (data.appliedFor as string) || "",
+              experience: (data.experience as string) || "",
+              source: (data.source as string) || "LinkedIn",
+              status: "APPLIED",
+              rating: 3,
+              appliedDate: new Date().toISOString().split("T")[0],
+            });
+          }
+          setShowModal(false);
+          setEditing(null);
+        }}
+      />
+
+      {/* ── Candidate Detail Dialog ── */}
+      <Dialog open={!!detailCandidate} onOpenChange={(open) => { if (!open) setDetailCandidate(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add Pharmaceutical Candidate</DialogTitle>
+            <DialogTitle>{detailCandidate?.name}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-1.5">
-                <Label>Full Name</Label>
-                <Input placeholder="Dr. Ahmed Mohamed" value={newCandidate.name} onChange={(e) => setNewCandidate({ ...newCandidate, name: e.target.value })} />
+          {detailCandidate && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div><span className="text-sm text-muted-foreground">Full Name</span><p className="font-medium">{detailCandidate.name}</p></div>
+                <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{detailCandidate.email}</p></div>
+                <div><span className="text-sm text-muted-foreground">Current Employer</span><p className="font-medium">{detailCandidate.currentCompany || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Applied For</span><p className="font-medium">{detailCandidate.appliedFor}</p></div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <p><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[detailCandidate.status] ?? ""}`}>{detailCandidate.status}</span></p>
+                </div>
+                <div><span className="text-sm text-muted-foreground">Source</span><p className="font-medium">{detailCandidate.source}</p></div>
+                <div><span className="text-sm text-muted-foreground">Degree / Qualification</span><p className="font-medium">{detailCandidate.degree || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Experience</span><p className="font-medium">{detailCandidate.experience || "—"}</p></div>
+                <div><span className="text-sm text-muted-foreground">Applied Date</span><p className="font-medium">{detailCandidate.appliedDate}</p></div>
               </div>
-              <div className="grid gap-1.5">
-                <Label>Email</Label>
-                <Input type="email" placeholder="ahmed@email.com" value={newCandidate.email} onChange={(e) => setNewCandidate({ ...newCandidate, email: e.target.value })} />
+              {/* Rating with stars */}
+              <div>
+                <span className="text-sm text-muted-foreground">Rating</span>
+                <div className="flex items-center gap-1 mt-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} className={`h-5 w-5 ${s <= detailCandidate.rating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/30"}`} />
+                  ))}
+                  <span className="ml-2 font-semibold">{detailCandidate.rating} / 5</span>
+                </div>
               </div>
+              {detailCandidate.status === "HIRED" && (
+                <div className="pt-2 border-t">
+                  <span className="text-sm text-muted-foreground">Cross-Module Actions</span>
+                  {store.employees.some(e => e.email === detailCandidate.email) ? (
+                    <p className="text-sm text-green-600 font-medium mt-1">Employee record already exists in HR</p>
+                  ) : (
+                    <Button
+                      className="mt-2 w-full"
+                      onClick={() => {
+                        store.add("employees", {
+                          id: store.genId("emp"),
+                          employeeId: `EMP-${String(store.employees.length + 1).padStart(3, "0")}`,
+                          name: detailCandidate.name,
+                          email: detailCandidate.email,
+                          department: detailCandidate.appliedFor,
+                          position: detailCandidate.appliedFor,
+                          hireDate: new Date().toISOString().split("T")[0],
+                          salary: 0,
+                          status: "ACTIVE",
+                          manager: "—",
+                          phone: "",
+                        });
+                        setDetailCandidate(null);
+                      }}
+                    >
+                      <UserCheck className="h-4 w-4 mr-2" />
+                      Create Employee Record in HR
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="grid gap-1.5">
-              <Label>Qualification / Degree</Label>
-              <Input placeholder="BSc Pharmacy, Cairo University" value={newCandidate.degree} onChange={(e) => setNewCandidate({ ...newCandidate, degree: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-1.5">
-                <Label>Current Employer</Label>
-                <Input placeholder="Current company" value={newCandidate.currentCompany} onChange={(e) => setNewCandidate({ ...newCandidate, currentCompany: e.target.value })} />
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Applying For</Label>
-                <Select value={newCandidate.appliedFor} onValueChange={(v) => setNewCandidate({ ...newCandidate, appliedFor: v })}>
-                  <SelectTrigger><SelectValue placeholder="Select position" /></SelectTrigger>
-                  <SelectContent>
-                    {["Medical Representative", "District Sales Manager", "Quality Control Analyst", "Production Pharmacist", "R&D Formulation Scientist", "Regulatory Affairs Specialist", "Pharmacovigilance Officer", "Supply Chain Manager", "Clinical Research Associate"].map(p => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-1.5">
-                <Label>Experience</Label>
-                <Input placeholder="3 yrs pharma sales" value={newCandidate.experience} onChange={(e) => setNewCandidate({ ...newCandidate, experience: e.target.value })} />
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Source</Label>
-                <Select value={newCandidate.source} onValueChange={(v) => setNewCandidate({ ...newCandidate, source: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {["LinkedIn", "Indeed", "Referral", "Company Site", "University Career Fair", "Recruitment Agency"].map(s => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleAdd}>Add Candidate</Button>
-          </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -5,10 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Activity, ArrowDownUp, CheckCircle2, Clock, Database, Link2, Plus, RefreshCw, Server, ShieldCheck, Wifi, WifiOff, XCircle, Zap } from "lucide-react";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 interface Connection {
   name: string;
@@ -29,23 +32,45 @@ interface DataFlow {
 }
 
 const connectionFields: EntityField[] = [
-  { key: "name", label: "Connection Name", type: "text", required: true },
-  { key: "type", label: "Type", type: "select", required: true, options: [
+  { name: "name", label: "Connection Name", type: "text", required: true },
+  { name: "type", label: "Type", type: "select", required: true, options: [
     { label: "ERP", value: "ERP" }, { label: "CRM", value: "CRM" },
     { label: "Payment", value: "Payment" }, { label: "Storage", value: "Storage" },
     { label: "Messaging", value: "Messaging" }, { label: "Project Mgmt", value: "Project Mgmt" },
     { label: "Data Warehouse", value: "Data Warehouse" }, { label: "Marketing", value: "Marketing" },
   ]},
-  { key: "latency", label: "Expected Latency (ms)", type: "text" },
+  { name: "latency", label: "Expected Latency (ms)", type: "text" },
+];
+
+const MODULE_OPTIONS = [
+  { label: "Finance Module", value: "Finance Module" },
+  { label: "HR & Payroll", value: "HR & Payroll" },
+  { label: "Inventory", value: "Inventory" },
+  { label: "CRM Gateway", value: "CRM Gateway" },
+  { label: "Supply Chain", value: "Supply Chain" },
+  { label: "Analytics Engine", value: "Analytics Engine" },
+  { label: "SAP ERP", value: "SAP ERP" },
+  { label: "Salesforce", value: "Salesforce" },
+  { label: "Stripe", value: "Stripe" },
+  { label: "AWS S3", value: "AWS S3" },
+  { label: "Snowflake", value: "Snowflake" },
+  { label: "HubSpot", value: "HubSpot" },
+  { label: "Jira", value: "Jira" },
+  { label: "Slack", value: "Slack" },
 ];
 
 const dataFlowFields: EntityField[] = [
-  { key: "source", label: "Source", type: "text", required: true },
-  { key: "dest", label: "Destination", type: "text", required: true },
-  { key: "type", label: "Type", type: "select", required: true, options: [
+  { name: "source", label: "Source", type: "select", required: true, options: MODULE_OPTIONS },
+  { name: "dest", label: "Destination", type: "select", required: true, options: MODULE_OPTIONS },
+  { name: "type", label: "Type", type: "select", required: true, options: [
     { label: "Batch", value: "Batch" }, { label: "Real-time", value: "Real-time" }, { label: "Webhook", value: "Webhook" },
   ]},
-  { key: "frequency", label: "Frequency", type: "text", required: true },
+  { name: "frequency", label: "Frequency", type: "select", required: true, options: [
+    { label: "Streaming", value: "Streaming" }, { label: "On event", value: "On event" },
+    { label: "Every 5m", value: "Every 5m" }, { label: "Every 15m", value: "Every 15m" },
+    { label: "Every 30m", value: "Every 30m" }, { label: "Hourly", value: "Hourly" },
+    { label: "Daily", value: "Daily" }, { label: "Weekly", value: "Weekly" },
+  ]},
 ];
 
 type ModalMode =
@@ -134,6 +159,7 @@ export default function IntegrationPage() {
   const [modal, setModal] = useState<ModalMode>(null);
   const [connFilters, setConnFilters] = useState<FilterState>({ _search: "", status: "" });
   const [flowFilters, setFlowFilters] = useState<FilterState>({ _search: "", status: "" });
+  const [viewItem, setViewItem] = useState<any>(null);
 
   const filteredConns = connections.filter((c) => {
     if (connFilters.status && c.status !== connFilters.status) return false;
@@ -230,6 +256,7 @@ export default function IntegrationPage() {
                   <div className="flex items-center gap-1">
                     {c.status === "connected" ? <Wifi className="h-4 w-4 text-green-500" /> : <WifiOff className="h-4 w-4 text-destructive" />}
                     <EditDeleteMenu
+                      onView={() => setViewItem({ _kind: "connection", ...c })}
                       onEdit={() => setModal({ kind: "connection", editing: c })}
                       onDelete={() => setConnections((prev) => prev.filter((x) => x.name !== c.name))}
                       itemLabel={c.name}
@@ -276,54 +303,46 @@ export default function IntegrationPage() {
                 values={flowFilters}
                 onChange={(k, v) => setFlowFilters((f) => ({ ...f, [k]: v }))}
               />
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-2 font-medium">ID</th>
-                      <th className="pb-2 font-medium">Source</th>
-                      <th className="pb-2 font-medium">Destination</th>
-                      <th className="pb-2 font-medium">Type</th>
-                      <th className="pb-2 font-medium">Frequency</th>
-                      <th className="pb-2 font-medium">Status</th>
-                      <th className="pb-2 font-medium">Last Run</th>
-                      <th className="pb-2 font-medium text-right">Records</th>
-                      <th className="pb-2 font-medium"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredFlows.map((f) => (
-                      <tr key={f.id} className="border-b last:border-0">
-                        <td className="py-2 font-mono">{f.id}</td>
-                        <td className="py-2">{f.source}</td>
-                        <td className="py-2">{f.dest}</td>
-                        <td className="py-2">{f.type}</td>
-                        <td className="py-2">{f.frequency}</td>
-                        <td className="py-2">{statusBadge(f.status)}</td>
-                        <td className="py-2 text-muted-foreground">{f.lastRun}</td>
-                        <td className="py-2 text-right font-mono">{f.records}</td>
-                        <td className="py-2">
-                          <EditDeleteMenu
-                            onEdit={() => setModal({ kind: "flow", editing: f })}
-                            onDelete={() => setFlows((prev) => prev.filter((x) => x.id !== f.id))}
-                            itemLabel={f.id}
-                            extraItems={(() => {
-                              const flow: Record<string, { label: string; status: DataFlow["status"] }> = {
-                                active: { label: "Pause Flow", status: "paused" },
-                                paused: { label: "Resume Flow", status: "active" },
-                                error: { label: "Retry Flow", status: "active" },
-                              };
-                              const next = flow[f.status];
-                              if (!next) return [];
-                              return [{ label: next.label, onClick: () => setFlows((prev) => prev.map((x) => x.id === f.id ? { ...x, status: next.status } : x)) }];
-                            })()}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v: unknown) => <span className="font-mono">{String(v)}</span> },
+                  { key: "source", label: "Source" },
+                  { key: "dest", label: "Destination" },
+                  { key: "type", label: "Type" },
+                  { key: "frequency", label: "Frequency" },
+                  { key: "status", label: "Status", render: (v: unknown) => statusBadge(String(v)) },
+                  { key: "lastRun", label: "Last Run", render: (v: unknown) => <span className="text-muted-foreground">{String(v)}</span> },
+                  { key: "records", label: "Records", className: "text-right", render: (v: unknown) => <span className="font-mono">{String(v)}</span> },
+                  {
+                    key: "_actions",
+                    label: "",
+                    render: (_v: unknown, row: Record<string, unknown>) => {
+                      const f = row as unknown as DataFlow;
+                      return (
+                        <EditDeleteMenu
+                          onView={() => setViewItem({ _kind: "flow", ...f })}
+                          onEdit={() => setModal({ kind: "flow", editing: f })}
+                          onDelete={() => setFlows((prev) => prev.filter((x) => x.id !== f.id))}
+                          itemLabel={f.id}
+                          extraItems={(() => {
+                            const flow: Record<string, { label: string; status: DataFlow["status"] }> = {
+                              active: { label: "Pause Flow", status: "paused" },
+                              paused: { label: "Resume Flow", status: "active" },
+                              error: { label: "Retry Flow", status: "active" },
+                            };
+                            const next = flow[f.status];
+                            if (!next) return [];
+                            return [{ label: next.label, onClick: () => setFlows((prev) => prev.map((x) => x.id === f.id ? { ...x, status: next.status } : x)) }];
+                          })()}
+                        />
+                      );
+                    },
+                  },
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredFlows as unknown as Record<string, unknown>[]}
+                
+                exportable exportFilename="integration.csv" emptyMessage="No data flows found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -336,28 +355,17 @@ export default function IntegrationPage() {
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-2 font-medium">Timestamp</th>
-                      <th className="pb-2 font-medium">Level</th>
-                      <th className="pb-2 font-medium">Source</th>
-                      <th className="pb-2 font-medium">Message</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logs.map((log, i) => (
-                      <tr key={i} className="border-b last:border-0">
-                        <td className="py-2 font-mono text-xs text-muted-foreground whitespace-nowrap">{log.ts}</td>
-                        <td className="py-2">{levelBadge(log.level)}</td>
-                        <td className="py-2 font-medium whitespace-nowrap">{log.source}</td>
-                        <td className="py-2 text-muted-foreground">{log.message}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "ts", label: "Timestamp", render: (v: unknown) => <span className="font-mono text-xs text-muted-foreground whitespace-nowrap">{String(v)}</span> },
+                  { key: "level", label: "Level", render: (v: unknown) => levelBadge(String(v)) },
+                  { key: "source", label: "Source", render: (v: unknown) => <span className="font-medium whitespace-nowrap">{String(v)}</span> },
+                  { key: "message", label: "Message", render: (v: unknown) => <span className="text-muted-foreground">{String(v)}</span> },
+                ] as Column<Record<string, unknown>>[]}
+                data={logs as unknown as Record<string, unknown>[]}
+                
+                exportable exportFilename="integration.csv" emptyMessage="No logs available."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -366,7 +374,7 @@ export default function IntegrationPage() {
       {/* Connection Modal */}
       <EntityFormModal
         open={modal?.kind === "connection"}
-        onOpenChange={(open) => !open && setModal(null)}
+        onOpenChange={(open) => { if (!open) setModal(null); }}
         title={modal?.kind === "connection" && modal.editing ? "Edit Connection" : "Add Connection"}
         fields={connectionFields}
         initialData={modal?.kind === "connection" && modal.editing ? {
@@ -385,7 +393,7 @@ export default function IntegrationPage() {
       {/* Data Flow Modal */}
       <EntityFormModal
         open={modal?.kind === "flow"}
-        onOpenChange={(open) => !open && setModal(null)}
+        onOpenChange={(open) => { if (!open) setModal(null); }}
         title={modal?.kind === "flow" && modal.editing ? "Edit Data Flow" : "Add Data Flow"}
         fields={dataFlowFields}
         initialData={modal?.kind === "flow" && modal.editing ? {
@@ -395,11 +403,40 @@ export default function IntegrationPage() {
           if (modal?.kind === "flow" && modal.editing) {
             setFlows((prev) => prev.map((f) => f.id === modal.editing!.id ? { ...f, source: data.source as string, dest: data.dest as string, type: data.type as string, frequency: data.frequency as string } : f));
           } else {
-            setFlows((prev) => [...prev, { id: `DF-${String(prev.length + 1).padStart(3, "0")}`, source: data.source as string, dest: data.dest as string, type: data.type as string, frequency: data.frequency as string, status: "paused", lastRun: "Never", records: "—" }]);
+            setFlows((prev) => [...prev, { id: `DF-${Date.now().toString(36)}`, source: data.source as string, dest: data.dest as string, type: data.type as string, frequency: data.frequency as string, status: "paused", lastRun: "Never", records: "—" }]);
           }
           setModal(null);
         }}
       />
+
+      {/* Detail View Dialog */}
+      <Dialog open={!!viewItem} onOpenChange={(o) => !o && setViewItem(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewItem?.name || viewItem?.id}</DialogTitle>
+          </DialogHeader>
+          {viewItem?._kind === "connection" && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Connection Name</span><p className="font-medium">{viewItem.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Latency</span><p className="font-medium">{viewItem.latency}</p></div>
+            </div>
+          )}
+          {viewItem?._kind === "flow" && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Flow ID</span><p className="font-medium">{viewItem.id}</p></div>
+              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewItem.type}</p></div>
+              <div><span className="text-sm text-muted-foreground">Source</span><p className="font-medium">{viewItem.source}</p></div>
+              <div><span className="text-sm text-muted-foreground">Destination</span><p className="font-medium">{viewItem.dest}</p></div>
+              <div><span className="text-sm text-muted-foreground">Frequency</span><p className="font-medium">{viewItem.frequency}</p></div>
+              <div><span className="text-sm text-muted-foreground">Status</span><p className="font-medium">{viewItem.status}</p></div>
+              <div><span className="text-sm text-muted-foreground">Last Run</span><p className="font-medium">{viewItem.lastRun}</p></div>
+              <div><span className="text-sm text-muted-foreground">Records</span><p className="font-medium">{viewItem.records}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

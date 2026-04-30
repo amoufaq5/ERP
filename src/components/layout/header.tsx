@@ -13,6 +13,10 @@ import {
   Home,
   Users,
   Check,
+  Globe,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -25,6 +29,10 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useCurrentUser, ROLE_LABEL, type UserRole } from "@/lib/user-context";
+import { useTranslation } from "@/lib/i18n/i18n-context";
+import type { Locale } from "@/lib/i18n/translations";
+import { useTheme } from "@/lib/theme-context";
+import { useNotifications, type NotificationType } from "@/lib/notifications";
 
 interface BreadcrumbSegment {
   label: string;
@@ -33,8 +41,9 @@ interface BreadcrumbSegment {
 
 const ROUTE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
+  hubs: "Hubs",
   erp: "ERP",
-  finance: "Finance",
+  finance: "Finance & Accounting",
   accounting: "Accounting",
   procurement: "Procurement",
   inventory: "Inventory",
@@ -67,6 +76,10 @@ const ROUTE_LABELS: Record<string, string> = {
   onboarding: "Onboarding",
   training: "Training",
   automation: "Automation",
+  "supply-chain": "Supply Chain & Procurement",
+  quality: "Quality, Safety & Compliance",
+  tools: "Tools & Administration",
+  "partner-ledger": "Partner Ledger",
   ai: "AI Hub",
   documents: "Documents",
   settings: "Settings",
@@ -121,6 +134,143 @@ function getRoleBadgeColor(role: UserRole): string {
   }
 }
 
+const LOCALE_OPTIONS: { value: Locale; label: string; flag: string }[] = [
+  { value: "en", label: "English", flag: "EN" },
+  { value: "ar", label: "العربية", flag: "AR" },
+];
+
+function LanguageSwitcher() {
+  const { locale, setLocale } = useTranslation();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="flex items-center gap-1.5 h-9 px-2.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors border border-input"
+          aria-label="Switch language"
+        >
+          <Globe className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">{LOCALE_OPTIONS.find((o) => o.value === locale)?.flag}</span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuLabel className="text-xs text-muted-foreground">Language</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {LOCALE_OPTIONS.map((opt) => (
+          <DropdownMenuItem
+            key={opt.value}
+            onClick={() => setLocale(opt.value)}
+            className="cursor-pointer flex items-center gap-2"
+          >
+            <span className="text-sm font-medium">{opt.flag}</span>
+            <span className="text-sm">{opt.label}</span>
+            {locale === opt.value && <Check className="h-3.5 w-3.5 ml-auto text-blue-600" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+  const options: { value: "light" | "dark" | "system"; label: string; icon: typeof Sun }[] = [
+    { value: "light", label: "Light", icon: Sun },
+    { value: "dark", label: "Dark", icon: Moon },
+    { value: "system", label: "System", icon: Monitor },
+  ];
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          aria-label="Toggle theme"
+        >
+          {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-36">
+        {options.map((opt) => {
+          const Icon = opt.icon;
+          return (
+            <DropdownMenuItem
+              key={opt.value}
+              onClick={() => setTheme(opt.value)}
+              className="cursor-pointer flex items-center gap-2"
+            >
+              <Icon className="h-3.5 w-3.5" />
+              <span className="text-sm">{opt.label}</span>
+              {theme === opt.value && <Check className="h-3.5 w-3.5 ml-auto text-blue-600" />}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+const NOTIF_TYPE_COLORS: Record<NotificationType, string> = {
+  info: "bg-blue-500",
+  success: "bg-green-500",
+  warning: "bg-amber-500",
+  error: "bg-red-500",
+};
+
+function NotificationPanel() {
+  const router = useRouter();
+  const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="relative flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          aria-label={`${unreadCount} notifications`}
+        >
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white leading-none">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+        <div className="flex items-center justify-between px-3 py-2">
+          <DropdownMenuLabel className="p-0 text-sm">Notifications</DropdownMenuLabel>
+          {unreadCount > 0 && (
+            <button onClick={markAllRead} className="text-[11px] text-blue-600 hover:underline">
+              Mark all read
+            </button>
+          )}
+        </div>
+        <DropdownMenuSeparator />
+        {notifications.length === 0 ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">No notifications</div>
+        ) : (
+          notifications.slice(0, 10).map((n) => (
+            <DropdownMenuItem
+              key={n.id}
+              onClick={() => {
+                markRead(n.id);
+                if (n.actionUrl) router.push(n.actionUrl);
+              }}
+              className={cn("cursor-pointer flex items-start gap-2.5 py-2.5 px-3", !n.read && "bg-blue-50/50")}
+            >
+              <div className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", NOTIF_TYPE_COLORS[n.type])} />
+              <div className="flex-1 min-w-0">
+                <p className={cn("text-sm truncate", !n.read && "font-semibold")}>{n.title}</p>
+                <p className="text-xs text-muted-foreground line-clamp-2">{n.message}</p>
+                <p className="text-[10px] text-muted-foreground/70 mt-0.5">{n.module} · {new Date(n.timestamp).toLocaleDateString()}</p>
+              </div>
+            </DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 interface HeaderProps {
   onMobileMenuToggle: () => void;
 }
@@ -130,7 +280,6 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
   const pathname = usePathname();
   const { user, setUser, allUsers } = useCurrentUser();
   const [searchValue, setSearchValue] = useState("");
-  const [notificationCount] = useState(3);
 
   const handleLogout = useCallback(() => {
     try {
@@ -145,7 +294,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
   const breadcrumbs = buildBreadcrumbs(pathname);
 
   return (
-    <header className="flex items-center h-16 shrink-0 bg-white border-b border-border px-4 gap-3">
+    <header className="flex items-center h-16 shrink-0 bg-background border-b border-border px-4 gap-3">
       {/* Mobile menu button */}
       <button
         onClick={onMobileMenuToggle}
@@ -250,18 +399,14 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
           </DropdownMenu>
         )}
 
+        {/* Language switcher */}
+        <LanguageSwitcher />
+
+        {/* Theme toggle */}
+        <ThemeToggle />
+
         {/* Notifications */}
-        <button
-          className="relative flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-          aria-label={`${notificationCount} notifications`}
-        >
-          <Bell className="h-5 w-5" />
-          {notificationCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white leading-none">
-              {notificationCount > 9 ? "9+" : notificationCount}
-            </span>
-          )}
-        </button>
+        <NotificationPanel />
 
         {/* User dropdown */}
         <DropdownMenu>

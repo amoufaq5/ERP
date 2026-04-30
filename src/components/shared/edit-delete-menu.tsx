@@ -37,7 +37,7 @@ export function EditDeleteMenu({
   onView,
   canEdit = true,
   canDelete = true,
-  canView = false,
+  canView = true,
   itemLabel = "this item",
   extraItems = [],
   compact = false,

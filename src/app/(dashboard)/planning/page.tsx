@@ -19,10 +19,13 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
+import DataTable from "@/components/shared/data-table"
+import type { Column } from "@/components/shared/data-table"
 
 const initialStrategicGoals = [
   { id: "SG-001", goal: "Expand APAC Market Presence", owner: "Sarah Chen", department: "Sales", target: "15% revenue share", progress: 72, status: "On Track", deadline: "2026-12-31" },
@@ -115,7 +118,7 @@ const resourceAllocations = [
 ]
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
+  return `EGP ${value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
 
 function getStatusBadge(status: string): "default" | "secondary" | "destructive" | "outline" {
@@ -137,16 +140,131 @@ function getPriorityBadge(priority: string): "default" | "secondary" | "destruct
 }
 
 const planFormFields: EntityField[] = [
-  { key: "objective", label: "Objective", type: "text", required: true },
-  { key: "kpi", label: "KPI / Department", type: "text", required: true },
-  { key: "target", label: "Target", type: "text", required: true },
-  { key: "owner", label: "Owner", type: "text", required: true },
-  { key: "timeline", label: "Timeline", type: "text", required: true },
-  { key: "status", label: "Status", type: "select", options: [
+  { name: "objective", label: "Objective", type: "text", required: true },
+  { name: "kpi", label: "KPI / Department", type: "text", required: true },
+  { name: "target", label: "Target", type: "text", required: true },
+  { name: "owner", label: "Owner", type: "text", required: true },
+  { name: "timeline", label: "Timeline", type: "text", required: true },
+  { name: "status", label: "Status", type: "select", options: [
     { label: "On Track", value: "On Track" },
     { label: "At Risk", value: "At Risk" },
     { label: "Behind", value: "Behind" },
   ]},
+]
+
+const budgetFormFields: EntityField[] = [
+  { name: "department", label: "Department", type: "text", required: true },
+  { name: "allocated", label: "Allocated (EGP)", type: "number", required: true },
+  { name: "spent", label: "Spent (EGP)", type: "number", required: true },
+  { name: "committed", label: "Committed (EGP)", type: "number", required: true },
+  { name: "remaining", label: "Remaining (EGP)", type: "number", required: true },
+  { name: "variance", label: "Variance (%)", type: "number", required: true, step: 0.1 },
+  { name: "fy", label: "Fiscal Year", type: "text", required: true },
+]
+
+const workforceFormFields: EntityField[] = [
+  { name: "department", label: "Department", type: "text", required: true },
+  { name: "current", label: "Current HC", type: "number", required: true },
+  { name: "planned", label: "Planned HC", type: "number", required: true },
+  { name: "openReqs", label: "Open Reqs", type: "number", required: true },
+  { name: "attrition", label: "Attrition %", type: "number", required: true, step: 0.1 },
+  { name: "avgTenure", label: "Avg Tenure (yr)", type: "number", required: true, step: 0.1 },
+  { name: "contractors", label: "Contractors", type: "number", required: true },
+]
+
+const productionFormFields: EntityField[] = [
+  { name: "product", label: "Product", type: "text", required: true },
+  { name: "quantity", label: "Quantity", type: "number", required: true },
+  { name: "line", label: "Line", type: "select", required: true, options: [
+    { label: "Line A", value: "Line A" },
+    { label: "Line B", value: "Line B" },
+    { label: "Line C", value: "Line C" },
+    { label: "Line D", value: "Line D" },
+  ]},
+  { name: "startDate", label: "Start Date", type: "date", required: true },
+  { name: "dueDate", label: "Due Date", type: "date", required: true },
+  { name: "status", label: "Status", type: "select", required: true, options: [
+    { label: "Scheduled", value: "Scheduled" },
+    { label: "In Progress", value: "In Progress" },
+    { label: "Pending Approval", value: "Pending Approval" },
+  ]},
+  { name: "priority", label: "Priority", type: "select", required: true, options: [
+    { label: "Critical", value: "Critical" },
+    { label: "High", value: "High" },
+    { label: "Medium", value: "Medium" },
+    { label: "Low", value: "Low" },
+  ]},
+]
+
+const salesFormFields: EntityField[] = [
+  { name: "territory", label: "Territory", type: "text", required: true },
+  { name: "manager", label: "Manager", type: "text", required: true },
+  { name: "targetRevenue", label: "Target Revenue (EGP)", type: "number", required: true },
+  { name: "currentRevenue", label: "Current Revenue (EGP)", type: "number", required: true },
+  { name: "accounts", label: "Accounts", type: "number", required: true },
+  { name: "pipeline", label: "Pipeline (EGP)", type: "number", required: true },
+  { name: "winRate", label: "Win Rate (%)", type: "number", required: true },
+  { name: "qoqGrowth", label: "QoQ Growth (%)", type: "number", required: true, step: 0.1 },
+]
+
+const itFormFields: EntityField[] = [
+  { name: "project", label: "Project", type: "text", required: true },
+  { name: "lead", label: "Lead", type: "text", required: true },
+  { name: "phase", label: "Phase", type: "select", required: true, options: [
+    { label: "Planning", value: "Planning" },
+    { label: "Design", value: "Design" },
+    { label: "Execution", value: "Execution" },
+    { label: "Testing", value: "Testing" },
+  ]},
+  { name: "budget", label: "Budget (EGP)", type: "number", required: true },
+  { name: "spent", label: "Spent (EGP)", type: "number", required: true },
+  { name: "completion", label: "Completion (%)", type: "number", required: true },
+  { name: "goLive", label: "Go-Live Date", type: "date", required: true },
+  { name: "risk", label: "Risk", type: "select", required: true, options: [
+    { label: "Low", value: "Low" },
+    { label: "Medium", value: "Medium" },
+    { label: "High", value: "High" },
+  ]},
+]
+
+const riskFormFields: EntityField[] = [
+  { name: "risk", label: "Risk Description", type: "text", required: true, fullWidth: true },
+  { name: "category", label: "Category", type: "select", required: true, options: [
+    { label: "Operational", value: "Operational" },
+    { label: "Technology", value: "Technology" },
+    { label: "Compliance", value: "Compliance" },
+    { label: "People", value: "People" },
+    { label: "Financial", value: "Financial" },
+    { label: "Legal", value: "Legal" },
+    { label: "Strategic", value: "Strategic" },
+  ]},
+  { name: "likelihood", label: "Likelihood", type: "select", required: true, options: [
+    { label: "Low", value: "Low" },
+    { label: "Medium", value: "Medium" },
+    { label: "High", value: "High" },
+  ]},
+  { name: "impact", label: "Impact", type: "select", required: true, options: [
+    { label: "Medium", value: "Medium" },
+    { label: "High", value: "High" },
+    { label: "Critical", value: "Critical" },
+  ]},
+  { name: "owner", label: "Owner", type: "text", required: true },
+  { name: "mitigation", label: "Mitigation", type: "text", required: true },
+  { name: "status", label: "Status", type: "select", required: true, options: [
+    { label: "Active", value: "Active" },
+    { label: "Monitoring", value: "Monitoring" },
+    { label: "Mitigating", value: "Mitigating" },
+  ]},
+]
+
+const resourceFormFields: EntityField[] = [
+  { name: "resource", label: "Resource Pool", type: "text", required: true },
+  { name: "department", label: "Department", type: "text", required: true },
+  { name: "totalFTE", label: "Total FTE", type: "number", required: true },
+  { name: "allocated", label: "Allocated", type: "number", required: true, step: 0.5 },
+  { name: "available", label: "Available", type: "number", required: true, step: 0.5 },
+  { name: "utilization", label: "Utilization (%)", type: "number", required: true },
+  { name: "topProject", label: "Top Project", type: "text", required: true },
 ]
 
 export default function PlanningPage() {
@@ -154,6 +272,35 @@ export default function PlanningPage() {
   const [editingGoal, setEditingGoal] = useState<typeof initialStrategicGoals[0] | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "" })
+  const [viewGoal, setViewGoal] = useState<typeof initialStrategicGoals[0] | null>(null)
+
+  const [budgets, setBudgets] = useState(departmentBudgets)
+  const [editingBudget, setEditingBudget] = useState<typeof departmentBudgets[0] | null>(null)
+  const [showBudgetForm, setShowBudgetForm] = useState(false)
+
+  const [workforce, setWorkforce] = useState(workforceData)
+  const [editingWorkforce, setEditingWorkforce] = useState<typeof workforceData[0] | null>(null)
+  const [showWorkforceForm, setShowWorkforceForm] = useState(false)
+
+  const [production, setProduction] = useState(productionOrders)
+  const [editingProduction, setEditingProduction] = useState<typeof productionOrders[0] | null>(null)
+  const [showProductionForm, setShowProductionForm] = useState(false)
+
+  const [sales, setSales] = useState(territoryPlans)
+  const [editingSales, setEditingSales] = useState<typeof territoryPlans[0] | null>(null)
+  const [showSalesForm, setShowSalesForm] = useState(false)
+
+  const [itData, setItData] = useState(itProjects)
+  const [editingIt, setEditingIt] = useState<typeof itProjects[0] | null>(null)
+  const [showItForm, setShowItForm] = useState(false)
+
+  const [risks, setRisks] = useState(enterpriseRisks)
+  const [editingRisk, setEditingRisk] = useState<typeof enterpriseRisks[0] | null>(null)
+  const [showRiskForm, setShowRiskForm] = useState(false)
+
+  const [resources, setResources] = useState(resourceAllocations)
+  const [editingResource, setEditingResource] = useState<typeof resourceAllocations[0] | null>(null)
+  const [showResourceForm, setShowResourceForm] = useState(false)
 
   return (
     <div className="space-y-6">
@@ -165,7 +312,7 @@ export default function PlanningPage() {
         <Button onClick={() => { setEditingGoal(null); setShowForm(true); }}><Plus className="mr-2 h-4 w-4" /> New Plan</Button>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -183,7 +330,7 @@ export default function PlanningPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Budget</p>
-                <p className="text-2xl font-bold">$18.95M</p>
+                <p className="text-2xl font-bold">EGP 18.95M</p>
               </div>
               <DollarSign className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -217,7 +364,7 @@ export default function PlanningPage() {
       </div>
 
       <Tabs defaultValue="strategic" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="flex flex-wrap gap-1 w-full">
           <TabsTrigger value="strategic"><Target className="mr-1.5 h-3.5 w-3.5" />Strategic</TabsTrigger>
           <TabsTrigger value="financial"><DollarSign className="mr-1.5 h-3.5 w-3.5" />Financial</TabsTrigger>
           <TabsTrigger value="workforce"><Users className="mr-1.5 h-3.5 w-3.5" />Workforce</TabsTrigger>
@@ -279,6 +426,8 @@ export default function PlanningPage() {
                       </div>
                     </div>
                     <EditDeleteMenu
+                      onView={() => setViewGoal(goal)}
+                      canView
                       onEdit={() => { setEditingGoal(goal); setShowForm(true); }}
                       onDelete={() => setStrategicGoals(prev => prev.filter(g => g.id !== goal.id))}
                       itemLabel={goal.goal}
@@ -293,41 +442,44 @@ export default function PlanningPage() {
         <TabsContent value="financial">
           <Card>
             <CardHeader>
-              <CardTitle>Department Budgets FY2026</CardTitle>
-              <CardDescription>Allocated budgets, spending, and variance analysis by department</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Department Budgets FY2026</CardTitle>
+                  <CardDescription>Allocated budgets, spending, and variance analysis by department</CardDescription>
+                </div>
+                <Button onClick={() => { setEditingBudget(null); setShowBudgetForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Budget</Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium">Department</th>
-                      <th className="text-right py-3 px-4 font-medium">Allocated</th>
-                      <th className="text-right py-3 px-4 font-medium">Spent</th>
-                      <th className="text-right py-3 px-4 font-medium">Committed</th>
-                      <th className="text-right py-3 px-4 font-medium">Remaining</th>
-                      <th className="text-right py-3 px-4 font-medium">Variance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {departmentBudgets.map((b) => (
-                      <tr key={b.department} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4 font-medium">{b.department}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(b.allocated)}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(b.spent)}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(b.committed)}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(b.remaining)}</td>
-                        <td className="py-3 px-4 text-right">
-                          <span className={`inline-flex items-center gap-1 ${b.variance >= 0 ? "text-green-600" : "text-red-600"}`}>
-                            {b.variance >= 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
-                            {Math.abs(b.variance)}%
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "department", label: "Department", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "allocated", label: "Allocated", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "spent", label: "Spent", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "committed", label: "Committed", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "remaining", label: "Remaining", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "variance", label: "Variance", className: "text-right", render: (v: number) => (
+                    <span className={`inline-flex items-center gap-1 ${v >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {v >= 0 ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+                      {Math.abs(v)}%
+                    </span>
+                  )},
+                  { key: "_actions", label: "", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof departmentBudgets[0]
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingBudget(item); setShowBudgetForm(true); }}
+                        onDelete={() => setBudgets(prev => prev.filter(b => b.department !== item.department))}
+                        itemLabel={item.department}
+                      />
+                    )
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={budgets as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="budget-planning.csv"
+                emptyMessage="No budget data available."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -335,42 +487,44 @@ export default function PlanningPage() {
         <TabsContent value="workforce">
           <Card>
             <CardHeader>
-              <CardTitle>Workforce Planning</CardTitle>
-              <CardDescription>Headcount, hiring pipeline, and attrition metrics by department</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Workforce Planning</CardTitle>
+                  <CardDescription>Headcount, hiring pipeline, and attrition metrics by department</CardDescription>
+                </div>
+                <Button onClick={() => { setEditingWorkforce(null); setShowWorkforceForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Workforce</Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium">Department</th>
-                      <th className="text-right py-3 px-4 font-medium">Current HC</th>
-                      <th className="text-right py-3 px-4 font-medium">Planned HC</th>
-                      <th className="text-right py-3 px-4 font-medium">Open Reqs</th>
-                      <th className="text-right py-3 px-4 font-medium">Attrition %</th>
-                      <th className="text-right py-3 px-4 font-medium">Avg Tenure (yr)</th>
-                      <th className="text-right py-3 px-4 font-medium">Contractors</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {workforceData.map((w) => (
-                      <tr key={w.department} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4 font-medium">{w.department}</td>
-                        <td className="py-3 px-4 text-right">{w.current}</td>
-                        <td className="py-3 px-4 text-right">{w.planned}</td>
-                        <td className="py-3 px-4 text-right">
-                          <Badge variant={w.openReqs >= 8 ? "destructive" : w.openReqs >= 4 ? "secondary" : "outline"}>{w.openReqs}</Badge>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <span className={w.attrition > 10 ? "text-red-600 font-medium" : ""}>{w.attrition}%</span>
-                        </td>
-                        <td className="py-3 px-4 text-right">{w.avgTenure}</td>
-                        <td className="py-3 px-4 text-right">{w.contractors}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "department", label: "Department", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "current", label: "Current HC", className: "text-right" },
+                  { key: "planned", label: "Planned HC", className: "text-right" },
+                  { key: "openReqs", label: "Open Reqs", className: "text-right", render: (v: number) => (
+                    <Badge variant={v >= 8 ? "destructive" : v >= 4 ? "secondary" : "outline"}>{v}</Badge>
+                  )},
+                  { key: "attrition", label: "Attrition %", className: "text-right", render: (v: number) => (
+                    <span className={v > 10 ? "text-red-600 font-medium" : ""}>{v}%</span>
+                  )},
+                  { key: "avgTenure", label: "Avg Tenure (yr)", className: "text-right" },
+                  { key: "contractors", label: "Contractors", className: "text-right" },
+                  { key: "_actions", label: "", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof workforceData[0]
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingWorkforce(item); setShowWorkforceForm(true); }}
+                        onDelete={() => setWorkforce(prev => prev.filter(w => w.department !== item.department))}
+                        itemLabel={item.department}
+                      />
+                    )
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={workforce as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="workforce-planning.csv"
+                emptyMessage="No workforce data available."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -378,40 +532,41 @@ export default function PlanningPage() {
         <TabsContent value="production">
           <Card>
             <CardHeader>
-              <CardTitle>Production Planning</CardTitle>
-              <CardDescription>Active and scheduled production orders across manufacturing lines</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Production Planning</CardTitle>
+                  <CardDescription>Active and scheduled production orders across manufacturing lines</CardDescription>
+                </div>
+                <Button onClick={() => { setEditingProduction(null); setShowProductionForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Order</Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium">Order ID</th>
-                      <th className="text-left py-3 px-4 font-medium">Product</th>
-                      <th className="text-right py-3 px-4 font-medium">Qty</th>
-                      <th className="text-left py-3 px-4 font-medium">Line</th>
-                      <th className="text-left py-3 px-4 font-medium">Start</th>
-                      <th className="text-left py-3 px-4 font-medium">Due</th>
-                      <th className="text-left py-3 px-4 font-medium">Status</th>
-                      <th className="text-left py-3 px-4 font-medium">Priority</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {productionOrders.map((po) => (
-                      <tr key={po.id} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4 font-mono text-xs">{po.id}</td>
-                        <td className="py-3 px-4 font-medium">{po.product}</td>
-                        <td className="py-3 px-4 text-right">{po.quantity.toLocaleString()}</td>
-                        <td className="py-3 px-4">{po.line}</td>
-                        <td className="py-3 px-4">{po.startDate}</td>
-                        <td className="py-3 px-4">{po.dueDate}</td>
-                        <td className="py-3 px-4"><Badge variant={getStatusBadge(po.status)}>{po.status}</Badge></td>
-                        <td className="py-3 px-4"><Badge variant={getPriorityBadge(po.priority)}>{po.priority}</Badge></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "Order ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "product", label: "Product", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "quantity", label: "Qty", className: "text-right", render: (v: number) => v.toLocaleString() },
+                  { key: "line", label: "Line" },
+                  { key: "startDate", label: "Start" },
+                  { key: "dueDate", label: "Due" },
+                  { key: "status", label: "Status", render: (v: string) => <Badge variant={getStatusBadge(v)}>{v}</Badge> },
+                  { key: "priority", label: "Priority", render: (v: string) => <Badge variant={getPriorityBadge(v)}>{v}</Badge> },
+                  { key: "_actions", label: "", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof productionOrders[0]
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingProduction(item); setShowProductionForm(true); }}
+                        onDelete={() => setProduction(prev => prev.filter(p => p.id !== item.id))}
+                        itemLabel={item.product}
+                      />
+                    )
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={production as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="production-planning.csv"
+                emptyMessage="No production orders found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -419,42 +574,44 @@ export default function PlanningPage() {
         <TabsContent value="sales">
           <Card>
             <CardHeader>
-              <CardTitle>Territory Sales Plans</CardTitle>
-              <CardDescription>Revenue targets, pipeline, and growth metrics by sales territory</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Territory Sales Plans</CardTitle>
+                  <CardDescription>Revenue targets, pipeline, and growth metrics by sales territory</CardDescription>
+                </div>
+                <Button onClick={() => { setEditingSales(null); setShowSalesForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Territory</Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium">Territory</th>
-                      <th className="text-left py-3 px-4 font-medium">Manager</th>
-                      <th className="text-right py-3 px-4 font-medium">Target</th>
-                      <th className="text-right py-3 px-4 font-medium">Current</th>
-                      <th className="text-right py-3 px-4 font-medium">Pipeline</th>
-                      <th className="text-right py-3 px-4 font-medium">Win Rate</th>
-                      <th className="text-right py-3 px-4 font-medium">QoQ Growth</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {territoryPlans.map((t) => (
-                      <tr key={t.territory} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4 font-medium">{t.territory}</td>
-                        <td className="py-3 px-4">{t.manager}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(t.targetRevenue)}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(t.currentRevenue)}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(t.pipeline)}</td>
-                        <td className="py-3 px-4 text-right">{t.winRate}%</td>
-                        <td className="py-3 px-4 text-right">
-                          <span className="inline-flex items-center gap-1 text-green-600">
-                            <ArrowUpRight className="h-3.5 w-3.5" />{t.qoqGrowth}%
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "territory", label: "Territory", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "manager", label: "Manager" },
+                  { key: "targetRevenue", label: "Target", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "currentRevenue", label: "Current", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "pipeline", label: "Pipeline", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "winRate", label: "Win Rate", className: "text-right", render: (v: number) => `${v}%` },
+                  { key: "qoqGrowth", label: "QoQ Growth", className: "text-right", render: (v: number) => (
+                    <span className="inline-flex items-center gap-1 text-green-600">
+                      <ArrowUpRight className="h-3.5 w-3.5" />{v}%
+                    </span>
+                  )},
+                  { key: "_actions", label: "", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof territoryPlans[0]
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingSales(item); setShowSalesForm(true); }}
+                        onDelete={() => setSales(prev => prev.filter(s => s.territory !== item.territory))}
+                        itemLabel={item.territory}
+                      />
+                    )
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={sales as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="territory-plans.csv"
+                emptyMessage="No territory plans found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -462,49 +619,49 @@ export default function PlanningPage() {
         <TabsContent value="it">
           <Card>
             <CardHeader>
-              <CardTitle>IT Projects Roadmap</CardTitle>
-              <CardDescription>Technology initiatives, budget tracking, and delivery timelines</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>IT Projects Roadmap</CardTitle>
+                  <CardDescription>Technology initiatives, budget tracking, and delivery timelines</CardDescription>
+                </div>
+                <Button onClick={() => { setEditingIt(null); setShowItForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Project</Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium">ID</th>
-                      <th className="text-left py-3 px-4 font-medium">Project</th>
-                      <th className="text-left py-3 px-4 font-medium">Lead</th>
-                      <th className="text-left py-3 px-4 font-medium">Phase</th>
-                      <th className="text-right py-3 px-4 font-medium">Budget</th>
-                      <th className="text-right py-3 px-4 font-medium">Spent</th>
-                      <th className="text-right py-3 px-4 font-medium">Completion</th>
-                      <th className="text-left py-3 px-4 font-medium">Go-Live</th>
-                      <th className="text-left py-3 px-4 font-medium">Risk</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {itProjects.map((p) => (
-                      <tr key={p.id} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4 font-mono text-xs">{p.id}</td>
-                        <td className="py-3 px-4 font-medium">{p.project}</td>
-                        <td className="py-3 px-4">{p.lead}</td>
-                        <td className="py-3 px-4"><Badge variant="outline">{p.phase}</Badge></td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(p.budget)}</td>
-                        <td className="py-3 px-4 text-right">{formatCurrency(p.spent)}</td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center gap-2 justify-end">
-                            <div className="w-16 bg-secondary rounded-full h-2">
-                              <div className="h-2 rounded-full bg-blue-500" style={{ width: `${p.completion}%` }} />
-                            </div>
-                            <span className="text-xs w-8 text-right">{p.completion}%</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">{p.goLive}</td>
-                        <td className="py-3 px-4"><Badge variant={getPriorityBadge(p.risk)}>{p.risk}</Badge></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "project", label: "Project", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "lead", label: "Lead" },
+                  { key: "phase", label: "Phase", render: (v: string) => <Badge variant="outline">{v}</Badge> },
+                  { key: "budget", label: "Budget", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "spent", label: "Spent", className: "text-right", render: (v: number) => formatCurrency(v) },
+                  { key: "completion", label: "Completion", className: "text-right", render: (v: number) => (
+                    <div className="flex items-center gap-2 justify-end">
+                      <div className="w-16 bg-secondary rounded-full h-2">
+                        <div className="h-2 rounded-full bg-blue-500" style={{ width: `${v}%` }} />
+                      </div>
+                      <span className="text-xs w-8 text-right">{v}%</span>
+                    </div>
+                  )},
+                  { key: "goLive", label: "Go-Live" },
+                  { key: "risk", label: "Risk", render: (v: string) => <Badge variant={getPriorityBadge(v)}>{v}</Badge> },
+                  { key: "_actions", label: "", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof itProjects[0]
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingIt(item); setShowItForm(true); }}
+                        onDelete={() => setItData(prev => prev.filter(p => p.id !== item.id))}
+                        itemLabel={item.project}
+                      />
+                    )
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={itData as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="it-projects.csv"
+                emptyMessage="No IT projects found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -512,40 +669,41 @@ export default function PlanningPage() {
         <TabsContent value="risk">
           <Card>
             <CardHeader>
-              <CardTitle>Enterprise Risk Register</CardTitle>
-              <CardDescription>Identified risks, mitigation strategies, and ownership tracking</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Enterprise Risk Register</CardTitle>
+                  <CardDescription>Identified risks, mitigation strategies, and ownership tracking</CardDescription>
+                </div>
+                <Button onClick={() => { setEditingRisk(null); setShowRiskForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Risk</Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium">ID</th>
-                      <th className="text-left py-3 px-4 font-medium">Risk Description</th>
-                      <th className="text-left py-3 px-4 font-medium">Category</th>
-                      <th className="text-left py-3 px-4 font-medium">Likelihood</th>
-                      <th className="text-left py-3 px-4 font-medium">Impact</th>
-                      <th className="text-left py-3 px-4 font-medium">Owner</th>
-                      <th className="text-left py-3 px-4 font-medium">Mitigation</th>
-                      <th className="text-left py-3 px-4 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {enterpriseRisks.map((r) => (
-                      <tr key={r.id} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4 font-mono text-xs">{r.id}</td>
-                        <td className="py-3 px-4 font-medium max-w-xs truncate">{r.risk}</td>
-                        <td className="py-3 px-4"><Badge variant="outline">{r.category}</Badge></td>
-                        <td className="py-3 px-4"><Badge variant={getStatusBadge(r.likelihood)}>{r.likelihood}</Badge></td>
-                        <td className="py-3 px-4"><Badge variant={getStatusBadge(r.impact)}>{r.impact}</Badge></td>
-                        <td className="py-3 px-4">{r.owner}</td>
-                        <td className="py-3 px-4 text-muted-foreground">{r.mitigation}</td>
-                        <td className="py-3 px-4"><Badge variant={getStatusBadge(r.status)}>{r.status}</Badge></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "id", label: "ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
+                  { key: "risk", label: "Risk Description", render: (v: string) => <span className="font-medium max-w-xs truncate block">{v}</span> },
+                  { key: "category", label: "Category", render: (v: string) => <Badge variant="outline">{v}</Badge> },
+                  { key: "likelihood", label: "Likelihood", render: (v: string) => <Badge variant={getStatusBadge(v)}>{v}</Badge> },
+                  { key: "impact", label: "Impact", render: (v: string) => <Badge variant={getStatusBadge(v)}>{v}</Badge> },
+                  { key: "owner", label: "Owner" },
+                  { key: "mitigation", label: "Mitigation", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
+                  { key: "status", label: "Status", render: (v: string) => <Badge variant={getStatusBadge(v)}>{v}</Badge> },
+                  { key: "_actions", label: "", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof enterpriseRisks[0]
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingRisk(item); setShowRiskForm(true); }}
+                        onDelete={() => setRisks(prev => prev.filter(r => r.id !== item.id))}
+                        itemLabel={item.risk}
+                      />
+                    )
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={risks as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="enterprise-risks.csv"
+                emptyMessage="No enterprise risks found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -553,50 +711,52 @@ export default function PlanningPage() {
         <TabsContent value="resource">
           <Card>
             <CardHeader>
-              <CardTitle>Resource Allocation Matrix</CardTitle>
-              <CardDescription>FTE allocation, utilization rates, and availability across resource pools</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Resource Allocation Matrix</CardTitle>
+                  <CardDescription>FTE allocation, utilization rates, and availability across resource pools</CardDescription>
+                </div>
+                <Button onClick={() => { setEditingResource(null); setShowResourceForm(true); }}><Plus className="mr-2 h-4 w-4" />Add Resource</Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium">Resource Pool</th>
-                      <th className="text-left py-3 px-4 font-medium">Department</th>
-                      <th className="text-right py-3 px-4 font-medium">Total FTE</th>
-                      <th className="text-right py-3 px-4 font-medium">Allocated</th>
-                      <th className="text-right py-3 px-4 font-medium">Available</th>
-                      <th className="text-right py-3 px-4 font-medium">Utilization</th>
-                      <th className="text-left py-3 px-4 font-medium">Top Project</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {resourceAllocations.map((r) => (
-                      <tr key={r.resource} className="border-b hover:bg-muted/50">
-                        <td className="py-3 px-4 font-medium">{r.resource}</td>
-                        <td className="py-3 px-4">{r.department}</td>
-                        <td className="py-3 px-4 text-right">{r.totalFTE}</td>
-                        <td className="py-3 px-4 text-right">{r.allocated}</td>
-                        <td className="py-3 px-4 text-right">
-                          <span className={r.available === 0 ? "text-red-600 font-medium" : ""}>{r.available}</span>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center gap-2 justify-end">
-                            <div className="w-16 bg-secondary rounded-full h-2">
-                              <div
-                                className={`h-2 rounded-full ${r.utilization >= 95 ? "bg-red-500" : r.utilization >= 85 ? "bg-yellow-500" : "bg-green-500"}`}
-                                style={{ width: `${r.utilization}%` }}
-                              />
-                            </div>
-                            <span className="text-xs w-8 text-right">{r.utilization}%</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-muted-foreground">{r.topProject}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={[
+                  { key: "resource", label: "Resource Pool", render: (v: string) => <span className="font-medium">{v}</span> },
+                  { key: "department", label: "Department" },
+                  { key: "totalFTE", label: "Total FTE", className: "text-right" },
+                  { key: "allocated", label: "Allocated", className: "text-right" },
+                  { key: "available", label: "Available", className: "text-right", render: (v: number) => (
+                    <span className={v === 0 ? "text-red-600 font-medium" : ""}>{v}</span>
+                  )},
+                  { key: "utilization", label: "Utilization", className: "text-right", render: (v: number) => (
+                    <div className="flex items-center gap-2 justify-end">
+                      <div className="w-16 bg-secondary rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full ${v >= 95 ? "bg-red-500" : v >= 85 ? "bg-yellow-500" : "bg-green-500"}`}
+                          style={{ width: `${v}%` }}
+                        />
+                      </div>
+                      <span className="text-xs w-8 text-right">{v}%</span>
+                    </div>
+                  )},
+                  { key: "topProject", label: "Top Project", render: (v: string) => <span className="text-muted-foreground">{v}</span> },
+                  { key: "_actions", label: "", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const item = row as unknown as typeof resourceAllocations[0]
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setEditingResource(item); setShowResourceForm(true); }}
+                        onDelete={() => setResources(prev => prev.filter(r => r.resource !== item.resource))}
+                        itemLabel={item.resource}
+                      />
+                    )
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={resources as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="resource-allocations.csv"
+                emptyMessage="No resource allocations found."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -612,11 +772,173 @@ export default function PlanningPage() {
           if (editingGoal) {
             setStrategicGoals(prev => prev.map(g => g.id === editingGoal.id ? { ...g, goal: data.objective as string, owner: data.owner as string, department: data.kpi as string, target: data.target as string, status: (data.status as string) || g.status, deadline: data.timeline as string } : g));
           } else {
-            const id = `SG-${String(strategicGoals.length + 1).padStart(3, "0")}`;
+            const id = `SG-${Date.now().toString(36)}`;
             setStrategicGoals(prev => [{ id, goal: data.objective as string, owner: data.owner as string, department: data.kpi as string, target: data.target as string, progress: 0, status: (data.status as string) || "On Track", deadline: data.timeline as string }, ...prev]);
           }
           setShowForm(false);
           setEditingGoal(null);
+        }}
+      />
+
+      {/* ── Strategic Goal Detail Dialog ── */}
+      <Dialog open={!!viewGoal} onOpenChange={(o) => !o && setViewGoal(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewGoal?.goal}</DialogTitle>
+          </DialogHeader>
+          {viewGoal && (
+            <div className="space-y-5 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div><span className="text-sm text-muted-foreground">ID</span><p className="font-medium font-mono">{viewGoal.id}</p></div>
+                <div><span className="text-sm text-muted-foreground">Status</span><p><Badge variant={getStatusBadge(viewGoal.status)}>{viewGoal.status}</Badge></p></div>
+                <div><span className="text-sm text-muted-foreground">Owner</span><p className="font-medium">{viewGoal.owner}</p></div>
+                <div><span className="text-sm text-muted-foreground">Department</span><p className="font-medium">{viewGoal.department}</p></div>
+                <div><span className="text-sm text-muted-foreground">Target</span><p className="font-medium">{viewGoal.target}</p></div>
+                <div><span className="text-sm text-muted-foreground">Deadline</span><p className="font-medium">{viewGoal.deadline}</p></div>
+              </div>
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-muted-foreground">Progress</span>
+                  <span className="font-medium">{viewGoal.progress}%</span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-3">
+                  <div
+                    className={`h-3 rounded-full ${viewGoal.progress >= 75 ? "bg-green-500" : viewGoal.progress >= 50 ? "bg-blue-500" : viewGoal.progress >= 25 ? "bg-yellow-500" : "bg-red-500"}`}
+                    style={{ width: `${viewGoal.progress}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Budget Form ── */}
+      <EntityFormModal
+        open={showBudgetForm}
+        onOpenChange={(open) => { if (!open) { setShowBudgetForm(false); setEditingBudget(null); } }}
+        title={editingBudget ? "Edit Budget" : "New Department Budget"}
+        fields={budgetFormFields}
+        initialData={editingBudget ? { department: editingBudget.department, allocated: editingBudget.allocated, spent: editingBudget.spent, committed: editingBudget.committed, remaining: editingBudget.remaining, variance: editingBudget.variance, fy: editingBudget.fy } : undefined}
+        onSubmit={(data) => {
+          if (editingBudget) {
+            setBudgets(prev => prev.map(b => b.department === editingBudget.department ? { department: data.department as string, allocated: data.allocated as number, spent: data.spent as number, committed: data.committed as number, remaining: data.remaining as number, variance: data.variance as number, fy: data.fy as string } : b))
+          } else {
+            setBudgets(prev => [{ department: data.department as string, allocated: data.allocated as number, spent: data.spent as number, committed: data.committed as number, remaining: data.remaining as number, variance: data.variance as number, fy: data.fy as string }, ...prev])
+          }
+          setShowBudgetForm(false)
+          setEditingBudget(null)
+        }}
+      />
+
+      {/* ── Workforce Form ── */}
+      <EntityFormModal
+        open={showWorkforceForm}
+        onOpenChange={(open) => { if (!open) { setShowWorkforceForm(false); setEditingWorkforce(null); } }}
+        title={editingWorkforce ? "Edit Workforce Plan" : "New Workforce Plan"}
+        fields={workforceFormFields}
+        initialData={editingWorkforce ? { department: editingWorkforce.department, current: editingWorkforce.current, planned: editingWorkforce.planned, openReqs: editingWorkforce.openReqs, attrition: editingWorkforce.attrition, avgTenure: editingWorkforce.avgTenure, contractors: editingWorkforce.contractors } : undefined}
+        onSubmit={(data) => {
+          if (editingWorkforce) {
+            setWorkforce(prev => prev.map(w => w.department === editingWorkforce.department ? { department: data.department as string, current: data.current as number, planned: data.planned as number, openReqs: data.openReqs as number, attrition: data.attrition as number, avgTenure: data.avgTenure as number, contractors: data.contractors as number } : w))
+          } else {
+            setWorkforce(prev => [{ department: data.department as string, current: data.current as number, planned: data.planned as number, openReqs: data.openReqs as number, attrition: data.attrition as number, avgTenure: data.avgTenure as number, contractors: data.contractors as number }, ...prev])
+          }
+          setShowWorkforceForm(false)
+          setEditingWorkforce(null)
+        }}
+      />
+
+      {/* ── Production Form ── */}
+      <EntityFormModal
+        open={showProductionForm}
+        onOpenChange={(open) => { if (!open) { setShowProductionForm(false); setEditingProduction(null); } }}
+        title={editingProduction ? "Edit Production Order" : "New Production Order"}
+        fields={productionFormFields}
+        initialData={editingProduction ? { product: editingProduction.product, quantity: editingProduction.quantity, line: editingProduction.line, startDate: editingProduction.startDate, dueDate: editingProduction.dueDate, status: editingProduction.status, priority: editingProduction.priority } : undefined}
+        onSubmit={(data) => {
+          if (editingProduction) {
+            setProduction(prev => prev.map(p => p.id === editingProduction.id ? { ...p, product: data.product as string, quantity: data.quantity as number, line: data.line as string, startDate: data.startDate as string, dueDate: data.dueDate as string, status: data.status as string, priority: data.priority as string } : p))
+          } else {
+            const id = `PO-${Date.now().toString(36)}`
+            setProduction(prev => [{ id, product: data.product as string, quantity: data.quantity as number, line: data.line as string, startDate: data.startDate as string, dueDate: data.dueDate as string, status: data.status as string, priority: data.priority as string }, ...prev])
+          }
+          setShowProductionForm(false)
+          setEditingProduction(null)
+        }}
+      />
+
+      {/* ── Sales Territory Form ── */}
+      <EntityFormModal
+        open={showSalesForm}
+        onOpenChange={(open) => { if (!open) { setShowSalesForm(false); setEditingSales(null); } }}
+        title={editingSales ? "Edit Territory Plan" : "New Territory Plan"}
+        fields={salesFormFields}
+        initialData={editingSales ? { territory: editingSales.territory, manager: editingSales.manager, targetRevenue: editingSales.targetRevenue, currentRevenue: editingSales.currentRevenue, accounts: editingSales.accounts, pipeline: editingSales.pipeline, winRate: editingSales.winRate, qoqGrowth: editingSales.qoqGrowth } : undefined}
+        onSubmit={(data) => {
+          if (editingSales) {
+            setSales(prev => prev.map(s => s.territory === editingSales.territory ? { territory: data.territory as string, manager: data.manager as string, targetRevenue: data.targetRevenue as number, currentRevenue: data.currentRevenue as number, accounts: data.accounts as number, pipeline: data.pipeline as number, winRate: data.winRate as number, qoqGrowth: data.qoqGrowth as number } : s))
+          } else {
+            setSales(prev => [{ territory: data.territory as string, manager: data.manager as string, targetRevenue: data.targetRevenue as number, currentRevenue: data.currentRevenue as number, accounts: data.accounts as number, pipeline: data.pipeline as number, winRate: data.winRate as number, qoqGrowth: data.qoqGrowth as number }, ...prev])
+          }
+          setShowSalesForm(false)
+          setEditingSales(null)
+        }}
+      />
+
+      {/* ── IT Project Form ── */}
+      <EntityFormModal
+        open={showItForm}
+        onOpenChange={(open) => { if (!open) { setShowItForm(false); setEditingIt(null); } }}
+        title={editingIt ? "Edit IT Project" : "New IT Project"}
+        fields={itFormFields}
+        initialData={editingIt ? { project: editingIt.project, lead: editingIt.lead, phase: editingIt.phase, budget: editingIt.budget, spent: editingIt.spent, completion: editingIt.completion, goLive: editingIt.goLive, risk: editingIt.risk } : undefined}
+        onSubmit={(data) => {
+          if (editingIt) {
+            setItData(prev => prev.map(p => p.id === editingIt.id ? { ...p, project: data.project as string, lead: data.lead as string, phase: data.phase as string, budget: data.budget as number, spent: data.spent as number, completion: data.completion as number, goLive: data.goLive as string, risk: data.risk as string } : p))
+          } else {
+            const id = `IT-${Date.now().toString(36)}`
+            setItData(prev => [{ id, project: data.project as string, lead: data.lead as string, phase: data.phase as string, budget: data.budget as number, spent: data.spent as number, completion: data.completion as number, goLive: data.goLive as string, risk: data.risk as string }, ...prev])
+          }
+          setShowItForm(false)
+          setEditingIt(null)
+        }}
+      />
+
+      {/* ── Risk Form ── */}
+      <EntityFormModal
+        open={showRiskForm}
+        onOpenChange={(open) => { if (!open) { setShowRiskForm(false); setEditingRisk(null); } }}
+        title={editingRisk ? "Edit Risk" : "New Enterprise Risk"}
+        fields={riskFormFields}
+        initialData={editingRisk ? { risk: editingRisk.risk, category: editingRisk.category, likelihood: editingRisk.likelihood, impact: editingRisk.impact, owner: editingRisk.owner, mitigation: editingRisk.mitigation, status: editingRisk.status } : undefined}
+        onSubmit={(data) => {
+          if (editingRisk) {
+            setRisks(prev => prev.map(r => r.id === editingRisk.id ? { ...r, risk: data.risk as string, category: data.category as string, likelihood: data.likelihood as string, impact: data.impact as string, owner: data.owner as string, mitigation: data.mitigation as string, status: data.status as string } : r))
+          } else {
+            const id = `ER-${Date.now().toString(36)}`
+            setRisks(prev => [{ id, risk: data.risk as string, category: data.category as string, likelihood: data.likelihood as string, impact: data.impact as string, owner: data.owner as string, mitigation: data.mitigation as string, status: data.status as string }, ...prev])
+          }
+          setShowRiskForm(false)
+          setEditingRisk(null)
+        }}
+      />
+
+      {/* ── Resource Form ── */}
+      <EntityFormModal
+        open={showResourceForm}
+        onOpenChange={(open) => { if (!open) { setShowResourceForm(false); setEditingResource(null); } }}
+        title={editingResource ? "Edit Resource Allocation" : "New Resource Allocation"}
+        fields={resourceFormFields}
+        initialData={editingResource ? { resource: editingResource.resource, department: editingResource.department, totalFTE: editingResource.totalFTE, allocated: editingResource.allocated, available: editingResource.available, utilization: editingResource.utilization, topProject: editingResource.topProject } : undefined}
+        onSubmit={(data) => {
+          if (editingResource) {
+            setResources(prev => prev.map(r => r.resource === editingResource.resource ? { resource: data.resource as string, department: data.department as string, totalFTE: data.totalFTE as number, allocated: data.allocated as number, available: data.available as number, utilization: data.utilization as number, topProject: data.topProject as string } : r))
+          } else {
+            setResources(prev => [{ resource: data.resource as string, department: data.department as string, totalFTE: data.totalFTE as number, allocated: data.allocated as number, available: data.available as number, utilization: data.utilization as number, topProject: data.topProject as string }, ...prev])
+          }
+          setShowResourceForm(false)
+          setEditingResource(null)
         }}
       />
     </div>

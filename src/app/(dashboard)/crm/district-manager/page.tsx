@@ -14,7 +14,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import DataTable from "@/components/shared/data-table";
+import type { Column } from "@/components/shared/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
@@ -41,6 +44,7 @@ export default function DistrictManagerPage() {
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
+  const [viewRep, setViewRep] = useState<any>(null);
 
   // My reps (team)
   const myReps = useMemo(() => {
@@ -144,58 +148,75 @@ export default function DistrictManagerPage() {
 
         {/* Team overview */}
         <TabsContent value="team" className="space-y-3">
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b text-xs uppercase text-slate-600">
-                    <tr>
-                      <th className="text-left p-3">Rep</th>
-                      <th className="text-left p-3">Territory</th>
-                      <th className="text-left p-3">Doctors</th>
-                      <th className="text-left p-3">Visits</th>
-                      <th className="text-left p-3">Approved</th>
-                      <th className="text-left p-3">Compliance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {repStats.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="p-8 text-center text-slate-500">
-                          No reps in your team.
-                        </td>
-                      </tr>
-                    )}
-                    {repStats.map((r) => (
-                      <tr key={r.id} className="border-b hover:bg-slate-50">
-                        <td className="p-3">
-                          <div className="font-medium">{r.name}</div>
-                          <div className="text-[11px] text-slate-500">{r.email}</div>
-                        </td>
-                        <td className="p-3 text-xs">{r.territory ?? "—"}</td>
-                        <td className="p-3 font-semibold">{r.doctorCount}</td>
-                        <td className="p-3">{r.totalVisits}</td>
-                        <td className="p-3">{r.approvedVisits}</td>
-                        <td className="p-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full ${r.compliance >= 90 ? "bg-emerald-500" : r.compliance >= 70 ? "bg-amber-500" : "bg-red-500"}`}
-                                style={{ width: `${Math.min(r.compliance, 100)}%` }}
-                              />
-                            </div>
-                            <span className={`text-xs font-medium ${r.compliance >= 90 ? "text-emerald-600" : r.compliance >= 70 ? "text-amber-600" : "text-red-600"}`}>
-                              {r.compliance}%
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          <DataTable
+            columns={[
+              {
+                key: "name",
+                label: "Rep",
+                render: (_v: unknown, row: unknown) => {
+                  const r = row as (typeof repStats)[number];
+                  return (
+                    <div>
+                      <div className="font-medium">{r.name}</div>
+                      <div className="text-[11px] text-slate-500">{r.email}</div>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "territory",
+                label: "Territory",
+                render: (v: unknown) => <span className="text-xs">{(v as string) ?? "—"}</span>,
+              },
+              {
+                key: "doctorCount",
+                label: "Doctors",
+                render: (v: unknown) => <span className="font-semibold">{v as number}</span>,
+              },
+              { key: "totalVisits", label: "Visits" },
+              { key: "approvedVisits", label: "Approved" },
+              {
+                key: "compliance",
+                label: "Compliance",
+                render: (_v: unknown, row: unknown) => {
+                  const r = row as (typeof repStats)[number];
+                  return (
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${r.compliance >= 90 ? "bg-emerald-500" : r.compliance >= 70 ? "bg-amber-500" : "bg-red-500"}`}
+                          style={{ width: `${Math.min(r.compliance, 100)}%` }}
+                        />
+                      </div>
+                      <span className={`text-xs font-medium ${r.compliance >= 90 ? "text-emerald-600" : r.compliance >= 70 ? "text-amber-600" : "text-red-600"}`}>
+                        {r.compliance}%
+                      </span>
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "_actions",
+                label: "",
+                className: "text-right",
+                render: (_v: unknown, row: unknown) => {
+                  const r = row as (typeof repStats)[number];
+                  return (
+                    <EditDeleteMenu
+                      onView={() => setViewRep(r)}
+                      canEdit={false}
+                      canDelete={false}
+                      itemLabel={r.name}
+                      compact
+                    />
+                  );
+                },
+              },
+            ] as Column<Record<string, unknown>>[]}
+            data={repStats as unknown as Record<string, unknown>[]}
+            exportable exportFilename="crm-district-manager.csv" emptyMessage="No reps in your team."
+            
+          />
         </TabsContent>
 
         {/* Pending visits */}
@@ -337,6 +358,26 @@ export default function DistrictManagerPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Rep Detail Dialog */}
+      <Dialog open={!!viewRep} onOpenChange={(open) => { if (!open) setViewRep(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewRep?.name}</DialogTitle>
+          </DialogHeader>
+          {viewRep && (
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div><span className="text-sm text-muted-foreground">Name</span><p className="font-medium">{viewRep.name}</p></div>
+              <div><span className="text-sm text-muted-foreground">Email</span><p className="font-medium">{viewRep.email}</p></div>
+              <div><span className="text-sm text-muted-foreground">Territory</span><p className="font-medium">{viewRep.territory ?? "—"}</p></div>
+              <div><span className="text-sm text-muted-foreground">Doctors</span><p className="font-medium">{viewRep.doctorCount}</p></div>
+              <div><span className="text-sm text-muted-foreground">Total Visits</span><p className="font-medium">{viewRep.totalVisits}</p></div>
+              <div><span className="text-sm text-muted-foreground">Approved Visits</span><p className="font-medium">{viewRep.approvedVisits}</p></div>
+              <div><span className="text-sm text-muted-foreground">Compliance</span><p className="font-medium">{viewRep.compliance}%</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

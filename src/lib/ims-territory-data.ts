@@ -1,0 +1,283 @@
+import type { Territory } from "./data-store";
+
+// Full IMS-IQVIA Egypt Territory Data: 6 Regions, 70 Areas, 148 Bricks
+// Source: IMS Health Egypt geographic segmentation
+
+const R: Pick<Territory, "assignedRepIds" | "assignedBUIds"> = { assignedRepIds: [], assignedBUIds: [] };
+
+// ═══════════════════════════════════════════════════════════════════════
+// REGIONS (6)
+// ═══════════════════════════════════════════════════════════════════════
+const REGIONS: Territory[] = [
+  { id: "reg-cairo", name: "Cairo", nameAr: "القاهرة", level: "region", parentId: null, imsCode: "REG-CAIRO", ...R },
+  { id: "reg-guiza", name: "Guiza", nameAr: "الجيزة", level: "region", parentId: null, imsCode: "REG-GUIZA", ...R },
+  { id: "reg-delta", name: "Delta", nameAr: "الدلتا", level: "region", parentId: null, imsCode: "REG-DELTA", ...R },
+  { id: "reg-alex", name: "Alex/Behera", nameAr: "الإسكندرية/البحيرة", level: "region", parentId: null, imsCode: "REG-ALEX", ...R },
+  { id: "reg-canal", name: "Canal/Sinai", nameAr: "القناة/سيناء", level: "region", parentId: null, imsCode: "REG-CANAL", ...R },
+  { id: "reg-upper", name: "Upper Egypt", nameAr: "صعيد مصر", level: "region", parentId: null, imsCode: "REG-UPPER", ...R },
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+// AREAS / DISTRICTS (70) — mapped to "district" level
+// ═══════════════════════════════════════════════════════════════════════
+const AREAS: Territory[] = [
+  // ── Cairo (14 areas) ──
+  { id: "area-heliopolis-i", name: "Heliopolis I", nameAr: "مصر الجديدة ١", level: "district", parentId: "reg-cairo", imsCode: "HELIOPOLIS I", ...R },
+  { id: "area-heliopolis-ii", name: "Heliopolis II", nameAr: "مصر الجديدة ٢", level: "district", parentId: "reg-cairo", imsCode: "HELIOPOLIS II", ...R },
+  { id: "area-heliopolis-iii", name: "Heliopolis III", nameAr: "مصر الجديدة ٣", level: "district", parentId: "reg-cairo", imsCode: "HELIOPOLIS III", ...R },
+  { id: "area-nasr-city", name: "Nasr City", nameAr: "مدينة نصر", level: "district", parentId: "reg-cairo", imsCode: "NASR CITY", ...R },
+  { id: "area-cairo-east-i", name: "Cairo East I", nameAr: "شرق القاهرة ١", level: "district", parentId: "reg-cairo", imsCode: "CAIRO EAST I", ...R },
+  { id: "area-cairo-east-ii", name: "Cairo East II", nameAr: "شرق القاهرة ٢", level: "district", parentId: "reg-cairo", imsCode: "CAIRO EAST II", ...R },
+  { id: "area-cairo-east-iii", name: "Cairo East III", nameAr: "شرق القاهرة ٣", level: "district", parentId: "reg-cairo", imsCode: "CAIRO EAST III", ...R },
+  { id: "area-el-kobbah", name: "El Kobbah", nameAr: "القبة", level: "district", parentId: "reg-cairo", imsCode: "EL KOBBAH", ...R },
+  { id: "area-abbaseia", name: "Abbaseia", nameAr: "العباسية", level: "district", parentId: "reg-cairo", imsCode: "ABBASEIA", ...R },
+  { id: "area-cairo-west-i", name: "Cairo West I", nameAr: "غرب القاهرة ١", level: "district", parentId: "reg-cairo", imsCode: "CAIRO WEST I", ...R },
+  { id: "area-cairo-west-ii", name: "Cairo West II", nameAr: "غرب القاهرة ٢", level: "district", parentId: "reg-cairo", imsCode: "CAIRO WEST II", ...R },
+  { id: "area-cairo-west-iii", name: "Cairo West III", nameAr: "غرب القاهرة ٣", level: "district", parentId: "reg-cairo", imsCode: "CAIRO WEST III", ...R },
+  { id: "area-cairo-center", name: "Cairo Center", nameAr: "وسط القاهرة", level: "district", parentId: "reg-cairo", imsCode: "CAIRO CENTER", ...R },
+  { id: "area-cairo-south-i", name: "Cairo South I", nameAr: "جنوب القاهرة ١", level: "district", parentId: "reg-cairo", imsCode: "CAIRO SOUTH I", ...R },
+  { id: "area-cairo-south-ii", name: "Cairo South II", nameAr: "جنوب القاهرة ٢", level: "district", parentId: "reg-cairo", imsCode: "CAIRO SOUTH II", ...R },
+  { id: "area-cairo-south-iii", name: "Cairo South III", nameAr: "جنوب القاهرة ٣", level: "district", parentId: "reg-cairo", imsCode: "CAIRO SOUTH III", ...R },
+  { id: "area-maadi", name: "Maadi", nameAr: "المعادي", level: "district", parentId: "reg-cairo", imsCode: "MAADI", ...R },
+  { id: "area-helwan", name: "Helwan", nameAr: "حلوان", level: "district", parentId: "reg-cairo", imsCode: "HELWAN", ...R },
+  { id: "area-shobra-khemah", name: "Shobra El Khemah", nameAr: "شبرا الخيمة", level: "district", parentId: "reg-cairo", imsCode: "SHOBRA EL KHEMAH", ...R },
+
+  // ── Guiza (8 areas) ──
+  { id: "area-guiza-i", name: "Guiza I", nameAr: "الجيزة ١", level: "district", parentId: "reg-guiza", imsCode: "GUIZA I", ...R },
+  { id: "area-guiza-ii", name: "Guiza II", nameAr: "الجيزة ٢", level: "district", parentId: "reg-guiza", imsCode: "GUIZA II", ...R },
+  { id: "area-guiza-iii", name: "Guiza III", nameAr: "الجيزة ٣", level: "district", parentId: "reg-guiza", imsCode: "GUIZA III", ...R },
+  { id: "area-guiza-iv", name: "Guiza IV", nameAr: "الجيزة ٤", level: "district", parentId: "reg-guiza", imsCode: "GUIZA IV", ...R },
+  { id: "area-guiza-v", name: "Guiza V", nameAr: "الجيزة ٥", level: "district", parentId: "reg-guiza", imsCode: "GUIZA V", ...R },
+  { id: "area-imbaba-i", name: "Imbaba I", nameAr: "إمبابة ١", level: "district", parentId: "reg-guiza", imsCode: "IMBABA I", ...R },
+  { id: "area-imbaba-ii", name: "Imbaba II", nameAr: "إمبابة ٢", level: "district", parentId: "reg-guiza", imsCode: "IMBABA II", ...R },
+  { id: "area-faisal", name: "Faisal", nameAr: "فيصل", level: "district", parentId: "reg-guiza", imsCode: "FAISAL", ...R },
+  { id: "area-el-haram", name: "El Haram", nameAr: "الهرم", level: "district", parentId: "reg-guiza", imsCode: "EL HARAM", ...R },
+
+  // ── Delta (16 areas) ──
+  { id: "area-kalubia-i", name: "Kalubia I", nameAr: "القليوبية ١", level: "district", parentId: "reg-delta", imsCode: "KALUBIA I", ...R },
+  { id: "area-kalubia-ii", name: "Kalubia II", nameAr: "القليوبية ٢", level: "district", parentId: "reg-delta", imsCode: "KALUBIA II", ...R },
+  { id: "area-menofia-i", name: "Menofia I", nameAr: "المنوفية ١", level: "district", parentId: "reg-delta", imsCode: "MENOFIA I", ...R },
+  { id: "area-menofia-ii", name: "Menofia II", nameAr: "المنوفية ٢", level: "district", parentId: "reg-delta", imsCode: "MENOFIA II", ...R },
+  { id: "area-menofia-iii", name: "Menofia III", nameAr: "المنوفية ٣", level: "district", parentId: "reg-delta", imsCode: "MENOFIA III", ...R },
+  { id: "area-gharbia-i", name: "Gharbia I", nameAr: "الغربية ١", level: "district", parentId: "reg-delta", imsCode: "GHARBIA I", ...R },
+  { id: "area-gharbia-ii", name: "Gharbia II", nameAr: "الغربية ٢", level: "district", parentId: "reg-delta", imsCode: "GHARBIA II", ...R },
+  { id: "area-gharbia-iii", name: "Gharbia III", nameAr: "الغربية ٣", level: "district", parentId: "reg-delta", imsCode: "GHARBIA III", ...R },
+  { id: "area-dakahlia-i", name: "Dakahlia I", nameAr: "الدقهلية ١", level: "district", parentId: "reg-delta", imsCode: "DAKAHLIA I", ...R },
+  { id: "area-dakahlia-ii", name: "Dakahlia II", nameAr: "الدقهلية ٢", level: "district", parentId: "reg-delta", imsCode: "DAKAHLIA II", ...R },
+  { id: "area-dakahlia-iii", name: "Dakahlia III", nameAr: "الدقهلية ٣", level: "district", parentId: "reg-delta", imsCode: "DAKAHLIA III", ...R },
+  { id: "area-dakahlia-iv", name: "Dakahlia IV", nameAr: "الدقهلية ٤", level: "district", parentId: "reg-delta", imsCode: "DAKAHLIA IV", ...R },
+  { id: "area-domiat", name: "Domiat", nameAr: "دمياط", level: "district", parentId: "reg-delta", imsCode: "DOMIAT", ...R },
+  { id: "area-kafr-sheikh-i", name: "Kafr El Sheikh I", nameAr: "كفر الشيخ ١", level: "district", parentId: "reg-delta", imsCode: "KAFR EL SHEIKH I", ...R },
+  { id: "area-kafr-sheikh-ii", name: "Kafr El Sheikh II", nameAr: "كفر الشيخ ٢", level: "district", parentId: "reg-delta", imsCode: "KAFR EL SHEIKH II", ...R },
+  { id: "area-sharkia-i", name: "Sharkia I", nameAr: "الشرقية ١", level: "district", parentId: "reg-delta", imsCode: "SHARKIA I", ...R },
+  { id: "area-sharkia-ii", name: "Sharkia II", nameAr: "الشرقية ٢", level: "district", parentId: "reg-delta", imsCode: "SHARKIA II", ...R },
+  { id: "area-sharkia-iii", name: "Sharkia III", nameAr: "الشرقية ٣", level: "district", parentId: "reg-delta", imsCode: "SHARKIA III", ...R },
+
+  // ── Alex/Behera (8 areas) ──
+  { id: "area-alex-east-i", name: "Alex East I", nameAr: "شرق الإسكندرية ١", level: "district", parentId: "reg-alex", imsCode: "ALEX EAST I", ...R },
+  { id: "area-alex-east-ii", name: "Alex East II", nameAr: "شرق الإسكندرية ٢", level: "district", parentId: "reg-alex", imsCode: "ALEX EAST II", ...R },
+  { id: "area-alex-east-iii", name: "Alex East III", nameAr: "شرق الإسكندرية ٣", level: "district", parentId: "reg-alex", imsCode: "ALEX EAST III", ...R },
+  { id: "area-alex-center-i", name: "Alex Center I", nameAr: "وسط الإسكندرية ١", level: "district", parentId: "reg-alex", imsCode: "ALEX CENTER I", ...R },
+  { id: "area-alex-center-ii", name: "Alex Center II", nameAr: "وسط الإسكندرية ٢", level: "district", parentId: "reg-alex", imsCode: "ALEX CENTER II", ...R },
+  { id: "area-alex-west-i", name: "Alex West I", nameAr: "غرب الإسكندرية ١", level: "district", parentId: "reg-alex", imsCode: "ALEX WEST I", ...R },
+  { id: "area-alex-west-matrouh", name: "A.West II/Matrouh", nameAr: "غرب الإسكندرية ٢/مطروح", level: "district", parentId: "reg-alex", imsCode: "A.WEST II/MATROUH", ...R },
+  { id: "area-behera-i", name: "Behera I", nameAr: "البحيرة ١", level: "district", parentId: "reg-alex", imsCode: "BEHERA I", ...R },
+  { id: "area-behera-ii", name: "Behera II", nameAr: "البحيرة ٢", level: "district", parentId: "reg-alex", imsCode: "BEHERA II", ...R },
+  { id: "area-behera-iii", name: "Behera III", nameAr: "البحيرة ٣", level: "district", parentId: "reg-alex", imsCode: "BEHERA III", ...R },
+
+  // ── Canal/Sinai (3 areas) ──
+  { id: "area-port-said", name: "Port Said/N.Sinai", nameAr: "بورسعيد/شمال سيناء", level: "district", parentId: "reg-canal", imsCode: "PORT SAID/N.SINAI", ...R },
+  { id: "area-ismaelia", name: "Ismaelia", nameAr: "الإسماعيلية", level: "district", parentId: "reg-canal", imsCode: "ISMAELIA", ...R },
+  { id: "area-suez", name: "Suez/S.Sinai", nameAr: "السويس/جنوب سيناء", level: "district", parentId: "reg-canal", imsCode: "SUEZ/S.SINAI", ...R },
+
+  // ── Upper Egypt (11 areas) ──
+  { id: "area-fayoum", name: "Fayoum", nameAr: "الفيوم", level: "district", parentId: "reg-upper", imsCode: "FAYOUM", ...R },
+  { id: "area-bani-suef", name: "Bani Suef", nameAr: "بني سويف", level: "district", parentId: "reg-upper", imsCode: "BANI SUEF", ...R },
+  { id: "area-menya-i", name: "El Menya I", nameAr: "المنيا ١", level: "district", parentId: "reg-upper", imsCode: "EL MENYA I", ...R },
+  { id: "area-menya-ii", name: "El Menya II", nameAr: "المنيا ٢", level: "district", parentId: "reg-upper", imsCode: "EL MENYA II", ...R },
+  { id: "area-assiut-nv", name: "Assiut I/New Valley", nameAr: "أسيوط ١/الوادي الجديد", level: "district", parentId: "reg-upper", imsCode: "ASSIUT I/NEW VALLEY", ...R },
+  { id: "area-assiut-ii", name: "Assiut II", nameAr: "أسيوط ٢", level: "district", parentId: "reg-upper", imsCode: "ASSIUT II", ...R },
+  { id: "area-sohag-i", name: "Sohag I", nameAr: "سوهاج ١", level: "district", parentId: "reg-upper", imsCode: "SOHAG I", ...R },
+  { id: "area-sohag-ii", name: "Sohag II", nameAr: "سوهاج ٢", level: "district", parentId: "reg-upper", imsCode: "SOHAG II", ...R },
+  { id: "area-quena-rs", name: "Quena I/Red Sea", nameAr: "قنا ١/البحر الأحمر", level: "district", parentId: "reg-upper", imsCode: "QUENA I/RED SEA", ...R },
+  { id: "area-quena-ii", name: "Quena II", nameAr: "قنا ٢", level: "district", parentId: "reg-upper", imsCode: "QUENA II", ...R },
+  { id: "area-aswan", name: "Aswan", nameAr: "أسوان", level: "district", parentId: "reg-upper", imsCode: "ASWAN", ...R },
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+// BRICKS (148) — with % GEO. SHARE
+// ═══════════════════════════════════════════════════════════════════════
+function b(id: number, name: string, nameAr: string, parentId: string, geoShare: number): Territory {
+  return { id: `brk-${id}`, name, nameAr, level: "brick", parentId, imsCode: `B${id}`, geoShare, ...R };
+}
+
+const BRICKS: Territory[] = [
+  // ── Cairo Bricks ──
+  b(1, "Heliopolis 1", "هليوبوليس ١", "area-heliopolis-i", 0.1398),
+  b(2, "Heliopolis 2", "هليوبوليس ٢", "area-heliopolis-i", 1.4900),
+  b(3, "Heliopolis 3", "هليوبوليس ٣", "area-heliopolis-ii", 0.9384),
+  b(4, "Heliopolis 4", "هليوبوليس ٤", "area-heliopolis-ii", 2.0450),
+  b(5, "Heliopolis 5", "هليوبوليس ٥", "area-heliopolis-iii", 0.5598),
+  b(6, "Heliopolis 6", "هليوبوليس ٦", "area-heliopolis-iii", 0.6501),
+  b(7, "Nasr City 1", "مدينة نصر ١", "area-nasr-city", 1.9086),
+  b(8, "Nasr City 2", "مدينة نصر ٢", "area-nasr-city", 1.0693),
+  b(9, "Cairo East 1", "شرق القاهرة ١", "area-cairo-east-i", 0.2780),
+  b(10, "Cairo East 2", "شرق القاهرة ٢", "area-cairo-east-i", 0.3114),
+  b(11, "Cairo East 3", "شرق القاهرة ٣", "area-cairo-east-ii", 0.5248),
+  b(12, "Cairo East 4", "شرق القاهرة ٤", "area-cairo-east-ii", 1.6573),
+  b(13, "Cairo East 5", "شرق القاهرة ٥", "area-cairo-east-ii", 0.6470),
+  b(14, "Cairo East 6", "شرق القاهرة ٦", "area-cairo-east-iii", 0.7244),
+  b(15, "El Koubah", "القبة", "area-el-kobbah", 0.4202),
+  b(16, "El Abassia 1", "العباسية ١", "area-abbaseia", 0.0927),
+  b(17, "El Abassia 2", "العباسية ٢", "area-abbaseia", 0.2371),
+  b(18, "Cairo West 1", "غرب القاهرة ١", "area-cairo-west-i", 0.1123),
+  b(19, "Cairo West 2", "غرب القاهرة ٢", "area-cairo-west-i", 0.0824),
+  b(20, "Cairo West 3", "غرب القاهرة ٣", "area-cairo-west-i", 0.4622),
+  b(21, "Cairo West 4", "غرب القاهرة ٤", "area-cairo-west-ii", 0.1460),
+  b(22, "Cairo West 5", "غرب القاهرة ٥", "area-cairo-west-ii", 0.2284),
+  b(23, "Cairo West 6", "غرب القاهرة ٦", "area-cairo-west-iii", 0.1972),
+  b(24, "Cairo West 7", "غرب القاهرة ٧", "area-cairo-west-iii", 0.2213),
+  b(25, "Cairo Center", "وسط القاهرة", "area-cairo-center", 1.0140),
+  b(26, "Cairo South 1", "جنوب القاهرة ١", "area-cairo-south-i", 0.5457),
+  b(27, "Cairo South 2", "جنوب القاهرة ٢", "area-cairo-south-i", 0.3728),
+  b(28, "Cairo South 3", "جنوب القاهرة ٣", "area-cairo-south-ii", 0.1432),
+  b(29, "Cairo South 4", "جنوب القاهرة ٤", "area-cairo-south-ii", 0.0701),
+  b(30, "Cairo South 5", "جنوب القاهرة ٥", "area-cairo-south-ii", 0.3347),
+  b(31, "Cairo South 6", "جنوب القاهرة ٦", "area-cairo-south-iii", 0.4477),
+  b(32, "Cairo South 7", "جنوب القاهرة ٧", "area-cairo-south-iii", 0.2635),
+  b(33, "Cairo South 8", "جنوب القاهرة ٨", "area-cairo-south-iii", 0.2763),
+  b(34, "Maadi 1", "المعادي ١", "area-maadi", 0.8435),
+  b(35, "Maadi 2", "المعادي ٢", "area-maadi", 0.9811),
+  b(36, "Helwan 1", "حلوان ١", "area-helwan", 0.3547),
+  b(37, "Helwan 2", "حلوان ٢", "area-helwan", 1.0165),
+  b(38, "Shobra El Khemah", "شبرا الخيمة", "area-shobra-khemah", 1.1836),
+
+  // ── Guiza Bricks ──
+  b(39, "Giza 1", "الجيزة ١", "area-guiza-i", 0.0599),
+  b(40, "Giza 2", "الجيزة ٢", "area-guiza-i", 0.5113),
+  b(41, "Giza 3", "الجيزة ٣", "area-guiza-ii", 0.3759),
+  b(42, "Giza 4", "الجيزة ٤", "area-guiza-ii", 0.2585),
+  b(43, "Giza 5", "الجيزة ٥", "area-guiza-ii", 0.2401),
+  b(44, "Giza 6", "الجيزة ٦", "area-guiza-ii", 0.2121),
+  b(45, "Giza 7", "الجيزة ٧", "area-guiza-ii", 0.1023),
+  b(46, "Giza 8", "الجيزة ٨", "area-guiza-iii", 1.4965),
+  b(47, "Giza 9", "الجيزة ٩", "area-guiza-iii", 0.2613),
+  b(48, "Giza 10", "الجيزة ١٠", "area-guiza-iv", 0.2348),
+  b(49, "Giza 11", "الجيزة ١١", "area-guiza-v", 1.0439),
+  b(50, "Giza 12", "الجيزة ١٢", "area-guiza-v", 0.5359),
+  b(51, "Imbaba 1", "إمبابة ١", "area-imbaba-i", 0.3918),
+  b(52, "Imbaba 2", "إمبابة ٢", "area-imbaba-ii", 1.5701),
+  b(53, "Imbaba 3", "إمبابة ٣", "area-imbaba-ii", 0.4973),
+  b(54, "Faisal 1", "فيصل ١", "area-faisal", 1.6979),
+  b(55, "Faisal 2", "فيصل ٢", "area-faisal", 1.3148),
+  b(56, "Haram 1", "الهرم ١", "area-el-haram", 2.8346),
+  b(57, "Haram 2", "الهرم ٢", "area-el-haram", 0.3220),
+  b(58, "Haram 3", "الهرم ٣", "area-el-haram", 0.2801),
+
+  // ── Delta Bricks ──
+  b(59, "Kalubia 1", "القليوبية ١", "area-kalubia-i", 0.7445),
+  b(60, "Kalubia 2", "القليوبية ٢", "area-kalubia-i", 0.1981),
+  b(61, "Kalubia 3", "القليوبية ٣", "area-kalubia-i", 0.2794),
+  b(62, "Kalubia 4", "القليوبية ٤", "area-kalubia-ii", 0.8678),
+  b(63, "Kalubia 5", "القليوبية ٥", "area-kalubia-ii", 0.4398),
+  b(64, "Menofia 1", "المنوفية ١", "area-menofia-i", 0.8205),
+  b(65, "Menofia 2", "المنوفية ٢", "area-menofia-ii", 0.6703),
+  b(66, "Menofia 3", "المنوفية ٣", "area-menofia-ii", 0.5605),
+  b(67, "Menofia 4", "المنوفية ٤", "area-menofia-iii", 0.6920),
+  b(68, "Menofia 5", "المنوفية ٥", "area-menofia-iii", 0.5936),
+  b(69, "Menofia 6", "المنوفية ٦", "area-menofia-iii", 0.1458),
+  b(70, "Gharbia 1", "الغربية ١", "area-gharbia-i", 0.9542),
+  b(71, "Gharbia 2", "الغربية ٢", "area-gharbia-i", 0.7035),
+  b(72, "Gharbia 3", "الغربية ٣", "area-gharbia-ii", 1.0563),
+  b(73, "Gharbia 4", "الغربية ٤", "area-gharbia-ii", 0.2755),
+  b(74, "Gharbia 5", "الغربية ٥", "area-gharbia-iii", 0.4172),
+  b(75, "Gharbia 6", "الغربية ٦", "area-gharbia-iii", 0.4345),
+  b(76, "Gharbia 7", "الغربية ٧", "area-gharbia-iii", 0.7482),
+  b(77, "Dakahlia 1", "الدقهلية ١", "area-dakahlia-i", 1.3604),
+  b(78, "Dakahlia 2", "الدقهلية ٢", "area-dakahlia-i", 0.5803),
+  b(79, "Dakahlia 3", "الدقهلية ٣", "area-dakahlia-i", 0.5531),
+  b(80, "Dakahlia 4", "الدقهلية ٤", "area-dakahlia-ii", 0.3216),
+  b(81, "Dakahlia 5", "الدقهلية ٥", "area-dakahlia-ii", 0.6602),
+  b(82, "Dakahlia 6", "الدقهلية ٦", "area-dakahlia-ii", 0.6741),
+  b(83, "Dakahlia 7", "الدقهلية ٧", "area-dakahlia-iii", 0.6668),
+  b(84, "Dakahlia 8", "الدقهلية ٨", "area-dakahlia-iii", 0.4946),
+  b(85, "Dakahlia 9", "الدقهلية ٩", "area-dakahlia-iv", 0.3312),
+  b(86, "Dakahlia 10", "الدقهلية ١٠", "area-dakahlia-iv", 0.3928),
+  b(87, "Domiat 1", "دمياط ١", "area-domiat", 0.7883),
+  b(88, "Domiat 2", "دمياط ٢", "area-domiat", 0.3392),
+  b(89, "Domiat 3", "دمياط ٣", "area-domiat", 0.5412),
+  b(90, "Kafr El Sheikh 1", "كفر الشيخ ١", "area-kafr-sheikh-i", 0.4967),
+  b(91, "Kafr El Sheikh 2", "كفر الشيخ ٢", "area-kafr-sheikh-i", 0.5000),
+  b(92, "Kafr El Sheikh 3", "كفر الشيخ ٣", "area-kafr-sheikh-ii", 0.5198),
+  b(93, "Kafr El Sheikh 4", "كفر الشيخ ٤", "area-kafr-sheikh-ii", 0.1474),
+  b(94, "Kafr El Sheikh 5", "كفر الشيخ ٥", "area-kafr-sheikh-ii", 0.5976),
+  b(95, "Sharkia 1", "الشرقية ١", "area-sharkia-i", 0.9936),
+  b(96, "Sharkia 2", "الشرقية ٢", "area-sharkia-i", 0.3156),
+  b(97, "Sharkia 3", "الشرقية ٣", "area-sharkia-ii", 1.0992),
+  b(98, "Sharkia 4", "الشرقية ٤", "area-sharkia-ii", 0.3828),
+  b(99, "Sharkia 5", "الشرقية ٥", "area-sharkia-ii", 0.3214),
+  b(100, "Sharkia 6", "الشرقية ٦", "area-sharkia-iii", 0.7062),
+  b(101, "Sharkia 7", "الشرقية ٧", "area-sharkia-iii", 0.8899),
+
+  // ── Alex/Behera Bricks ──
+  b(102, "East Alex 1", "شرق الإسكندرية ١", "area-alex-east-i", 0.2588),
+  b(103, "East Alex 2", "شرق الإسكندرية ٢", "area-alex-east-i", 0.5646),
+  b(104, "East Alex 3", "شرق الإسكندرية ٣", "area-alex-east-ii", 0.9199),
+  b(105, "East Alex 4", "شرق الإسكندرية ٤", "area-alex-east-iii", 1.1872),
+  b(106, "East Alex 5", "شرق الإسكندرية ٥", "area-alex-east-iii", 0.6967),
+  b(107, "Alex Center 1", "وسط الإسكندرية ١", "area-alex-center-i", 0.9050),
+  b(108, "Alex Center 2", "وسط الإسكندرية ٢", "area-alex-center-ii", 1.5597),
+  b(109, "Alex West 1", "غرب الإسكندرية ١", "area-alex-west-i", 0.6693),
+  b(110, "Alex West 2", "غرب الإسكندرية ٢", "area-alex-west-i", 0.5318),
+  b(111, "Alex West / Marsa Matrouh 1", "غرب الإسكندرية/مطروح ١", "area-alex-west-matrouh", 0.8214),
+  b(112, "Alex West / Marsa Matrouh 2", "غرب الإسكندرية/مطروح ٢", "area-alex-west-matrouh", 1.0875),
+  b(113, "Behera 1", "البحيرة ١", "area-behera-i", 0.9040),
+  b(114, "Behera 2", "البحيرة ٢", "area-behera-ii", 0.7165),
+  b(115, "Behera 3", "البحيرة ٣", "area-behera-ii", 1.1775),
+  b(116, "Behera 4", "البحيرة ٤", "area-behera-ii", 0.6319),
+  b(117, "Behera 5", "البحيرة ٥", "area-behera-iii", 0.8170),
+  b(118, "Behera 6", "البحيرة ٦", "area-behera-iii", 0.8679),
+
+  // ── Canal/Sinai Bricks ──
+  b(119, "Port Said / North Sinai 1", "بورسعيد/شمال سيناء ١", "area-port-said", 0.8082),
+  b(120, "Port Said / North Sinai 2", "بورسعيد/شمال سيناء ٢", "area-port-said", 0.4185),
+  b(121, "Ismailia", "الإسماعيلية", "area-ismaelia", 1.0497),
+  b(122, "Suez / South Sinai 1", "السويس/جنوب سيناء ١", "area-suez", 0.7358),
+  b(123, "Suez / South Sinai 2", "السويس/جنوب سيناء ٢", "area-suez", 0.1950),
+
+  // ── Upper Egypt Bricks ──
+  b(124, "Fayoum 1", "الفيوم ١", "area-fayoum", 0.7181),
+  b(125, "Fayoum 2", "الفيوم ٢", "area-fayoum", 0.9709),
+  b(126, "Bani Suif 1", "بني سويف ١", "area-bani-suef", 0.5615),
+  b(127, "Bani Suif 2", "بني سويف ٢", "area-bani-suef", 0.4177),
+  b(128, "Bani Suif 3", "بني سويف ٣", "area-bani-suef", 0.5135),
+  b(129, "El Menya 1", "المنيا ١", "area-menya-i", 0.8854),
+  b(130, "El Menya 2", "المنيا ٢", "area-menya-i", 0.7074),
+  b(131, "El Menya 3", "المنيا ٣", "area-menya-ii", 0.8114),
+  b(132, "El Menya 4", "المنيا ٤", "area-menya-ii", 1.1549),
+  b(133, "Assuit / New Valley 1", "أسيوط/الوادي الجديد ١", "area-assiut-nv", 1.2349),
+  b(134, "Assuit / New Valley 2", "أسيوط/الوادي الجديد ٢", "area-assiut-nv", 0.2029),
+  b(135, "Assuit 1", "أسيوط ١", "area-assiut-ii", 0.8420),
+  b(136, "Assuit 2", "أسيوط ٢", "area-assiut-ii", 1.3638),
+  b(137, "Sohag 1", "سوهاج ١", "area-sohag-i", 1.4502),
+  b(138, "Sohag 2", "سوهاج ٢", "area-sohag-i", 0.8473),
+  b(139, "Sohag 3", "سوهاج ٣", "area-sohag-ii", 1.6676),
+  b(140, "Quena / Red Sea 1", "قنا/البحر الأحمر ١", "area-quena-rs", 0.9099),
+  b(141, "Quena / Red Sea 2", "قنا/البحر الأحمر ٢", "area-quena-rs", 0.5970),
+  b(142, "Quena / Red Sea 3", "قنا/البحر الأحمر ٣", "area-quena-rs", 0.5927),
+  b(143, "Quena / Red Sea 4", "قنا/البحر الأحمر ٤", "area-quena-rs", 0.4989),
+  b(144, "Quena 1", "قنا ١", "area-quena-ii", 0.5187),
+  b(145, "Quena 2", "قنا ٢", "area-quena-ii", 0.5469),
+  b(146, "Quena 3", "قنا ٣", "area-quena-ii", 0.5335),
+  b(147, "Aswan 1", "أسوان ١", "area-aswan", 0.8907),
+  b(148, "Aswan 2", "أسوان ٢", "area-aswan", 0.5304),
+];
+
+export const IMS_TERRITORIES: Territory[] = [...REGIONS, ...AREAS, ...BRICKS];
+
+export const IMS_STATS = {
+  totalRegions: REGIONS.length,
+  totalAreas: AREAS.length,
+  totalBricks: BRICKS.length,
+  totalGeoShare: BRICKS.reduce((s, br) => s + (br.geoShare || 0), 0),
+};
