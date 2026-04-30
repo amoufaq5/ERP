@@ -103,6 +103,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Collections", labelKey: "nav.collections", href: "/erp/collections", icon: Banknote },
       { label: "Returns", labelKey: "nav.returns", href: "/erp/returns", icon: RotateCcw },
       { label: "Partner Ledger", labelKey: "nav.partnerLedger", href: "/erp/partner-ledger", icon: Scale },
+      { label: "Partner Detail", labelKey: "nav.partnerDetail", href: "/erp/partner-detail", icon: Contact },
       { label: "Banking", labelKey: "sidebar.banking", href: "/erp/banking", icon: Landmark },
       { label: "E-Invoicing", labelKey: "sidebar.eInvoicing", href: "/erp/e-invoicing", icon: FileCheck },
     ],

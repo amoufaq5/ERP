@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useRef } from "react";
 import {
   Package, Upload, Download, FileSpreadsheet,
   Plus, Pill, AlertTriangle, DollarSign,
+  Eye, Trash2, FileText, Beaker,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
@@ -22,7 +25,7 @@ import {
 } from "@/components/shared/entity-form-modal";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
-import { useDataStore } from "@/lib/data-store";
+import { useDataStore, type Product, type ProductDocument, type ConversionFormula } from "@/lib/data-store";
 import { downloadCSV } from "@/lib/download";
 
 /* ─── Constants ──────────────────────────────────────────────────── */

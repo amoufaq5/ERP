@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ShoppingBag, Truck, FileText, Plus, ArrowRight, CheckCircle, Package, X } from "lucide-react";
+import { ShoppingBag, Truck, FileText, Plus, ArrowRight, CheckCircle, Package, X, Ban, AlertTriangle, CircleDot } from "lucide-react";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { Button } from "@/components/ui/button";
@@ -135,29 +135,71 @@ export default function SalesOrderPage() {
     store.update("salesOrders", so.id, { status: "CONFIRMED" });
   }
 
-  // ─── Integration: Confirm Delivery → auto-create Invoice + JE ───────
-  function confirmDelivery(dn: DeliveryNote) {
-    store.update("deliveryNotes", dn.id, { status: "DELIVERED" });
-
-    const so = store.salesOrders.find((s) => s.id === dn.soId);
-    if (!so) return;
-
-    // Stock check before fulfillment
+  // ─── Process Order (CONFIRMED → PROCESSING) — stock availability check ───
+  function processOrder(so: SalesOrder) {
+    const stockIssues: string[] = [];
     for (const item of so.items) {
       const product = store.products.find((p) => p.id === item.productId);
       if (product && product.stockQty < item.quantity) {
-        alert(`Insufficient stock for ${product.name}: need ${item.quantity}, have ${product.stockQty}`);
-        return;
+        stockIssues.push(`${product.name}: need ${item.quantity}, have ${product.stockQty}`);
       }
     }
+    if (stockIssues.length > 0) {
+      alert(`Cannot process — insufficient stock:\n${stockIssues.join("\n")}`);
+      return;
+    }
 
-    // Deduct inventory
+    // Deduct inventory at PROCESSING stage
     for (const item of so.items) {
       const product = store.products.find((p) => p.id === item.productId);
       if (product) {
         store.update("products", product.id, { stockQty: product.stockQty - item.quantity });
       }
     }
+
+    store.update("salesOrders", so.id, { status: "PROCESSING" });
+  }
+
+  // ─── Mark Shipped (PROCESSING → SHIPPED) — auto-create DeliveryNote ───
+  function markShipped(so: SalesOrder) {
+    const dnId = store.genId("dn");
+    store.add("deliveryNotes", {
+      id: dnId,
+      number: store.generateDNNumber(),
+      soId: so.id,
+      customerId: so.customerId,
+      date: new Date().toISOString(),
+      items: so.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity })),
+      status: "SHIPPED",
+      createdAt: new Date().toISOString(),
+    });
+    store.update("salesOrders", so.id, { status: "SHIPPED", dnId });
+  }
+
+  // ─── Cancel Order (DRAFT or CONFIRMED → CANCELLED) ───
+  function cancelOrder(so: SalesOrder) {
+    if (so.status !== "DRAFT" && so.status !== "CONFIRMED") return;
+    store.update("salesOrders", so.id, { status: "CANCELLED" });
+  }
+
+  // ─── Helper: get stock availability for a product vs required qty ───
+  function getStockStatus(productId: string, requiredQty: number) {
+    const product = store.products.find((p) => p.id === productId);
+    if (!product) return { available: 0, sufficient: false, label: "N/A" };
+    return {
+      available: product.stockQty,
+      sufficient: product.stockQty >= requiredQty,
+      label: `${product.stockQty} in stock`,
+    };
+  }
+
+  // ─── Integration: Confirm Delivery → auto-create Invoice + JE ───────
+  // Stock is already deducted at PROCESSING stage, so no stock check here.
+  function confirmDelivery(dn: DeliveryNote) {
+    store.update("deliveryNotes", dn.id, { status: "DELIVERED" });
+
+    const so = store.salesOrders.find((s) => s.id === dn.soId);
+    if (!so) return;
 
     const invId = store.genId("inv");
     store.add("invoices", {

@@ -36,7 +36,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/crm/campaigns", "/crm/tickets", "/crm/loyalty",
     "/crm/bum", "/crm/marketeer", "/crm/district-manager", "/crm/medical-rep",
     "/crm/business-units", "/crm/territories", "/crm/weekly-plan", "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests", "/crm/reports", "/crm/kpis", "/crm/expenses",
-    "/erp/finance", "/erp/accounting", "/erp/collections", "/erp/returns", "/erp/partner-ledger",
+    "/erp/finance", "/erp/accounting", "/erp/collections", "/erp/returns", "/erp/partner-ledger", "/erp/partner-detail",
     "/erp/procurement", "/erp/sales-order", "/erp/products",
     "/ats/training",
     "/reports", "/settings", "/settings/profile",
@@ -71,7 +71,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
   ACCOUNTANT: [
     "/dashboard", "/messages", "/tasks",
     "/hubs/finance", "/hubs/supply-chain",
-    "/erp/finance", "/erp/accounting", "/erp/collections", "/erp/returns", "/erp/partner-ledger",
+    "/erp/finance", "/erp/accounting", "/erp/collections", "/erp/returns", "/erp/partner-ledger", "/erp/partner-detail",
     "/erp/procurement", "/erp/sales-order", "/erp/products",
     "/reports", "/settings/profile",
   ],

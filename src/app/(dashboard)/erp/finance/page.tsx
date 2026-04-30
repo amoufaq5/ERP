@@ -16,7 +16,6 @@ import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDataStore, type Invoice, type Payment, type Budget, type GLAccount, type SalesOrder, type BankAccount } from "@/lib/data-store";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useApprovals } from "@/lib/approval-workflow";
 import { openInvoicePDF } from "@/lib/invoice-pdf";
 import {
@@ -913,6 +912,183 @@ export default function FinancePage() {
           })()}
         </DialogContent>
       </Dialog>
+
+      {/* ── Bank Account Detail Dialog ── */}
+      <Dialog open={!!bankDetailId} onOpenChange={(o) => { if (!o) { setBankDetailId(null); setBankTxFilter("all"); setBankTxSearch(""); } }}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          {(() => {
+            const bankAcc = bankDetailId ? store.bankAccounts.find((b) => b.id === bankDetailId) : null;
+            if (!bankAcc) return null;
+            const accPayments = store.payments.filter((p) => p.bankAccountId === bankAcc.id);
+            const accCheques = store.cheques.filter((c) => c.bankAccountId === bankAcc.id);
+            const allTx: { id: string; date: string; description: string; reference: string; amount: number; type: "credit" | "debit"; source: string }[] = [];
+            accPayments.forEach((p) => {
+              const party = p.customerId ? customerName(p.customerId) : p.vendorId ? vendorName(p.vendorId) : "";
+              allTx.push({ id: p.id, date: p.date, description: `${p.type === "RECEIVED" ? "Received from" : "Sent to"} ${party}`, reference: p.reference, amount: p.amount, type: p.type === "RECEIVED" ? "credit" : "debit", source: "Payment" });
+            });
+            accCheques.forEach((c) => {
+              allTx.push({ id: c.id, date: c.issueDate, description: `Cheque ${c.number} — ${c.partyName}`, reference: c.number, amount: c.amount, type: c.type === "INCOMING" ? "credit" : "debit", source: `Cheque (${c.status})` });
+            });
+            allTx.sort((a, b) => b.date.localeCompare(a.date));
+            const filteredTx = allTx.filter((tx) => {
+              if (bankTxFilter !== "all" && tx.type !== bankTxFilter) return false;
+              if (bankTxSearch) {
+                const q = bankTxSearch.toLowerCase();
+                if (!tx.description.toLowerCase().includes(q) && !tx.reference.toLowerCase().includes(q)) return false;
+              }
+              return true;
+            });
+            let runningBalance = bankAcc.balance;
+            const txWithBalance = filteredTx.map((tx) => {
+              const bal = runningBalance;
+              runningBalance -= tx.type === "credit" ? tx.amount : -tx.amount;
+              return { ...tx, balance: bal };
+            });
+            const totalCredits = allTx.filter((t) => t.type === "credit").reduce((s, t) => s + t.amount, 0);
+            const totalDebits = allTx.filter((t) => t.type === "debit").reduce((s, t) => s + t.amount, 0);
+            const pendingIn = accCheques.filter((c) => c.type === "INCOMING" && (c.status === "PENDING" || c.status === "DEPOSITED")).reduce((s, c) => s + c.amount, 0);
+            const pendingOut = accCheques.filter((c) => c.type === "OUTGOING" && c.status === "PENDING").reduce((s, c) => s + c.amount, 0);
+            return (
+              <>
+                <DialogHeader><DialogTitle className="flex items-center gap-2"><Landmark className="h-5 w-5" /> {bankAcc.name} — {bankAcc.bankName}</DialogTitle></DialogHeader>
+                <div className="space-y-4">
+                  {/* Account Details */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="p-3 bg-muted/30 rounded-lg">
+                      <p className="text-xs text-muted-foreground">Balance</p>
+                      <p className="text-lg font-bold text-green-700">{egp(bankAcc.balance)}</p>
+                    </div>
+                    <div className="p-3 bg-muted/30 rounded-lg">
+                      <p className="text-xs text-muted-foreground">Account #</p>
+                      <p className="font-mono text-sm">{bankAcc.accountNumber}</p>
+                    </div>
+                    <div className="p-3 bg-muted/30 rounded-lg">
+                      <p className="text-xs text-muted-foreground">IBAN</p>
+                      <p className="font-mono text-xs">{bankAcc.iban || "N/A"}</p>
+                    </div>
+                    <div className="p-3 bg-muted/30 rounded-lg">
+                      <p className="text-xs text-muted-foreground">Status</p>
+                      <StatusBadge status={bankAcc.status} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                    <div><span className="text-muted-foreground">Currency:</span> {bankAcc.currency}</div>
+                    <div><span className="text-muted-foreground">Type:</span> <Badge variant="outline">{bankAcc.type}</Badge></div>
+                    <div><span className="text-muted-foreground">Opened:</span> {new Date(bankAcc.openedAt).toLocaleDateString()}</div>
+                    <div><span className="text-muted-foreground">Code:</span> <span className="font-mono text-xs">{bankAcc.code}</span></div>
+                  </div>
+
+                  {/* Reconciliation / Summary */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Total Credits</div><div className="text-sm font-bold text-green-600">+{egp(totalCredits)}</div></CardContent></Card>
+                    <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Total Debits</div><div className="text-sm font-bold text-red-600">-{egp(totalDebits)}</div></CardContent></Card>
+                    <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Pending Incoming</div><div className="text-sm font-bold text-green-600">{egp(pendingIn)}</div></CardContent></Card>
+                    <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Pending Outgoing</div><div className="text-sm font-bold text-red-600">{egp(pendingOut)}</div></CardContent></Card>
+                  </div>
+
+                  {/* Transactions Table */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-semibold">Transactions</h3>
+                      <div className="flex gap-2">
+                        <Input className="h-7 text-xs w-48" placeholder="Search transactions..." value={bankTxSearch} onChange={(e) => setBankTxSearch(e.target.value)} />
+                        <select className="rounded-md border px-2 py-1 text-xs" value={bankTxFilter} onChange={(e) => setBankTxFilter(e.target.value as "all" | "credit" | "debit")}>
+                          <option value="all">All</option>
+                          <option value="credit">Credits</option>
+                          <option value="debit">Debits</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs">Date</th>
+                            <th className="px-3 py-2 text-left text-xs">Description</th>
+                            <th className="px-3 py-2 text-left text-xs">Reference</th>
+                            <th className="px-3 py-2 text-left text-xs">Source</th>
+                            <th className="px-3 py-2 text-right text-xs">Amount</th>
+                            <th className="px-3 py-2 text-right text-xs">Balance</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {txWithBalance.map((tx) => (
+                            <tr key={tx.id} className="hover:bg-muted/30">
+                              <td className="px-3 py-2 text-xs">{new Date(tx.date).toLocaleDateString()}</td>
+                              <td className="px-3 py-2 text-xs font-medium">{tx.description}</td>
+                              <td className="px-3 py-2 font-mono text-xs">{tx.reference}</td>
+                              <td className="px-3 py-2 text-xs"><Badge variant="outline" className="text-xs h-5">{tx.source}</Badge></td>
+                              <td className={`px-3 py-2 text-right text-xs font-semibold ${tx.type === "credit" ? "text-green-700" : "text-red-700"}`}>
+                                {tx.type === "credit" ? "+" : "-"}{tx.amount.toLocaleString()}
+                              </td>
+                              <td className="px-3 py-2 text-right text-xs font-mono">{tx.balance.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                          {txWithBalance.length === 0 && (
+                            <tr><td colSpan={6} className="px-3 py-6 text-center text-muted-foreground text-xs">No transactions found for this account.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 justify-end">
+                    <Button size="sm" variant="outline" onClick={() => { setBankDetailId(null); setEditingBank(bankAcc); setShowBankModal(true); }}>Edit Account</Button>
+                    <Button size="sm" variant="outline" onClick={() => {
+                      const rows = allTx.map((tx) => ({ Date: tx.date, Description: tx.description, Reference: tx.reference, Type: tx.type, Amount: tx.amount, Source: tx.source }));
+                      downloadCSV(`bank-${bankAcc.code}-transactions.csv`, rows);
+                    }}><Download className="h-3.5 w-3.5 mr-1" /> Export</Button>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Bank Account Form Modal ── */}
+      <EntityFormModal
+        open={showBankModal}
+        onOpenChange={(open) => { setShowBankModal(open); if (!open) setEditingBank(null); }}
+        title={editingBank ? `Edit ${editingBank.name}` : "Add Bank Account"}
+        fields={[
+          { name: "code", label: "Code", type: "text", placeholder: "Auto-generated if empty", helperText: "Leave blank for auto-generated code" },
+          { name: "name", label: "Account Name", type: "text", required: true },
+          { name: "bankName", label: "Bank Name", type: "text", required: true },
+          { name: "accountNumber", label: "Account Number", type: "text", required: true },
+          { name: "iban", label: "IBAN", type: "text" },
+          { name: "currency", label: "Currency", type: "select", defaultValue: "EGP", options: [{ label: "EGP", value: "EGP" }, { label: "USD", value: "USD" }, { label: "EUR", value: "EUR" }, { label: "SAR", value: "SAR" }] },
+          { name: "balance", label: "Opening Balance", type: "number", required: true, defaultValue: 0 },
+          { name: "type", label: "Type", type: "select", defaultValue: "CURRENT", options: [{ label: "Current", value: "CURRENT" }, { label: "Savings", value: "SAVINGS" }, { label: "Foreign Currency", value: "FOREIGN_CURRENCY" }] },
+          { name: "status", label: "Status", type: "select", defaultValue: "ACTIVE", options: [{ label: "Active", value: "ACTIVE" }, { label: "Dormant", value: "DORMANT" }, { label: "Closed", value: "CLOSED" }] },
+        ] as EntityField[]}
+        initialData={editingBank ? {
+          code: editingBank.code, name: editingBank.name, bankName: editingBank.bankName,
+          accountNumber: editingBank.accountNumber, iban: editingBank.iban ?? "",
+          currency: editingBank.currency, balance: editingBank.balance,
+          type: editingBank.type, status: editingBank.status,
+        } : undefined}
+        onSubmit={(data) => {
+          const payload = {
+            code: String(data.code), name: String(data.name), bankName: String(data.bankName),
+            accountNumber: String(data.accountNumber), iban: data.iban ? String(data.iban) : undefined,
+            currency: String(data.currency || "EGP"), balance: Number(data.balance),
+            type: String(data.type) as BankAccount["type"],
+            status: String(data.status) as BankAccount["status"],
+            openedAt: editingBank?.openedAt ?? new Date().toISOString(),
+          };
+          if (editingBank) {
+            store.update("bankAccounts", editingBank.id, payload);
+          } else {
+            const code = payload.code.trim() || store.generateBankCode();
+            store.add("bankAccounts", { id: store.genId("ba"), ...payload, code });
+          }
+          setShowBankModal(false);
+          setEditingBank(null);
+        }}
+        submitLabel={editingBank ? "Save" : "Create"}
+      />
     </div>
   );
 }
