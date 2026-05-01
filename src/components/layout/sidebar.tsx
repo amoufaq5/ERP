@@ -129,7 +129,6 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Sales Orders", labelKey: "sidebar.salesOrders", href: "/erp/sales-order", icon: ShoppingBag },
       { label: "Inventory", labelKey: "nav.inventory", href: "/erp/inventory", icon: Package },
       { label: "Products", labelKey: "nav.products", href: "/erp/products", icon: Pill },
-      { label: "Forecasting", labelKey: "sidebar.forecasting", href: "/erp/forecasting", icon: TrendingUp },
     ],
   },
   {

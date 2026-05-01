@@ -1,13 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import PageHeader from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Key, Copy, Check, Trash2, Play, BookOpen, ShieldCheck, Clock, ChevronDown,
+} from "lucide-react";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ──────────────────────────────────────────────────────────
 
 interface ApiKey {
   id: string;
@@ -18,349 +24,336 @@ interface ApiKey {
 }
 
 interface EndpointDoc {
-  method: string;
+  method: "GET" | "POST" | "PUT" | "DELETE";
   path: string;
   description: string;
-  queryParams?: string[];
-  bodyFields?: string[];
+  module: string;
+  queryParams?: { name: string; type: string; description: string }[];
+  bodyFields?: { name: string; type: string; required: boolean; description: string }[];
   exampleRequest?: string;
-  exampleResponse?: string;
+  exampleResponse: string;
 }
 
-// ─── Endpoint documentation data ─────────────────────────────────────────────
+// ─── Method Colors ──────────────────────────────────────────────────
+
+const METHOD_COLORS: Record<string, string> = {
+  GET: "bg-blue-100 text-blue-800",
+  POST: "bg-green-100 text-green-800",
+  PUT: "bg-yellow-100 text-yellow-800",
+  DELETE: "bg-red-100 text-red-800",
+};
+
+// ─── Endpoint Data ──────────────────────────────────────────────────
 
 const ENDPOINTS: EndpointDoc[] = [
-  // Health check
+  // ── Finance ──
   {
-    method: "GET",
-    path: "/api/v1",
-    description: "API health check. Returns version, available endpoints, and server time.",
-    exampleResponse: JSON.stringify(
-      {
-        success: true,
-        data: {
-          api: "Pharma ERP API",
-          version: "1.0.0",
-          serverTime: "2026-04-30T12:00:00.000Z",
-          status: "operational",
-        },
-      },
-      null,
-      2,
-    ),
-  },
-  // Customers
-  {
-    method: "GET",
-    path: "/api/v1/customers",
-    description: "List all customers with pagination, search, and filtering.",
-    queryParams: ["page", "limit", "search", "type", "city", "country"],
-    exampleResponse: JSON.stringify(
-      {
-        success: true,
-        data: [{ id: "acct-1", name: "Acme Pharma Inc.", type: "CUSTOMER", city: "New York" }],
-        pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
-      },
-      null,
-      2,
-    ),
+    method: "GET", path: "/api/v1/invoices", module: "Finance",
+    description: "List all invoices with pagination, search, and status filtering.",
+    queryParams: [
+      { name: "page", type: "number", description: "Page number (default: 1)" },
+      { name: "limit", type: "number", description: "Items per page (default: 20)" },
+      { name: "status", type: "string", description: "Filter by status: DRAFT, SENT, PAID, OVERDUE, CANCELLED" },
+      { name: "customerId", type: "string", description: "Filter by customer ID" },
+    ],
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: [{ id: "inv-001", invoiceNumber: "INV-2026-0001", customerId: "cust-001", total: 15250.00, status: "SENT", date: "2026-04-15" }],
+      pagination: { page: 1, limit: 20, total: 42, totalPages: 3 },
+    }, null, 2),
   },
   {
-    method: "POST",
-    path: "/api/v1/customers",
+    method: "POST", path: "/api/v1/invoices", module: "Finance",
+    description: "Create a new invoice with line items. Auto-generates invoice number.",
+    bodyFields: [
+      { name: "customerId", type: "string", required: true, description: "Customer account ID" },
+      { name: "date", type: "string", required: true, description: "Invoice date (ISO 8601)" },
+      { name: "dueDate", type: "string", required: true, description: "Payment due date" },
+      { name: "items", type: "array", required: true, description: "Array of line items with productId, quantity, unitPrice" },
+      { name: "notes", type: "string", required: false, description: "Optional notes" },
+    ],
+    exampleRequest: JSON.stringify({
+      customerId: "cust-001",
+      date: "2026-04-30",
+      dueDate: "2026-05-30",
+      items: [{ productId: "p-cardio-1", description: "Cardioprex 500mg", quantity: 200, unitPrice: 48 }],
+      notes: "Net 30 payment terms",
+    }, null, 2),
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: { id: "inv-new", invoiceNumber: "INV-2026-0043", total: 9600, status: "DRAFT" },
+    }, null, 2),
+  },
+  {
+    method: "GET", path: "/api/v1/payments", module: "Finance",
+    description: "List payment records with pagination and filtering.",
+    queryParams: [
+      { name: "page", type: "number", description: "Page number" },
+      { name: "type", type: "string", description: "Filter: RECEIVED, SENT" },
+    ],
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: [{ id: "pay-001", ref: "PAY-2026-0001", amount: 5000, type: "RECEIVED", method: "Bank Transfer", date: "2026-04-20" }],
+      pagination: { page: 1, limit: 20, total: 18, totalPages: 1 },
+    }, null, 2),
+  },
+  // ── CRM ──
+  {
+    method: "GET", path: "/api/v1/customers", module: "CRM",
+    description: "List all customer accounts with search, pagination, and filtering.",
+    queryParams: [
+      { name: "page", type: "number", description: "Page number (default: 1)" },
+      { name: "limit", type: "number", description: "Items per page (default: 20)" },
+      { name: "search", type: "string", description: "Search by name, email, or code" },
+      { name: "classification", type: "string", description: "Filter by A, B, C, D classification" },
+    ],
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: [{ id: "cust-001", code: "CUST-0001", name: "Cairo General Hospital", email: "procurement@cgh.org", classification: "A" }],
+      pagination: { page: 1, limit: 20, total: 15, totalPages: 1 },
+    }, null, 2),
+  },
+  {
+    method: "POST", path: "/api/v1/customers", module: "CRM",
     description: "Create a new customer account.",
-    bodyFields: ["name (required)", "email", "phone", "industry", "type", "city", "country"],
-    exampleRequest: JSON.stringify(
-      { name: "New Pharma Co.", email: "info@newpharma.com", type: "CUSTOMER", city: "Chicago" },
-      null,
-      2,
-    ),
-    exampleResponse: JSON.stringify(
-      { success: true, data: { id: "acct-new", name: "New Pharma Co.", type: "CUSTOMER" } },
-      null,
-      2,
-    ),
+    bodyFields: [
+      { name: "name", type: "string", required: true, description: "Customer/company name" },
+      { name: "email", type: "string", required: true, description: "Primary email" },
+      { name: "phone", type: "string", required: false, description: "Phone number" },
+      { name: "classification", type: "string", required: false, description: "A, B, C, or D" },
+      { name: "city", type: "string", required: false, description: "City" },
+    ],
+    exampleRequest: JSON.stringify({
+      name: "Alexandria Medical Center",
+      email: "purchasing@amc.com",
+      phone: "+20-3-480-5000",
+      classification: "B",
+      city: "Alexandria",
+    }, null, 2),
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: { id: "cust-new", code: "CUST-0016", name: "Alexandria Medical Center" },
+    }, null, 2),
   },
   {
-    method: "GET",
-    path: "/api/v1/customers/:id",
-    description: "Get a single customer by ID with related contacts.",
+    method: "GET", path: "/api/v1/doctors", module: "CRM",
+    description: "List doctors with specialty, classification, and territory filtering.",
+    queryParams: [
+      { name: "specialty", type: "string", description: "Filter by IMS specialty" },
+      { name: "classification", type: "string", description: "Filter by A/B/C/D" },
+      { name: "brickId", type: "string", description: "Filter by territory brick ID" },
+    ],
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: [{ id: "doc-001", name: "Dr. Ahmad Hassan", specialty: "Cardiology", classification: "A", city: "Cairo" }],
+      pagination: { page: 1, limit: 20, total: 8, totalPages: 1 },
+    }, null, 2),
+  },
+  // ── Inventory ──
+  {
+    method: "GET", path: "/api/v1/products", module: "Inventory",
+    description: "List all products with filtering by therapeutic area, form, and stock status.",
+    queryParams: [
+      { name: "search", type: "string", description: "Search by name or code" },
+      { name: "therapeuticArea", type: "string", description: "Filter by therapeutic area" },
+      { name: "form", type: "string", description: "Filter: Tablet, Capsule, Syrup, Injection, etc." },
+      { name: "lowStock", type: "boolean", description: "Filter to show only items below reorder level" },
+    ],
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: [{ id: "p-cardio-1", code: "CV-001", name: "Cardioprex", strength: "500mg", form: "Tablet", stockQty: 12000, pricePerUnit: 48 }],
+      pagination: { page: 1, limit: 20, total: 8, totalPages: 1 },
+    }, null, 2),
   },
   {
-    method: "PATCH",
-    path: "/api/v1/customers/:id",
-    description: "Update customer fields. Send only the fields to change.",
-    exampleRequest: JSON.stringify({ city: "San Francisco", phone: "+1-555-9999" }, null, 2),
+    method: "PUT", path: "/api/v1/products/:id", module: "Inventory",
+    description: "Update a product's details including price, stock quantity, and metadata.",
+    bodyFields: [
+      { name: "name", type: "string", required: false, description: "Product name" },
+      { name: "pricePerUnit", type: "number", required: false, description: "Unit price" },
+      { name: "stockQty", type: "number", required: false, description: "Current stock quantity" },
+      { name: "reorderLevel", type: "number", required: false, description: "Reorder threshold" },
+    ],
+    exampleRequest: JSON.stringify({ pricePerUnit: 52, stockQty: 14500 }, null, 2),
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: { id: "p-cardio-1", name: "Cardioprex", pricePerUnit: 52, stockQty: 14500 },
+    }, null, 2),
+  },
+  // ── HR ──
+  {
+    method: "GET", path: "/api/v1/employees", module: "HR",
+    description: "List employees with department, position, and status filtering.",
+    queryParams: [
+      { name: "search", type: "string", description: "Search by name or employee number" },
+      { name: "department", type: "string", description: "Filter by department" },
+      { name: "status", type: "string", description: "Filter: Active, On Leave, Terminated" },
+    ],
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: [{ id: "emp-001", employeeNumber: "EMP-001", firstName: "Omar", lastName: "Fayed", department: "Sales", status: "Active" }],
+      pagination: { page: 1, limit: 20, total: 12, totalPages: 1 },
+    }, null, 2),
   },
   {
-    method: "DELETE",
-    path: "/api/v1/customers/:id",
-    description: "Delete a customer account (hard delete).",
+    method: "POST", path: "/api/v1/employees", module: "HR",
+    description: "Create a new employee record with personal and employment details.",
+    bodyFields: [
+      { name: "firstName", type: "string", required: true, description: "First name" },
+      { name: "lastName", type: "string", required: true, description: "Last name" },
+      { name: "email", type: "string", required: true, description: "Work email" },
+      { name: "position", type: "string", required: true, description: "Job title" },
+      { name: "department", type: "string", required: false, description: "Department name" },
+      { name: "hireDate", type: "string", required: true, description: "Hire date (ISO 8601)" },
+      { name: "salary", type: "number", required: false, description: "Monthly salary" },
+    ],
+    exampleRequest: JSON.stringify({
+      firstName: "Nour",
+      lastName: "Abdel-Rahman",
+      email: "nour.ar@company.com",
+      position: "Quality Analyst",
+      department: "QA/QC",
+      hireDate: "2026-05-01",
+      salary: 18000,
+    }, null, 2),
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: { id: "emp-new", employeeNumber: "EMP-013", firstName: "Nour", lastName: "Abdel-Rahman" },
+    }, null, 2),
   },
-  // Products
+  // ── Procurement ──
   {
-    method: "GET",
-    path: "/api/v1/products",
-    description: "List products with pagination, search, and filtering.",
-    queryParams: ["page", "limit", "search", "category", "status"],
-    exampleResponse: JSON.stringify(
-      {
-        success: true,
-        data: [{ id: "prod-1", sku: "PARA-500", name: "Paracetamol 500mg", unitPrice: 5.99, status: "ACTIVE" }],
-        pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    method: "GET", path: "/api/v1/purchase-orders", module: "Procurement",
+    description: "List purchase orders with status, vendor, and date range filtering.",
+    queryParams: [
+      { name: "status", type: "string", description: "Filter: DRAFT, SENT, PARTIAL, RECEIVED, CANCELLED" },
+      { name: "vendorId", type: "string", description: "Filter by vendor ID" },
+      { name: "from", type: "string", description: "Start date (ISO 8601)" },
+      { name: "to", type: "string", description: "End date (ISO 8601)" },
+    ],
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: [{ id: "po-001", poNumber: "PO-2026-0001", vendorId: "vnd-001", total: 45000, status: "SENT" }],
+      pagination: { page: 1, limit: 20, total: 6, totalPages: 1 },
+    }, null, 2),
+  },
+  {
+    method: "POST", path: "/api/v1/purchase-orders", module: "Procurement",
+    description: "Create a new purchase order with line items for raw materials or products.",
+    bodyFields: [
+      { name: "vendorId", type: "string", required: true, description: "Vendor/supplier ID" },
+      { name: "expectedDate", type: "string", required: true, description: "Expected delivery date" },
+      { name: "items", type: "array", required: true, description: "Line items with productId, quantity, unitPrice" },
+      { name: "notes", type: "string", required: false, description: "Order notes" },
+    ],
+    exampleRequest: JSON.stringify({
+      vendorId: "vnd-001",
+      expectedDate: "2026-06-15",
+      items: [{ productId: "p-cardio-1", quantity: 5000, unitPrice: 35 }],
+      notes: "Urgent restock order",
+    }, null, 2),
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: { id: "po-new", poNumber: "PO-2026-0007", total: 175000, status: "DRAFT" },
+    }, null, 2),
+  },
+  // ── Sales ──
+  {
+    method: "GET", path: "/api/v1/sales-orders", module: "Sales",
+    description: "List sales orders with customer, status, and date filtering.",
+    queryParams: [
+      { name: "status", type: "string", description: "Filter: DRAFT, CONFIRMED, SHIPPED, DELIVERED, CANCELLED" },
+      { name: "customerId", type: "string", description: "Filter by customer ID" },
+    ],
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: [{ id: "so-001", orderNumber: "SO-2026-0001", customerId: "cust-001", total: 28800, status: "CONFIRMED" }],
+      pagination: { page: 1, limit: 20, total: 4, totalPages: 1 },
+    }, null, 2),
+  },
+  {
+    method: "DELETE", path: "/api/v1/sales-orders/:id", module: "Sales",
+    description: "Cancel a sales order. Sets status to CANCELLED. Cannot cancel shipped/delivered orders.",
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: { id: "so-001", status: "CANCELLED", cancelledAt: "2026-04-30T14:22:00Z" },
+    }, null, 2),
+  },
+  // ── Accounting ──
+  {
+    method: "GET", path: "/api/v1/journal-entries", module: "Accounting",
+    description: "List journal entries with date range and account filtering.",
+    queryParams: [
+      { name: "from", type: "string", description: "Start date (ISO 8601)" },
+      { name: "to", type: "string", description: "End date (ISO 8601)" },
+      { name: "accountId", type: "string", description: "Filter by GL account ID" },
+    ],
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: [{ id: "je-001", entryNumber: "JE-2026-0001", date: "2026-04-01", description: "Opening balances", totalDebit: 50000, totalCredit: 50000 }],
+      pagination: { page: 1, limit: 20, total: 25, totalPages: 2 },
+    }, null, 2),
+  },
+  {
+    method: "GET", path: "/api/v1/gl-accounts", module: "Accounting",
+    description: "List all General Ledger accounts with their current balances.",
+    queryParams: [
+      { name: "type", type: "string", description: "Filter: Asset, Liability, Equity, Revenue, Expense" },
+    ],
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: [{ id: "gl-001", code: "1000", name: "Cash & Cash Equivalents", type: "Asset", balance: 245000 }],
+    }, null, 2),
+  },
+  // ── Health ──
+  {
+    method: "GET", path: "/api/v1/health", module: "System",
+    description: "API health check endpoint. Returns API version, uptime, and server status.",
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: { api: "Pharma ERP API", version: "1.0.0", status: "operational", uptime: "45d 12h 33m", serverTime: "2026-04-30T12:00:00Z" },
+    }, null, 2),
+  },
+  // ── Reporting ──
+  {
+    method: "GET", path: "/api/v1/reports/revenue", module: "Reporting",
+    description: "Generate revenue report with breakdown by customer, product, or time period.",
+    queryParams: [
+      { name: "from", type: "string", description: "Report start date" },
+      { name: "to", type: "string", description: "Report end date" },
+      { name: "groupBy", type: "string", description: "Group by: customer, product, month" },
+    ],
+    exampleResponse: JSON.stringify({
+      success: true,
+      data: {
+        totalRevenue: 1250000,
+        period: { from: "2026-01-01", to: "2026-04-30" },
+        breakdown: [
+          { label: "Cardioprex 500mg", revenue: 480000, percentage: 38.4 },
+          { label: "Diabetex XR 1000mg", revenue: 320000, percentage: 25.6 },
+        ],
       },
-      null,
-      2,
-    ),
-  },
-  {
-    method: "POST",
-    path: "/api/v1/products",
-    description: "Create a new product.",
-    bodyFields: ["name (required)", "sku (required)", "unitPrice (required)", "costPrice (required)", "category", "quantity", "unit", "status"],
-    exampleRequest: JSON.stringify(
-      { name: "Aspirin 100mg", sku: "ASP-100", unitPrice: 3.99, costPrice: 1.5, category: "OTC" },
-      null,
-      2,
-    ),
-  },
-  {
-    method: "GET",
-    path: "/api/v1/products/:id",
-    description: "Get a single product by ID.",
-  },
-  {
-    method: "PATCH",
-    path: "/api/v1/products/:id",
-    description: "Update product fields.",
-    exampleRequest: JSON.stringify({ unitPrice: 6.49, quantity: 1500 }, null, 2),
-  },
-  {
-    method: "DELETE",
-    path: "/api/v1/products/:id",
-    description: "Soft-delete a product (sets status to DISCONTINUED).",
-  },
-  // Invoices
-  {
-    method: "GET",
-    path: "/api/v1/invoices",
-    description: "List invoices with pagination, search, and filtering.",
-    queryParams: ["page", "limit", "search", "status", "customerId"],
-  },
-  {
-    method: "POST",
-    path: "/api/v1/invoices",
-    description: "Create a new invoice with line items.",
-    bodyFields: [
-      "invoiceNumber (required)",
-      "customerId (required)",
-      "date (required)",
-      "dueDate (required)",
-      "subtotal (required)",
-      "total (required)",
-      "tax",
-      "notes",
-      "items[]",
-    ],
-    exampleRequest: JSON.stringify(
-      {
-        invoiceNumber: "INV-2026-010",
-        customerId: "acct-1",
-        date: "2026-04-30",
-        dueDate: "2026-05-30",
-        subtotal: 1000,
-        tax: 100,
-        total: 1100,
-        items: [{ description: "Paracetamol 500mg x100", quantity: 100, unitPrice: 5.99, tax: 59.9, total: 658.9 }],
-      },
-      null,
-      2,
-    ),
-  },
-  {
-    method: "PATCH",
-    path: "/api/v1/invoices/:id",
-    description: "Update invoice fields.",
-  },
-  {
-    method: "DELETE",
-    path: "/api/v1/invoices/:id",
-    description: "Soft-delete an invoice (sets status to CANCELLED).",
-  },
-  // Employees
-  {
-    method: "GET",
-    path: "/api/v1/employees",
-    description: "List employees with pagination, search, and filtering.",
-    queryParams: ["page", "limit", "search", "status", "departmentId", "position"],
-  },
-  {
-    method: "POST",
-    path: "/api/v1/employees",
-    description: "Create a new employee record.",
-    bodyFields: [
-      "employeeNumber (required)",
-      "firstName (required)",
-      "lastName (required)",
-      "email (required)",
-      "hireDate (required)",
-      "phone",
-      "departmentId",
-      "position",
-      "salary",
-    ],
-    exampleRequest: JSON.stringify(
-      {
-        employeeNumber: "EMP-010",
-        firstName: "Jane",
-        lastName: "Doe",
-        email: "jane.doe@company.com",
-        hireDate: "2026-05-01",
-        position: "Pharmacist",
-        salary: 72000,
-      },
-      null,
-      2,
-    ),
-  },
-  {
-    method: "PATCH",
-    path: "/api/v1/employees/:id",
-    description: "Update employee fields.",
-  },
-  {
-    method: "DELETE",
-    path: "/api/v1/employees/:id",
-    description: "Soft-delete an employee (sets status to TERMINATED).",
-  },
-  // Sales Orders
-  {
-    method: "GET",
-    path: "/api/v1/sales-orders",
-    description: "List sales orders with pagination, search, and filtering.",
-    queryParams: ["page", "limit", "search", "status", "customerId"],
-  },
-  {
-    method: "POST",
-    path: "/api/v1/sales-orders",
-    description: "Create a new sales order with line items.",
-    bodyFields: [
-      "orderNumber (required)",
-      "customerId (required)",
-      "date (required)",
-      "total (required)",
-      "shippingAddress",
-      "notes",
-      "items[]",
-    ],
-  },
-  {
-    method: "PATCH",
-    path: "/api/v1/sales-orders/:id",
-    description: "Update sales order fields.",
-  },
-  {
-    method: "DELETE",
-    path: "/api/v1/sales-orders/:id",
-    description: "Soft-delete a sales order (sets status to CANCELLED).",
-  },
-  // Leads
-  {
-    method: "GET",
-    path: "/api/v1/leads",
-    description: "List CRM leads with pagination, search, and filtering.",
-    queryParams: ["page", "limit", "search", "status", "source", "assignedToId"],
-  },
-  {
-    method: "POST",
-    path: "/api/v1/leads",
-    description: "Create a new lead.",
-    bodyFields: [
-      "firstName (required)",
-      "lastName (required)",
-      "email",
-      "phone",
-      "company",
-      "source",
-      "status",
-      "score",
-      "value",
-    ],
-    exampleRequest: JSON.stringify(
-      { firstName: "Maria", lastName: "Garcia", email: "maria@example.com", company: "HealthPlus", source: "WEB" },
-      null,
-      2,
-    ),
-  },
-  {
-    method: "PATCH",
-    path: "/api/v1/leads/:id",
-    description: "Update lead fields.",
-  },
-  {
-    method: "DELETE",
-    path: "/api/v1/leads/:id",
-    description: "Soft-delete a lead (sets status to CANCELLED).",
-  },
-  // Purchase Orders
-  {
-    method: "GET",
-    path: "/api/v1/purchase-orders",
-    description: "List purchase orders with pagination, search, and filtering.",
-    queryParams: ["page", "limit", "search", "status", "supplierId"],
-  },
-  {
-    method: "POST",
-    path: "/api/v1/purchase-orders",
-    description: "Create a new purchase order.",
-    bodyFields: [
-      "poNumber (required)",
-      "supplierId (required)",
-      "date (required)",
-      "total (required)",
-      "createdById (required)",
-      "expectedDate",
-      "notes",
-      "items[]",
-    ],
-  },
-  {
-    method: "PATCH",
-    path: "/api/v1/purchase-orders/:id",
-    description: "Update purchase order fields.",
-  },
-  {
-    method: "DELETE",
-    path: "/api/v1/purchase-orders/:id",
-    description: "Soft-delete a purchase order (sets status to CANCELLED).",
+    }, null, 2),
   },
 ];
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────
 
-const METHOD_COLORS: Record<string, string> = {
-  GET: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  POST: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  PATCH: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  DELETE: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-};
-
-function generateKey(): string {
+function generateApiKey(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  const prefix = "pk_live_";
-  let result = prefix;
+  let result = "pk_live_";
   for (let i = 0; i < 32; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return result;
 }
 
-const STORAGE_KEY = "pharma_erp_api_keys";
+const API_KEYS_STORAGE = "pharma_erp_api_keys";
 
 function loadKeys(): ApiKey[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(API_KEYS_STORAGE);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -369,28 +362,30 @@ function loadKeys(): ApiKey[] {
 
 function saveKeys(keys: ApiKey[]) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(keys));
+  localStorage.setItem(API_KEYS_STORAGE, JSON.stringify(keys));
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Component ──────────────────────────────────────────────────────
 
 export default function ApiDocumentationPage() {
   const { t } = useTranslation();
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>(() => loadKeys());
   const [newKeyName, setNewKeyName] = useState("");
   const [expandedEndpoint, setExpandedEndpoint] = useState<number | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [tryItEndpoint, setTryItEndpoint] = useState<number | null>(null);
+  const [tryItResponse, setTryItResponse] = useState<string | null>(null);
+  const [tryItLoading, setTryItLoading] = useState(false);
+  const [showDeleteKey, setShowDeleteKey] = useState<string | null>(null);
 
-  useEffect(() => {
-    setApiKeys(loadKeys());
-  }, []);
+  // ─── API Key Management ─────────────────────────────────────────
 
   const handleGenerateKey = useCallback(() => {
     const name = newKeyName.trim() || `API Key ${apiKeys.length + 1}`;
     const newKey: ApiKey = {
       id: `key-${Date.now()}`,
       name,
-      key: generateKey(),
+      key: generateApiKey(),
       createdAt: new Date().toISOString(),
       lastUsed: null,
     };
@@ -400,14 +395,12 @@ export default function ApiDocumentationPage() {
     setNewKeyName("");
   }, [apiKeys, newKeyName]);
 
-  const handleRevokeKey = useCallback(
-    (id: string) => {
-      const updated = apiKeys.filter((k) => k.id !== id);
-      setApiKeys(updated);
-      saveKeys(updated);
-    },
-    [apiKeys],
-  );
+  const handleRevokeKey = useCallback((id: string) => {
+    const updated = apiKeys.filter((k) => k.id !== id);
+    setApiKeys(updated);
+    saveKeys(updated);
+    setShowDeleteKey(null);
+  }, [apiKeys]);
 
   const handleCopyKey = useCallback((key: string) => {
     navigator.clipboard.writeText(key).then(() => {
@@ -416,32 +409,50 @@ export default function ApiDocumentationPage() {
     });
   }, []);
 
-  const toggleEndpoint = useCallback(
-    (idx: number) => {
-      setExpandedEndpoint(expandedEndpoint === idx ? null : idx);
-    },
-    [expandedEndpoint],
-  );
+  const toggleEndpoint = useCallback((idx: number) => {
+    setExpandedEndpoint((prev) => prev === idx ? null : idx);
+  }, []);
 
-  // Group endpoints by resource
-  const grouped: Record<string, EndpointDoc[]> = {};
-  for (const ep of ENDPOINTS) {
-    const parts = ep.path.split("/");
-    const resource = parts[3] === undefined ? "General" : parts[3].replace(/:.*/, "");
-    const groupName = resource.charAt(0).toUpperCase() + resource.slice(1);
-    if (!grouped[groupName]) grouped[groupName] = [];
-    grouped[groupName].push(ep);
+  // ─── Try It Simulation ──────────────────────────────────────────
+
+  function handleTryIt(idx: number) {
+    setTryItEndpoint(idx);
+    setTryItResponse(null);
+    setTryItLoading(false);
   }
+
+  function executeTryIt() {
+    if (tryItEndpoint === null) return;
+    setTryItLoading(true);
+    // Simulate API call
+    setTimeout(() => {
+      const ep = ENDPOINTS[tryItEndpoint];
+      setTryItResponse(ep.exampleResponse);
+      setTryItLoading(false);
+    }, 800);
+  }
+
+  // ─── Group endpoints by module ──────────────────────────────────
+
+  const grouped = useMemo(() => {
+    const map: Record<string, { endpoints: EndpointDoc[]; indices: number[] }> = {};
+    ENDPOINTS.forEach((ep, idx) => {
+      if (!map[ep.module]) map[ep.module] = { endpoints: [], indices: [] };
+      map[ep.module].endpoints.push(ep);
+      map[ep.module].indices.push(idx);
+    });
+    return map;
+  }, []);
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={t("api_documentation") !== "api_documentation" ? t("api_documentation") : "API Documentation"}
-        description="REST API reference for the Pharma ERP system. All endpoints return JSON and support CORS."
+        title="API Documentation"
+        description="REST API reference for the Pharma ERP system. All endpoints require authentication and return JSON."
       />
 
-      {/* ── Rate Limiting Info ──────────────────────────────────────────── */}
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* Info Cards */}
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Base URL</CardTitle>
@@ -452,35 +463,70 @@ export default function ApiDocumentationPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Rate Limit</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Authentication</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-lg font-semibold">100 requests</p>
-            <p className="text-sm text-muted-foreground">per 15-minute window per API key</p>
+            <div className="flex items-center gap-2">
+              <Key className="h-4 w-4 text-muted-foreground" />
+              <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">X-API-Key</code>
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Authentication</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Rate Limit</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm">
-              Pass your API key via the <code className="bg-muted px-1 rounded">X-API-Key</code> header
-            </p>
+            <p className="text-lg font-semibold">100 req/15min</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Endpoints</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg font-semibold">{ENDPOINTS.length}</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* ── Response Format ────────────────────────────────────────────── */}
+      {/* Authentication Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Response Format</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5" /> Authentication
+          </CardTitle>
+          <CardDescription>
+            All API requests must include a valid API key in the request header.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <pre className="bg-muted p-4 rounded-md text-xs overflow-x-auto font-mono">
+{`curl -X GET /api/v1/products \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: pk_live_your_api_key_here"`}
+          </pre>
+          <div className="text-sm text-muted-foreground space-y-1">
+            <p>Requests without a valid API key will receive a <code className="bg-muted px-1 rounded">401 Unauthorized</code> response.</p>
+            <p>API keys can be generated and revoked in the section below.</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Response Format */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <BookOpen className="h-5 w-5" /> Response Format
+          </CardTitle>
           <CardDescription>All endpoints return a consistent JSON structure.</CardDescription>
         </CardHeader>
         <CardContent>
-          <pre className="bg-muted p-4 rounded-md text-xs overflow-x-auto font-mono">
-{`// Success
-{
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">Success Response</p>
+              <pre className="bg-muted p-4 rounded-md text-xs overflow-x-auto font-mono">
+{`{
   "success": true,
   "data": { ... },
   "pagination": {
@@ -489,37 +535,48 @@ export default function ApiDocumentationPage() {
     "total": 42,
     "totalPages": 3
   }
-}
-
-// Error
-{
-  "success": false,
-  "error": "Descriptive error message"
 }`}
-          </pre>
+              </pre>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">Error Response</p>
+              <pre className="bg-muted p-4 rounded-md text-xs overflow-x-auto font-mono">
+{`{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Field 'name' is required",
+    "field": "name"
+  }
+}`}
+              </pre>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* ── Endpoints Table ────────────────────────────────────────────── */}
+      {/* Endpoints by Module */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Endpoints</CardTitle>
-          <CardDescription>Click any row to expand details, examples, and parameters.</CardDescription>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <BookOpen className="h-5 w-5" /> Endpoints
+          </CardTitle>
+          <CardDescription>Click any endpoint to expand details, parameters, and examples. Use "Try It" to simulate a request.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          {Object.entries(grouped).map(([group, endpoints]) => (
-            <div key={group}>
+          {Object.entries(grouped).map(([module, { endpoints, indices }]) => (
+            <div key={module}>
               <div className="px-6 py-3 bg-muted/50 border-b border-t">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  {group}
+                  {module}
                 </h3>
               </div>
               <div className="divide-y">
                 {endpoints.map((ep, epIdx) => {
-                  const globalIdx = ENDPOINTS.indexOf(ep);
+                  const globalIdx = indices[epIdx];
                   const isExpanded = expandedEndpoint === globalIdx;
                   return (
-                    <div key={`${ep.method}-${ep.path}-${epIdx}`}>
+                    <div key={`${ep.method}-${ep.path}`}>
                       <button
                         type="button"
                         className="w-full px-6 py-3 flex items-center gap-4 hover:bg-muted/30 transition-colors text-left"
@@ -532,53 +589,78 @@ export default function ApiDocumentationPage() {
                         <span className="text-sm text-muted-foreground hidden sm:block max-w-xs truncate">
                           {ep.description}
                         </span>
-                        <svg
-                          className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                        <ChevronDown
+                          className={`w-4 h-4 text-muted-foreground transition-transform shrink-0 ${isExpanded ? "rotate-180" : ""}`}
+                        />
                       </button>
 
                       {isExpanded && (
-                        <div className="px-6 pb-4 pt-1 bg-muted/10 border-t space-y-3">
+                        <div className="px-6 pb-4 pt-2 bg-muted/10 border-t space-y-4">
                           <p className="text-sm text-muted-foreground">{ep.description}</p>
 
+                          {/* Query Parameters */}
                           {ep.queryParams && ep.queryParams.length > 0 && (
                             <div>
-                              <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">
+                              <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
                                 Query Parameters
                               </p>
-                              <div className="flex flex-wrap gap-1">
-                                {ep.queryParams.map((p) => (
-                                  <Badge key={p} className="bg-muted text-foreground font-mono text-xs">
-                                    {p}
-                                  </Badge>
-                                ))}
-                              </div>
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b bg-muted/30">
+                                    <th className="text-left p-2 font-medium">Name</th>
+                                    <th className="text-left p-2 font-medium">Type</th>
+                                    <th className="text-left p-2 font-medium">Description</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {ep.queryParams.map((p) => (
+                                    <tr key={p.name} className="border-b">
+                                      <td className="p-2"><code className="text-xs bg-muted px-1 rounded">{p.name}</code></td>
+                                      <td className="p-2 text-muted-foreground text-xs">{p.type}</td>
+                                      <td className="p-2 text-xs">{p.description}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
                           )}
 
+                          {/* Body Fields */}
                           {ep.bodyFields && ep.bodyFields.length > 0 && (
                             <div>
-                              <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">
-                                Request Body Fields
+                              <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                                Request Body
                               </p>
-                              <div className="flex flex-wrap gap-1">
-                                {ep.bodyFields.map((f) => (
-                                  <Badge
-                                    key={f}
-                                    className={`font-mono text-xs ${f.includes("required") ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" : "bg-muted text-foreground"}`}
-                                  >
-                                    {f}
-                                  </Badge>
-                                ))}
-                              </div>
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b bg-muted/30">
+                                    <th className="text-left p-2 font-medium">Field</th>
+                                    <th className="text-left p-2 font-medium">Type</th>
+                                    <th className="text-left p-2 font-medium">Required</th>
+                                    <th className="text-left p-2 font-medium">Description</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {ep.bodyFields.map((f) => (
+                                    <tr key={f.name} className="border-b">
+                                      <td className="p-2"><code className="text-xs bg-muted px-1 rounded">{f.name}</code></td>
+                                      <td className="p-2 text-muted-foreground text-xs">{f.type}</td>
+                                      <td className="p-2">
+                                        {f.required ? (
+                                          <Badge className="bg-red-100 text-red-800 text-xs">Required</Badge>
+                                        ) : (
+                                          <span className="text-muted-foreground text-xs">Optional</span>
+                                        )}
+                                      </td>
+                                      <td className="p-2 text-xs">{f.description}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
                           )}
 
+                          {/* Example Request */}
                           {ep.exampleRequest && (
                             <div>
                               <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">
@@ -590,16 +672,20 @@ export default function ApiDocumentationPage() {
                             </div>
                           )}
 
-                          {ep.exampleResponse && (
-                            <div>
-                              <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">
-                                Example Response
-                              </p>
-                              <pre className="bg-muted p-3 rounded text-xs overflow-x-auto font-mono">
-                                {ep.exampleResponse}
-                              </pre>
-                            </div>
-                          )}
+                          {/* Example Response */}
+                          <div>
+                            <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">
+                              Example Response
+                            </p>
+                            <pre className="bg-muted p-3 rounded text-xs overflow-x-auto font-mono">
+                              {ep.exampleResponse}
+                            </pre>
+                          </div>
+
+                          {/* Try It Button */}
+                          <Button size="sm" variant="outline" onClick={() => handleTryIt(globalIdx)} className="gap-2">
+                            <Play className="h-4 w-4" /> Try It
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -611,10 +697,71 @@ export default function ApiDocumentationPage() {
         </CardContent>
       </Card>
 
-      {/* ── API Key Management ─────────────────────────────────────────── */}
+      {/* Try It Dialog */}
+      <Dialog open={tryItEndpoint !== null} onOpenChange={(open) => { if (!open) { setTryItEndpoint(null); setTryItResponse(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          {tryItEndpoint !== null && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Play className="h-5 w-5" />
+                  Try It - {ENDPOINTS[tryItEndpoint].method} {ENDPOINTS[tryItEndpoint].path}
+                </DialogTitle>
+                <DialogDescription>
+                  Simulate an API request and view the response.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                {/* Request */}
+                <div>
+                  <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">Request</p>
+                  <pre className="bg-muted p-3 rounded text-xs overflow-x-auto font-mono">
+{`${ENDPOINTS[tryItEndpoint].method} ${ENDPOINTS[tryItEndpoint].path}
+Host: api.pharma-erp.com
+Content-Type: application/json
+X-API-Key: pk_live_***`}
+{ENDPOINTS[tryItEndpoint].exampleRequest ? `\n\n${ENDPOINTS[tryItEndpoint].exampleRequest}` : ""}
+                  </pre>
+                </div>
+
+                {/* Send Button */}
+                <Button onClick={executeTryIt} disabled={tryItLoading} className="gap-2">
+                  {tryItLoading ? (
+                    <><Clock className="h-4 w-4 animate-spin" /> Sending...</>
+                  ) : (
+                    <><Play className="h-4 w-4" /> Send Request</>
+                  )}
+                </Button>
+
+                {/* Response */}
+                {tryItResponse && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="text-xs font-semibold uppercase text-muted-foreground">Response</p>
+                      <Badge className="bg-green-100 text-green-800 text-xs">200 OK</Badge>
+                      <span className="text-xs text-muted-foreground ml-auto">~120ms</span>
+                    </div>
+                    <pre className="bg-gray-900 text-gray-100 p-4 rounded text-xs overflow-x-auto font-mono">
+                      {tryItResponse}
+                    </pre>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Response headers: <code className="bg-muted px-1 rounded">X-RateLimit-Remaining: 99</code>{" | "}
+                      <code className="bg-muted px-1 rounded">X-Request-Id: req_abc123</code>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* API Key Management */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">API Key Management</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Key className="h-5 w-5" /> API Key Management
+          </CardTitle>
           <CardDescription>
             Generate and manage API keys for external access. Keys are stored in your browser.
           </CardDescription>
@@ -626,16 +773,19 @@ export default function ApiDocumentationPage() {
               type="text"
               value={newKeyName}
               onChange={(e) => setNewKeyName(e.target.value)}
-              placeholder="Key name (optional)"
+              placeholder="Key name (e.g., Production, Staging)"
               className="flex h-10 w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onKeyDown={(e) => { if (e.key === "Enter") handleGenerateKey(); }}
             />
-            <Button onClick={handleGenerateKey}>Generate Key</Button>
+            <Button onClick={handleGenerateKey} className="gap-2">
+              <Key className="h-4 w-4" /> Generate Key
+            </Button>
           </div>
 
           {/* Key list */}
           {apiKeys.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">
-              No API keys generated yet. Create one to get started.
+              No API keys generated yet. Create one to authenticate your API requests.
             </p>
           ) : (
             <div className="divide-y rounded-md border">
@@ -644,16 +794,20 @@ export default function ApiDocumentationPage() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{apiKey.name}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <code className="text-xs font-mono bg-muted px-2 py-0.5 rounded truncate max-w-[280px] block">
+                      <code className="text-xs font-mono bg-muted px-2 py-0.5 rounded truncate max-w-[300px] block">
                         {apiKey.key}
                       </code>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-2 text-xs"
+                        className="h-6 px-2 text-xs shrink-0"
                         onClick={() => handleCopyKey(apiKey.key)}
                       >
-                        {copiedKey === apiKey.key ? "Copied!" : "Copy"}
+                        {copiedKey === apiKey.key ? (
+                          <><Check className="h-3 w-3 mr-1" /> Copied</>
+                        ) : (
+                          <><Copy className="h-3 w-3 mr-1" /> Copy</>
+                        )}
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -664,9 +818,10 @@ export default function ApiDocumentationPage() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => handleRevokeKey(apiKey.id)}
+                    onClick={() => setShowDeleteKey(apiKey.id)}
+                    className="shrink-0"
                   >
-                    Revoke
+                    <Trash2 className="h-4 w-4 mr-1" /> Revoke
                   </Button>
                 </div>
               ))}
@@ -675,10 +830,30 @@ export default function ApiDocumentationPage() {
         </CardContent>
       </Card>
 
-      {/* ── Rate Limiting Details ──────────────────────────────────────── */}
+      {/* Delete Key Confirmation */}
+      <Dialog open={!!showDeleteKey} onOpenChange={(open) => { if (!open) setShowDeleteKey(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Revoke API Key</DialogTitle>
+            <DialogDescription>
+              This will permanently revoke this API key. Any applications using this key will immediately lose access.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setShowDeleteKey(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => showDeleteKey && handleRevokeKey(showDeleteKey)}>
+              Revoke Key
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rate Limiting Details */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Rate Limiting</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Clock className="h-5 w-5" /> Rate Limiting
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3 text-sm">
@@ -686,17 +861,19 @@ export default function ApiDocumentationPage() {
               <span className="text-muted-foreground">Window</span>
               <span className="font-medium">15 minutes</span>
               <span className="text-muted-foreground">Max requests</span>
-              <span className="font-medium">100 per key</span>
+              <span className="font-medium">100 per API key</span>
               <span className="text-muted-foreground">Header (remaining)</span>
               <code className="font-mono text-xs bg-muted px-1 rounded">X-RateLimit-Remaining</code>
+              <span className="text-muted-foreground">Header (limit)</span>
+              <code className="font-mono text-xs bg-muted px-1 rounded">X-RateLimit-Limit</code>
               <span className="text-muted-foreground">Header (reset)</span>
               <code className="font-mono text-xs bg-muted px-1 rounded">X-RateLimit-Reset</code>
               <span className="text-muted-foreground">Exceeded status</span>
-              <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 w-fit">429 Too Many Requests</Badge>
+              <Badge className="bg-red-100 text-red-800 w-fit">429 Too Many Requests</Badge>
             </div>
             <p className="text-muted-foreground mt-4">
-              When the rate limit is exceeded, the API returns a <code className="bg-muted px-1 rounded">429</code> status code.
-              Wait until the <code className="bg-muted px-1 rounded">X-RateLimit-Reset</code> timestamp before retrying.
+              When the rate limit is exceeded, wait until the timestamp in the <code className="bg-muted px-1 rounded">X-RateLimit-Reset</code> header before retrying.
+              Implement exponential backoff for production applications.
             </p>
           </div>
         </CardContent>
