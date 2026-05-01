@@ -19,10 +19,7 @@ import {
   ChevronUp,
   History,
   FileText,
-  Percent,
-  Calendar,
   Loader2,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1695,6 +1692,383 @@ export default function MarketRequestsPage() {
         submitLabel={editing ? "Save changes" : "Submit Request"}
         size="lg"
       />
+
+      {/* ─── Rejection Dialog ──────────────────────────────────────────────── */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject Request</DialogTitle>
+            <DialogDescription>
+              {rejectingRequest && (returnCounts[rejectingRequest.id] ?? 0) >= 2
+                ? "This request has been returned 2 times. It will be auto-rejected."
+                : "Choose to return for revision or issue a final rejection."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {rejectingRequest && (returnCounts[rejectingRequest.id] ?? 0) < 2 && (
+              <div className="flex gap-2">
+                <button
+                  className={`flex-1 rounded-lg border-2 p-3 text-left text-sm transition-colors ${rejectType === "return" ? "border-amber-400 bg-amber-50" : "border-slate-200 hover:border-slate-300"}`}
+                  onClick={() => setRejectType("return")}
+                >
+                  <div className="font-semibold text-slate-800">Return for Revision</div>
+                  <div className="text-xs text-slate-500 mt-0.5">Send back to requester for corrections</div>
+                </button>
+                <button
+                  className={`flex-1 rounded-lg border-2 p-3 text-left text-sm transition-colors ${rejectType === "final" ? "border-red-400 bg-red-50" : "border-slate-200 hover:border-slate-300"}`}
+                  onClick={() => setRejectType("final")}
+                >
+                  <div className="font-semibold text-slate-800">Final Reject</div>
+                  <div className="text-xs text-slate-500 mt-0.5">Permanently reject this request</div>
+                </button>
+              </div>
+            )}
+            {rejectingRequest && (returnCounts[rejectingRequest.id] ?? 0) > 0 && (
+              <div className="text-xs text-amber-700 bg-amber-50 rounded p-2 border border-amber-200">
+                This request has been returned {returnCounts[rejectingRequest.id]} time(s).
+                {(returnCounts[rejectingRequest.id] ?? 0) >= 2 && " Next rejection will be final."}
+              </div>
+            )}
+            <div>
+              <label className="text-sm font-medium text-slate-700 block mb-1">
+                Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows={3}
+                placeholder="Please provide a reason..."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className={rejectType === "final" || (rejectingRequest && (returnCounts[rejectingRequest.id] ?? 0) >= 2) ? "bg-red-600 hover:bg-red-700" : "bg-amber-600 hover:bg-amber-700"}
+              disabled={!rejectReason.trim()}
+              onClick={handleRejectWithFlow}
+            >
+              {rejectingRequest && (returnCounts[rejectingRequest.id] ?? 0) >= 2
+                ? "Auto-Reject (3rd return)"
+                : rejectType === "final"
+                ? "Final Reject"
+                : "Return for Revision"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Request Detail Dialog with Audit Trail ────────────────────────── */}
+      <Dialog open={!!detailRequest} onOpenChange={(open) => !open && setDetailRequest(null)}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          {detailRequest && (() => {
+            const r = detailRequest;
+            const requester = allUsers.find((u) => u.id === r.requestedById);
+            const approver = r.approvedById ? allUsers.find((u) => u.id === r.approvedById) : null;
+            const reqLevel = getRequiredApprovalLevel(r.type, r.amount, r.discountPercent);
+            const curLevel = r.currentApprovalLevel ?? 0;
+            const history = r.approvalHistory ?? auditTrails[r.id] ?? [];
+            const fData = r.fulfillment ?? fulfillmentData[r.id];
+            const returns = r.returnCount ?? returnCounts[r.id] ?? 0;
+            const sla = r.status === "PENDING" ? getSlaInfo(r.createdAt, r.type) : null;
+
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-slate-500" />
+                    Request Details — {r.id}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {r.type} request by {requester?.name ?? "Unknown"}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-5 py-2">
+                  {/* Request summary */}
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-slate-500">Type:</span>{" "}
+                      <Badge variant="outline">{r.type}</Badge>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Priority:</span>{" "}
+                      <Badge variant={r.priority === "URGENT" ? "destructive" : r.priority === "HIGH" ? "warning" : "secondary"}>
+                        {r.priority}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Status:</span>{" "}
+                      <Badge variant={r.status === "APPROVED" ? "success" : r.status === "REJECTED" ? "destructive" : r.status === "FULFILLED" ? "default" : "warning"}>
+                        {r.status}
+                      </Badge>
+                      {r.status === "PENDING" && isOverdue(r.createdAt) && (
+                        <Badge className="ml-1 bg-orange-100 text-orange-700 border-orange-300 text-[10px]">Overdue</Badge>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Amount:</span>{" "}
+                      <span className="font-semibold">{r.amount ? `EGP ${r.amount.toLocaleString()}` : "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Requester:</span>{" "}
+                      <span className="font-medium">{requester?.name ?? "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Created:</span>{" "}
+                      <span>{new Date(r.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    {approver && (
+                      <div>
+                        <span className="text-slate-500">Approved by:</span>{" "}
+                        <span className="font-medium">{approver.name}</span>
+                      </div>
+                    )}
+                    {returns > 0 && (
+                      <div>
+                        <span className="text-slate-500">Return count:</span>{" "}
+                        <span className="font-semibold text-amber-700">{returns}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* SLA info */}
+                  {sla && (
+                    <div className={`rounded-lg p-3 text-sm flex items-center gap-2 ${sla.breached ? "bg-red-50 border border-red-200 text-red-700" : "bg-blue-50 border border-blue-200 text-blue-700"}`}>
+                      <Timer className="h-4 w-4" />
+                      <span className="font-medium">SLA ({SLA_DAYS[r.type]} days):</span>
+                      <span>{sla.text}</span>
+                    </div>
+                  )}
+
+                  <div className="text-sm">
+                    <span className="text-slate-500 block mb-1">Description:</span>
+                    <p className="bg-slate-50 rounded p-2 border">{r.description}</p>
+                  </div>
+
+                  {r.rejectionReason && (
+                    <div className="text-sm bg-red-50 border border-red-200 rounded p-2">
+                      <span className="text-red-700 font-medium">Rejection reason: </span>
+                      <span className="text-red-600">{r.rejectionReason}</span>
+                    </div>
+                  )}
+
+                  {/* ─── Approval Chain Stepper ─────────────────────────────── */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
+                      <History className="h-4 w-4 text-slate-500" />
+                      Approval Chain
+                    </h4>
+                    <div className="flex items-center justify-between px-2">
+                      {APPROVAL_CHAIN.filter((_, i) => i <= reqLevel).map((step, i) => {
+                        const isCompleted = (r.status === "APPROVED" || r.status === "FULFILLED")
+                          ? i <= reqLevel
+                          : i > 0 && i <= curLevel;
+                        const isCurrent = r.status === "PENDING" && (i === curLevel + 1 || (i === 0 && curLevel === 0));
+                        const isFuture = !isCompleted && !isCurrent;
+                        const isFirst = i === 0;
+
+                        return (
+                          <div key={step.level} className="flex items-center flex-1 last:flex-none">
+                            <div className="flex flex-col items-center">
+                              <div
+                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
+                                  isCompleted
+                                    ? "bg-green-500 border-green-500 text-white"
+                                    : isCurrent
+                                    ? "bg-blue-100 border-blue-500 text-blue-700 ring-2 ring-blue-200"
+                                    : "bg-slate-100 border-slate-300 text-slate-400"
+                                }`}
+                              >
+                                {isCompleted ? (
+                                  <CheckCircle2 className="h-4 w-4" />
+                                ) : (
+                                  i
+                                )}
+                              </div>
+                              <span className={`text-[10px] mt-1 text-center leading-tight max-w-[70px] ${isCompleted ? "text-green-700 font-medium" : isCurrent ? "text-blue-700 font-medium" : "text-slate-400"}`}>
+                                {step.label}
+                              </span>
+                              <span className={`text-[9px] ${isCompleted ? "text-green-600" : isCurrent ? "text-blue-600" : "text-slate-300"}`}>
+                                {isFirst ? "Submit" : `Level ${i}`}
+                              </span>
+                            </div>
+                            {i < reqLevel && (
+                              <div className={`flex-1 h-0.5 mx-1 mt-[-16px] ${i < curLevel || (r.status === "APPROVED" || r.status === "FULFILLED") ? "bg-green-400" : "bg-slate-200"}`} />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-2 text-center text-[10px] text-slate-500">
+                      Required levels: {reqLevel} | Current level: {curLevel}
+                    </div>
+                  </div>
+
+                  {/* ─── Fulfillment Tracking ──────────────────────────────── */}
+                  {fData && (r.status === "APPROVED" || r.status === "FULFILLED") && (
+                    <div>
+                      <h4 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
+                        <PackageCheck className="h-4 w-4 text-slate-500" />
+                        Fulfillment Tracking
+                      </h4>
+
+                      {/* Phase progress bar */}
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <div className="flex items-center gap-3">
+                            {(["APPROVED", "PROCESSING", "FULFILLED"] as FulfillmentPhase[]).map((phase, i) => (
+                              <span key={phase} className={`flex items-center gap-1 ${fData.phase === phase ? "font-bold text-blue-700" : fData.percentage >= (i * 50) ? "text-green-600" : "text-slate-400"}`}>
+                                {fData.percentage >= ((i + 1) * 50) ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : fData.phase === phase ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                                {phase}
+                              </span>
+                            ))}
+                          </div>
+                          <span className="font-bold text-sm">{fData.percentage}%</span>
+                        </div>
+                        <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${fData.percentage === 100 ? "bg-green-500" : "bg-blue-500"}`}
+                            style={{ width: `${fData.percentage}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Type-specific fulfillment details */}
+                      <div className="bg-slate-50 rounded-lg border p-3 text-sm space-y-2">
+                        {r.type === "SAMPLE" && (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">PO Status:</span>
+                              <span className="font-medium">{fData.poStatus ?? "Pending"}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Delivery:</span>
+                              <span className="font-medium">{fData.deliveryStatus ?? "Pending"}</span>
+                            </div>
+                            {(r as MarketRequestExt).linkedPONumber && (
+                              <div className="flex justify-between">
+                                <span className="text-slate-500">PO Number:</span>
+                                <Badge variant="outline" className="text-blue-700 border-blue-300 bg-blue-50">
+                                  <PackageCheck className="h-3 w-3 mr-1" />
+                                  {(r as MarketRequestExt).linkedPONumber}
+                                </Badge>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {r.type === "EVENT" && fData.eventChecklist && (
+                          <div>
+                            <p className="font-medium mb-1.5">Event Planning Checklist:</p>
+                            {fData.eventChecklist.map((item, i) => (
+                              <div key={i} className="flex items-center gap-2 py-0.5">
+                                <div className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${item.done ? "bg-green-500 border-green-500 text-white" : "border-slate-300"}`}>
+                                  {item.done ? "✓" : ""}
+                                </div>
+                                <span className={item.done ? "line-through text-slate-400" : ""}>{item.item}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {r.type === "DISCOUNT" && (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Discount Code:</span>
+                              <code className="bg-white px-2 py-0.5 rounded border font-mono text-xs">{fData.discountCode ?? "Generating..."}</code>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Usage Count:</span>
+                              <span className="font-medium">{fData.usageCount ?? 0}</span>
+                            </div>
+                          </>
+                        )}
+                        {r.type === "LITERATURE" && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Print/Delivery:</span>
+                            <span className="font-medium">{fData.printStatus ?? "Pending"}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ─── Approval Audit Trail Timeline ─────────────────────── */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
+                      <Clock className="h-4 w-4 text-slate-500" />
+                      Approval Audit Trail
+                    </h4>
+                    {history.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">No audit history recorded yet.</p>
+                    ) : (
+                      <div className="relative pl-5">
+                        {/* Vertical line */}
+                        <div className="absolute left-[7px] top-1 bottom-1 w-0.5 bg-slate-200" />
+                        <div className="space-y-3">
+                          {history.map((entry) => {
+                            const dotColor =
+                              entry.action === "APPROVED" ? "bg-green-500"
+                              : entry.action === "REJECTED" || entry.action === "FINAL_REJECTED" ? "bg-red-500"
+                              : entry.action === "ESCALATED" || entry.action === "AUTO_ESCALATED" ? "bg-orange-500"
+                              : entry.action === "RETURNED" ? "bg-yellow-500"
+                              : entry.action === "FULFILLED" ? "bg-blue-500"
+                              : "bg-slate-400";
+
+                            return (
+                              <div key={entry.id} className="relative">
+                                {/* Dot */}
+                                <div className={`absolute -left-5 top-1 w-3.5 h-3.5 rounded-full border-2 border-white ${dotColor} ring-1 ring-slate-200`} />
+                                <div className="bg-slate-50 rounded border p-2">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Badge
+                                        className={`text-[10px] px-1.5 ${
+                                          entry.action === "APPROVED" ? "bg-green-100 text-green-700"
+                                          : entry.action === "REJECTED" || entry.action === "FINAL_REJECTED" ? "bg-red-100 text-red-700"
+                                          : entry.action === "ESCALATED" || entry.action === "AUTO_ESCALATED" ? "bg-orange-100 text-orange-700"
+                                          : entry.action === "RETURNED" ? "bg-yellow-100 text-yellow-800"
+                                          : entry.action === "FULFILLED" ? "bg-blue-100 text-blue-700"
+                                          : "bg-slate-100 text-slate-700"
+                                        }`}
+                                      >
+                                        {entry.action}
+                                      </Badge>
+                                      <span className="text-xs text-slate-500">Level {entry.level}</span>
+                                    </div>
+                                    <span className="text-[10px] text-slate-400">
+                                      {new Date(entry.timestamp).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <div className="mt-1 text-xs">
+                                    <span className="text-slate-500">By: </span>
+                                    <span className="font-medium">{entry.performedBy}</span>
+                                  </div>
+                                  {entry.comment && (
+                                    <p className="mt-1 text-xs text-slate-600 italic">{entry.comment}</p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setDetailRequest(null)}>
+                    Close
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
