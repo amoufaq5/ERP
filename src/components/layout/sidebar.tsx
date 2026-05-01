@@ -11,14 +11,14 @@ import {
   Package,
   FolderKanban,
   Users,
-  Monitor,
+
   Factory,
   UserCheck,
   Crown,
   Stethoscope,
   MapPin,
   Banknote,
-  RotateCcw,
+
   Briefcase,
   UserSearch,
   CalendarCheck,
@@ -52,13 +52,13 @@ import {
   Contact,
   Megaphone,
   TrendingUp,
-  LifeBuoy,
-  Heart,
+
+
   Sparkles,
   Globe,
   ShoppingBag,
-  Landmark,
-  FileCheck,
+
+
   PieChart,
   Code2,
   GitBranch,
@@ -98,14 +98,10 @@ const NAV_SECTIONS: NavSection[] = [
     hub: "/hubs/finance",
     items: [
       { label: "Hub Overview", labelKey: "sidebar.hubOverview", href: "/hubs/finance", icon: LayoutDashboard },
-      { label: "Finance", labelKey: "sidebar.finance", href: "/erp/finance", icon: DollarSign },
+      { label: "Finance & Banking", labelKey: "sidebar.finance", href: "/erp/finance", icon: DollarSign },
       { label: "Accounting", labelKey: "nav.accounting", href: "/erp/accounting", icon: Calculator },
       { label: "Collections", labelKey: "nav.collections", href: "/erp/collections", icon: Banknote },
-      { label: "Returns", labelKey: "nav.returns", href: "/erp/returns", icon: RotateCcw },
-      { label: "Partner Ledger", labelKey: "nav.partnerLedger", href: "/erp/partner-ledger", icon: Scale },
-      { label: "Partner Detail", labelKey: "nav.partnerDetail", href: "/erp/partner-detail", icon: Contact },
-      { label: "Banking", labelKey: "sidebar.banking", href: "/erp/banking", icon: Landmark },
-      { label: "E-Invoicing", labelKey: "sidebar.eInvoicing", href: "/erp/e-invoicing", icon: FileCheck },
+      { label: "Partners", labelKey: "nav.partnerDetail", href: "/erp/partner-detail", icon: Contact },
     ],
   },
   {
@@ -143,12 +139,8 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Hub Overview", labelKey: "sidebar.hubOverview", href: "/hubs/crm", icon: LayoutDashboard },
       { label: "Accounts", labelKey: "nav.accounts", href: "/crm/accounts", icon: Building2 },
-      { label: "Contacts", labelKey: "nav.contacts", href: "/crm/contacts", icon: Contact },
-      { label: "Leads", labelKey: "nav.leads", href: "/crm/leads", icon: Sparkles },
-      { label: "Opportunities", labelKey: "nav.opportunities", href: "/crm/opportunities", icon: TrendingUp },
-      { label: "Campaigns", labelKey: "nav.campaigns", href: "/crm/campaigns", icon: Megaphone },
-      { label: "Tickets", labelKey: "nav.tickets", href: "/crm/tickets", icon: LifeBuoy },
-      { label: "Loyalty", labelKey: "sidebar.loyalty", href: "/crm/loyalty", icon: Heart },
+      { label: "Sales Pipeline", labelKey: "nav.leads", href: "/crm/leads", icon: Sparkles },
+      { label: "Marketing Hub", labelKey: "nav.campaigns", href: "/crm/campaigns", icon: Megaphone },
     ],
   },
   {
@@ -186,7 +178,6 @@ const NAV_SECTIONS: NavSection[] = [
     icon: Factory,
     items: [
       { label: "Projects", labelKey: "sidebar.projects", href: "/erp/projects", icon: FolderKanban },
-      { label: "Assets", labelKey: "sidebar.assets", href: "/erp/assets", icon: Monitor },
       { label: "Manufacturing", labelKey: "sidebar.manufacturing", href: "/erp/manufacturing", icon: Factory },
       { label: "Facility", labelKey: "sidebar.facility", href: "/facility", icon: Wrench },
       { label: "Planning", labelKey: "sidebar.planning", href: "/planning", icon: Target },
@@ -202,8 +193,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Spreadsheet", labelKey: "tools.spreadsheet", href: "/spreadsheet", icon: Table2 },
       { label: "Data Upload", labelKey: "nav.dataUpload", href: "/data-upload", icon: Upload },
       { label: "Data Migration", labelKey: "sidebar.dataMigration", href: "/data-migration", icon: Database },
-      { label: "Integration", labelKey: "nav.integration", href: "/integration", icon: Link2 },
-      { label: "Integrations", labelKey: "sidebar.integrations", href: "/erp/integrations", icon: Link2 },
+      { label: "Integrations", labelKey: "nav.integration", href: "/integration", icon: Link2 },
       { label: "Workflows", labelKey: "sidebar.workflows", href: "/erp/workflows", icon: GitBranch },
       { label: "Ecosystem", labelKey: "sidebar.ecosystem", href: "/ecosystem", icon: Puzzle },
       { label: "Automation", labelKey: "nav.automation", href: "/automation", icon: Zap },
