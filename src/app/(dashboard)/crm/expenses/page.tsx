@@ -1066,6 +1066,11 @@ export default function ExpensesPage() {
             <div className="space-y-2">
               <Label>Amount (EGP)</Label>
               <Input type="number" min={0} step="0.01" placeholder="0.00" value={formAmount} onChange={(e) => setFormAmount(e.target.value)} />
+              {formAmount && parseFloat(formAmount) > 0 && (
+                <p className="text-[10px] text-slate-500">
+                  Approval: Level {getApprovalLevel(parseFloat(formAmount)).level} ({getApprovalLevel(parseFloat(formAmount)).approver})
+                </p>
+              )}
             </div>
             <div className="space-y-2 col-span-2">
               <Label>Description / Notes</Label>
@@ -1104,7 +1109,7 @@ export default function ExpensesPage() {
 
       {/* ─── View Expense Detail Dialog ─────────────────────────────────── */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Expense Detail</DialogTitle>
           </DialogHeader>
