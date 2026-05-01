@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
-import { Receipt, Upload, Plus, Check, X, Download, Eye, Camera, DollarSign, Clock } from "lucide-react";
+import { Receipt, Upload, Plus, Check, X, Download, Eye, Camera, DollarSign, Clock, BookOpen } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { useCurrentUser } from "@/lib/user-context";
+import { useDataStore } from "@/lib/data-store";
 import { downloadCSV } from "@/lib/download";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -33,6 +34,7 @@ interface Expense {
   status: ExpenseStatus;
   rejectionReason?: string;
   approvedBy?: string;
+  journalEntryId?: string;
   createdAt: string;
 }
 
@@ -103,6 +105,7 @@ function seedExpenses(): Expense[] {
 
 export default function ExpensesPage() {
   const { user, allUsers } = useCurrentUser();
+  const store = useDataStore();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -220,8 +223,41 @@ export default function ExpensesPage() {
   // ─── Approve / Reject ──────────────────────────────────────────────────
 
   function handleApprove(exp: Expense) {
+    // Create a journal entry in accounting for the approved expense
+    const jeId = store.genId("je");
+    const jeNumber = store.generateJournalNumber();
+    const now = new Date().toISOString();
+
+    store.add("journalEntries", {
+      id: jeId,
+      number: jeNumber,
+      date: now.slice(0, 10),
+      description: `Approved expense — ${exp.description}`,
+      reference: exp.id,
+      type: "GENERAL",
+      lines: [
+        {
+          accountId: "gl-6500",
+          description: `Field expense: ${exp.description}`,
+          debit: exp.amount,
+          credit: 0,
+        },
+        {
+          accountId: "gl-1000",
+          description: `Cash payment for expense ${exp.id}`,
+          debit: 0,
+          credit: exp.amount,
+        },
+      ],
+      status: "POSTED",
+      createdBy: user.id,
+      createdAt: now,
+    });
+
     const next = expenses.map((e) =>
-      e.id === exp.id ? { ...e, status: "APPROVED" as ExpenseStatus, approvedBy: user.name } : e
+      e.id === exp.id
+        ? { ...e, status: "APPROVED" as ExpenseStatus, approvedBy: user.name, journalEntryId: jeId }
+        : e
     );
     persist(next);
   }
@@ -275,7 +311,16 @@ export default function ExpensesPage() {
       key: "status",
       label: "Status",
       sortable: true,
-      render: (v: ExpenseStatus) => statusBadge(v),
+      render: (v: ExpenseStatus, row: Expense) => (
+        <div className="flex items-center gap-1.5">
+          {statusBadge(v)}
+          {row.journalEntryId && (
+            <Badge className="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0 font-semibold gap-0.5" title={`Journal Entry: ${row.journalEntryId}`}>
+              <BookOpen className="h-3 w-3" />JE
+            </Badge>
+          )}
+        </div>
+      ),
     },
     {
       key: "receiptPhoto",

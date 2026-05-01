@@ -9,6 +9,7 @@ import {
   DollarSign,
   Plus,
   ArrowRight,
+  PackageCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +30,11 @@ import {
   useDataStore,
   scopeMarketRequests,
   type MarketRequest,
+  type PurchaseOrder,
 } from "@/lib/data-store";
+
+/** Extended MarketRequest with optional linked PO field set on approval */
+type MarketRequestExt = MarketRequest & { linkedPONumber?: string };
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 
 export default function MarketRequestsPage() {
@@ -194,6 +199,53 @@ export default function MarketRequestsPage() {
     // If it was a DOCTOR_EDIT request, apply the proposed changes
     if (r.type === "DOCTOR_EDIT" && r.targetEntityId && r.proposedChanges) {
       store.update("doctors", r.targetEntityId, r.proposedChanges);
+    }
+
+    // Auto-create a Purchase Order for SAMPLE requests with a product
+    if (r.type === "SAMPLE" && r.productId) {
+      const product = store.products.find((p) => p.id === r.productId);
+      const vendor = store.vendors.length > 0 ? store.vendors[0] : null;
+      if (product && vendor) {
+        const qty = r.quantity ?? 1;
+        const unitPrice = product.pricePerUnit ?? 0;
+        const lineTotal = qty * unitPrice;
+        const tax = Math.round(lineTotal * 0.14 * 100) / 100;
+        const poNumber = store.generatePONumber();
+        const now = new Date().toISOString();
+        const expectedDate = new Date(Date.now() + 7 * 86400000)
+          .toISOString()
+          .slice(0, 10);
+
+        const po: PurchaseOrder = {
+          id: store.genId("po"),
+          number: poNumber,
+          vendorId: vendor.id,
+          date: now.slice(0, 10),
+          expectedDate,
+          items: [
+            {
+              productId: product.id,
+              description: `${product.code} - ${product.name} (Sample request ${r.id})`,
+              quantity: qty,
+              unitPrice,
+              total: lineTotal,
+            },
+          ],
+          subtotal: lineTotal,
+          tax,
+          total: lineTotal + tax,
+          status: "DRAFT",
+          createdAt: now,
+        };
+
+        store.add("purchaseOrders", po);
+
+        // Link the PO number back to the market request
+        store.update("marketRequests", r.id, {
+          description: r.description + `\n[Auto-PO: ${poNumber}]`,
+          linkedPONumber: poNumber,
+        } as unknown as Partial<MarketRequest>);
+      }
     }
   }
 
@@ -373,21 +425,29 @@ export default function MarketRequestsPage() {
                 key: "status",
                 label: "Status",
                 render: (_v: unknown, row: unknown) => {
-                  const r = row as MarketRequest;
+                  const r = row as MarketRequestExt;
                   return (
-                    <Badge
-                      variant={
-                        r.status === "APPROVED"
-                          ? "success"
-                          : r.status === "REJECTED"
-                          ? "destructive"
-                          : r.status === "FULFILLED"
-                          ? "default"
-                          : "warning"
-                      }
-                    >
-                      {r.status}
-                    </Badge>
+                    <div className="flex flex-col gap-1 items-start">
+                      <Badge
+                        variant={
+                          r.status === "APPROVED"
+                            ? "success"
+                            : r.status === "REJECTED"
+                            ? "destructive"
+                            : r.status === "FULFILLED"
+                            ? "default"
+                            : "warning"
+                        }
+                      >
+                        {r.status}
+                      </Badge>
+                      {r.linkedPONumber && (
+                        <Badge variant="outline" className="text-[10px] gap-1 text-blue-700 border-blue-300 bg-blue-50">
+                          <PackageCheck className="h-3 w-3" />
+                          PO: {r.linkedPONumber}
+                        </Badge>
+                      )}
+                    </div>
                   );
                 },
               },
@@ -648,6 +708,7 @@ export default function MarketRequestsPage() {
                     )
                     .slice(0, 6)
                     .map((r) => {
+                      const rExt = r as MarketRequestExt;
                       const requester = allUsers.find(
                         (u) => u.id === r.requestedById
                       );
@@ -659,11 +720,17 @@ export default function MarketRequestsPage() {
                           key={r.id}
                           className="flex items-center justify-between rounded border p-2 text-sm"
                         >
-                          <div>
+                          <div className="flex items-center gap-2">
                             <span className="font-medium">
                               {requester?.name ?? "—"}
                             </span>{" "}
                             — {r.type} — {r.description.slice(0, 50)}
+                            {rExt.linkedPONumber && (
+                              <Badge variant="outline" className="text-[10px] gap-1 text-blue-700 border-blue-300 bg-blue-50">
+                                <PackageCheck className="h-3 w-3" />
+                                PO: {rExt.linkedPONumber}
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             {approver && (

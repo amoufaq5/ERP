@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Building2, Users, TrendingUp, DollarSign, Plus } from "lucide-react";
+import { useState, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { Building2, Users, TrendingUp, DollarSign, Plus, ArrowRightLeft, ExternalLink, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
@@ -87,12 +88,44 @@ const fmtEGP = (n: number) => `EGP ${n >= 1_000_000 ? (n / 1_000_000).toFixed(1)
 
 export default function AccountsPage() {
   const store = useDataStore();
+  const router = useRouter();
   const { t } = useTranslation();
   const [accounts, setAccounts] = useState<Account[]>(INITIAL_ACCOUNTS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", type: "", industry: "" });
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
   const [detailAccount, setDetailAccount] = useState<Account | null>(null);
+
+  // Build a lookup of account names to their matching ERP customer
+  const syncedCustomerMap = useMemo(() => {
+    const map = new Map<string, (typeof store.customers)[number]>();
+    for (const c of store.customers) {
+      map.set(c.name, c);
+    }
+    return map;
+  }, [store.customers]);
+
+  const syncAccountToERP = useCallback((account: Account) => {
+    const existing = syncedCustomerMap.get(account.name);
+    if (existing) return; // already synced
+    const newCustomer = {
+      id: store.genId("CUST"),
+      code: store.generateCustomerCode(),
+      name: account.name,
+      type: account.industry === "Healthcare" ? "Hospital" : "Distributor",
+      phone: account.phone || "",
+      email: "",
+      address: account.city || "",
+      city: account.city || "",
+      creditLimit: 50000,
+      outstanding: 0,
+      currency: "EGP",
+      paymentTerms: "Net 30",
+      status: "ACTIVE" as const,
+      createdAt: new Date().toISOString(),
+    };
+    store.add("customers", newCustomer);
+  }, [store, syncedCustomerMap]);
 
   const filtered = accounts.filter((a) => {
     const q = (filters._search || "").toLowerCase();
@@ -115,13 +148,30 @@ export default function AccountsPage() {
     { key: "city", label: "City" },
     { key: "revenue", label: "Revenue", render: (v) => <span className="font-medium">EGP {((v as number) / 1000000).toFixed(1)}M</span> },
     { key: "owner", label: "Owner" },
-    { key: "status", label: "Status", render: (v) => <StatusBadge status={v as string} /> },
+    { key: "status", label: "Status", render: (v, row) => {
+      const synced = syncedCustomerMap.has(row.name as string);
+      return (
+        <div className="flex items-center gap-2">
+          <StatusBadge status={v as string} />
+          {synced && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+              <CheckCircle2 className="w-3 h-3" /> Synced
+            </span>
+          )}
+        </div>
+      );
+    }},
     { key: "createdAt", label: "Created" },
     {
       key: "id", label: "",
       render: (_v, row) => {
         const a = accounts.find((x) => x.id === row.id);
         if (!a) return null;
+        const matchedCustomer = syncedCustomerMap.get(a.name);
+        const syncItems = matchedCustomer
+          ? [{ label: "View in ERP", icon: <ExternalLink className="w-4 h-4" />, onClick: () => router.push(`/erp/partner-detail?type=customer&id=${matchedCustomer.id}`) }]
+          : [{ label: "Sync to ERP", icon: <ArrowRightLeft className="w-4 h-4" />, onClick: () => syncAccountToERP(a) }];
+        const convertItems = a.type === "PROSPECT" ? [{ label: "Convert to Customer", onClick: () => setAccounts((prev) => prev.map((x) => x.id === a.id ? { ...x, type: "CUSTOMER" as AccountType, status: "active" } : x)) }] : [];
         return (
           <EditDeleteMenu
             onEdit={() => { setEditing(a); setShowModal(true); }}
@@ -129,7 +179,7 @@ export default function AccountsPage() {
             onView={() => setDetailAccount(a)}
             canView
             itemLabel={a.name}
-            extraItems={a.type === "PROSPECT" ? [{ label: "Convert to Customer", onClick: () => setAccounts((prev) => prev.map((x) => x.id === a.id ? { ...x, type: "CUSTOMER" as AccountType, status: "active" } : x)) }] : []}
+            extraItems={[...syncItems, ...convertItems]}
           />
         );
       },

@@ -692,6 +692,7 @@ export default function AccountingPage() {
           <TabsTrigger value="je">{t("acct.journalEntries")}</TabsTrigger>
           <TabsTrigger value="cost">{t("acct.costCenters")}</TabsTrigger>
           <TabsTrigger value="sales-orders">{t("acct.salesOrders")} ({store.salesOrders.length})</TabsTrigger>
+          <TabsTrigger value="collections">Collections</TabsTrigger>
         </TabsList>
 
         {/* Customers */}
@@ -1512,6 +1513,173 @@ export default function AccountingPage() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* ═══ Collections ═══ */}
+        <TabsContent value="collections" className="space-y-4">
+          {(() => {
+            const collectableStatuses = ["SENT", "OVERDUE", "PARTIAL"];
+            const collectableInvoices = store.invoices.filter((i) => collectableStatuses.includes(i.status));
+            const today = new Date();
+            const totalOutstandingAR = collectableInvoices.reduce((s, i) => s + i.total, 0);
+            const overdueInvoices = collectableInvoices.filter((i) => {
+              const due = new Date(i.dueDate);
+              return due < today;
+            });
+            const overdueCount = overdueInvoices.length;
+            const totalInvoiceCount = store.invoices.length;
+            const paidCount = store.invoices.filter((i) => i.status === "PAID").length;
+            const collectionRate = totalInvoiceCount > 0 ? Math.round((paidCount / totalInvoiceCount) * 100) : 0;
+
+            const getDaysOverdue = (dueDate: string) => {
+              const due = new Date(dueDate);
+              const diffMs = today.getTime() - due.getTime();
+              const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+              return Math.max(0, diffDays);
+            };
+
+            // Aging buckets
+            const buckets = { current: 0, days1to30: 0, days31to60: 0, days61to90: 0, days90plus: 0 };
+            collectableInvoices.forEach((inv) => {
+              const days = getDaysOverdue(inv.dueDate);
+              if (days === 0) buckets.current += inv.total;
+              else if (days <= 30) buckets.days1to30 += inv.total;
+              else if (days <= 60) buckets.days31to60 += inv.total;
+              else if (days <= 90) buckets.days61to90 += inv.total;
+              else buckets.days90plus += inv.total;
+            });
+
+            const collectionsData = collectableInvoices.map((inv) => {
+              const cust = store.customers.find((c) => c.id === inv.customerId);
+              return {
+                id: inv.id,
+                number: inv.number,
+                customerName: cust?.name ?? "Unknown",
+                customerId: inv.customerId,
+                total: inv.total,
+                dueDate: inv.dueDate,
+                daysOverdue: getDaysOverdue(inv.dueDate),
+                status: inv.status,
+              };
+            });
+
+            return (
+              <>
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Card className="border-blue-200 bg-blue-50/50">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <p className="text-2xl font-bold">{egpFmt(totalOutstandingAR)}</p>
+                          <p className="text-xs text-muted-foreground">Total Outstanding AR</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-red-200 bg-red-50/50">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-red-600" />
+                        <div>
+                          <p className="text-2xl font-bold">{overdueCount}</p>
+                          <p className="text-xs text-muted-foreground">Overdue Invoices</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-green-200 bg-green-50/50">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <div>
+                          <p className="text-2xl font-bold">{collectionRate}%</p>
+                          <p className="text-xs text-muted-foreground">Collection Rate</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Aging Buckets */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Aging Buckets</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-5 gap-3">
+                      {[
+                        { label: "Current", amount: buckets.current, color: "bg-green-100 text-green-800" },
+                        { label: "1-30 Days", amount: buckets.days1to30, color: "bg-blue-100 text-blue-800" },
+                        { label: "31-60 Days", amount: buckets.days31to60, color: "bg-amber-100 text-amber-800" },
+                        { label: "61-90 Days", amount: buckets.days61to90, color: "bg-orange-100 text-orange-800" },
+                        { label: "90+ Days", amount: buckets.days90plus, color: "bg-red-100 text-red-800" },
+                      ].map((b) => (
+                        <div key={b.label} className={`rounded-lg p-3 text-center ${b.color}`}>
+                          <div className="text-xs font-medium">{b.label}</div>
+                          <div className="text-lg font-bold mt-1">{egpFmt(b.amount)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Collections DataTable */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2"><FileText className="h-4 w-4" /> Outstanding Invoices</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0 overflow-x-auto">
+                    <DataTable
+                      columns={[
+                        { key: "number", label: "Invoice #", render: (v: unknown) => <span className="font-mono text-xs font-semibold">{v as string}</span> },
+                        { key: "customerName", label: "Customer", render: (v: unknown) => <span className="font-medium">{v as string}</span> },
+                        { key: "total", label: "Amount", className: "text-right", render: (v: unknown) => <span className="font-semibold">{(v as number).toLocaleString()}</span> },
+                        { key: "dueDate", label: "Due Date", render: (v: unknown) => <span className="text-xs">{new Date(v as string).toLocaleDateString()}</span> },
+                        { key: "daysOverdue", label: "Days Overdue", className: "text-right", render: (v: unknown) => {
+                          const days = v as number;
+                          return (
+                            <span className={`font-semibold ${days === 0 ? "text-green-600" : days <= 30 ? "text-amber-600" : "text-red-600"}`}>
+                              {days}
+                            </span>
+                          );
+                        }},
+                        { key: "status", label: "Status", render: (v: unknown) => (
+                          <Badge className={
+                            (v as string) === "OVERDUE" ? "bg-red-100 text-red-800" :
+                            (v as string) === "PARTIAL" ? "bg-amber-100 text-amber-800" :
+                            "bg-blue-100 text-blue-800"
+                          }>{v as string}</Badge>
+                        )},
+                        { key: "id", label: "Actions", className: "text-right", render: (v: unknown) => {
+                          const invId = v as string;
+                          return (
+                            <div className="flex items-center justify-end gap-1">
+                              <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => {
+                                store.update("invoices", invId, { status: "PAID" as Invoice["status"] });
+                              }}>
+                                Mark Paid
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
+                                const inv = store.invoices.find((i) => i.id === invId);
+                                const cust = inv ? store.customers.find((c) => c.id === inv.customerId) : null;
+                                alert(`Payment reminder sent to ${cust?.name ?? "customer"} for invoice ${inv?.number ?? invId}.`);
+                              }}>
+                                Send Reminder
+                              </Button>
+                            </div>
+                          );
+                        }},
+                      ] as Column<Record<string, unknown>>[]}
+                      data={collectionsData as unknown as Record<string, unknown>[]}
+                      exportable exportFilename="collections.csv" emptyMessage="No outstanding invoices. All caught up!"
+                    />
+                  </CardContent>
+                </Card>
+              </>
+            );
+          })()}
         </TabsContent>
       </Tabs>
 
