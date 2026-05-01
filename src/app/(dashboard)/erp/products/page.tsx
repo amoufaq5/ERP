@@ -5,6 +5,8 @@ import {
   Package, Upload, Download, FileSpreadsheet,
   Plus, Pill, AlertTriangle, DollarSign,
   Eye, Trash2, FileText, Beaker,
+  Layers, ArrowRight, Activity, ChevronRight, ChevronDown,
+  GitBranch, BarChart3,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,7 +27,7 @@ import {
 } from "@/components/shared/entity-form-modal";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
-import { useDataStore, type Product, type ProductDocument, type ConversionFormula } from "@/lib/data-store";
+import { useDataStore, type Product, type ProductDocument, type ConversionFormula, type BOMLine, type ProductLifecycle, LIFECYCLE_STAGES, type LifecycleStage } from "@/lib/data-store";
 import { downloadCSV } from "@/lib/download";
 
 /* ─── Constants ──────────────────────────────────────────────────── */
@@ -137,7 +139,7 @@ export default function ProductsPage() {
 
   // Product detail dialog state
   const [detailProduct, setDetailProduct] = useState<typeof products[number] | null>(null);
-  const [detailTab, setDetailTab] = useState<"overview" | "stock" | "documents" | "conversion">("overview");
+  const [detailTab, setDetailTab] = useState<"overview" | "stock" | "documents" | "conversion" | "bom">("overview");
   const [docType, setDocType] = useState("Specification");
   const docInputRef = useRef<HTMLInputElement>(null);
 
@@ -150,6 +152,20 @@ export default function ProductsPage() {
   const [cfYield, setCfYield] = useState(95);
   const [cfInstructions, setCfInstructions] = useState("");
   const [cfIngredients, setCfIngredients] = useState<{ rawMaterialId: string; quantity: number; unit: string }[]>([]);
+
+  // BOM state
+  const bomLines = store.bomLines;
+  const [bomFormOpen, setBomFormOpen] = useState(false);
+  const [bomComponentId, setBomComponentId] = useState("");
+  const [bomQty, setBomQty] = useState(1);
+  const [bomUnit, setBomUnit] = useState("kg");
+  const [bomLevel, setBomLevel] = useState(0);
+  const [bomNotes, setBomNotes] = useState("");
+  const [expandedBomRows, setExpandedBomRows] = useState<Set<string>>(new Set());
+  const [bomCompareIds, setBomCompareIds] = useState<[string, string]>(["", ""]);
+
+  // Lifecycle state
+  const productLifecycles = store.productLifecycles;
 
   let _nxt = Date.now();
   const genId = (p: string) => `${p}-${(_nxt++).toString(36).slice(-6)}`;
@@ -358,6 +374,113 @@ export default function ProductsPage() {
   function handleDelete(p: typeof products[number]) {
     store.remove("products", p.id);
   }
+
+  /* ─── BOM helpers ─── */
+  const productBomLines = useMemo(() => {
+    if (!detailProduct) return [];
+    return bomLines.filter((b) => b.parentProductId === detailProduct.id);
+  }, [bomLines, detailProduct]);
+
+  function getBomLinesForProduct(productId: string) {
+    return bomLines.filter((b) => b.parentProductId === productId);
+  }
+
+  function getBomTotalCost(productId: string): number {
+    const lines = getBomLinesForProduct(productId);
+    return lines.reduce((sum, line) => {
+      const comp = products.find((p) => p.id === line.componentProductId);
+      return sum + (comp ? line.quantityRequired * comp.pricePerUnit : 0);
+    }, 0);
+  }
+
+  function openNewBomLine() {
+    setBomComponentId("");
+    setBomQty(1);
+    setBomUnit("kg");
+    setBomLevel(0);
+    setBomNotes("");
+    setBomFormOpen(true);
+  }
+
+  function submitBomLine() {
+    if (!detailProduct || !bomComponentId || bomQty <= 0) return;
+    const line: BOMLine = {
+      id: genId("bom"),
+      parentProductId: detailProduct.id,
+      componentProductId: bomComponentId,
+      quantityRequired: bomQty,
+      unit: bomUnit,
+      level: bomLevel,
+      notes: bomNotes || undefined,
+    };
+    store.add("bomLines", line);
+    setBomFormOpen(false);
+  }
+
+  function removeBomLine(id: string) {
+    store.remove("bomLines", id);
+  }
+
+  function toggleBomExpand(bomId: string) {
+    setExpandedBomRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(bomId)) next.delete(bomId);
+      else next.add(bomId);
+      return next;
+    });
+  }
+
+  /* ─── Lifecycle helpers ─── */
+  function getLifecycle(productId: string): ProductLifecycle | undefined {
+    return productLifecycles.find((lc) => lc.productId === productId);
+  }
+
+  function advanceLifecycleStage(productId: string) {
+    const lc = getLifecycle(productId);
+    if (!lc) {
+      // Create new lifecycle starting at Development
+      const newLc: ProductLifecycle = {
+        id: genId("plc"),
+        productId,
+        stage: "Development",
+        enteredAt: new Date().toISOString(),
+        history: [{ stage: "Development", enteredAt: new Date().toISOString() }],
+      };
+      store.add("productLifecycles", newLc);
+      return;
+    }
+    const stageIdx = LIFECYCLE_STAGES.indexOf(lc.stage);
+    if (stageIdx >= LIFECYCLE_STAGES.length - 1) return; // already at last stage
+    const nextStage = LIFECYCLE_STAGES[stageIdx + 1];
+    const now = new Date().toISOString();
+    const updatedHistory = lc.history.map((h) =>
+      h.stage === lc.stage && !h.exitedAt ? { ...h, exitedAt: now } : h
+    );
+    updatedHistory.push({ stage: nextStage, enteredAt: now });
+    store.update("productLifecycles", lc.id, {
+      stage: nextStage,
+      enteredAt: now,
+      history: updatedHistory,
+    });
+  }
+
+  const lifecycleStageColors: Record<LifecycleStage, string> = {
+    Development: "bg-gray-100 text-gray-800",
+    Testing: "bg-blue-100 text-blue-800",
+    Approved: "bg-purple-100 text-purple-800",
+    Active: "bg-emerald-100 text-emerald-800",
+    Declining: "bg-amber-100 text-amber-800",
+    Discontinued: "bg-red-100 text-red-800",
+  };
+
+  const lifecycleStageDotColors: Record<LifecycleStage, string> = {
+    Development: "bg-gray-500",
+    Testing: "bg-blue-500",
+    Approved: "bg-purple-500",
+    Active: "bg-emerald-500",
+    Declining: "bg-amber-500",
+    Discontinued: "bg-red-500",
+  };
 
   /* ─── Product CSV upload ─── */
   function handleProductFileUpload(file: File) {
@@ -1007,10 +1130,10 @@ export default function ProductsPage() {
               <div className="space-y-4">
                 {/* Tab buttons */}
                 <div className="flex gap-1 border-b border-border pb-2">
-                  {(["overview", "stock", "documents", "conversion"] as const).map((t) => (
+                  {(["overview", "stock", "documents", "conversion", "bom"] as const).map((t) => (
                     <button key={t} onClick={() => setDetailTab(t)}
                       className={`px-3 py-1.5 text-sm rounded-md transition-colors ${detailTab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
-                      {t === "overview" ? "Overview" : t === "stock" ? "Stock" : t === "documents" ? `Documents (${docs.length})` : "Conversion"}
+                      {t === "overview" ? "Overview" : t === "stock" ? "Stock" : t === "documents" ? `Documents (${docs.length})` : t === "conversion" ? "Conversion" : "BOM"}
                     </button>
                   ))}
                 </div>

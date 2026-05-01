@@ -165,6 +165,16 @@ export default function ProcurementPage() {
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null);
   const [detailGRN, setDetailGRN] = useState<GoodsReceipt | null>(null);
 
+  // Vendor Scorecard state
+  const [vendorScores, setVendorScores] = useState<VendorRating[]>(VENDOR_SCORECARD_DATA);
+  const [showRateDialog, setShowRateDialog] = useState(false);
+  const [rateVendorId, setRateVendorId] = useState("");
+  const [rateQuality, setRateQuality] = useState("85");
+  const [rateDelivery, setRateDelivery] = useState("85");
+  const [ratePrice, setRatePrice] = useState("80");
+  const [rateCommunication, setRateCommunication] = useState("80");
+  const [rateNotes, setRateNotes] = useState("");
+
   const [poSearch, setPOSearch] = useState("");
   const [poFilters, setPOFilters] = useState<FilterState>({});
   const [rfqSearch, setRFQSearch] = useState("");
@@ -452,6 +462,72 @@ export default function ProcurementPage() {
 
   const egp = (n: number) => `EGP ${n.toLocaleString()}`;
 
+  // ─── Vendor Scorecard helpers ────────────────────────────────────────
+  const scorecardVendorName = (id: string) =>
+    store.vendors.find((v) => v.id === id)?.name ?? EXTRA_VENDOR_NAMES[id] ?? id;
+
+  const sortedVendorScores = useMemo(() =>
+    [...vendorScores].sort((a, b) => b.overall - a.overall),
+  [vendorScores]);
+
+  function openRateDialog(vendorId?: string) {
+    setRateVendorId(vendorId ?? "");
+    setRateQuality("85");
+    setRateDelivery("85");
+    setRatePrice("80");
+    setRateCommunication("80");
+    setRateNotes("");
+    setShowRateDialog(true);
+  }
+
+  function handleRateSubmit() {
+    if (!rateVendorId) return;
+    const q = Number(rateQuality);
+    const d = Number(rateDelivery);
+    const p = Number(ratePrice);
+    const c = Number(rateCommunication);
+    const overall = Math.round(q * 0.35 + d * 0.30 + p * 0.15 + c * 0.20);
+    const now = new Date();
+    const monthStr = now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+
+    setVendorScores((prev) => {
+      const existing = prev.find((v) => v.vendorId === rateVendorId);
+      if (existing) {
+        return prev.map((v) =>
+          v.vendorId === rateVendorId
+            ? {
+                ...v,
+                quality: q,
+                delivery: d,
+                price: p,
+                communication: c,
+                overall,
+                totalOrders: v.totalOrders + 1,
+                lastRated: now.toISOString().split("T")[0],
+                notes: rateNotes || v.notes,
+                history: [
+                  ...v.history.slice(-2),
+                  { month: monthStr, overall, quality: q, delivery: d },
+                ],
+              }
+            : v,
+        );
+      }
+      return [
+        ...prev,
+        {
+          vendorId: rateVendorId,
+          quality: q, delivery: d, price: p, communication: c, overall,
+          history: [{ month: monthStr, overall, quality: q, delivery: d }],
+          totalOrders: 1,
+          lastRated: now.toISOString().split("T")[0],
+          notes: rateNotes || undefined,
+        },
+      ];
+    });
+    setShowRateDialog(false);
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -482,6 +558,7 @@ export default function ProcurementPage() {
           <TabsTrigger value="shipments">Shipments ({store.shipments.length})</TabsTrigger>
           <TabsTrigger value="rfqs">{t("proc.rfqs")} ({store.rfqs.length})</TabsTrigger>
           <TabsTrigger value="grn">{t("proc.grn")} ({store.goodsReceipts.length})</TabsTrigger>
+          <TabsTrigger value="scorecard">Vendor Scorecard ({vendorScores.length})</TabsTrigger>
         </TabsList>
 
         {/* ── Purchase Orders Tab ── */}
@@ -739,7 +816,285 @@ export default function ProcurementPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ── Vendor Scorecard Tab ── */}
+        <TabsContent value="scorecard" className="space-y-4">
+          {/* Scorecard summary cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-green-100"><Award className="h-5 w-5 text-green-600" /></div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Top Rated Vendor</p>
+                    <p className="text-lg font-semibold">{scorecardVendorName(sortedVendorScores[0]?.vendorId ?? "")}</p>
+                    <p className="text-xs text-green-600 font-medium">Score: {sortedVendorScores[0]?.overall ?? 0}%</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-100"><Star className="h-5 w-5 text-blue-600" /></div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Average Score</p>
+                    <p className="text-lg font-semibold">{Math.round(vendorScores.reduce((s, v) => s + v.overall, 0) / vendorScores.length)}%</p>
+                    <p className="text-xs text-muted-foreground">{vendorScores.length} vendors rated</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-amber-100"><TrendingUp className="h-5 w-5 text-amber-600" /></div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Preferred Vendors</p>
+                    <p className="text-lg font-semibold">{vendorScores.filter((v) => v.overall >= 85).length}</p>
+                    <p className="text-xs text-muted-foreground">Score {"≥"} 85%</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Performance Table */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Vendor Performance Scorecard</CardTitle>
+                <CardDescription>Ratings across quality, delivery, price, and communication. Weighted: Quality 35%, Delivery 30%, Price 15%, Communication 20%.</CardDescription>
+              </div>
+              <Button size="sm" onClick={() => openRateDialog()}>
+                <Plus className="h-4 w-4 mr-1" /> Rate Vendor
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={[
+                  { key: "rank", label: "#", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const r = row as unknown as VendorRating;
+                    const rank = sortedVendorScores.findIndex((s) => s.vendorId === r.vendorId) + 1;
+                    return <span className="font-semibold text-sm">{rank}</span>;
+                  }},
+                  { key: "vendorId", label: "Vendor", render: (v: string) => {
+                    const r = sortedVendorScores.find((s) => s.vendorId === v);
+                    const isPreferred = r && r.overall >= 85;
+                    return (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{scorecardVendorName(v)}</span>
+                        {isPreferred && (
+                          <Badge className="bg-green-100 text-green-800 text-[10px] px-1.5 py-0 gap-1">
+                            <Award className="h-3 w-3" /> Preferred
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  }},
+                  { key: "quality", label: "Quality", render: (v: number) => (
+                    <div className="space-y-1">
+                      {renderStars(v)}
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-1.5 w-16 bg-gray-200 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${getScoreBgBar(v)}`} style={{ width: `${v}%` }} />
+                        </div>
+                        <span className={`text-xs font-medium ${getScoreColor(v)}`}>{v}%</span>
+                      </div>
+                    </div>
+                  )},
+                  { key: "delivery", label: "Delivery Timeliness", render: (v: number) => (
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-1.5 w-16 bg-gray-200 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${getScoreBgBar(v)}`} style={{ width: `${v}%` }} />
+                      </div>
+                      <span className={`text-xs font-medium ${getScoreColor(v)}`}>{v}% on-time</span>
+                    </div>
+                  )},
+                  { key: "price", label: "Price Competitiveness", render: (v: number) => (
+                    <Badge className={getScoreBg(v)}>{v >= 85 ? "Very Competitive" : v >= 70 ? "Competitive" : "Above Market"}</Badge>
+                  )},
+                  { key: "communication", label: "Communication", render: (v: number) => (
+                    <div className="flex items-center gap-1.5">
+                      <MessageSquare className={`h-3.5 w-3.5 ${getScoreColor(v)}`} />
+                      <span className={`text-xs font-medium ${getScoreColor(v)}`}>{v}%</span>
+                    </div>
+                  )},
+                  { key: "overall", label: "Overall Score", render: (v: number, row: Record<string, unknown>) => {
+                    const r = row as unknown as VendorRating;
+                    const prevMonth = r.history.length >= 2 ? r.history[r.history.length - 2].overall : v;
+                    return (
+                      <div className="flex items-center gap-1.5">
+                        <Badge className={`text-sm font-bold ${getScoreBg(v)}`}>{v}%</Badge>
+                        {getTrendIcon(v, prevMonth)}
+                      </div>
+                    );
+                  }},
+                  { key: "totalOrders", label: "Orders", render: (v: number) => <span className="text-sm">{v}</span> },
+                  { key: "lastRated", label: "Last Rated", render: (v: string) => <span className="text-xs text-muted-foreground">{v}</span> },
+                  { key: "vendorId", label: "Actions", className: "text-right", render: (v: string) => (
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openRateDialog(v)}>
+                      <Star className="h-3 w-3 mr-1" /> Rate
+                    </Button>
+                  )},
+                ] as Column<Record<string, unknown>>[]}
+                data={sortedVendorScores as unknown as Record<string, unknown>[]}
+                emptyMessage="No vendor ratings yet."
+              />
+            </CardContent>
+          </Card>
+
+          {/* Vendor Ranking & Historical Trends */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Ranking List */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Vendor Ranking</CardTitle>
+                <CardDescription>Top to bottom by overall score</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {sortedVendorScores.map((v, idx) => (
+                    <div key={v.vendorId} className="flex items-center gap-3">
+                      <div className={`flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold ${
+                        idx === 0 ? "bg-amber-100 text-amber-800" :
+                        idx === 1 ? "bg-gray-200 text-gray-700" :
+                        idx === 2 ? "bg-orange-100 text-orange-800" :
+                        "bg-gray-100 text-gray-500"
+                      }`}>
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium truncate">{scorecardVendorName(v.vendorId)}</span>
+                          {v.overall >= 85 && <Award className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />}
+                        </div>
+                        <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden mt-1">
+                          <div
+                            className={`h-full rounded-full transition-all ${getScoreBgBar(v.overall)}`}
+                            style={{ width: `${v.overall}%` }}
+                          />
+                        </div>
+                      </div>
+                      <span className={`text-sm font-bold ${getScoreColor(v.overall)}`}>{v.overall}%</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Historical Trends */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Historical Trends (Last 3 Months)</CardTitle>
+                <CardDescription>Overall score movement per vendor</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {sortedVendorScores.map((v) => (
+                    <div key={v.vendorId} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{scorecardVendorName(v.vendorId)}</span>
+                        <div className="flex items-center gap-1">
+                          {v.history.length >= 2 && getTrendIcon(
+                            v.history[v.history.length - 1].overall,
+                            v.history[0].overall,
+                          )}
+                          <span className={`text-xs font-medium ${getScoreColor(v.overall)}`}>
+                            {v.history.length >= 2
+                              ? `${v.history[v.history.length - 1].overall - v.history[0].overall >= 0 ? "+" : ""}${v.history[v.history.length - 1].overall - v.history[0].overall}pts`
+                              : "—"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {v.history.map((h, hi) => (
+                          <div key={hi} className="flex-1">
+                            <div className="text-[10px] text-muted-foreground mb-0.5">{h.month}</div>
+                            <div className="flex items-center gap-1">
+                              <div className="h-5 w-full bg-gray-100 rounded overflow-hidden relative">
+                                <div
+                                  className={`h-full rounded transition-all ${getScoreBgBar(h.overall)}`}
+                                  style={{ width: `${h.overall}%` }}
+                                />
+                                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow-sm">{h.overall}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
       </Tabs>
+
+      {/* ── Rate Vendor Dialog ── */}
+      <Dialog open={showRateDialog} onOpenChange={(open) => { setShowRateDialog(open); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Rate Vendor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">Submit a vendor performance rating after receiving a purchase order.</p>
+            <div>
+              <Label className="text-sm mb-1.5 block">Vendor</Label>
+              <Select value={rateVendorId} onValueChange={setRateVendorId}>
+                <SelectTrigger><SelectValue placeholder="Select vendor..." /></SelectTrigger>
+                <SelectContent>
+                  {store.vendors.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm mb-1.5 block">Quality Score (%)</Label>
+                <Input type="number" min={0} max={100} value={rateQuality} onChange={(e) => setRateQuality(e.target.value)} />
+                <p className="text-[10px] text-muted-foreground mt-0.5">Product/material quality (0-100)</p>
+              </div>
+              <div>
+                <Label className="text-sm mb-1.5 block">Delivery Timeliness (%)</Label>
+                <Input type="number" min={0} max={100} value={rateDelivery} onChange={(e) => setRateDelivery(e.target.value)} />
+                <p className="text-[10px] text-muted-foreground mt-0.5">% of on-time deliveries</p>
+              </div>
+              <div>
+                <Label className="text-sm mb-1.5 block">Price Competitiveness (%)</Label>
+                <Input type="number" min={0} max={100} value={ratePrice} onChange={(e) => setRatePrice(e.target.value)} />
+                <p className="text-[10px] text-muted-foreground mt-0.5">Score vs market average</p>
+              </div>
+              <div>
+                <Label className="text-sm mb-1.5 block">Communication (%)</Label>
+                <Input type="number" min={0} max={100} value={rateCommunication} onChange={(e) => setRateCommunication(e.target.value)} />
+                <p className="text-[10px] text-muted-foreground mt-0.5">Responsiveness rating</p>
+              </div>
+            </div>
+            <div className="border rounded-lg p-3 bg-muted/30 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Weighted Overall Score</span>
+                <span className="font-bold">
+                  {Math.round(Number(rateQuality) * 0.35 + Number(rateDelivery) * 0.30 + Number(ratePrice) * 0.15 + Number(rateCommunication) * 0.20)}%
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">Quality 35% + Delivery 30% + Price 15% + Communication 20%</p>
+            </div>
+            <div>
+              <Label className="text-sm mb-1.5 block">Notes (optional)</Label>
+              <Input value={rateNotes} onChange={(e) => setRateNotes(e.target.value)} placeholder="Any additional feedback..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRateDialog(false)}>Cancel</Button>
+            <Button onClick={handleRateSubmit} disabled={!rateVendorId}>
+              <Star className="h-4 w-4 mr-1" /> Submit Rating
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── PO Form Modal (multi-line) ── */}
       <Dialog open={showPOModal} onOpenChange={(open) => { setShowPOModal(open); if (!open) setEditingPO(null); }}>

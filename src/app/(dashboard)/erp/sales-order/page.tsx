@@ -66,6 +66,82 @@ const DESTRUCTION = [
 
 const REASONS = ["Near-Expiry", "Expired", "Damaged Packaging", "Product Recall", "Wrong Product", "Excess Stock", "Temperature Excursion"];
 
+// ── Quotation types & seed data ───────────────────────────────────────────
+type QuotationStatus = "Draft" | "Sent" | "Accepted" | "Rejected" | "Expired";
+
+interface QuotationLine {
+  productId: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+interface Quotation {
+  id: string;
+  number: string;
+  customerId: string;
+  date: string;
+  validUntil: string;
+  items: QuotationLine[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  terms: string;
+  status: QuotationStatus;
+  convertedSOId?: string;
+}
+
+const SEED_QUOTATIONS: Quotation[] = [
+  {
+    id: "qt-1", number: "QT-2026-001", customerId: "cust-1", date: "2026-04-01", validUntil: "2026-05-01",
+    items: [
+      { productId: "prod-1", description: "Augmentin 625mg Tab", quantity: 500, unitPrice: 12, total: 6000 },
+      { productId: "prod-2", description: "Crestor 20mg Tab", quantity: 200, unitPrice: 18, total: 3600 },
+    ],
+    subtotal: 9600, tax: 1344, total: 10944, terms: "Payment net 30 days. Delivery within 5 business days. Prices valid for the stated period only.", status: "Sent",
+  },
+  {
+    id: "qt-2", number: "QT-2026-002", customerId: "cust-2", date: "2026-04-05", validUntil: "2026-05-05",
+    items: [
+      { productId: "prod-3", description: "Nexium 40mg Cap", quantity: 300, unitPrice: 18, total: 5400 },
+    ],
+    subtotal: 5400, tax: 756, total: 6156, terms: "50% advance, balance on delivery. FOB destination.", status: "Accepted",
+  },
+  {
+    id: "qt-3", number: "QT-2026-003", customerId: "cust-3", date: "2026-04-10", validUntil: "2026-04-25",
+    items: [
+      { productId: "prod-1", description: "Augmentin 625mg Tab", quantity: 1000, unitPrice: 12, total: 12000 },
+      { productId: "prod-4", description: "Voltaren 75mg Tab", quantity: 400, unitPrice: 9, total: 3600 },
+      { productId: "prod-5", description: "Plavix 75mg Tab", quantity: 150, unitPrice: 25, total: 3750 },
+    ],
+    subtotal: 19350, tax: 2709, total: 22059, terms: "Net 45 days. Bulk discount applied. Subject to stock availability.", status: "Expired",
+  },
+  {
+    id: "qt-4", number: "QT-2026-004", customerId: "cust-4", date: "2026-04-18", validUntil: "2026-05-18",
+    items: [
+      { productId: "prod-2", description: "Crestor 20mg Tab", quantity: 600, unitPrice: 18, total: 10800 },
+    ],
+    subtotal: 10800, tax: 1512, total: 12312, terms: "Payment net 30. Free shipping on orders above EGP 10,000.", status: "Draft",
+  },
+  {
+    id: "qt-5", number: "QT-2026-005", customerId: "cust-1", date: "2026-04-22", validUntil: "2026-05-22",
+    items: [
+      { productId: "prod-3", description: "Nexium 40mg Cap", quantity: 200, unitPrice: 18, total: 3600 },
+      { productId: "prod-5", description: "Plavix 75mg Tab", quantity: 100, unitPrice: 25, total: 2500 },
+    ],
+    subtotal: 6100, tax: 854, total: 6954, terms: "Net 30 days. Warranty per manufacturer terms.", status: "Rejected",
+  },
+  {
+    id: "qt-6", number: "QT-2026-006", customerId: "cust-5", date: "2026-04-28", validUntil: "2026-05-28",
+    items: [
+      { productId: "prod-1", description: "Augmentin 625mg Tab", quantity: 800, unitPrice: 12, total: 9600 },
+      { productId: "prod-4", description: "Voltaren 75mg Tab", quantity: 300, unitPrice: 9, total: 2700 },
+    ],
+    subtotal: 12300, tax: 1722, total: 14022, terms: "Net 30. Delivery in 2 batches. Prices exclusive of additional duties.", status: "Sent",
+  },
+];
+
 const returnFields: EntityField[] = [
   { name: "customer", label: "Customer", type: "text", required: true },
   { name: "product", label: "Product", type: "text", required: true },
@@ -110,8 +186,8 @@ export default function SalesOrderPage() {
   const [activeTab, setActiveTab] = useState("orders");
   const { t } = useTranslation();
 
-  // ── Top-level view: "sales" or "returns" ──
-  const [topView, setTopView] = useState<"sales" | "returns">("sales");
+  // ── Top-level view: "sales", "quotations", or "returns" ──
+  const [topView, setTopView] = useState<"sales" | "quotations" | "returns">("sales");
 
   const [editingSO, setEditingSO] = useState<SalesOrder | null>(null);
   const [detailSO, setDetailSO] = useState<SalesOrder | null>(null);
@@ -124,6 +200,19 @@ export default function SalesOrderPage() {
   const [soCustomerId, setSOCustomerId] = useState("");
   const [soExpectedDate, setSOExpectedDate] = useState("");
   const [soLines, setSOLines] = useState<SOLine[]>([{ productId: "", quantity: 1 }]);
+
+  // ── Quotation state ──
+  const [quotations, setQuotations] = useState<Quotation[]>(SEED_QUOTATIONS);
+  const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [editingQuote, setEditingQuote] = useState<Quotation | null>(null);
+  const [detailQuote, setDetailQuote] = useState<Quotation | null>(null);
+  const [previewQuote, setPreviewQuote] = useState<Quotation | null>(null);
+  const [quoteSearch, setQuoteSearch] = useState("");
+  const [quoteFilters, setQuoteFilters] = useState<FilterState>({});
+  const [qtCustomerId, setQtCustomerId] = useState("");
+  const [qtValidUntil, setQtValidUntil] = useState("");
+  const [qtTerms, setQtTerms] = useState("");
+  const [qtLines, setQtLines] = useState<SOLine[]>([{ productId: "", quantity: 1 }]);
 
   // ── Returns state ──
   const [returns, setReturns] = useState(RETURNS);
@@ -149,6 +238,138 @@ export default function SalesOrderPage() {
   const retTotalValue = returns.reduce((s, r) => s + r.value, 0);
   const retApprovedValue = returns.filter(r => r.status === "Approved" || r.status === "Credit Issued").reduce((s, r) => s + r.value, 0);
   const retRate = retTotalValue > 0 ? ((returns.length / (returns.length + 500)) * 100).toFixed(1) : "0.0";
+
+  // Quotation stats
+  const totalQuotes = quotations.length;
+  const pendingQuotes = quotations.filter(q => q.status === "Sent" || q.status === "Draft").length;
+  const acceptedQuotes = quotations.filter(q => q.status === "Accepted").length;
+  const conversionRate = totalQuotes > 0 ? ((acceptedQuotes / totalQuotes) * 100).toFixed(1) : "0.0";
+
+  // Auto-expire check: mark quotations past validUntil as Expired
+  const today = new Date().toISOString().slice(0, 10);
+  const expireQuotations = () => {
+    setQuotations(prev => prev.map(q =>
+      (q.status === "Draft" || q.status === "Sent") && q.validUntil < today
+        ? { ...q, status: "Expired" as QuotationStatus }
+        : q
+    ));
+  };
+  // Run auto-expire on each render cycle (lightweight check)
+  useMemo(() => { expireQuotations(); }, [today]);
+
+  const filteredQuotations = useMemo(() => {
+    return quotations.filter((q) => {
+      const search = quoteSearch.toLowerCase();
+      if (search && !q.number.toLowerCase().includes(search) && !customerName(q.customerId).toLowerCase().includes(search)) return false;
+      if (quoteFilters.status && q.status !== quoteFilters.status) return false;
+      return true;
+    });
+  }, [quotations, quoteSearch, quoteFilters]);
+
+  function openQuoteModal(q?: Quotation | null) {
+    if (q) {
+      setEditingQuote(q);
+      setQtCustomerId(q.customerId);
+      setQtValidUntil(q.validUntil);
+      setQtTerms(q.terms);
+      setQtLines(q.items.map((it) => ({ productId: it.productId, quantity: it.quantity })));
+    } else {
+      setEditingQuote(null);
+      setQtCustomerId("");
+      setQtValidUntil("");
+      setQtTerms("Payment net 30 days. Delivery within 5 business days.");
+      setQtLines([{ productId: "", quantity: 1 }]);
+    }
+    setShowQuoteModal(true);
+  }
+
+  const qtSubtotal = qtLines.reduce((sum, l) => sum + l.quantity * getLinePrice(l.productId), 0);
+  const qtTax = qtSubtotal * 0.14;
+  const qtTotal = qtSubtotal + qtTax;
+
+  function handleQuoteSubmit() {
+    if (!qtCustomerId || !qtValidUntil || qtLines.length === 0) return;
+    if (qtLines.some((l) => !l.productId || l.quantity <= 0)) return;
+
+    const items: QuotationLine[] = qtLines.map((l) => {
+      const price = getLinePrice(l.productId);
+      return {
+        productId: l.productId,
+        description: getLineDesc(l.productId),
+        quantity: l.quantity,
+        unitPrice: price,
+        total: l.quantity * price,
+      };
+    });
+    const subtotal = items.reduce((sum, i) => sum + i.total, 0);
+    const tax = subtotal * 0.14;
+    const total = subtotal + tax;
+
+    if (editingQuote) {
+      setQuotations(prev => prev.map(q => q.id === editingQuote.id ? {
+        ...q, customerId: qtCustomerId, validUntil: qtValidUntil, terms: qtTerms,
+        items, subtotal, tax, total,
+      } : q));
+    } else {
+      const nextNum = quotations.length + 1;
+      setQuotations(prev => [{
+        id: `qt-${Date.now()}`,
+        number: `QT-2026-${String(nextNum).padStart(3, "0")}`,
+        customerId: qtCustomerId,
+        date: new Date().toISOString().slice(0, 10),
+        validUntil: qtValidUntil,
+        items, subtotal, tax, total,
+        terms: qtTerms,
+        status: "Draft" as QuotationStatus,
+      }, ...prev]);
+    }
+    setShowQuoteModal(false);
+    setEditingQuote(null);
+  }
+
+  function sendQuotation(q: Quotation) {
+    if (q.status !== "Draft") return;
+    setQuotations(prev => prev.map(x => x.id === q.id ? { ...x, status: "Sent" as QuotationStatus } : x));
+  }
+
+  function acceptQuotation(q: Quotation) {
+    if (q.status !== "Sent") return;
+    setQuotations(prev => prev.map(x => x.id === q.id ? { ...x, status: "Accepted" as QuotationStatus } : x));
+  }
+
+  function rejectQuotation(q: Quotation) {
+    if (q.status !== "Sent") return;
+    setQuotations(prev => prev.map(x => x.id === q.id ? { ...x, status: "Rejected" as QuotationStatus } : x));
+  }
+
+  function convertQuoteToSO(q: Quotation) {
+    if (q.status !== "Accepted") return;
+    // Create a new SO pre-filled from the quotation
+    const soItems = q.items.map((it) => ({
+      productId: it.productId,
+      description: it.description,
+      quantity: it.quantity,
+      unitPrice: it.unitPrice,
+      total: it.total,
+    }));
+    const newSO = {
+      id: store.genId("so"),
+      number: store.generateSONumber(),
+      customerId: q.customerId,
+      date: new Date().toISOString(),
+      expectedDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+      items: soItems,
+      subtotal: q.subtotal,
+      tax: q.tax,
+      total: q.total,
+      status: "DRAFT" as const,
+      createdAt: new Date().toISOString(),
+    };
+    store.add("salesOrders", newSO);
+    setQuotations(prev => prev.map(x => x.id === q.id ? { ...x, convertedSOId: newSO.id } : x));
+    // Switch to sales view to show the new SO
+    setTopView("sales");
+  }
 
   const filteredSOs = useMemo(() => {
     return store.salesOrders.filter((so) => {
@@ -335,12 +556,16 @@ export default function SalesOrderPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={topView === "sales" ? t("so.title") : t("ret.title")}
-        description={topView === "sales" ? t("so.manageSO") : t("ret.manageReturns")}
+        title={topView === "sales" ? t("so.title") : topView === "quotations" ? "Quotations" : t("ret.title")}
+        description={topView === "sales" ? t("so.manageSO") : topView === "quotations" ? "Create, manage, and convert quotations to sales orders" : t("ret.manageReturns")}
         actions={
           topView === "sales" ? (
             <Button onClick={() => openSOModal()}>
               <Plus className="h-4 w-4 mr-2" /> {t("so.createSO")}
+            </Button>
+          ) : topView === "quotations" ? (
+            <Button onClick={() => openQuoteModal()}>
+              <Plus className="h-4 w-4 mr-2" /> New Quotation
             </Button>
           ) : (
             <Button onClick={() => setReturnModal({ kind: "return", editing: null })}>
@@ -357,6 +582,12 @@ export default function SalesOrderPage() {
           onClick={() => setTopView("sales")}
         >
           <ShoppingBag className="h-4 w-4 mr-2" /> Sales Orders
+        </Button>
+        <Button
+          variant={topView === "quotations" ? "default" : "ghost"}
+          onClick={() => setTopView("quotations")}
+        >
+          <ClipboardList className="h-4 w-4 mr-2" /> Quotations
         </Button>
         <Button
           variant={topView === "returns" ? "default" : "ghost"}
@@ -534,6 +765,123 @@ export default function SalesOrderPage() {
               </Card>
             </TabsContent>
           </Tabs>
+        </>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ── QUOTATIONS VIEW ── */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {topView === "quotations" && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatsCard icon={ClipboardList} title="Total Quotes" value={String(totalQuotes)} subtitle="All quotations" iconColor="text-blue-600" />
+            <StatsCard icon={Clock} title="Pending" value={String(pendingQuotes)} subtitle="Draft + Sent" iconColor="text-amber-600" />
+            <StatsCard icon={CheckCircle} title="Accepted" value={String(acceptedQuotes)} subtitle="Ready to convert" iconColor="text-green-600" />
+            <StatsCard icon={Percent} title="Conversion Rate" value={`${conversionRate}%`} subtitle="Accepted / Total" iconColor="text-purple-600" />
+          </div>
+
+          <FilterBar
+            searchPlaceholder="Search by Quote #, customer..."
+            searchValue={quoteSearch}
+            onSearchChange={setQuoteSearch}
+            fields={[
+              { key: "status", label: "Status", type: "select" as const, options: [
+                { value: "Draft", label: "Draft" }, { value: "Sent", label: "Sent" },
+                { value: "Accepted", label: "Accepted" }, { value: "Rejected", label: "Rejected" },
+                { value: "Expired", label: "Expired" },
+              ]},
+            ]}
+            values={quoteFilters}
+            onChange={(key, value) => setQuoteFilters((prev) => ({ ...prev, [key]: value }))}
+          />
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Quotations</CardTitle>
+              <CardDescription>Manage customer quotations and convert accepted quotes to sales orders</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={[
+                  { key: "number", label: "Quote #", render: (v: string) => <span className="font-mono text-xs font-semibold">{v}</span> },
+                  { key: "customerId", label: "Customer", render: (v: string) => <CustomerLink customerId={v} /> },
+                  { key: "date", label: "Date", render: (v: string) => v },
+                  { key: "validUntil", label: "Valid Until", render: (v: string) => {
+                    const isExpired = v < today;
+                    return <span className={isExpired ? "text-red-600 font-medium" : ""}>{v}{isExpired ? " (past)" : ""}</span>;
+                  }},
+                  { key: "items", label: "Items", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const q = row as unknown as Quotation;
+                    return <span className="text-sm">{q.items.length} item{q.items.length !== 1 ? "s" : ""}</span>;
+                  }},
+                  { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{egp(v)}</span> },
+                  { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
+                  { key: "id", label: "Actions", className: "text-right", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const q = row as unknown as Quotation;
+                    return (
+                      <div className="flex items-center justify-end gap-1">
+                        {q.status === "Draft" && (
+                          <Button size="sm" className="h-7 text-xs" onClick={() => sendQuotation(q)}>
+                            <Send className="h-3 w-3 mr-1" /> Send
+                          </Button>
+                        )}
+                        {q.status === "Sent" && (
+                          <>
+                            <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => acceptQuotation(q)}>
+                              <CheckCircle className="h-3 w-3 mr-1" /> Accept
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => rejectQuotation(q)}>
+                              <Ban className="h-3 w-3 mr-1" /> Reject
+                            </Button>
+                          </>
+                        )}
+                        {q.status === "Accepted" && !q.convertedSOId && (
+                          <Button size="sm" className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700" onClick={() => convertQuoteToSO(q)}>
+                            <ArrowRight className="h-3 w-3 mr-1" /> Convert to SO
+                          </Button>
+                        )}
+                        {q.convertedSOId && (
+                          <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200">Converted</Badge>
+                        )}
+                        <EditDeleteMenu
+                          onView={() => setDetailQuote(q)}
+                          onEdit={q.status === "Draft" ? () => openQuoteModal(q) : undefined}
+                          onDelete={q.status === "Draft" ? () => setQuotations(prev => prev.filter(x => x.id !== q.id)) : undefined}
+                          canView
+                          itemLabel={q.number}
+                          compact
+                          extraItems={[
+                            { label: "Preview PDF", onClick: () => setPreviewQuote(q) },
+                          ]}
+                        />
+                      </div>
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={filteredQuotations as unknown as Record<string, unknown>[]}
+                exportable exportFilename="quotations.csv" emptyMessage="No quotations found."
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Quotation Status Flow</CardTitle></CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 text-xs flex-wrap">
+                <Badge variant="outline" className="bg-yellow-50">1. Draft</Badge>
+                <ArrowRight className="h-3 w-3" />
+                <Badge variant="outline" className="bg-blue-50">2. Sent</Badge>
+                <ArrowRight className="h-3 w-3" />
+                <div className="flex flex-col gap-1">
+                  <Badge variant="outline" className="bg-green-50">3a. Accepted</Badge>
+                  <Badge variant="outline" className="bg-red-50">3b. Rejected</Badge>
+                </div>
+                <ArrowRight className="h-3 w-3" />
+                <Badge variant="outline" className="bg-indigo-50">4. Convert to SO (from Accepted)</Badge>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2">Quotations past their validity date are automatically marked as Expired. Only Draft quotations can be edited or deleted.</p>
+            </CardContent>
+          </Card>
         </>
       )}
 
@@ -1057,6 +1405,309 @@ export default function SalesOrderPage() {
           }}
         />
       )}
+
+      {/* ── Quotation Form Modal ── */}
+      <Dialog open={showQuoteModal} onOpenChange={(open) => { setShowQuoteModal(open); if (!open) setEditingQuote(null); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingQuote ? `Edit ${editingQuote.number}` : "New Quotation"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="mb-1.5 block text-sm">Customer</Label>
+                <Select value={qtCustomerId} onValueChange={setQtCustomerId}>
+                  <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
+                  <SelectContent>
+                    {store.customers.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-sm">Valid Until</Label>
+                <Input type="date" value={qtValidUntil} onChange={(e) => setQtValidUntil(e.target.value)} />
+              </div>
+            </div>
+
+            {/* Line Items */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-semibold">Line Items</Label>
+                <Button type="button" variant="outline" size="sm" onClick={() => setQtLines((prev) => [...prev, { productId: "", quantity: 1 }])}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />Add Line
+                </Button>
+              </div>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left px-3 py-2 font-medium">Product</th>
+                      <th className="text-right px-3 py-2 font-medium w-24">Qty</th>
+                      <th className="text-right px-3 py-2 font-medium w-28">Unit Price</th>
+                      <th className="text-right px-3 py-2 font-medium w-28">Line Total</th>
+                      <th className="w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {qtLines.map((line, idx) => {
+                      const unitPrice = getLinePrice(line.productId);
+                      const lineTotal = line.quantity * unitPrice;
+                      return (
+                        <tr key={idx}>
+                          <td className="px-3 py-2">
+                            <Select value={line.productId} onValueChange={(v) => setQtLines((prev) => prev.map((l, i) => i === idx ? { ...l, productId: v } : l))}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select product..." /></SelectTrigger>
+                              <SelectContent>
+                                {store.products.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>{p.name} {p.strength} ({p.code})</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input type="number" min={1} className="h-8 text-sm text-right" value={line.quantity} onChange={(e) => setQtLines((prev) => prev.map((l, i) => i === idx ? { ...l, quantity: Math.max(1, Number(e.target.value)) } : l))} />
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs text-muted-foreground">
+                            {unitPrice > 0 ? `EGP ${unitPrice.toLocaleString()}` : "—"}
+                          </td>
+                          <td className="px-3 py-2 text-right text-xs font-medium">
+                            {lineTotal > 0 ? `EGP ${lineTotal.toLocaleString()}` : "—"}
+                          </td>
+                          <td className="px-1 py-2">
+                            {qtLines.length > 1 && (
+                              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500" onClick={() => setQtLines((prev) => prev.filter((_, i) => i !== idx))}>
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Terms & Conditions */}
+            <div>
+              <Label className="mb-1.5 block text-sm">Terms &amp; Conditions</Label>
+              <Textarea
+                value={qtTerms}
+                onChange={(e) => setQtTerms(e.target.value)}
+                placeholder="Enter terms and conditions..."
+                rows={3}
+              />
+            </div>
+
+            {/* Totals */}
+            <div className="border rounded-lg p-3 bg-muted/30 space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span className="font-medium">EGP {qtSubtotal.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Tax (14%)</span>
+                <span className="font-medium">EGP {qtTax.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between border-t pt-1 mt-1">
+                <span className="font-semibold">Total</span>
+                <span className="font-bold text-base">EGP {qtTotal.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => { setShowQuoteModal(false); setEditingQuote(null); }}>Cancel</Button>
+            <Button type="button" onClick={handleQuoteSubmit} disabled={!qtCustomerId || !qtValidUntil || qtLines.some((l) => !l.productId || l.quantity <= 0)}>
+              {editingQuote ? "Update" : "Create Quotation"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Quotation Detail Dialog ── */}
+      <Dialog open={!!detailQuote} onOpenChange={(o) => !o && setDetailQuote(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{detailQuote?.number}</DialogTitle></DialogHeader>
+          {detailQuote && (
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div><span className="text-muted-foreground">Customer</span><p className="font-medium">{customerName(detailQuote.customerId)}</p></div>
+                <div><span className="text-muted-foreground">Status</span><p><StatusBadge status={detailQuote.status} /></p></div>
+                <div><span className="text-muted-foreground">Date</span><p>{detailQuote.date}</p></div>
+                <div><span className="text-muted-foreground">Valid Until</span><p className={detailQuote.validUntil < today ? "text-red-600 font-medium" : ""}>{detailQuote.validUntil}</p></div>
+                <div><span className="text-muted-foreground">Subtotal</span><p>{egp(detailQuote.subtotal)}</p></div>
+                <div><span className="text-muted-foreground">Tax (14%)</span><p>{egp(detailQuote.tax)}</p></div>
+                <div className="col-span-2"><span className="text-muted-foreground">Total</span><p className="text-lg font-bold">{egp(detailQuote.total)}</p></div>
+              </div>
+
+              {/* Status Flow */}
+              <div>
+                <h4 className="text-sm font-semibold mb-3">Status Flow</h4>
+                <div className="flex items-center gap-1">
+                  {(["Draft", "Sent", "Accepted"] as const).map((step, i) => {
+                    const steps = ["Draft", "Sent", "Accepted"];
+                    const currentIdx = steps.indexOf(detailQuote.status);
+                    const isRejected = detailQuote.status === "Rejected";
+                    const isExpired = detailQuote.status === "Expired";
+                    const isReached = !isRejected && !isExpired && i <= currentIdx;
+                    const isCurrent = !isRejected && !isExpired && i === currentIdx;
+                    return (
+                      <div key={step} className="flex items-center gap-1 flex-1">
+                        <div className="flex flex-col items-center flex-1">
+                          <div className={`h-3 w-3 rounded-full border-2 ${isCurrent ? "bg-primary border-primary" : isReached ? "bg-primary/60 border-primary/60" : "bg-muted border-muted-foreground/30"}`} />
+                          <span className={`text-[10px] mt-1 text-center leading-tight ${isCurrent ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{step}</span>
+                        </div>
+                        {i < 2 && <div className={`h-0.5 flex-1 -mt-4 ${isReached && i < currentIdx ? "bg-primary/60" : "bg-muted"}`} />}
+                      </div>
+                    );
+                  })}
+                </div>
+                {detailQuote.status === "Rejected" && <p className="text-sm text-red-600 font-medium mt-2">This quotation was rejected.</p>}
+                {detailQuote.status === "Expired" && <p className="text-sm text-amber-600 font-medium mt-2">This quotation has expired (past validity date).</p>}
+              </div>
+
+              {/* Items */}
+              <div>
+                <span className="text-muted-foreground">Line Items</span>
+                <div className="mt-1 border rounded">
+                  <table className="w-full text-xs">
+                    <thead><tr className="bg-muted/50"><th className="p-2 text-left">Product</th><th className="p-2 text-right">Qty</th><th className="p-2 text-right">Price</th><th className="p-2 text-right">Total</th></tr></thead>
+                    <tbody>
+                      {detailQuote.items.map((it, i) => (
+                        <tr key={i} className="border-t">
+                          <td className="p-2">{it.description}</td>
+                          <td className="p-2 text-right">{it.quantity}</td>
+                          <td className="p-2 text-right">{egp(it.unitPrice)}</td>
+                          <td className="p-2 text-right">{egp(it.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Terms */}
+              <div>
+                <span className="text-muted-foreground">Terms &amp; Conditions</span>
+                <p className="mt-1 text-sm bg-muted/30 rounded p-3 whitespace-pre-wrap">{detailQuote.terms}</p>
+              </div>
+
+              {detailQuote.convertedSOId && (
+                <div>
+                  <span className="text-muted-foreground">Converted to SO</span>
+                  <p className="font-mono text-xs font-semibold text-green-700">{store.salesOrders.find(s => s.id === detailQuote.convertedSOId)?.number ?? detailQuote.convertedSOId}</p>
+                </div>
+              )}
+
+              {/* Action buttons in detail */}
+              <div className="flex gap-2 pt-2 border-t">
+                <Button size="sm" variant="outline" onClick={() => { setDetailQuote(null); setPreviewQuote(detailQuote); }}>
+                  <Eye className="h-3.5 w-3.5 mr-1" /> Preview PDF
+                </Button>
+                {detailQuote.status === "Draft" && (
+                  <Button size="sm" onClick={() => { sendQuotation(detailQuote); setDetailQuote({ ...detailQuote, status: "Sent" }); }}>
+                    <Send className="h-3.5 w-3.5 mr-1" /> Send
+                  </Button>
+                )}
+                {detailQuote.status === "Accepted" && !detailQuote.convertedSOId && (
+                  <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700" onClick={() => { convertQuoteToSO(detailQuote); setDetailQuote(null); }}>
+                    <ArrowRight className="h-3.5 w-3.5 mr-1" /> Convert to SO
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Quotation PDF Preview Dialog ── */}
+      <Dialog open={!!previewQuote} onOpenChange={(o) => !o && setPreviewQuote(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Quotation Preview</DialogTitle></DialogHeader>
+          {previewQuote && (
+            <div className="border rounded-lg p-6 bg-white text-black space-y-6">
+              {/* Header */}
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">QUOTATION</h2>
+                  <p className="text-sm text-gray-500 mt-1">{previewQuote.number}</p>
+                </div>
+                <div className="text-right text-sm">
+                  <p className="font-semibold text-gray-900">Your Company Name</p>
+                  <p className="text-gray-500">123 Business Street</p>
+                  <p className="text-gray-500">Cairo, Egypt</p>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200" />
+
+              {/* Info Grid */}
+              <div className="grid grid-cols-2 gap-6 text-sm">
+                <div>
+                  <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Bill To</p>
+                  <p className="font-semibold">{customerName(previewQuote.customerId)}</p>
+                </div>
+                <div className="text-right">
+                  <div className="space-y-1">
+                    <div className="flex justify-between"><span className="text-gray-500">Date:</span><span>{previewQuote.date}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Valid Until:</span><span className="font-medium">{previewQuote.validUntil}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Status:</span><span><StatusBadge status={previewQuote.status} /></span></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div className="border rounded overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-100 border-b">
+                      <th className="text-left px-4 py-2 font-semibold text-gray-700">#</th>
+                      <th className="text-left px-4 py-2 font-semibold text-gray-700">Description</th>
+                      <th className="text-right px-4 py-2 font-semibold text-gray-700">Qty</th>
+                      <th className="text-right px-4 py-2 font-semibold text-gray-700">Unit Price</th>
+                      <th className="text-right px-4 py-2 font-semibold text-gray-700">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewQuote.items.map((it, i) => (
+                      <tr key={i} className="border-b last:border-0">
+                        <td className="px-4 py-2 text-gray-500">{i + 1}</td>
+                        <td className="px-4 py-2">{it.description}</td>
+                        <td className="px-4 py-2 text-right">{it.quantity}</td>
+                        <td className="px-4 py-2 text-right">{egp(it.unitPrice)}</td>
+                        <td className="px-4 py-2 text-right font-medium">{egp(it.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totals */}
+              <div className="flex justify-end">
+                <div className="w-64 space-y-1 text-sm">
+                  <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span>{egp(previewQuote.subtotal)}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">VAT (14%)</span><span>{egp(previewQuote.tax)}</span></div>
+                  <div className="flex justify-between border-t pt-1 mt-1 font-bold text-base"><span>Total</span><span>{egp(previewQuote.total)}</span></div>
+                </div>
+              </div>
+
+              {/* Terms */}
+              <div className="border-t pt-4">
+                <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Terms &amp; Conditions</p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{previewQuote.terms}</p>
+              </div>
+
+              {/* Footer */}
+              <div className="border-t pt-4 text-center text-xs text-gray-400">
+                <p>This quotation is valid until {previewQuote.validUntil}. Prices are in Egyptian Pounds (EGP).</p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ── Return Detail Dialog ── */}
       <Dialog open={!!detailReturn} onOpenChange={(open) => { if (!open) setDetailReturn(null); }}>

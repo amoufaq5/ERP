@@ -88,7 +88,86 @@ const SEED_WH: WarehouseRec[] = [
   { id: "wh-5", name: "Solvent Store", type: "Raw Material", location: "Plant 1, Hazardous Block", manager: "Mostafa Salah", tempRange: "15-25°C", capacity: 12000, used: 8500 },
 ];
 
-type Tab = "raw" | "finished" | "warehouses" | "catalog";
+/* ─── Batch Tracking Types & Seed Data ──────────────────────────── */
+
+type BatchStatus = "Active" | "Quarantine" | "Expired" | "Recalled";
+
+interface BatchRecord {
+  id: string;
+  batchNo: string;
+  product: string;
+  productCode: string;
+  manufactureDate: string;
+  expiryDate: string;
+  quantity: number;
+  unit: string;
+  location: string;
+  status: BatchStatus;
+  poRef: string;
+  soRefs: string[];
+  pickPriority: "FIFO" | "FEFO";
+}
+
+const SEED_BATCHES: BatchRecord[] = [
+  { id: "bt-1", batchNo: "B-2026-441", product: "Paracetamol 500mg Tablets", productCode: "FG-PARA500-T", manufactureDate: "2026-03-12", expiryDate: "2029-03-11", quantity: 4200, unit: "boxes", location: "FG Warehouse - Cairo", status: "Active", poRef: "PO-2026-0112", soRefs: ["SO-2026-0201", "SO-2026-0218"], pickPriority: "FEFO" },
+  { id: "bt-2", batchNo: "B-2026-438", product: "Amoxicillin 250mg Capsules", productCode: "FG-AMOX250-C", manufactureDate: "2026-03-05", expiryDate: "2028-03-04", quantity: 2800, unit: "boxes", location: "FG Warehouse - Cairo", status: "Active", poRef: "PO-2026-0098", soRefs: ["SO-2026-0195"], pickPriority: "FEFO" },
+  { id: "bt-3", batchNo: "B-2026-445", product: "Omeprazole 20mg Capsules", productCode: "FG-OMEZ20-C", manufactureDate: "2026-03-22", expiryDate: "2028-03-21", quantity: 1650, unit: "boxes", location: "FG Warehouse - Cairo", status: "Quarantine", poRef: "PO-2026-0134", soRefs: [], pickPriority: "FEFO" },
+  { id: "bt-4", batchNo: "B-2025-312", product: "Insulin Glargine 100 IU/mL", productCode: "FG-INSU-INJ", manufactureDate: "2025-08-15", expiryDate: "2026-06-14", quantity: 320, unit: "vials", location: "Cold Storage - Cairo", status: "Active", poRef: "PO-2025-0287", soRefs: ["SO-2026-0044", "SO-2026-0089", "SO-2026-0156"], pickPriority: "FEFO" },
+  { id: "bt-5", batchNo: "B-2025-290", product: "Cough Suppressant Syrup 100mg/5mL", productCode: "FG-COUGH-SYR", manufactureDate: "2025-06-10", expiryDate: "2026-06-09", quantity: 580, unit: "bottles", location: "FG Warehouse - Cairo", status: "Active", poRef: "PO-2025-0261", soRefs: ["SO-2026-0033"], pickPriority: "FEFO" },
+  { id: "bt-6", batchNo: "B-2024-198", product: "Vitamin C Effervescent 1000mg", productCode: "FG-VITC-EFF", manufactureDate: "2024-07-20", expiryDate: "2026-07-19", quantity: 890, unit: "tubes", location: "FG Warehouse - Cairo", status: "Active", poRef: "PO-2024-0175", soRefs: ["SO-2025-0412", "SO-2026-0011"], pickPriority: "FIFO" },
+  { id: "bt-7", batchNo: "B-2024-155", product: "Hydrocortisone Cream 1%", productCode: "FG-HYDRO-CR", manufactureDate: "2024-04-05", expiryDate: "2026-04-04", quantity: 0, unit: "tubes", location: "FG Warehouse - Cairo", status: "Expired", poRef: "PO-2024-0140", soRefs: ["SO-2024-0320", "SO-2025-0045"], pickPriority: "FEFO" },
+  { id: "bt-8", batchNo: "SP-PA-24091", product: "Paracetamol API", productCode: "API-PARA-500", manufactureDate: "2024-09-12", expiryDate: "2027-09-11", quantity: 2400, unit: "kg", location: "RM Warehouse - Cairo", status: "Active", poRef: "PO-2024-0389", soRefs: [], pickPriority: "FIFO" },
+  { id: "bt-9", batchNo: "B-2025-410", product: "Amoxicillin 250mg Capsules", productCode: "FG-AMOX250-C", manufactureDate: "2025-11-18", expiryDate: "2027-11-17", quantity: 1200, unit: "boxes", location: "FG Warehouse - Cairo", status: "Active", poRef: "PO-2025-0378", soRefs: ["SO-2026-0165"], pickPriority: "FEFO" },
+  { id: "bt-10", batchNo: "B-2025-388", product: "Paracetamol 500mg Tablets", productCode: "FG-PARA500-T", manufactureDate: "2025-10-01", expiryDate: "2026-05-30", quantity: 150, unit: "boxes", location: "Quarantine Area", status: "Recalled", poRef: "PO-2025-0355", soRefs: ["SO-2025-0401"], pickPriority: "FEFO" },
+];
+
+/* ─── Demand Forecasting Types & Seed Data ─────────────────────── */
+
+type TrendDirection = "up" | "down" | "stable";
+
+interface ForecastRecord {
+  id: string;
+  product: string;
+  productCode: string;
+  salesMonth1: number;
+  salesMonth2: number;
+  salesMonth3: number;
+  avgMonthlySales: number;
+  trend: TrendDirection;
+  forecastNextMonth: number;
+  reorderPoint: number;
+  currentStock: number;
+  safetyStock: number;
+  suggestedOrderQty: number;
+  seasonalFactor: "Peak" | "Normal" | "Low";
+  unit: string;
+}
+
+function computeForecasts(): ForecastRecord[] {
+  const products = [
+    { id: "fc-1", product: "Paracetamol 500mg Tablets", productCode: "FG-PARA500-T", salesMonth1: 1100, salesMonth2: 1250, salesMonth3: 1400, reorderPoint: 800, currentStock: 4200, safetyStock: 400, seasonalFactor: "Peak" as const, unit: "boxes" },
+    { id: "fc-2", product: "Amoxicillin 250mg Capsules", productCode: "FG-AMOX250-C", salesMonth1: 850, salesMonth2: 820, salesMonth3: 880, reorderPoint: 600, currentStock: 4000, safetyStock: 300, seasonalFactor: "Normal" as const, unit: "boxes" },
+    { id: "fc-3", product: "Omeprazole 20mg Capsules", productCode: "FG-OMEZ20-C", salesMonth1: 620, salesMonth2: 580, salesMonth3: 540, reorderPoint: 500, currentStock: 1650, safetyStock: 250, seasonalFactor: "Low" as const, unit: "boxes" },
+    { id: "fc-4", product: "Insulin Glargine 100 IU/mL", productCode: "FG-INSU-INJ", salesMonth1: 180, salesMonth2: 195, salesMonth3: 210, reorderPoint: 200, currentStock: 720, safetyStock: 100, seasonalFactor: "Normal" as const, unit: "vials" },
+    { id: "fc-5", product: "Cough Suppressant Syrup", productCode: "FG-COUGH-SYR", salesMonth1: 420, salesMonth2: 680, salesMonth3: 950, reorderPoint: 500, currentStock: 3100, safetyStock: 250, seasonalFactor: "Peak" as const, unit: "bottles" },
+    { id: "fc-6", product: "Vitamin C Effervescent 1000mg", productCode: "FG-VITC-EFF", salesMonth1: 780, salesMonth2: 920, salesMonth3: 1050, reorderPoint: 700, currentStock: 5400, safetyStock: 350, seasonalFactor: "Peak" as const, unit: "tubes" },
+    { id: "fc-7", product: "Hydrocortisone Cream 1%", productCode: "FG-HYDRO-CR", salesMonth1: 310, salesMonth2: 290, salesMonth3: 305, reorderPoint: 250, currentStock: 1240, safetyStock: 125, seasonalFactor: "Normal" as const, unit: "tubes" },
+    { id: "fc-8", product: "Paracetamol API (Raw)", productCode: "API-PARA-500", salesMonth1: 600, salesMonth2: 650, salesMonth3: 700, reorderPoint: 500, currentStock: 2400, safetyStock: 250, seasonalFactor: "Normal" as const, unit: "kg" },
+  ];
+
+  return products.map((p) => {
+    const avg = Math.round((p.salesMonth1 + p.salesMonth2 + p.salesMonth3) / 3);
+    const trend: TrendDirection = p.salesMonth3 > p.salesMonth1 * 1.05 ? "up" : p.salesMonth3 < p.salesMonth1 * 0.95 ? "down" : "stable";
+    const seasonMultiplier = p.seasonalFactor === "Peak" ? 1.15 : p.seasonalFactor === "Low" ? 0.85 : 1.0;
+    const forecast = Math.round(avg * seasonMultiplier);
+    const suggestedQty = Math.max(0, forecast + p.safetyStock - p.currentStock + p.reorderPoint);
+    return { ...p, avgMonthlySales: avg, trend, forecastNextMonth: forecast, suggestedOrderQty: suggestedQty };
+  });
+}
+
+const SEED_FORECASTS: ForecastRecord[] = computeForecasts();
+
+type Tab = "raw" | "finished" | "warehouses" | "catalog" | "batches" | "forecasting";
 
 /* ─── Component ──────────────────────────────────────────────────── */
 
@@ -101,6 +180,8 @@ export default function InventoryPage() {
   const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>(SEED_RM);
   const [finishedProducts, setFinishedProducts] = useState<FinishedProduct[]>(SEED_FP);
   const [warehouses, setWarehouses] = useState<WarehouseRec[]>(SEED_WH);
+  const [batches, setBatches] = useState<BatchRecord[]>(SEED_BATCHES);
+  const [forecasts] = useState<ForecastRecord[]>(SEED_FORECASTS);
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
@@ -115,9 +196,13 @@ export default function InventoryPage() {
   const [detailRM, setDetailRM] = useState<RawMaterial | null>(null);
   const [detailFP, setDetailFP] = useState<FinishedProduct | null>(null);
   const [detailWH, setDetailWH] = useState<WarehouseRec | null>(null);
+  const [detailBatch, setDetailBatch] = useState<BatchRecord | null>(null);
 
   // Product catalog category filter
   const [catalogFilter, setCatalogFilter] = useState<"all" | "raw" | "finished">("all");
+
+  // Batch expiry alert filter
+  const [expiryAlertDays, setExpiryAlertDays] = useState<number>(90);
 
   let _nxt = Date.now();
   const genId = (p: string) => `${p}-${(_nxt++).toString(36).slice(-6)}`;
@@ -151,6 +236,55 @@ export default function InventoryPage() {
       return true;
     });
   }, [finishedProducts, search, filters]);
+
+  /* ─── Batch Filtering ─── */
+  const filteredBatches = useMemo(() => {
+    return batches.filter((b) => {
+      if (search) {
+        const q = search.toLowerCase();
+        if (!b.batchNo.toLowerCase().includes(q) && !b.product.toLowerCase().includes(q) && !b.location.toLowerCase().includes(q)) return false;
+      }
+      if (filters.status && b.status !== filters.status) return false;
+      if (filters.location && b.location !== filters.location) return false;
+      return true;
+    });
+  }, [batches, search, filters]);
+
+  const getDaysUntilExpiry = (expiryDate: string) => {
+    const now = new Date();
+    const exp = new Date(expiryDate);
+    return Math.ceil((exp.getTime() - now.getTime()) / 86400000);
+  };
+
+  const getExpiryAlertColor = (days: number) => {
+    if (days <= 0) return "text-red-700 bg-red-50";
+    if (days <= 30) return "text-red-600 bg-red-50";
+    if (days <= 60) return "text-orange-600 bg-orange-50";
+    if (days <= 90) return "text-amber-600 bg-amber-50";
+    return "";
+  };
+
+  const nearExpiryBatches = useMemo(() => {
+    return batches.filter((b) => {
+      const days = getDaysUntilExpiry(b.expiryDate);
+      return days > 0 && days <= expiryAlertDays && b.status === "Active";
+    });
+  }, [batches, expiryAlertDays]);
+
+  const handleBatchStatusChange = (batchId: string, newStatus: BatchStatus) => {
+    setBatches((prev) => prev.map((b) => b.id === batchId ? { ...b, status: newStatus } : b));
+  };
+
+  /* ─── Forecast Filtering ─── */
+  const filteredForecasts = useMemo(() => {
+    if (!search) return forecasts;
+    const q = search.toLowerCase();
+    return forecasts.filter((f) => f.product.toLowerCase().includes(q) || f.productCode.toLowerCase().includes(q));
+  }, [forecasts, search]);
+
+  const reorderAlerts = useMemo(() => {
+    return forecasts.filter((f) => f.currentStock <= f.reorderPoint);
+  }, [forecasts]);
 
   /* ─── Stats ─── */
   const stats = useMemo(() => {
@@ -329,11 +463,13 @@ export default function InventoryPage() {
               tab === "raw" ? downloadCSV("raw-materials.csv", rawMaterials as unknown as Record<string, unknown>[])
               : tab === "finished" ? downloadCSV("finished-products.csv", finishedProducts as unknown as Record<string, unknown>[])
               : tab === "catalog" ? downloadCSV("catalog-products.csv", filteredCatalogProducts as unknown as Record<string, unknown>[])
+              : tab === "batches" ? downloadCSV("batch-tracking.csv", batches as unknown as Record<string, unknown>[])
+              : tab === "forecasting" ? downloadCSV("demand-forecasts.csv", forecasts as unknown as Record<string, unknown>[])
               : downloadCSV("warehouses.csv", warehouses as unknown as Record<string, unknown>[])
             }>
               <Download className="h-4 w-4 mr-2" /> Export
             </Button>
-            {tab !== "catalog" && (
+            {tab !== "catalog" && tab !== "batches" && tab !== "forecasting" && (
               <Button onClick={handleAdd}>
                 <Plus className="h-4 w-4 mr-2" /> Add {tab === "raw" ? "Material" : tab === "finished" ? "Product" : "Warehouse"}
               </Button>
@@ -357,6 +493,8 @@ export default function InventoryPage() {
             { key: "finished" as Tab, label: "Finished Products", icon: Pill },
             { key: "catalog" as Tab, label: `Product Catalog (${store.products.length})`, icon: BookOpen },
             { key: "warehouses" as Tab, label: t("inv.warehouses"), icon: Warehouse },
+            { key: "batches" as Tab, label: `Batch Tracking (${batches.length})`, icon: Layers },
+            { key: "forecasting" as Tab, label: "Forecasting", icon: BarChart3 },
           ]).map((item) => {
             const Icon = item.icon;
             return (
@@ -581,6 +719,215 @@ export default function InventoryPage() {
         </div>
       )}
 
+      {/* ── Batch Tracking ── */}
+      {tab === "batches" && (
+        <>
+          {/* Near-expiry alert banner */}
+          {nearExpiryBatches.length > 0 && (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-amber-100 text-amber-700">
+                    <Clock className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-amber-800">Near-Expiry Alert</p>
+                    <p className="text-xs text-amber-700">{nearExpiryBatches.length} active batch(es) expiring within {expiryAlertDays} days</p>
+                  </div>
+                  <div className="flex gap-1">
+                    {[30, 60, 90].map((d) => (
+                      <Button key={d} size="sm" variant={expiryAlertDays === d ? "default" : "ghost"} className="text-xs h-7"
+                        onClick={() => setExpiryAlertDays(d)}>{d}d</Button>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Batch stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatsCard title="Active Batches" value={batches.filter((b) => b.status === "Active").length.toString()} subtitle="Currently in circulation" icon={<Package className="h-5 w-5" />} iconColor="bg-emerald-100 text-emerald-700" />
+            <StatsCard title="Quarantined" value={batches.filter((b) => b.status === "Quarantine").length.toString()} subtitle="Under review" icon={<ShieldAlert className="h-5 w-5" />} iconColor="bg-amber-100 text-amber-700" />
+            <StatsCard title="Expired/Recalled" value={batches.filter((b) => b.status === "Expired" || b.status === "Recalled").length.toString()} subtitle="Requires disposal" icon={<AlertTriangle className="h-5 w-5" />} iconColor="bg-red-100 text-red-700" />
+            <StatsCard title="Near-Expiry" value={nearExpiryBatches.length.toString()} subtitle={`Within ${expiryAlertDays} days`} icon={<Clock className="h-5 w-5" />} iconColor="bg-orange-100 text-orange-700" />
+          </div>
+
+          <FilterBar searchPlaceholder="Search by batch #, product, or location..." searchValue={search} onSearchChange={setSearch}
+            fields={[
+              { key: "status", label: "Status", type: "select", options: [{ label: "Active", value: "Active" }, { label: "Quarantine", value: "Quarantine" }, { label: "Expired", value: "Expired" }, { label: "Recalled", value: "Recalled" }] },
+              { key: "location", label: "Location", type: "select", options: [...new Set(batches.map((b) => b.location))].map((l) => ({ label: l, value: l })) },
+            ]}
+            values={filters} onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} />
+
+          <Card>
+            <CardContent className="overflow-x-auto p-0">
+              <DataTable
+                columns={[
+                  { key: "batchNo", label: "Batch #", render: (v) => <span className="font-mono text-xs font-medium">{v as string}</span> },
+                  { key: "product", label: "Product", render: (_v, row) => {
+                    const b = row as unknown as BatchRecord;
+                    return (<div><div className="font-medium text-sm">{b.product}</div><div className="text-[11px] text-muted-foreground font-mono">{b.productCode}</div></div>);
+                  }},
+                  { key: "manufactureDate", label: "Mfg Date", className: "text-xs" },
+                  { key: "expiryDate", label: "Expiry Date", render: (_v, row) => {
+                    const b = row as unknown as BatchRecord;
+                    const days = getDaysUntilExpiry(b.expiryDate);
+                    const alertColor = getExpiryAlertColor(days);
+                    return (
+                      <div className={`text-xs rounded px-1.5 py-0.5 inline-block ${alertColor}`}>
+                        {b.expiryDate}
+                        {days > 0 && days <= 90 && <span className="ml-1 font-semibold">({days}d)</span>}
+                        {days <= 0 && <span className="ml-1 font-semibold">(expired)</span>}
+                      </div>
+                    );
+                  }},
+                  { key: "quantity", label: "Qty", className: "text-right", render: (_v, row) => {
+                    const b = row as unknown as BatchRecord;
+                    return <span className="font-medium">{b.quantity.toLocaleString()} {b.unit}</span>;
+                  }},
+                  { key: "location", label: "Location", className: "text-xs text-muted-foreground" },
+                  { key: "status", label: "Status", render: (v) => {
+                    const status = v as BatchStatus;
+                    const variant = status === "Active" ? "success" : status === "Quarantine" ? "warning" : "destructive";
+                    return <Badge variant={variant}>{status}</Badge>;
+                  }},
+                  { key: "pickPriority", label: "Pick Order", render: (_v, row) => {
+                    const b = row as unknown as BatchRecord;
+                    const days = getDaysUntilExpiry(b.expiryDate);
+                    const isFirstPick = b.status === "Active" && (
+                      (b.pickPriority === "FEFO" && days <= 90) ||
+                      b.pickPriority === "FIFO"
+                    );
+                    return (
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-[10px]">{b.pickPriority}</Badge>
+                        {isFirstPick && <Badge className="bg-blue-100 text-blue-700 text-[10px]">Pick First</Badge>}
+                      </div>
+                    );
+                  }},
+                  { key: "id", label: "", className: "text-right", render: (_v, row) => {
+                    const b = row as unknown as BatchRecord;
+                    return (
+                      <Button variant="ghost" size="sm" className="text-xs" onClick={(e) => { e.stopPropagation(); setDetailBatch(b); }}>
+                        View
+                      </Button>
+                    );
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={filteredBatches as unknown as Record<string, unknown>[]}
+                onRowClick={(row) => setDetailBatch(row as unknown as BatchRecord)}
+                exportable exportFilename="batch-tracking.csv" emptyMessage="No batches match your filters."
+              />
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* ── Demand Forecasting ── */}
+      {tab === "forecasting" && (
+        <>
+          {/* Reorder alerts */}
+          {reorderAlerts.length > 0 && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-red-100 text-red-700">
+                    <AlertTriangle className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-red-800">Reorder Alerts</p>
+                    <p className="text-xs text-red-700">{reorderAlerts.length} product(s) at or below reorder point: {reorderAlerts.map((r) => r.product).join(", ")}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Forecast stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatsCard title="Products Tracked" value={forecasts.length.toString()} subtitle="With sales history" icon={<BarChart3 className="h-5 w-5" />} iconColor="bg-blue-100 text-blue-700" />
+            <StatsCard title="Trending Up" value={forecasts.filter((f) => f.trend === "up").length.toString()} subtitle="Increasing demand" icon={<TrendingUp className="h-5 w-5" />} iconColor="bg-emerald-100 text-emerald-700" />
+            <StatsCard title="Trending Down" value={forecasts.filter((f) => f.trend === "down").length.toString()} subtitle="Decreasing demand" icon={<TrendingDown className="h-5 w-5" />} iconColor="bg-red-100 text-red-700" />
+            <StatsCard title="Below Reorder" value={reorderAlerts.length.toString()} subtitle="Need restocking" icon={<AlertTriangle className="h-5 w-5" />} iconColor="bg-amber-100 text-amber-700" />
+          </div>
+
+          <FilterBar searchPlaceholder="Search products..." searchValue={search} onSearchChange={setSearch}
+            fields={[]}
+            values={filters} onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} />
+
+          <Card>
+            <CardContent className="overflow-x-auto p-0">
+              <DataTable
+                columns={[
+                  { key: "productCode", label: "Code", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                  { key: "product", label: "Product", render: (v) => <span className="font-medium text-sm">{v as string}</span> },
+                  { key: "salesMonth1", label: "Month -3", className: "text-right", render: (v) => <span className="text-sm text-muted-foreground">{(v as number).toLocaleString()}</span> },
+                  { key: "salesMonth2", label: "Month -2", className: "text-right", render: (v) => <span className="text-sm text-muted-foreground">{(v as number).toLocaleString()}</span> },
+                  { key: "salesMonth3", label: "Month -1", className: "text-right", render: (v) => <span className="text-sm font-medium">{(v as number).toLocaleString()}</span> },
+                  { key: "avgMonthlySales", label: "Avg Monthly", className: "text-right", render: (v) => <span className="font-semibold">{(v as number).toLocaleString()}</span> },
+                  { key: "trend", label: "Trend", render: (v) => {
+                    const trend = v as TrendDirection;
+                    const Icon = trend === "up" ? ArrowUp : trend === "down" ? ArrowDown : Minus;
+                    const color = trend === "up" ? "text-emerald-600" : trend === "down" ? "text-red-600" : "text-gray-500";
+                    const bg = trend === "up" ? "bg-emerald-50" : trend === "down" ? "bg-red-50" : "bg-gray-50";
+                    return (
+                      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${color} ${bg}`}>
+                        <Icon className="h-3 w-3" />
+                        {trend === "up" ? "Rising" : trend === "down" ? "Falling" : "Stable"}
+                      </div>
+                    );
+                  }},
+                  { key: "forecastNextMonth", label: "Forecast", className: "text-right", render: (v) => <span className="font-semibold text-blue-700">{(v as number).toLocaleString()}</span> },
+                  { key: "reorderPoint", label: "Reorder Pt", className: "text-right", render: (_v, row) => {
+                    const f = row as unknown as ForecastRecord;
+                    const isBelow = f.currentStock <= f.reorderPoint;
+                    return (
+                      <div className="text-right">
+                        <span className="text-sm">{f.reorderPoint.toLocaleString()}</span>
+                        {isBelow && <div className="text-[10px] text-red-500 font-medium">Stock below!</div>}
+                      </div>
+                    );
+                  }},
+                  { key: "safetyStock", label: "Safety Stock", className: "text-right text-sm" },
+                  { key: "currentStock", label: "Current Stock", className: "text-right", render: (_v, row) => {
+                    const f = row as unknown as ForecastRecord;
+                    const isBelow = f.currentStock <= f.reorderPoint;
+                    return <span className={`font-medium ${isBelow ? "text-red-600" : ""}`}>{f.currentStock.toLocaleString()} {f.unit}</span>;
+                  }},
+                  { key: "suggestedOrderQty", label: "Suggested Order", className: "text-right", render: (_v, row) => {
+                    const f = row as unknown as ForecastRecord;
+                    return f.suggestedOrderQty > 0
+                      ? <Badge className="bg-blue-100 text-blue-700">{f.suggestedOrderQty.toLocaleString()} {f.unit}</Badge>
+                      : <span className="text-xs text-muted-foreground">Sufficient</span>;
+                  }},
+                  { key: "seasonalFactor", label: "Season", render: (v) => {
+                    const season = v as string;
+                    const color = season === "Peak" ? "bg-orange-100 text-orange-700" : season === "Low" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700";
+                    return <Badge className={color}>{season}</Badge>;
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={filteredForecasts as unknown as Record<string, unknown>[]}
+                exportable exportFilename="demand-forecasts.csv" emptyMessage="No forecast data matches your search."
+              />
+            </CardContent>
+          </Card>
+
+          {/* Methodology note */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <BarChart3 className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div className="text-sm text-muted-foreground">
+                  <p className="font-medium text-foreground mb-1">Forecast Methodology</p>
+                  <p>Forecasts use a <span className="font-medium">3-month Simple Moving Average (SMA)</span> adjusted by seasonal factors. Peak season applies a 15% uplift; low season applies a 15% reduction. Suggested order quantities account for safety stock, current inventory, and reorder points.</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
       {/* ── Modals ── */}
       <EntityFormModal open={rmFormOpen} onOpenChange={setRmFormOpen}
         title={editingRm ? `Edit ${editingRm.name}` : "Add Raw Material"} fields={rmFields}
@@ -734,6 +1081,106 @@ export default function InventoryPage() {
                 {rmInWH.length === 0 && fpInWH.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-2">No materials or products stored in this warehouse.</p>
                 )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Batch Detail Dialog ── */}
+      <Dialog open={!!detailBatch} onOpenChange={(open) => { if (!open) setDetailBatch(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Batch {detailBatch?.batchNo}</DialogTitle>
+          </DialogHeader>
+          {detailBatch && (() => {
+            const days = getDaysUntilExpiry(detailBatch.expiryDate);
+            const alertColor = getExpiryAlertColor(days);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Product</span><p className="font-medium">{detailBatch.product}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Product Code</span><p className="font-medium font-mono">{detailBatch.productCode}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Manufacture Date</span><p className="font-medium">{detailBatch.manufactureDate}</p></div>
+                  <div>
+                    <span className="text-sm text-muted-foreground">Expiry Date</span>
+                    <p className={`font-medium ${alertColor ? alertColor + " inline-block px-2 py-0.5 rounded mt-0.5" : ""}`}>
+                      {detailBatch.expiryDate}
+                      {days > 0 ? <span className="ml-1 text-xs">({days} days remaining)</span> : <span className="ml-1 text-xs font-semibold">(Expired)</span>}
+                    </p>
+                  </div>
+                  <div><span className="text-sm text-muted-foreground">Quantity</span><p className="font-medium">{detailBatch.quantity.toLocaleString()} {detailBatch.unit}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Location</span><p className="font-medium">{detailBatch.location}</p></div>
+                  <div>
+                    <span className="text-sm text-muted-foreground">Status</span>
+                    <p><Badge variant={detailBatch.status === "Active" ? "success" : detailBatch.status === "Quarantine" ? "warning" : "destructive"}>{detailBatch.status}</Badge></p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-muted-foreground">Pick Priority</span>
+                    <p><Badge variant="outline">{detailBatch.pickPriority}</Badge></p>
+                  </div>
+                </div>
+
+                {/* Traceability */}
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-semibold mb-3">Traceability</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="h-7 w-7 rounded flex items-center justify-center bg-blue-100 text-blue-700 mt-0.5">
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Received via Purchase Order</p>
+                        <p className="font-medium font-mono text-sm">{detailBatch.poRef}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="h-7 w-7 rounded flex items-center justify-center bg-emerald-100 text-emerald-700 mt-0.5">
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Dispatched via Sales Orders</p>
+                        {detailBatch.soRefs.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {detailBatch.soRefs.map((so) => (
+                              <Badge key={so} variant="outline" className="font-mono text-xs">{so}</Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No dispatches yet</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status management */}
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-semibold mb-3">Status Management</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {detailBatch.status === "Active" && (
+                      <Button variant="outline" size="sm" className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                        onClick={() => { handleBatchStatusChange(detailBatch.id, "Quarantine"); setDetailBatch({ ...detailBatch, status: "Quarantine" }); }}>
+                        <ShieldAlert className="h-3.5 w-3.5 mr-1.5" /> Move to Quarantine
+                      </Button>
+                    )}
+                    {detailBatch.status === "Quarantine" && (
+                      <>
+                        <Button variant="outline" size="sm" className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                          onClick={() => { handleBatchStatusChange(detailBatch.id, "Active"); setDetailBatch({ ...detailBatch, status: "Active" }); }}>
+                          <Package className="h-3.5 w-3.5 mr-1.5" /> Release (Active)
+                        </Button>
+                        <Button variant="outline" size="sm" className="text-red-700 border-red-300 hover:bg-red-50"
+                          onClick={() => { handleBatchStatusChange(detailBatch.id, "Recalled"); setDetailBatch({ ...detailBatch, status: "Recalled" }); }}>
+                          <AlertTriangle className="h-3.5 w-3.5 mr-1.5" /> Recall Batch
+                        </Button>
+                      </>
+                    )}
+                    {(detailBatch.status === "Expired" || detailBatch.status === "Recalled") && (
+                      <p className="text-sm text-muted-foreground">This batch is {detailBatch.status.toLowerCase()} and cannot be returned to active status.</p>
+                    )}
+                  </div>
+                </div>
               </div>
             );
           })()}

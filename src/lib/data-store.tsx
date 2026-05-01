@@ -58,6 +58,36 @@ export interface ConversionFormula {
   createdAt: string;
 }
 
+// ─── Bill of Materials (BOM) ─────────────────────────────────────────────────
+export interface BOMLine {
+  id: string;
+  parentProductId: string;           // finished product or sub-assembly
+  componentProductId: string;        // raw material or sub-assembly
+  quantityRequired: number;
+  unit: string;                      // kg, g, ml, units, etc.
+  level: number;                     // 0 = top-level, 1 = sub-assembly child, etc.
+  notes?: string;
+}
+
+export const LIFECYCLE_STAGES = [
+  "Development",
+  "Testing",
+  "Approved",
+  "Active",
+  "Declining",
+  "Discontinued",
+] as const;
+
+export type LifecycleStage = typeof LIFECYCLE_STAGES[number];
+
+export interface ProductLifecycle {
+  id: string;
+  productId: string;
+  stage: LifecycleStage;
+  enteredAt: string;                 // ISO date when entered this stage
+  history: { stage: LifecycleStage; enteredAt: string; exitedAt?: string }[];
+}
+
 // ─── IMS Standard Specialties ────────────────────────────────────────────────
 export const IMS_SPECIALTIES = [
   "General Practice", "Internal Medicine", "Cardiology", "Endocrinology",
@@ -647,6 +677,8 @@ export interface DataStoreState {
   projects: Project[];
   projectTasks: ProjectTask[];
   conversionFormulas: ConversionFormula[];
+  bomLines: BOMLine[];
+  productLifecycles: ProductLifecycle[];
   nextInvoiceSeq: number;
   nextJournalSeq: number;
   nextPOSeq: number;
@@ -1056,6 +1088,77 @@ const SEED_DELIVERY_NOTES: DeliveryNote[] = [
   { id: "dn-001", number: "DN-2026-0001", soId: "so-001", customerId: "c-001", date: daysAgo(5), items: [{ productId: "p-cardio-1", description: "Cardioprex 500mg Tablet", quantity: 500 }, { productId: "p-cardio-2", description: "Atorvastat 20mg Tablet", quantity: 300 }], status: "DELIVERED", createdAt: daysAgo(5) },
 ];
 
+// ─── Seed BOM Lines ─────────────────────────────────────────────────────────
+// Cardioprex (p-cardio-1): 4 raw-material components
+// Atorvastat (p-cardio-2): 3 components (one is a sub-assembly referencing Cardioprex)
+// Antibio-Z  (p-prim-1):  5 components
+const SEED_BOM_LINES: BOMLine[] = [
+  // Cardioprex BOM
+  { id: "bom-c1-1", parentProductId: "p-cardio-1", componentProductId: "p-prim-3", quantityRequired: 0.5, unit: "kg", level: 0, notes: "Active ingredient base" },
+  { id: "bom-c1-2", parentProductId: "p-cardio-1", componentProductId: "p-diab-1", quantityRequired: 0.12, unit: "kg", level: 0, notes: "Excipient binder" },
+  { id: "bom-c1-3", parentProductId: "p-cardio-1", componentProductId: "p-prim-2", quantityRequired: 0.05, unit: "L", level: 0, notes: "Coating solution" },
+  { id: "bom-c1-4", parentProductId: "p-cardio-1", componentProductId: "p-diab-2", quantityRequired: 0.02, unit: "kg", level: 0, notes: "Stabilizer" },
+  // Atorvastat BOM (includes sub-assembly)
+  { id: "bom-c2-1", parentProductId: "p-cardio-2", componentProductId: "p-prim-1", quantityRequired: 0.35, unit: "kg", level: 0, notes: "Primary API" },
+  { id: "bom-c2-2", parentProductId: "p-cardio-2", componentProductId: "p-cardio-1", quantityRequired: 0.08, unit: "kg", level: 0, notes: "Sub-assembly: Cardioprex base" },
+  { id: "bom-c2-3", parentProductId: "p-cardio-2", componentProductId: "p-prim-3", quantityRequired: 0.2, unit: "kg", level: 1, notes: "Filler compound" },
+  // Antibio-Z BOM
+  { id: "bom-p1-1", parentProductId: "p-prim-1", componentProductId: "p-cardio-3", quantityRequired: 0.6, unit: "kg", level: 0, notes: "Antibiotic base compound" },
+  { id: "bom-p1-2", parentProductId: "p-prim-1", componentProductId: "p-prim-2", quantityRequired: 0.15, unit: "L", level: 0, notes: "Suspension medium" },
+  { id: "bom-p1-3", parentProductId: "p-prim-1", componentProductId: "p-prim-3", quantityRequired: 0.1, unit: "kg", level: 0, notes: "Capsule shell material" },
+  { id: "bom-p1-4", parentProductId: "p-prim-1", componentProductId: "p-diab-1", quantityRequired: 0.04, unit: "kg", level: 0, notes: "Disintegrant" },
+  { id: "bom-p1-5", parentProductId: "p-prim-1", componentProductId: "p-diab-2", quantityRequired: 0.01, unit: "L", level: 0, notes: "Preservative" },
+];
+
+// ─── Seed Product Lifecycles ────────────────────────────────────────────────
+const SEED_PRODUCT_LIFECYCLES: ProductLifecycle[] = [
+  { id: "plc-1", productId: "p-cardio-1", stage: "Active", enteredAt: daysAgo(60), history: [
+    { stage: "Development", enteredAt: daysAgo(365), exitedAt: daysAgo(280) },
+    { stage: "Testing", enteredAt: daysAgo(280), exitedAt: daysAgo(200) },
+    { stage: "Approved", enteredAt: daysAgo(200), exitedAt: daysAgo(120) },
+    { stage: "Active", enteredAt: daysAgo(120) },
+  ]},
+  { id: "plc-2", productId: "p-cardio-2", stage: "Active", enteredAt: daysAgo(90), history: [
+    { stage: "Development", enteredAt: daysAgo(400), exitedAt: daysAgo(310) },
+    { stage: "Testing", enteredAt: daysAgo(310), exitedAt: daysAgo(230) },
+    { stage: "Approved", enteredAt: daysAgo(230), exitedAt: daysAgo(150) },
+    { stage: "Active", enteredAt: daysAgo(150) },
+  ]},
+  { id: "plc-3", productId: "p-cardio-3", stage: "Declining", enteredAt: daysAgo(30), history: [
+    { stage: "Development", enteredAt: daysAgo(600), exitedAt: daysAgo(520) },
+    { stage: "Testing", enteredAt: daysAgo(520), exitedAt: daysAgo(460) },
+    { stage: "Approved", enteredAt: daysAgo(460), exitedAt: daysAgo(380) },
+    { stage: "Active", enteredAt: daysAgo(380), exitedAt: daysAgo(30) },
+    { stage: "Declining", enteredAt: daysAgo(30) },
+  ]},
+  { id: "plc-4", productId: "p-diab-1", stage: "Testing", enteredAt: daysAgo(15), history: [
+    { stage: "Development", enteredAt: daysAgo(120), exitedAt: daysAgo(15) },
+    { stage: "Testing", enteredAt: daysAgo(15) },
+  ]},
+  { id: "plc-5", productId: "p-diab-2", stage: "Approved", enteredAt: daysAgo(10), history: [
+    { stage: "Development", enteredAt: daysAgo(200), exitedAt: daysAgo(130) },
+    { stage: "Testing", enteredAt: daysAgo(130), exitedAt: daysAgo(10) },
+    { stage: "Approved", enteredAt: daysAgo(10) },
+  ]},
+  { id: "plc-6", productId: "p-prim-1", stage: "Active", enteredAt: daysAgo(45), history: [
+    { stage: "Development", enteredAt: daysAgo(300), exitedAt: daysAgo(220) },
+    { stage: "Testing", enteredAt: daysAgo(220), exitedAt: daysAgo(150) },
+    { stage: "Approved", enteredAt: daysAgo(150), exitedAt: daysAgo(45) },
+    { stage: "Active", enteredAt: daysAgo(45) },
+  ]},
+  { id: "plc-7", productId: "p-prim-2", stage: "Development", enteredAt: daysAgo(20), history: [
+    { stage: "Development", enteredAt: daysAgo(20) },
+  ]},
+  { id: "plc-8", productId: "p-prim-3", stage: "Discontinued", enteredAt: daysAgo(5), history: [
+    { stage: "Development", enteredAt: daysAgo(700), exitedAt: daysAgo(620) },
+    { stage: "Testing", enteredAt: daysAgo(620), exitedAt: daysAgo(550) },
+    { stage: "Approved", enteredAt: daysAgo(550), exitedAt: daysAgo(450) },
+    { stage: "Active", enteredAt: daysAgo(450), exitedAt: daysAgo(100) },
+    { stage: "Declining", enteredAt: daysAgo(100), exitedAt: daysAgo(5) },
+    { stage: "Discontinued", enteredAt: daysAgo(5) },
+  ]},
+];
+
 export const SEED_DATA: DataStoreState = {
   businessUnits: SEED_BUS,
   products: SEED_PRODUCTS,
@@ -1091,6 +1194,8 @@ export const SEED_DATA: DataStoreState = {
   projects: SEED_PROJECTS,
   projectTasks: SEED_PROJECT_TASKS,
   conversionFormulas: [],
+  bomLines: SEED_BOM_LINES,
+  productLifecycles: SEED_PRODUCT_LIFECYCLES,
   nextInvoiceSeq: 3,
   nextJournalSeq: 9,
   nextPOSeq: 5,

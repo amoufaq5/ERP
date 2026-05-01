@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Column } from "@/components/shared/data-table";
 import { useDataStore, type Project, type ProjectTask } from "@/lib/data-store";
+import GanttChart, { type GanttTask, type GanttProject } from "@/components/shared/gantt-chart";
 import {
   FolderKanban,
   CheckSquare,
@@ -22,6 +23,8 @@ import {
   Calendar,
   User,
   Eye,
+  BarChart3,
+  ListTodo,
 } from "lucide-react";
 
 const fmt = (n: number) => "EGP " + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -59,17 +62,47 @@ const TASK_FILTER_FIELDS = [
 const projectFlow: Record<string, string> = { "In Progress": "On Hold", "On Hold": "In Progress" };
 const taskFlow: Record<string, string> = { Todo: "In Progress", "In Progress": "Review", Review: "Completed" };
 
+// ─── Gantt chart seed data ────────────────────────────────────────────────
+
+const GANTT_TASKS: GanttTask[] = [
+  // ── ERP System Rollout (proj-1): 8 tasks ──
+  { id: "g-1", name: "Requirements gathering", assignee: "Sarah Johnson", startDate: "2026-01-15", endDate: "2026-02-05", status: "Completed", progress: 100, project: "ERP System Rollout" },
+  { id: "g-2", name: "System architecture design", assignee: "Sarah Johnson", startDate: "2026-02-06", endDate: "2026-02-27", status: "Completed", progress: 100, dependsOn: ["g-1"], project: "ERP System Rollout" },
+  { id: "g-3", name: "Database schema & migration", assignee: "James Park", startDate: "2026-02-28", endDate: "2026-03-20", status: "Completed", progress: 100, dependsOn: ["g-2"], project: "ERP System Rollout" },
+  { id: "g-4", name: "Finance module development", assignee: "James Park", startDate: "2026-03-21", endDate: "2026-05-08", status: "In Progress", progress: 65, dependsOn: ["g-3"], project: "ERP System Rollout" },
+  { id: "g-5", name: "HR module development", assignee: "Lisa Morgan", startDate: "2026-03-28", endDate: "2026-05-22", status: "In Progress", progress: 40, dependsOn: ["g-3"], project: "ERP System Rollout" },
+  { id: "g-6", name: "Inventory module development", assignee: "Carlos Rivera", startDate: "2026-04-15", endDate: "2026-06-05", status: "In Progress", progress: 20, dependsOn: ["g-3"], project: "ERP System Rollout" },
+  { id: "g-7", name: "Integration testing", assignee: "Lisa Morgan", startDate: "2026-06-06", endDate: "2026-07-03", status: "Not Started", progress: 0, dependsOn: ["g-4", "g-5", "g-6"], project: "ERP System Rollout" },
+  { id: "g-m1", name: "Go-Live", assignee: "Sarah Johnson", startDate: "2026-07-31", endDate: "2026-07-31", status: "Not Started", progress: 0, dependsOn: ["g-7"], isMilestone: true, project: "ERP System Rollout" },
+
+  // ── Website Redesign (proj-2): 7 tasks ──
+  { id: "g-8", name: "Brand guidelines review", assignee: "Anna White", startDate: "2026-02-01", endDate: "2026-02-14", status: "Completed", progress: 100, project: "Website Redesign" },
+  { id: "g-9", name: "Wireframes & UX design", assignee: "Anna White", startDate: "2026-02-15", endDate: "2026-03-07", status: "Completed", progress: 100, dependsOn: ["g-8"], project: "Website Redesign" },
+  { id: "g-10", name: "Visual design & prototyping", assignee: "Anna White", startDate: "2026-03-08", endDate: "2026-03-28", status: "Completed", progress: 100, dependsOn: ["g-9"], project: "Website Redesign" },
+  { id: "g-11", name: "Frontend development", assignee: "Michael Torres", startDate: "2026-03-15", endDate: "2026-04-18", status: "Delayed", progress: 70, dependsOn: ["g-9"], project: "Website Redesign" },
+  { id: "g-12", name: "CMS integration", assignee: "Michael Torres", startDate: "2026-04-01", endDate: "2026-04-25", status: "In Progress", progress: 55, dependsOn: ["g-10"], project: "Website Redesign" },
+  { id: "g-13", name: "Content migration", assignee: "Emily Chen", startDate: "2026-04-10", endDate: "2026-04-30", status: "In Progress", progress: 30, dependsOn: ["g-12"], project: "Website Redesign" },
+  { id: "g-m2", name: "Launch", assignee: "Michael Torres", startDate: "2026-04-30", endDate: "2026-04-30", status: "Not Started", progress: 0, dependsOn: ["g-11", "g-13"], isMilestone: true, project: "Website Redesign" },
+];
+
 export default function ProjectsPage() {
   const store = useDataStore();
   const projects = store.projects;
   const tasks = store.projectTasks;
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", priority: "" });
+  const [activeTab, setActiveTab] = useState<"overview" | "gantt">("overview");
 
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState<ProjectTask | null>(null);
   const [detailProject, setDetailProject] = useState<Project | null>(null);
+
+  // Build Gantt project list from store
+  const ganttProjects: GanttProject[] = useMemo(
+    () => projects.map((p) => ({ id: p.id, name: p.name })),
+    [projects]
+  );
 
   const activeProjects = projects.filter((p) => p.status === "In Progress").length;
   const totalTasks = tasks.length;
@@ -153,6 +186,18 @@ export default function ProjectsPage() {
         </div>
       </PageHeader>
 
+      {/* Tab switcher */}
+      <div className="flex items-center gap-1">
+        <Button variant={activeTab === "overview" ? "default" : "ghost"} size="sm" onClick={() => setActiveTab("overview")}>
+          <ListTodo className="h-4 w-4 mr-2" />Overview
+        </Button>
+        <Button variant={activeTab === "gantt" ? "default" : "ghost"} size="sm" onClick={() => setActiveTab("gantt")}>
+          <BarChart3 className="h-4 w-4 mr-2" />Gantt Chart
+        </Button>
+      </div>
+
+      {activeTab === "overview" && (
+      <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard title="Active Projects" value={activeProjects.toLocaleString()} subtitle="Currently in progress" icon={<FolderKanban className="h-5 w-5" />} />
         <StatsCard title="Total Tasks" value={totalTasks.toLocaleString()} subtitle="Across all projects" icon={<CheckSquare className="h-5 w-5" />} trend={{ value: 8.2, label: "vs last sprint" }} />
@@ -238,6 +283,12 @@ export default function ProjectsPage() {
           <DataTable columns={taskColumns} data={filteredTasks as unknown as Record<string, unknown>[]} emptyMessage="No tasks found." exportable exportFilename="projects.csv" />
         </div>
       </div>
+      </>
+      )}
+
+      {activeTab === "gantt" && (
+        <GanttChart tasks={GANTT_TASKS} projects={ganttProjects} />
+      )}
 
       <EntityFormModal
         open={showProjectModal}

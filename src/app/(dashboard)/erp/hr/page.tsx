@@ -12,6 +12,11 @@ import {
   CheckCircle2,
   XCircle,
   Building2,
+  Banknote,
+  Play,
+  ArrowRight,
+  TrendingUp,
+  History,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -66,6 +71,24 @@ interface Department {
   budget: number;
 }
 
+interface PayrollEntry {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  month: string; // e.g. "May 2026"
+  basicSalary: number;
+  housingAllowance: number;
+  transportAllowance: number;
+  medicalAllowance: number;
+  socialInsuranceDeduction: number;
+  taxDeduction: number;
+  totalAllowances: number;
+  totalDeductions: number;
+  netSalary: number;
+  paymentStatus: "Pending" | "Processed" | "Paid";
+}
+
 /* ─── Seed Data ────────────────────────────────────────────────────── */
 
 const SEED_LEAVES: LeaveRequest[] = [
@@ -92,6 +115,56 @@ const SEED_DEPARTMENTS: Department[] = [
   { id: "dept-4", name: "HR", managerId: "emp-4", managerName: "Emily Davis", budget: 400000 },
   { id: "dept-5", name: "Sales", managerId: "emp-5", managerName: "Robert Wilson", budget: 1200000 },
   { id: "dept-6", name: "Operations", managerId: "emp-7", managerName: "David Martinez", budget: 900000 },
+];
+
+function buildPayrollEntry(
+  id: string, employeeId: string, employeeName: string, department: string,
+  month: string, basic: number, housing: number, transport: number, medical: number,
+  socialIns: number, tax: number, status: PayrollEntry["paymentStatus"]
+): PayrollEntry {
+  const totalAllowances = housing + transport + medical;
+  const totalDeductions = socialIns + tax;
+  const netSalary = basic + totalAllowances - totalDeductions;
+  return { id, employeeId, employeeName, department, month, basicSalary: basic, housingAllowance: housing, transportAllowance: transport, medicalAllowance: medical, socialInsuranceDeduction: socialIns, taxDeduction: tax, totalAllowances, totalDeductions, netSalary, paymentStatus: status };
+}
+
+const CURRENT_MONTH = "May 2026";
+const PREV_MONTH = "Apr 2026";
+
+const SEED_PAYROLL_MODULE: PayrollEntry[] = [
+  // Current month - May 2026
+  buildPayrollEntry("pm-1", "emp-1", "Ahmed Hassan", "Engineering", CURRENT_MONTH, 18000, 4500, 1200, 1500, 2530, 2650, "Pending"),
+  buildPayrollEntry("pm-2", "emp-2", "Fatma El-Sayed", "Marketing", CURRENT_MONTH, 15000, 3750, 1000, 1250, 2100, 2050, "Pending"),
+  buildPayrollEntry("pm-3", "emp-3", "Mohamed Ali", "Finance", CURRENT_MONTH, 22000, 5500, 1500, 1800, 3080, 3500, "Pending"),
+  buildPayrollEntry("pm-4", "emp-4", "Nour Ibrahim", "HR", CURRENT_MONTH, 13000, 3250, 900, 1100, 1820, 1650, "Pending"),
+  buildPayrollEntry("pm-5", "emp-5", "Omar Farouk", "Sales", CURRENT_MONTH, 16000, 4000, 1100, 1300, 2240, 2200, "Pending"),
+  buildPayrollEntry("pm-6", "emp-6", "Yasmin Mostafa", "Engineering", CURRENT_MONTH, 20000, 5000, 1300, 1600, 2800, 3000, "Pending"),
+  buildPayrollEntry("pm-7", "emp-7", "Khaled Abdel-Rahman", "Operations", CURRENT_MONTH, 17000, 4250, 1150, 1400, 2380, 2350, "Pending"),
+  buildPayrollEntry("pm-8", "emp-8", "Sara Mahmoud", "Finance", CURRENT_MONTH, 14000, 3500, 950, 1150, 1960, 1800, "Pending"),
+  buildPayrollEntry("pm-9", "emp-9", "Tarek Samy", "Sales", CURRENT_MONTH, 12000, 3000, 850, 1000, 1680, 1400, "Pending"),
+  buildPayrollEntry("pm-10", "emp-10", "Hana Adel", "Engineering", CURRENT_MONTH, 19000, 4750, 1250, 1550, 2660, 2850, "Pending"),
+  // Previous month - Apr 2026
+  buildPayrollEntry("pm-11", "emp-1", "Ahmed Hassan", "Engineering", PREV_MONTH, 18000, 4500, 1200, 1500, 2530, 2650, "Paid"),
+  buildPayrollEntry("pm-12", "emp-2", "Fatma El-Sayed", "Marketing", PREV_MONTH, 15000, 3750, 1000, 1250, 2100, 2050, "Paid"),
+  buildPayrollEntry("pm-13", "emp-3", "Mohamed Ali", "Finance", PREV_MONTH, 22000, 5500, 1500, 1800, 3080, 3500, "Paid"),
+  buildPayrollEntry("pm-14", "emp-4", "Nour Ibrahim", "HR", PREV_MONTH, 13000, 3250, 900, 1100, 1820, 1650, "Paid"),
+  buildPayrollEntry("pm-15", "emp-5", "Omar Farouk", "Sales", PREV_MONTH, 16000, 4000, 1100, 1300, 2240, 2200, "Paid"),
+  buildPayrollEntry("pm-16", "emp-6", "Yasmin Mostafa", "Engineering", PREV_MONTH, 20000, 5000, 1300, 1600, 2800, 3000, "Paid"),
+  buildPayrollEntry("pm-17", "emp-7", "Khaled Abdel-Rahman", "Operations", PREV_MONTH, 17000, 4250, 1150, 1400, 2380, 2350, "Paid"),
+  buildPayrollEntry("pm-18", "emp-8", "Sara Mahmoud", "Finance", PREV_MONTH, 14000, 3500, 950, 1150, 1960, 1800, "Paid"),
+  buildPayrollEntry("pm-19", "emp-9", "Tarek Samy", "Sales", PREV_MONTH, 12000, 3000, 850, 1000, 1680, 1400, "Paid"),
+  buildPayrollEntry("pm-20", "emp-10", "Hana Adel", "Engineering", PREV_MONTH, 19000, 4750, 1250, 1550, 2660, 2850, "Paid"),
+  // March 2026
+  buildPayrollEntry("pm-21", "emp-1", "Ahmed Hassan", "Engineering", "Mar 2026", 18000, 4500, 1200, 1500, 2530, 2650, "Paid"),
+  buildPayrollEntry("pm-22", "emp-2", "Fatma El-Sayed", "Marketing", "Mar 2026", 15000, 3750, 1000, 1250, 2100, 2050, "Paid"),
+  buildPayrollEntry("pm-23", "emp-3", "Mohamed Ali", "Finance", "Mar 2026", 22000, 5500, 1500, 1800, 3080, 3500, "Paid"),
+  buildPayrollEntry("pm-24", "emp-4", "Nour Ibrahim", "HR", "Mar 2026", 13000, 3250, 900, 1100, 1820, 1650, "Paid"),
+  buildPayrollEntry("pm-25", "emp-5", "Omar Farouk", "Sales", "Mar 2026", 16000, 4000, 1100, 1300, 2240, 2200, "Paid"),
+  buildPayrollEntry("pm-26", "emp-6", "Yasmin Mostafa", "Engineering", "Mar 2026", 20000, 5000, 1300, 1600, 2800, 3000, "Paid"),
+  buildPayrollEntry("pm-27", "emp-7", "Khaled Abdel-Rahman", "Operations", "Mar 2026", 17000, 4250, 1150, 1400, 2380, 2350, "Paid"),
+  buildPayrollEntry("pm-28", "emp-8", "Sara Mahmoud", "Finance", "Mar 2026", 14000, 3500, 950, 1150, 1960, 1800, "Paid"),
+  buildPayrollEntry("pm-29", "emp-9", "Tarek Samy", "Sales", "Mar 2026", 12000, 3000, 850, 1000, 1680, 1400, "Paid"),
+  buildPayrollEntry("pm-30", "emp-10", "Hana Adel", "Engineering", "Mar 2026", 19000, 4750, 1250, 1550, 2660, 2850, "Paid"),
 ];
 
 /* ─── Component ────────────────────────────────────────────────────── */
@@ -130,6 +203,13 @@ export default function HRPage() {
   const [detailDept, setDetailDept] = useState<Department | null>(null);
   const [detailLeave, setDetailLeave] = useState<LeaveRequest | null>(null);
   const [detailPayroll, setDetailPayroll] = useState<PayrollRecord | null>(null);
+
+  // Payroll Module state
+  const [payrollModuleData, setPayrollModuleData] = useState<PayrollEntry[]>(SEED_PAYROLL_MODULE);
+  const [payrollModuleSearch, setPayrollModuleSearch] = useState("");
+  const [payrollModuleFilters, setPayrollModuleFilters] = useState<FilterState>({});
+  const [payrollModuleSubTab, setPayrollModuleSubTab] = useState<"current" | "history">("current");
+  const [payrollBreakdownEntry, setPayrollBreakdownEntry] = useState<PayrollEntry | null>(null);
 
   // Derived
   const uniqueDepts = Array.from(new Set(employees.map((e) => e.department))).sort();
@@ -181,6 +261,56 @@ export default function HRPage() {
   // Stats
   const totalPayroll = payroll.reduce((s, p) => s + p.netPay, 0);
   const onLeaveCount = employees.filter((e) => e.status === "ON_LEAVE").length;
+
+  /* ─── Payroll Module Derived ─── */
+  const currentMonthPayroll = useMemo(() => payrollModuleData.filter((p) => p.month === CURRENT_MONTH), [payrollModuleData]);
+  const historyPayroll = useMemo(() => payrollModuleData.filter((p) => p.month !== CURRENT_MONTH), [payrollModuleData]);
+  const uniqueHistoryMonths = useMemo(() => Array.from(new Set(historyPayroll.map((p) => p.month))).sort((a, b) => {
+    const parse = (m: string) => { const parts = m.split(" "); const months: Record<string, number> = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 }; return new Date(parseInt(parts[1]), months[parts[0]] || 0); };
+    return parse(b).getTime() - parse(a).getTime();
+  }), [historyPayroll]);
+
+  const filteredPayrollModule = useMemo(() => {
+    const source = payrollModuleSubTab === "current" ? currentMonthPayroll : historyPayroll;
+    return source.filter((p) => {
+      if (payrollModuleSearch) {
+        const q = payrollModuleSearch.toLowerCase();
+        if (!p.employeeName.toLowerCase().includes(q) && !p.department.toLowerCase().includes(q)) return false;
+      }
+      if (payrollModuleFilters.paymentStatus && p.paymentStatus !== payrollModuleFilters.paymentStatus) return false;
+      if (payrollModuleFilters.month && p.month !== payrollModuleFilters.month) return false;
+      return true;
+    });
+  }, [payrollModuleData, payrollModuleSearch, payrollModuleFilters, payrollModuleSubTab, currentMonthPayroll, historyPayroll]);
+
+  // Payroll Module Stats
+  const pmTotalPayrollCost = currentMonthPayroll.reduce((s, p) => s + p.netSalary, 0);
+  const pmAvgSalary = currentMonthPayroll.length > 0 ? currentMonthPayroll.reduce((s, p) => s + p.basicSalary, 0) / currentMonthPayroll.length : 0;
+  const pmPendingCount = currentMonthPayroll.filter((p) => p.paymentStatus === "Pending").length;
+  const pmYtdTotal = payrollModuleData.reduce((s, p) => s + p.netSalary, 0);
+
+  // Monthly summary
+  const pmMonthlyTotalCost = currentMonthPayroll.reduce((s, p) => s + p.basicSalary + p.totalAllowances, 0);
+  const pmMonthlyTotalDeductions = currentMonthPayroll.reduce((s, p) => s + p.totalDeductions, 0);
+  const pmMonthlyTotalNet = currentMonthPayroll.reduce((s, p) => s + p.netSalary, 0);
+
+  /* ─── Payroll Module Actions ─── */
+  function handleRunPayroll() {
+    setPayrollModuleData((prev) =>
+      prev.map((p) => p.month === CURRENT_MONTH && p.paymentStatus === "Pending" ? { ...p, paymentStatus: "Processed" as const } : p)
+    );
+  }
+
+  function handleAdvancePaymentStatus(entry: PayrollEntry) {
+    setPayrollModuleData((prev) =>
+      prev.map((p) => {
+        if (p.id !== entry.id) return p;
+        if (p.paymentStatus === "Pending") return { ...p, paymentStatus: "Processed" as const };
+        if (p.paymentStatus === "Processed") return { ...p, paymentStatus: "Paid" as const };
+        return p;
+      })
+    );
+  }
 
   /* ─── Employee CRUD ─── */
   const empFields: EntityField[] = [
@@ -378,6 +508,9 @@ export default function HRPage() {
     ANNUAL: "bg-blue-100 text-blue-800",
     SICK: "bg-red-100 text-red-800",
     PERSONAL: "bg-purple-100 text-purple-800",
+    Pending: "bg-amber-100 text-amber-800",
+    Processed: "bg-blue-100 text-blue-800",
+    Paid: "bg-green-100 text-green-800",
   };
 
   return (
@@ -405,6 +538,7 @@ export default function HRPage() {
           <TabsTrigger value="departments"><Building2 className="h-3.5 w-3.5 mr-1.5" />{t("hr2.departments")}</TabsTrigger>
           <TabsTrigger value="leave"><Calendar className="h-3.5 w-3.5 mr-1.5" />{t("hr2.leaveRequests")} ({pendingLeaves.length} pending)</TabsTrigger>
           <TabsTrigger value="payroll"><DollarSign className="h-3.5 w-3.5 mr-1.5" />{t("hr2.payroll")}</TabsTrigger>
+          <TabsTrigger value="payroll-module"><Banknote className="h-3.5 w-3.5 mr-1.5" />Payroll Module</TabsTrigger>
         </TabsList>
 
         {/* ── Employees ── */}
@@ -615,7 +749,174 @@ export default function HRPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ── Payroll Module ── */}
+        <TabsContent value="payroll-module" className="space-y-4">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatsCard icon={Banknote} title="Total Payroll" value={fmt(pmTotalPayrollCost)} subtitle={`${CURRENT_MONTH}`} iconColor="bg-emerald-100 text-emerald-600" />
+            <StatsCard icon={TrendingUp} title="Avg Basic Salary" value={fmt(pmAvgSalary)} iconColor="bg-blue-100 text-blue-600" />
+            <StatsCard icon={Clock} title="Pending Payments" value={pmPendingCount} subtitle={`of ${currentMonthPayroll.length} employees`} iconColor="bg-amber-100 text-amber-600" />
+            <StatsCard icon={DollarSign} title="YTD Total" value={fmt(pmYtdTotal)} subtitle="Year to date" iconColor="bg-purple-100 text-purple-600" />
+          </div>
+
+          {/* Monthly Payroll Summary */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Monthly Payroll Summary - {CURRENT_MONTH}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <span className="text-sm text-muted-foreground">Total Payroll Cost</span>
+                  <p className="text-lg font-bold">{fmt(pmMonthlyTotalCost)}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Total Deductions</span>
+                  <p className="text-lg font-bold text-red-600">{fmt(pmMonthlyTotalDeductions)}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Total Net Salaries</span>
+                  <p className="text-lg font-bold text-green-600">{fmt(pmMonthlyTotalNet)}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Employee Count</span>
+                  <p className="text-lg font-bold">{currentMonthPayroll.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Sub-tab toggle: Current / History */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant={payrollModuleSubTab === "current" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => { setPayrollModuleSubTab("current"); setPayrollModuleFilters({}); }}
+            >
+              <Banknote className="h-3.5 w-3.5 mr-1.5" />Current Month
+            </Button>
+            <Button
+              variant={payrollModuleSubTab === "history" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => { setPayrollModuleSubTab("history"); setPayrollModuleFilters({}); }}
+            >
+              <History className="h-3.5 w-3.5 mr-1.5" />Payroll History
+            </Button>
+            <div className="flex-1" />
+            {payrollModuleSubTab === "current" && pmPendingCount > 0 && (
+              <Button size="sm" onClick={handleRunPayroll}>
+                <Play className="h-3.5 w-3.5 mr-1.5" />Run Payroll
+              </Button>
+            )}
+          </div>
+
+          {/* Filter Bar */}
+          <FilterBar
+            searchPlaceholder="Search by employee name or department..."
+            searchValue={payrollModuleSearch}
+            onSearchChange={setPayrollModuleSearch}
+            fields={[
+              { key: "paymentStatus", label: "Payment Status", type: "select", options: [{ label: "Pending", value: "Pending" }, { label: "Processed", value: "Processed" }, { label: "Paid", value: "Paid" }] },
+              ...(payrollModuleSubTab === "history" ? [{ key: "month", label: "Month", type: "select" as const, options: uniqueHistoryMonths.map((m) => ({ label: m, value: m })) }] : []),
+            ]}
+            values={payrollModuleFilters}
+            onChange={(k, v) => setPayrollModuleFilters(f => ({ ...f, [k]: v }))}
+          />
+
+          {/* Data Table */}
+          <Card>
+            <CardContent className="p-0">
+              <DataTable
+                columns={[
+                  { key: "employeeName", label: "Employee Name", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "department", label: "Department" },
+                  ...(payrollModuleSubTab === "history" ? [{ key: "month", label: "Month" } as Column<Record<string, unknown>>] : []),
+                  { key: "basicSalary", label: "Basic Salary", className: "text-right", render: (v) => fmt(v as number) },
+                  { key: "totalAllowances", label: "Allowances", className: "text-right", render: (v) => <span className="text-green-600">{fmt(v as number)}</span> },
+                  { key: "totalDeductions", label: "Deductions", className: "text-right", render: (v) => <span className="text-red-600">-{fmt(v as number)}</span> },
+                  { key: "netSalary", label: "Net Salary", className: "text-right", render: (v) => <span className="font-semibold">{fmt(v as number)}</span> },
+                  { key: "paymentStatus", label: "Payment Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v as string]}`}>{v as string}</span> },
+                  { key: "id", label: "Actions", className: "text-right", render: (_v, row) => {
+                    const entry = row as unknown as PayrollEntry;
+                    return (
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => setPayrollBreakdownEntry(entry)}>View</Button>
+                        {entry.paymentStatus !== "Paid" && (
+                          <Button variant="outline" size="sm" onClick={() => handleAdvancePaymentStatus(entry)}>
+                            <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                            {entry.paymentStatus === "Pending" ? "Process" : "Mark Paid"}
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={filteredPayrollModule as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="payroll-module.csv"
+                emptyMessage={payrollModuleSubTab === "current" ? "No payroll entries for the current month." : "No payroll history records match your filters."}
+              />
+              {filteredPayrollModule.length > 0 && (
+                <div className="border-t-2 bg-slate-50 font-bold text-sm flex">
+                  <div className="p-3 flex-[2]">Total ({filteredPayrollModule.length} employees)</div>
+                  <div className="p-3 flex-1 text-right">{fmt(filteredPayrollModule.reduce((s, p) => s + p.basicSalary, 0))}</div>
+                  <div className="p-3 flex-1 text-right text-green-600">{fmt(filteredPayrollModule.reduce((s, p) => s + p.totalAllowances, 0))}</div>
+                  <div className="p-3 flex-1 text-right text-red-600">-{fmt(filteredPayrollModule.reduce((s, p) => s + p.totalDeductions, 0))}</div>
+                  <div className="p-3 flex-1 text-right">{fmt(filteredPayrollModule.reduce((s, p) => s + p.netSalary, 0))}</div>
+                  <div className="p-3 flex-[2]"></div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* ── Payroll Breakdown Dialog ── */}
+      <Dialog open={!!payrollBreakdownEntry} onOpenChange={(open) => { if (!open) setPayrollBreakdownEntry(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Salary Breakdown - {payrollBreakdownEntry?.employeeName}</DialogTitle>
+          </DialogHeader>
+          {payrollBreakdownEntry && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div><span className="text-sm text-muted-foreground">Employee</span><p className="font-medium">{payrollBreakdownEntry.employeeName}</p></div>
+                <div><span className="text-sm text-muted-foreground">Department</span><p className="font-medium">{payrollBreakdownEntry.department}</p></div>
+                <div><span className="text-sm text-muted-foreground">Month</span><p className="font-medium">{payrollBreakdownEntry.month}</p></div>
+                <div><span className="text-sm text-muted-foreground">Payment Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[payrollBreakdownEntry.paymentStatus]}`}>{payrollBreakdownEntry.paymentStatus}</span></p></div>
+              </div>
+              <div className="border rounded-lg divide-y text-sm">
+                <div className="px-3 py-2 font-semibold text-muted-foreground text-xs uppercase tracking-wider bg-muted/30">Earnings</div>
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Basic Salary</span><span className="font-medium">{fmt(payrollBreakdownEntry.basicSalary)}</span></div>
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Housing Allowance</span><span className="font-medium text-green-600">{fmt(payrollBreakdownEntry.housingAllowance)}</span></div>
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Transport Allowance</span><span className="font-medium text-green-600">{fmt(payrollBreakdownEntry.transportAllowance)}</span></div>
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Medical Allowance</span><span className="font-medium text-green-600">{fmt(payrollBreakdownEntry.medicalAllowance)}</span></div>
+                <div className="flex justify-between px-3 py-2 bg-green-50 font-semibold"><span>Total Allowances</span><span className="text-green-600">{fmt(payrollBreakdownEntry.totalAllowances)}</span></div>
+                <div className="px-3 py-2 font-semibold text-muted-foreground text-xs uppercase tracking-wider bg-muted/30">Deductions</div>
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Social Insurance</span><span className="font-medium text-red-600">-{fmt(payrollBreakdownEntry.socialInsuranceDeduction)}</span></div>
+                <div className="flex justify-between px-3 py-2"><span className="text-muted-foreground">Tax Deduction</span><span className="font-medium text-red-600">-{fmt(payrollBreakdownEntry.taxDeduction)}</span></div>
+                <div className="flex justify-between px-3 py-2 bg-red-50 font-semibold"><span>Total Deductions</span><span className="text-red-600">-{fmt(payrollBreakdownEntry.totalDeductions)}</span></div>
+                <div className="flex justify-between px-3 py-2.5 bg-muted/50 font-bold text-base"><span>Net Salary</span><span>{fmt(payrollBreakdownEntry.netSalary)}</span></div>
+              </div>
+              {payrollBreakdownEntry.paymentStatus !== "Paid" && (
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      handleAdvancePaymentStatus(payrollBreakdownEntry);
+                      setPayrollBreakdownEntry((prev) => prev ? { ...prev, paymentStatus: prev.paymentStatus === "Pending" ? "Processed" : "Paid" } : null);
+                    }}
+                  >
+                    <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                    {payrollBreakdownEntry.paymentStatus === "Pending" ? "Mark as Processed" : "Mark as Paid"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ── Modals ── */}
       <EntityFormModal

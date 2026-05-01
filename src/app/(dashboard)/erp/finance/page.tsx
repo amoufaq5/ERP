@@ -738,47 +738,149 @@ export default function FinancePage() {
         </div>
       )}
 
-      {activeTab === "trial" && (
-        <div className="space-y-4">
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => {
-              const rows = store.glAccounts.filter((a) => a.isActive).map((a) => ({
+      {activeTab === "trial" && (() => {
+        const trialAccounts = store.glAccounts.filter((a) => a.isActive);
+        const typeOrder: GLAccount["type"][] = ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"];
+        const typeLabels: Record<string, string> = { ASSET: "Assets", LIABILITY: "Liabilities", EQUITY: "Equity", REVENUE: "Revenue", EXPENSE: "Expenses" };
+        const typeColors: Record<string, string> = { ASSET: "bg-blue-100 text-blue-800", LIABILITY: "bg-red-100 text-red-800", EQUITY: "bg-purple-100 text-purple-800", REVENUE: "bg-green-100 text-green-800", EXPENSE: "bg-amber-100 text-amber-800" };
+        const grouped = typeOrder.map((type) => {
+          const accounts = trialAccounts.filter((a) => a.type === type);
+          const totalDebit = ["ASSET", "EXPENSE"].includes(type) ? accounts.reduce((s, a) => s + Math.abs(a.balance), 0) : 0;
+          const totalCredit = ["LIABILITY", "EQUITY", "REVENUE"].includes(type) ? accounts.reduce((s, a) => s + Math.abs(a.balance), 0) : 0;
+          return { type, label: typeLabels[type], accounts, totalDebit, totalCredit };
+        });
+        const grandDebit = grouped.reduce((s, g) => s + g.totalDebit, 0);
+        const grandCredit = grouped.reduce((s, g) => s + g.totalCredit, 0);
+        const isBalanced = Math.abs(grandDebit - grandCredit) < 0.01;
+
+        const exportTrialCSV = () => {
+          const rows: Record<string, unknown>[] = [];
+          grouped.forEach((g) => {
+            rows.push({ Code: "", Account: `--- ${g.label} ---`, Type: g.type, SubType: "", Debit: "", Credit: "" });
+            g.accounts.forEach((a) => {
+              rows.push({
                 Code: a.code, Account: a.name, Type: a.type, SubType: a.subType,
                 Debit: ["ASSET", "EXPENSE"].includes(a.type) ? Math.abs(a.balance) : 0,
                 Credit: ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type) ? Math.abs(a.balance) : 0,
-              }));
-              downloadCSV("trial-balance.csv", rows);
-            }}><Download className="h-4 w-4 mr-1" /> Export CSV</Button>
+              });
+            });
+            rows.push({ Code: "", Account: `Total ${g.label}`, Type: "", SubType: "", Debit: g.totalDebit, Credit: g.totalCredit });
+          });
+          rows.push({ Code: "", Account: "GRAND TOTAL", Type: "", SubType: "", Debit: grandDebit, Credit: grandCredit });
+          downloadCSV("trial-balance.csv", rows);
+        };
+
+        return (
+          <div className="space-y-4">
+            {/* Filters & Export */}
+            <div className="flex flex-wrap items-end gap-4 justify-between">
+              <div className="flex items-end gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">From Date</Label>
+                  <Input type="date" className="h-8 text-sm w-40 mt-1" value={trialDateFrom} onChange={(e) => setTrialDateFrom(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">To Date</Label>
+                  <Input type="date" className="h-8 text-sm w-40 mt-1" value={trialDateTo} onChange={(e) => setTrialDateTo(e.target.value)} />
+                </div>
+                {(trialDateFrom || trialDateTo) && (
+                  <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setTrialDateFrom(""); setTrialDateTo(""); }}>Clear</Button>
+                )}
+              </div>
+              <Button variant="outline" size="sm" onClick={exportTrialCSV}><Download className="h-4 w-4 mr-1" /> Export CSV</Button>
+            </div>
+
+            {/* Balance verification banner */}
+            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium ${isBalanced ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+              {isBalanced ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+              {isBalanced ? "Trial balance is in balance — total debits equal total credits." : `Trial balance is out of balance — difference of ${egp(Math.abs(grandDebit - grandCredit))}.`}
+            </div>
+
+            {/* Grouped accounts */}
+            {grouped.map((g) => (
+              <Card key={g.type}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${typeColors[g.type]}`}>{g.label}</span>
+                    <span className="text-xs text-muted-foreground font-normal">({g.accounts.length} account{g.accounts.length !== 1 ? "s" : ""})</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {g.accounts.length > 0 ? (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/30">
+                          <th className="text-left p-3 font-medium text-xs">Code</th>
+                          <th className="text-left p-3 font-medium text-xs">Account Name</th>
+                          <th className="text-left p-3 font-medium text-xs">Sub-Type</th>
+                          <th className="text-right p-3 font-medium text-xs">Debit</th>
+                          <th className="text-right p-3 font-medium text-xs">Credit</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {g.accounts.map((a) => (
+                          <tr key={a.id} className="border-b hover:bg-muted/20">
+                            <td className="p-3 font-mono text-xs font-semibold">{a.code}</td>
+                            <td className="p-3 font-medium">{a.name}</td>
+                            <td className="p-3 text-xs text-muted-foreground">{a.subType}</td>
+                            <td className="p-3 text-right font-semibold">
+                              {["ASSET", "EXPENSE"].includes(a.type) ? egp(Math.abs(a.balance)) : <span className="text-muted-foreground">—</span>}
+                            </td>
+                            <td className="p-3 text-right font-semibold">
+                              {["LIABILITY", "EQUITY", "REVENUE"].includes(a.type) ? egp(Math.abs(a.balance)) : <span className="text-muted-foreground">—</span>}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="bg-muted/40 font-semibold">
+                          <td className="p-3" colSpan={3}>Total {g.label}</td>
+                          <td className="p-3 text-right">{g.totalDebit > 0 ? egp(g.totalDebit) : "—"}</td>
+                          <td className="p-3 text-right">{g.totalCredit > 0 ? egp(g.totalCredit) : "—"}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="p-4 text-center text-xs text-muted-foreground">No active accounts in this category.</div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+
+            {/* Grand totals */}
+            <Card className={`border-2 ${isBalanced ? "border-green-200" : "border-red-200"}`}>
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <tbody>
+                    <tr className={`font-bold text-base ${isBalanced ? "bg-green-50" : "bg-red-50"}`}>
+                      <td className="p-4">Grand Total</td>
+                      <td className="p-4 text-right">{egp(grandDebit)}</td>
+                      <td className="p-4 text-right">{egp(grandCredit)}</td>
+                    </tr>
+                    {!isBalanced && (
+                      <tr className="bg-red-50/50 text-red-700">
+                        <td className="px-4 pb-3 text-sm font-medium">Difference</td>
+                        <td className="px-4 pb-3 text-right text-sm font-semibold" colSpan={2}>{egp(Math.abs(grandDebit - grandCredit))}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+
+            {/* Summary cards */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {grouped.map((g) => (
+                <Card key={g.type}>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-xs text-muted-foreground">{g.label}</div>
+                    <div className="text-lg font-bold mt-1">{egp(g.totalDebit || g.totalCredit)}</div>
+                    <div className="text-xs text-muted-foreground">{g.accounts.length} account{g.accounts.length !== 1 ? "s" : ""}</div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
-          <div className="bg-card rounded-xl border border-border shadow-sm">
-            <DataTable
-              columns={[
-                { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs font-semibold">{v as string}</span> },
-                { key: "name", label: "Account", render: (v) => <span className="font-medium">{v as string}</span> },
-                { key: "type", label: "Type", render: (v) => {
-                  const colors: Record<string, string> = { ASSET: "bg-blue-100 text-blue-800", LIABILITY: "bg-red-100 text-red-800", EQUITY: "bg-purple-100 text-purple-800", REVENUE: "bg-green-100 text-green-800", EXPENSE: "bg-amber-100 text-amber-800" };
-                  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors[v as string] ?? ""}`}>{v as string}</span>;
-                }},
-                { key: "balance", label: "Debit", className: "text-right", render: (v, row) => {
-                  const type = (row as unknown as GLAccount).type;
-                  return ["ASSET", "EXPENSE"].includes(type) ? <span className="font-semibold">{Math.abs(v as number).toLocaleString()}</span> : <span className="text-muted-foreground">—</span>;
-                }},
-                { key: "subType", label: "Credit", className: "text-right", render: (_v, row) => {
-                  const a = row as unknown as GLAccount;
-                  return ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type) ? <span className="font-semibold">{Math.abs(a.balance).toLocaleString()}</span> : <span className="text-muted-foreground">—</span>;
-                }},
-              ] as Column<Record<string, unknown>>[]}
-              data={store.glAccounts.filter((a) => a.isActive) as unknown as Record<string, unknown>[]}
-              exportable exportFilename="erp-finance.csv" emptyMessage="No GL accounts."
-              
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Card><CardContent className="p-4 text-center"><div className="text-sm text-muted-foreground">Total Debits</div><div className="text-2xl font-bold">EGP {store.glAccounts.filter((a) => a.isActive && ["ASSET", "EXPENSE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance), 0).toLocaleString()}</div></CardContent></Card>
-            <Card><CardContent className="p-4 text-center"><div className="text-sm text-muted-foreground">Total Credits</div><div className="text-2xl font-bold">EGP {store.glAccounts.filter((a) => a.isActive && ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance), 0).toLocaleString()}</div></CardContent></Card>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {activeTab === "ratios" && (
         <div className="space-y-4">
@@ -1036,54 +1138,290 @@ export default function FinancePage() {
       )}
 
       {/* ─── Reconciliation Tab ───────────────────────────────────── */}
-      {activeTab === "reconciliation" && (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Reconciliation Sessions</CardTitle></CardHeader>
-            <CardContent>
-              <table className="w-full text-sm">
-                <thead><tr className="border-b bg-muted/50">
-                  <th className="text-left p-3 font-medium">Account</th>
-                  <th className="text-left p-3 font-medium">Period</th>
-                  <th className="text-right p-3 font-medium">Bank Balance</th>
-                  <th className="text-right p-3 font-medium">Book Balance</th>
-                  <th className="text-right p-3 font-medium">Difference</th>
-                  <th className="text-center p-3 font-medium">Matched</th>
-                  <th className="text-left p-3 font-medium">Status</th>
-                </tr></thead>
-                <tbody>
-                  {bankingRecons.map(r => {
-                    const acc = bankingAccounts.find(a => a.id === r.accountId);
-                    return (
-                      <tr key={r.id} className="border-b hover:bg-muted/50">
-                        <td className="p-3 font-medium">{acc?.bankName || "—"}</td>
-                        <td className="p-3">{r.periodStart} to {r.periodEnd}</td>
-                        <td className="p-3 text-right font-mono">{r.bankBalance.toLocaleString()}</td>
-                        <td className="p-3 text-right font-mono">{r.bookBalance.toLocaleString()}</td>
-                        <td className={`p-3 text-right font-mono font-medium ${r.difference === 0 ? "text-green-700" : "text-red-700"}`}>{r.difference.toLocaleString()}</td>
-                        <td className="p-3 text-center">{r.matchedCount}/{r.matchedCount + r.unmatchedCount}</td>
-                        <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs ${r.status === "completed" ? "bg-green-100 text-green-800" : r.status === "discrepancy" ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"}`}>{r.status}</span></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle className="text-base">Auto-Match Engine</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground">The auto-match engine compares bank transactions against invoices, payments, and journal entries by amount and reference number.</p>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-muted p-3 rounded-lg text-center"><p className="text-2xl font-bold text-green-600">{bankingTransactions.filter(tx => tx.matchStatus === "matched").length}</p><p className="text-xs text-muted-foreground">Auto-Matched</p></div>
-                <div className="bg-muted p-3 rounded-lg text-center"><p className="text-2xl font-bold text-yellow-600">{bankingTransactions.filter(tx => tx.matchStatus === "partial").length}</p><p className="text-xs text-muted-foreground">Partial Match</p></div>
-                <div className="bg-muted p-3 rounded-lg text-center"><p className="text-2xl font-bold text-red-600">{bankingTransactions.filter(tx => tx.matchStatus === "unmatched").length}</p><p className="text-xs text-muted-foreground">Unmatched</p></div>
-              </div>
-              <Button size="sm"><RefreshCw className="h-4 w-4 mr-2" />Run Auto-Match</Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {activeTab === "reconciliation" && (() => {
+        // Build bank statement entries for selected account/period
+        const reconBankTxs = bankingTransactions.filter((tx) => {
+          if (reconAccountId && tx.accountId !== reconAccountId) return false;
+          if (reconPeriodStart && tx.date < reconPeriodStart) return false;
+          if (reconPeriodEnd && tx.date > reconPeriodEnd) return false;
+          return true;
+        });
+
+        // Build book entries from payments and journal entries for the selected account/period
+        const reconBookEntries: { id: string; date: string; description: string; reference: string; amount: number; type: "credit" | "debit"; source: string }[] = [];
+        store.payments.forEach((p) => {
+          if (reconPeriodStart && p.date < reconPeriodStart) return;
+          if (reconPeriodEnd && p.date > reconPeriodEnd) return;
+          if (reconAccountId) {
+            const bankAccMatch = store.bankAccounts.find((b) => b.id === p.bankAccountId);
+            const bankingAccMatch = bankingAccounts.find((ba) => ba.id === reconAccountId);
+            if (bankAccMatch && bankingAccMatch && bankAccMatch.accountNumber !== bankingAccMatch.accountNumber) return;
+          }
+          const party = p.customerId ? customerName(p.customerId) : p.vendorId ? vendorName(p.vendorId) : "";
+          reconBookEntries.push({ id: `book-pay-${p.id}`, date: p.date, description: `${p.type === "RECEIVED" ? "Received from" : "Paid to"} ${party}`, reference: p.reference, amount: p.amount, type: p.type === "RECEIVED" ? "credit" : "debit", source: "Payment" });
+        });
+        store.invoices.forEach((inv) => {
+          if (reconPeriodStart && inv.date.slice(0, 10) < reconPeriodStart) return;
+          if (reconPeriodEnd && inv.date.slice(0, 10) > reconPeriodEnd) return;
+          reconBookEntries.push({ id: `book-inv-${inv.id}`, date: inv.date.slice(0, 10), description: `Invoice ${inv.number} — ${customerName(inv.customerId)}`, reference: inv.number, amount: inv.total, type: "credit", source: "Invoice" });
+        });
+
+        const matchedBankIds = new Set(reconMatches.map((m) => m.bankTxId));
+        const matchedBookIds = new Set(reconMatches.map((m) => m.bookEntryId));
+        const unmatchedBankTxs = reconBankTxs.filter((tx) => !matchedBankIds.has(tx.id));
+        const unmatchedBookEntries = reconBookEntries.filter((e) => !matchedBookIds.has(e.id));
+        const matchedBankAmount = reconBankTxs.filter((tx) => matchedBankIds.has(tx.id)).reduce((s, tx) => s + tx.amount, 0);
+        const unmatchedBankAmount = unmatchedBankTxs.reduce((s, tx) => s + tx.amount, 0);
+        const matchedBookAmount = reconBookEntries.filter((e) => matchedBookIds.has(e.id)).reduce((s, e) => s + e.amount, 0);
+        const unmatchedBookAmount = unmatchedBookEntries.reduce((s, e) => s + e.amount, 0);
+
+        function handleManualMatch() {
+          if (!reconSelectedBankTx || !reconSelectedBookEntry) return;
+          setReconMatches((prev) => [...prev, { bankTxId: reconSelectedBankTx, bookEntryId: reconSelectedBookEntry }]);
+          setReconSelectedBankTx(null);
+          setReconSelectedBookEntry(null);
+        }
+
+        function handleAutoMatch() {
+          const newMatches: { bankTxId: string; bookEntryId: string }[] = [...reconMatches];
+          const usedBank = new Set(newMatches.map((m) => m.bankTxId));
+          const usedBook = new Set(newMatches.map((m) => m.bookEntryId));
+
+          // Match by reference number
+          reconBankTxs.forEach((btx) => {
+            if (usedBank.has(btx.id)) return;
+            const refMatch = reconBookEntries.find((be) => !usedBook.has(be.id) && be.reference && btx.reference && be.reference.toLowerCase() === btx.reference.toLowerCase());
+            if (refMatch) {
+              newMatches.push({ bankTxId: btx.id, bookEntryId: refMatch.id });
+              usedBank.add(btx.id);
+              usedBook.add(refMatch.id);
+            }
+          });
+
+          // Match by exact amount
+          reconBankTxs.forEach((btx) => {
+            if (usedBank.has(btx.id)) return;
+            const amtMatch = reconBookEntries.find((be) => !usedBook.has(be.id) && Math.abs(be.amount - btx.amount) < 0.01 && be.type === btx.type);
+            if (amtMatch) {
+              newMatches.push({ bankTxId: btx.id, bookEntryId: amtMatch.id });
+              usedBank.add(btx.id);
+              usedBook.add(amtMatch.id);
+            }
+          });
+
+          setReconMatches(newMatches);
+        }
+
+        function handleUnmatch(bankTxId: string) {
+          setReconMatches((prev) => prev.filter((m) => m.bankTxId !== bankTxId));
+        }
+
+        return (
+          <div className="space-y-4">
+            {/* Account & Period selector */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><ArrowUpDown className="h-4 w-4" /> Reconciliation Setup</CardTitle></CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap items-end gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Bank Account</Label>
+                    <select className="mt-1 w-56 rounded-md border px-3 py-2 text-sm" value={reconAccountId} onChange={(e) => { setReconAccountId(e.target.value); setReconMatches([]); setReconCompleted(false); }}>
+                      <option value="">All Accounts</option>
+                      {bankingAccounts.filter((a) => a.isActive).map((a) => <option key={a.id} value={a.id}>{a.bankName} ({a.accountNumber})</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Period Start</Label>
+                    <Input type="date" className="h-9 text-sm w-40 mt-1" value={reconPeriodStart} onChange={(e) => { setReconPeriodStart(e.target.value); setReconMatches([]); setReconCompleted(false); }} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Period End</Label>
+                    <Input type="date" className="h-9 text-sm w-40 mt-1" value={reconPeriodEnd} onChange={(e) => { setReconPeriodEnd(e.target.value); setReconMatches([]); setReconCompleted(false); }} />
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => { setReconMatches([]); setReconCompleted(false); }}><RefreshCw className="h-4 w-4 mr-1" /> Reset</Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Reconciliation Summary */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card className="border-green-200 bg-green-50/30"><CardContent className="p-4"><div className="text-xs text-muted-foreground">Matched Items</div><div className="text-2xl font-bold text-green-700">{reconMatches.length}</div><div className="text-xs text-muted-foreground mt-1">{egp(matchedBankAmount)} bank / {egp(matchedBookAmount)} book</div></CardContent></Card>
+              <Card className="border-red-200 bg-red-50/30"><CardContent className="p-4"><div className="text-xs text-muted-foreground">Unmatched Bank</div><div className="text-2xl font-bold text-red-700">{unmatchedBankTxs.length}</div><div className="text-xs text-muted-foreground mt-1">{egp(unmatchedBankAmount)}</div></CardContent></Card>
+              <Card className="border-amber-200 bg-amber-50/30"><CardContent className="p-4"><div className="text-xs text-muted-foreground">Unmatched Book</div><div className="text-2xl font-bold text-amber-700">{unmatchedBookEntries.length}</div><div className="text-xs text-muted-foreground mt-1">{egp(unmatchedBookAmount)}</div></CardContent></Card>
+              <Card className="border-blue-200 bg-blue-50/30"><CardContent className="p-4"><div className="text-xs text-muted-foreground">Status</div><div className="text-lg font-bold mt-1">{reconCompleted ? <span className="text-green-700">Completed</span> : reconMatches.length > 0 ? <span className="text-blue-700">In Progress</span> : <span className="text-muted-foreground">Not Started</span>}</div></CardContent></Card>
+            </div>
+
+            {/* Auto-match & actions */}
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={handleAutoMatch} disabled={reconCompleted}><RefreshCw className="h-4 w-4 mr-1" /> Auto-Match</Button>
+              <Button size="sm" variant="outline" onClick={handleManualMatch} disabled={!reconSelectedBankTx || !reconSelectedBookEntry || reconCompleted}><Link2 className="h-4 w-4 mr-1" /> Match Selected</Button>
+              <div className="flex-1" />
+              <Button size="sm" variant={reconCompleted ? "ghost" : "default"} className={reconCompleted ? "bg-green-100 text-green-800 hover:bg-green-100" : ""} disabled={reconCompleted || (unmatchedBankTxs.length > 0 && unmatchedBookEntries.length > 0)} onClick={() => setReconCompleted(true)}>
+                <CheckCircle className="h-4 w-4 mr-1" /> {reconCompleted ? "Reconciliation Completed" : "Complete Reconciliation"}
+              </Button>
+            </div>
+
+            {/* Side-by-side panels */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Bank Statement side */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2"><Landmark className="h-4 w-4 text-blue-600" /> Bank Statement ({reconBankTxs.length} entries)</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="max-h-[400px] overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-muted/80">
+                        <tr className="border-b">
+                          <th className="text-left p-2 text-xs font-medium">Date</th>
+                          <th className="text-left p-2 text-xs font-medium">Description</th>
+                          <th className="text-left p-2 text-xs font-medium">Ref</th>
+                          <th className="text-right p-2 text-xs font-medium">Amount</th>
+                          <th className="text-center p-2 text-xs font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reconBankTxs.map((tx) => {
+                          const isMatched = matchedBankIds.has(tx.id);
+                          const isSelected = reconSelectedBankTx === tx.id;
+                          return (
+                            <tr key={tx.id} className={`border-b cursor-pointer transition-colors ${isMatched ? "bg-green-50 opacity-60" : isSelected ? "bg-blue-100 ring-1 ring-blue-400" : "hover:bg-muted/30"}`}
+                              onClick={() => { if (!isMatched && !reconCompleted) setReconSelectedBankTx(isSelected ? null : tx.id); }}>
+                              <td className="p-2 text-xs">{tx.date}</td>
+                              <td className="p-2 text-xs font-medium truncate max-w-[140px]">{tx.description}</td>
+                              <td className="p-2 font-mono text-xs">{tx.reference}</td>
+                              <td className={`p-2 text-right text-xs font-semibold ${tx.type === "credit" ? "text-green-700" : "text-red-700"}`}>{tx.type === "credit" ? "+" : "-"}{tx.amount.toLocaleString()}</td>
+                              <td className="p-2 text-center">
+                                {isMatched ? <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-green-100 text-green-800">Matched</span>
+                                  : <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-red-100 text-red-800">Unmatched</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {reconBankTxs.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-muted-foreground text-xs">No bank transactions for this period.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Book Entries side */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2"><BookOpen className="h-4 w-4 text-purple-600" /> Book Entries ({reconBookEntries.length} entries)</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="max-h-[400px] overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-muted/80">
+                        <tr className="border-b">
+                          <th className="text-left p-2 text-xs font-medium">Date</th>
+                          <th className="text-left p-2 text-xs font-medium">Description</th>
+                          <th className="text-left p-2 text-xs font-medium">Ref</th>
+                          <th className="text-right p-2 text-xs font-medium">Amount</th>
+                          <th className="text-center p-2 text-xs font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reconBookEntries.map((entry) => {
+                          const isMatched = matchedBookIds.has(entry.id);
+                          const isSelected = reconSelectedBookEntry === entry.id;
+                          return (
+                            <tr key={entry.id} className={`border-b cursor-pointer transition-colors ${isMatched ? "bg-green-50 opacity-60" : isSelected ? "bg-blue-100 ring-1 ring-blue-400" : "hover:bg-muted/30"}`}
+                              onClick={() => { if (!isMatched && !reconCompleted) setReconSelectedBookEntry(isSelected ? null : entry.id); }}>
+                              <td className="p-2 text-xs">{entry.date}</td>
+                              <td className="p-2 text-xs font-medium truncate max-w-[140px]">{entry.description}</td>
+                              <td className="p-2 font-mono text-xs">{entry.reference}</td>
+                              <td className={`p-2 text-right text-xs font-semibold ${entry.type === "credit" ? "text-green-700" : "text-red-700"}`}>{entry.type === "credit" ? "+" : "-"}{entry.amount.toLocaleString()}</td>
+                              <td className="p-2 text-center">
+                                {isMatched ? <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-green-100 text-green-800">Matched</span>
+                                  : <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-800">Unmatched</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {reconBookEntries.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-muted-foreground text-xs">No book entries for this period.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Matched pairs table */}
+            {reconMatches.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Link2 className="h-4 w-4 text-green-600" /> Matched Pairs ({reconMatches.length})</CardTitle></CardHeader>
+                <CardContent className="p-0">
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b bg-muted/30">
+                      <th className="text-left p-2 text-xs font-medium">Bank Transaction</th>
+                      <th className="text-right p-2 text-xs font-medium">Bank Amount</th>
+                      <th className="text-center p-2 text-xs font-medium"></th>
+                      <th className="text-left p-2 text-xs font-medium">Book Entry</th>
+                      <th className="text-right p-2 text-xs font-medium">Book Amount</th>
+                      <th className="text-center p-2 text-xs font-medium"></th>
+                    </tr></thead>
+                    <tbody>
+                      {reconMatches.map((m, i) => {
+                        const btx = reconBankTxs.find((t) => t.id === m.bankTxId);
+                        const be = reconBookEntries.find((e) => e.id === m.bookEntryId);
+                        if (!btx || !be) return null;
+                        return (
+                          <tr key={i} className="border-b hover:bg-muted/20">
+                            <td className="p-2 text-xs">{btx.description} <span className="text-muted-foreground">({btx.reference})</span></td>
+                            <td className={`p-2 text-right text-xs font-semibold ${btx.type === "credit" ? "text-green-700" : "text-red-700"}`}>{egp(btx.amount)}</td>
+                            <td className="p-2 text-center"><Link2 className="h-3 w-3 text-green-500 mx-auto" /></td>
+                            <td className="p-2 text-xs">{be.description} <span className="text-muted-foreground">({be.reference})</span></td>
+                            <td className={`p-2 text-right text-xs font-semibold ${be.type === "credit" ? "text-green-700" : "text-red-700"}`}>{egp(be.amount)}</td>
+                            <td className="p-2 text-center">
+                              {!reconCompleted && <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500 hover:text-red-700" onClick={() => handleUnmatch(m.bankTxId)}><Unlink className="h-3 w-3" /></Button>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Previous reconciliation sessions */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-base">Previous Reconciliation Sessions</CardTitle></CardHeader>
+              <CardContent>
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b bg-muted/50">
+                    <th className="text-left p-3 font-medium">Account</th>
+                    <th className="text-left p-3 font-medium">Period</th>
+                    <th className="text-right p-3 font-medium">Bank Balance</th>
+                    <th className="text-right p-3 font-medium">Book Balance</th>
+                    <th className="text-right p-3 font-medium">Difference</th>
+                    <th className="text-center p-3 font-medium">Matched</th>
+                    <th className="text-left p-3 font-medium">Status</th>
+                  </tr></thead>
+                  <tbody>
+                    {bankingRecons.map(r => {
+                      const acc = bankingAccounts.find(a => a.id === r.accountId);
+                      return (
+                        <tr key={r.id} className="border-b hover:bg-muted/50">
+                          <td className="p-3 font-medium">{acc?.bankName || "—"}</td>
+                          <td className="p-3">{r.periodStart} to {r.periodEnd}</td>
+                          <td className="p-3 text-right font-mono">{r.bankBalance.toLocaleString()}</td>
+                          <td className="p-3 text-right font-mono">{r.bookBalance.toLocaleString()}</td>
+                          <td className={`p-3 text-right font-mono font-medium ${r.difference === 0 ? "text-green-700" : "text-red-700"}`}>{r.difference.toLocaleString()}</td>
+                          <td className="p-3 text-center">{r.matchedCount}/{r.matchedCount + r.unmatchedCount}</td>
+                          <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs ${r.status === "completed" ? "bg-green-100 text-green-800" : r.status === "discrepancy" ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"}`}>{r.status}</span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* ─── Payment Gateway Tab ──────────────────────────────────── */}
       {activeTab === "payment-gateway" && (
