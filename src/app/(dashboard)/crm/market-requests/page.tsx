@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   ClipboardList,
   Clock,
@@ -14,6 +14,15 @@ import {
   TrendingUp,
   Users,
   Timer,
+  AlertTriangle,
+  Eye,
+  ChevronUp,
+  History,
+  FileText,
+  Percent,
+  Calendar,
+  Loader2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +30,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
@@ -115,8 +132,105 @@ const SEED_REQUESTERS: TopRequester[] = [
   { name: "Layla Mansour", role: "Medical Rep", total: 8, approved: 5, rejected: 2, pending: 1, totalAmount: 11500 },
 ];
 
+// ─── Approval Audit Trail & Fulfillment Types ──────────────────────────────
+
+type ApprovalAction = "SUBMITTED" | "APPROVED" | "REJECTED" | "ESCALATED" | "FULFILLED" | "AUTO_ESCALATED" | "RETURNED" | "FINAL_REJECTED";
+
+interface ApprovalEntry {
+  id: string;
+  action: ApprovalAction;
+  performedBy: string;
+  timestamp: string;
+  comment?: string;
+  level: number;
+}
+
+type FulfillmentPhase = "APPROVED" | "PROCESSING" | "FULFILLED";
+
+interface FulfillmentInfo {
+  phase: FulfillmentPhase;
+  percentage: number;
+  poStatus?: string;
+  deliveryStatus?: string;
+  discountCode?: string;
+  usageCount?: number;
+  eventChecklist?: { item: string; done: boolean }[];
+  printStatus?: string;
+}
+
+// SLA expected processing days by type
+const SLA_DAYS: Record<string, number> = {
+  SAMPLE: 3,
+  LITERATURE: 5,
+  EVENT: 10,
+  DISCOUNT: 2,
+  DOCTOR_EDIT: 3,
+  OTHER: 5,
+};
+
+// Approval chain levels config
+const APPROVAL_CHAIN = [
+  { level: 0, role: "MEDICAL_REP", label: "Med Rep", action: "Submit" },
+  { level: 1, role: "DISTRICT_MANAGER", label: "District Manager", action: "Level 1" },
+  { level: 2, role: "MARKETEER", label: "Marketeer", action: "Level 2" },
+  { level: 3, role: "BUM", label: "BUM", action: "Level 3" },
+] as const;
+
+/**
+ * Determine which approval levels are required for a given request.
+ * Returns the max level needed (1 = DM only, 2 = DM+Marketeer, 3 = DM+Marketeer+BUM).
+ */
+function getRequiredApprovalLevel(type: string, amount?: number, discountPercent?: number): number {
+  if (type === "EVENT") return 3;
+  if (type === "DOCTOR_EDIT") return 2;
+  if (type === "DISCOUNT" && (discountPercent ?? 0) > 15) return 3;
+  if (type === "DISCOUNT") return 1;
+  if (type === "LITERATURE") return 1;
+  if (type === "SAMPLE" && (amount ?? 0) >= 5000) return 2;
+  if (type === "SAMPLE") return 1;
+  return 1;
+}
+
+/** Generate an id for approval entries */
+let _approvalSeq = 0;
+function genApprovalId() {
+  _approvalSeq++;
+  return `ae-${Date.now()}-${_approvalSeq}`;
+}
+
+/** Check if a pending request is overdue (>48h) */
+function isOverdue(createdAt: string): boolean {
+  const created = new Date(createdAt).getTime();
+  const now = Date.now();
+  return (now - created) > 48 * 60 * 60 * 1000;
+}
+
+/** Compute SLA remaining text */
+function getSlaInfo(createdAt: string, type: string): { text: string; breached: boolean; remainingMs: number } {
+  const slaDays = SLA_DAYS[type] ?? 5;
+  const created = new Date(createdAt).getTime();
+  const deadline = created + slaDays * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const remainingMs = deadline - now;
+  const breached = remainingMs < 0;
+  const absDays = Math.floor(Math.abs(remainingMs) / (24 * 60 * 60 * 1000));
+  const absHours = Math.floor((Math.abs(remainingMs) % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+  const text = breached
+    ? `SLA Breached -${absDays}d ${absHours}h`
+    : `${absDays}d ${absHours}h remaining`;
+  return { text, breached, remainingMs };
+}
+
 /** Extended MarketRequest with optional linked PO field set on approval */
-type MarketRequestExt = MarketRequest & { linkedPONumber?: string };
+type MarketRequestExt = MarketRequest & {
+  linkedPONumber?: string;
+  approvalHistory?: ApprovalEntry[];
+  currentApprovalLevel?: number;
+  returnCount?: number;
+  fulfillment?: FulfillmentInfo;
+  discountPercent?: number;
+};
+
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 
 export default function MarketRequestsPage() {
@@ -127,6 +241,19 @@ export default function MarketRequestsPage() {
   const [filters, setFilters] = useState<FilterState>({});
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<MarketRequest | null>(null);
+
+  // New state for detail view, reject dialog, and audit trails
+  const [detailRequest, setDetailRequest] = useState<MarketRequestExt | null>(null);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectingRequest, setRejectingRequest] = useState<MarketRequest | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectType, setRejectType] = useState<"return" | "final">("return");
+
+  // In-memory audit trails & fulfillment (keyed by request id)
+  const [auditTrails, setAuditTrails] = useState<Record<string, ApprovalEntry[]>>({});
+  const [fulfillmentData, setFulfillmentData] = useState<Record<string, FulfillmentInfo>>({});
+  const [approvalLevels, setApprovalLevels] = useState<Record<string, number>>({});
+  const [returnCounts, setReturnCounts] = useState<Record<string, number>>({});
 
   const repsUnderMe = getReportsOf(user.id).map((u) => u.id);
 
@@ -177,6 +304,47 @@ export default function MarketRequestsPage() {
     user.role === "BUM" ||
     user.role === "MARKETEER" ||
     user.role === "DISTRICT_MANAGER";
+
+  // ─── Audit trail helpers ────────────────────────────────────────────────
+
+  const addAuditEntry = useCallback(
+    (requestId: string, action: ApprovalAction, comment?: string, level?: number) => {
+      const entry: ApprovalEntry = {
+        id: genApprovalId(),
+        action,
+        performedBy: user.name ?? user.id,
+        timestamp: new Date().toISOString(),
+        comment,
+        level: level ?? 0,
+      };
+      setAuditTrails((prev) => ({
+        ...prev,
+        [requestId]: [...(prev[requestId] || []), entry],
+      }));
+    },
+    [user.name, user.id]
+  );
+
+  /** Get enriched request with audit/fulfillment data */
+  const enrichRequest = useCallback(
+    (r: MarketRequest): MarketRequestExt => {
+      const rExt = r as MarketRequestExt;
+      return {
+        ...rExt,
+        approvalHistory: auditTrails[r.id] || [],
+        currentApprovalLevel: approvalLevels[r.id] ?? 0,
+        returnCount: returnCounts[r.id] ?? 0,
+        fulfillment: fulfillmentData[r.id],
+      };
+    },
+    [auditTrails, approvalLevels, returnCounts, fulfillmentData]
+  );
+
+  // Overdue requests count (pending > 48h)
+  const overdueCount = useMemo(
+    () => myRequests.filter((r) => r.status === "PENDING" && isOverdue(r.createdAt)).length,
+    [myRequests]
+  );
 
   // ─── Analytics computations ─────────────────────────────────────────────
 
@@ -371,75 +539,129 @@ export default function MarketRequestsPage() {
     if (editing) {
       store.update("marketRequests", editing.id, payload);
     } else {
+      const newId = store.genId("mr");
       store.add("marketRequests", {
-        id: store.genId("mr"),
+        id: newId,
         ...payload,
         requestedById: user.id,
         status: "PENDING",
         createdAt: new Date().toISOString(),
       });
+      addAuditEntry(newId, "SUBMITTED", "Request submitted for approval", 0);
     }
     setFormOpen(false);
     setEditing(null);
   }
 
   function handleApprove(r: MarketRequest) {
-    store.update("marketRequests", r.id, {
-      status: "APPROVED",
-      approvedById: user.id,
-      approvedAt: new Date().toISOString(),
-    });
-    // If it was a DOCTOR_EDIT request, apply the proposed changes
-    if (r.type === "DOCTOR_EDIT" && r.targetEntityId && r.proposedChanges) {
-      store.update("doctors", r.targetEntityId, r.proposedChanges);
-    }
+    const currentLevel = approvalLevels[r.id] ?? 0;
+    const requiredLevel = getRequiredApprovalLevel(r.type, r.amount, (r as MarketRequestExt).discountPercent);
+    const newLevel = currentLevel + 1;
 
-    // Auto-create a Purchase Order for SAMPLE requests with a product
-    if (r.type === "SAMPLE" && r.productId) {
-      const product = store.products.find((p) => p.id === r.productId);
-      const vendor = store.vendors.length > 0 ? store.vendors[0] : null;
-      if (product && vendor) {
-        const qty = r.quantity ?? 1;
-        const unitPrice = product.pricePerUnit ?? 0;
-        const lineTotal = qty * unitPrice;
-        const tax = Math.round(lineTotal * 0.14 * 100) / 100;
-        const poNumber = store.generatePONumber();
-        const now = new Date().toISOString();
-        const expectedDate = new Date(Date.now() + 7 * 86400000)
-          .toISOString()
-          .slice(0, 10);
+    // Record audit entry
+    addAuditEntry(r.id, "APPROVED", `Approved at level ${newLevel}`, newLevel);
 
-        const po: PurchaseOrder = {
-          id: store.genId("po"),
-          number: poNumber,
-          vendorId: vendor.id,
-          date: now.slice(0, 10),
-          expectedDate,
-          items: [
-            {
-              productId: product.id,
-              description: `${product.code} - ${product.name} (Sample request ${r.id})`,
-              quantity: qty,
-              unitPrice,
-              total: lineTotal,
-            },
+    // Update approval level tracker
+    setApprovalLevels((prev) => ({ ...prev, [r.id]: newLevel }));
+
+    // Only fully approve if all required levels are met
+    if (newLevel >= requiredLevel) {
+      store.update("marketRequests", r.id, {
+        status: "APPROVED",
+        approvedById: user.id,
+        approvedAt: new Date().toISOString(),
+      });
+
+      // Initialize fulfillment tracking
+      let initFulfillment: FulfillmentInfo = { phase: "APPROVED", percentage: 0 };
+      if (r.type === "SAMPLE") {
+        initFulfillment = { phase: "PROCESSING", percentage: 25, poStatus: "Generating PO...", deliveryStatus: "Pending" };
+      } else if (r.type === "EVENT") {
+        initFulfillment = {
+          phase: "PROCESSING",
+          percentage: 10,
+          eventChecklist: [
+            { item: "Venue booked", done: false },
+            { item: "Speaker confirmed", done: false },
+            { item: "Invitations sent", done: false },
+            { item: "Materials prepared", done: false },
+            { item: "Event completed", done: false },
           ],
-          subtotal: lineTotal,
-          tax,
-          total: lineTotal + tax,
-          status: "DRAFT",
-          createdAt: now,
         };
+      } else if (r.type === "DISCOUNT") {
+        const code = `DSC-${r.id.toUpperCase().slice(-4)}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+        initFulfillment = { phase: "PROCESSING", percentage: 50, discountCode: code, usageCount: 0 };
+      } else if (r.type === "LITERATURE") {
+        initFulfillment = { phase: "PROCESSING", percentage: 20, printStatus: "Queued for printing" };
+      }
+      setFulfillmentData((prev) => ({ ...prev, [r.id]: initFulfillment }));
 
-        store.add("purchaseOrders", po);
+      // If it was a DOCTOR_EDIT request, apply the proposed changes
+      if (r.type === "DOCTOR_EDIT" && r.targetEntityId && r.proposedChanges) {
+        store.update("doctors", r.targetEntityId, r.proposedChanges);
+      }
 
-        // Link the PO number back to the market request
-        store.update("marketRequests", r.id, {
-          description: r.description + `\n[Auto-PO: ${poNumber}]`,
-          linkedPONumber: poNumber,
-        } as unknown as Partial<MarketRequest>);
+      // Auto-create a Purchase Order for SAMPLE requests with a product
+      if (r.type === "SAMPLE" && r.productId) {
+        const product = store.products.find((p) => p.id === r.productId);
+        const vendor = store.vendors.length > 0 ? store.vendors[0] : null;
+        if (product && vendor) {
+          const qty = r.quantity ?? 1;
+          const unitPrice = product.pricePerUnit ?? 0;
+          const lineTotal = qty * unitPrice;
+          const tax = Math.round(lineTotal * 0.14 * 100) / 100;
+          const poNumber = store.generatePONumber();
+          const now = new Date().toISOString();
+          const expectedDate = new Date(Date.now() + 7 * 86400000)
+            .toISOString()
+            .slice(0, 10);
+
+          const po: PurchaseOrder = {
+            id: store.genId("po"),
+            number: poNumber,
+            vendorId: vendor.id,
+            date: now.slice(0, 10),
+            expectedDate,
+            items: [
+              {
+                productId: product.id,
+                description: `${product.code} - ${product.name} (Sample request ${r.id})`,
+                quantity: qty,
+                unitPrice,
+                total: lineTotal,
+              },
+            ],
+            subtotal: lineTotal,
+            tax,
+            total: lineTotal + tax,
+            status: "DRAFT",
+            createdAt: now,
+          };
+
+          store.add("purchaseOrders", po);
+
+          // Link the PO number back to the market request
+          store.update("marketRequests", r.id, {
+            description: r.description + `\n[Auto-PO: ${poNumber}]`,
+            linkedPONumber: poNumber,
+          } as unknown as Partial<MarketRequest>);
+
+          // Update fulfillment with PO info
+          setFulfillmentData((prev) => ({
+            ...prev,
+            [r.id]: { ...prev[r.id], phase: "PROCESSING", percentage: 50, poStatus: `PO ${poNumber} created`, deliveryStatus: `Expected by ${expectedDate}` },
+          }));
+        }
       }
     }
+    // If not yet fully approved, keep status PENDING (multi-level)
+  }
+
+  function openRejectDialog(r: MarketRequest) {
+    setRejectingRequest(r);
+    setRejectReason("");
+    setRejectType("return");
+    setRejectDialogOpen(true);
   }
 
   function handleReject(r: MarketRequest, reason?: string) {
@@ -448,6 +670,58 @@ export default function MarketRequestsPage() {
       approvedById: user.id,
       rejectionReason: reason ?? "Rejected by supervisor",
     });
+    addAuditEntry(r.id, "REJECTED", reason ?? "Rejected by supervisor", approvalLevels[r.id] ?? 1);
+  }
+
+  function handleRejectWithFlow() {
+    if (!rejectingRequest) return;
+    const r = rejectingRequest;
+    const currentReturns = returnCounts[r.id] ?? 0;
+
+    if (rejectType === "return" && currentReturns < 2) {
+      // Return for revision
+      const newCount = currentReturns + 1;
+      setReturnCounts((prev) => ({ ...prev, [r.id]: newCount }));
+      addAuditEntry(r.id, "RETURNED", rejectReason || "Returned for revision", approvalLevels[r.id] ?? 1);
+      // Reset approval level so submitter can resubmit
+      setApprovalLevels((prev) => ({ ...prev, [r.id]: 0 }));
+      // Keep status PENDING so it shows up for revision
+    } else {
+      // Final reject or auto-reject after 3 returns
+      const finalReason =
+        currentReturns >= 2
+          ? `Auto-rejected after ${currentReturns + 1} returns. Last reason: ${rejectReason || "No reason provided"}`
+          : rejectReason || "Final rejection";
+      store.update("marketRequests", r.id, {
+        status: "REJECTED",
+        approvedById: user.id,
+        rejectionReason: finalReason,
+      });
+      addAuditEntry(r.id, "FINAL_REJECTED", finalReason, approvalLevels[r.id] ?? 1);
+    }
+    setRejectDialogOpen(false);
+    setRejectingRequest(null);
+  }
+
+  function handleEscalate(r: MarketRequest) {
+    const currentLevel = approvalLevels[r.id] ?? 0;
+    const newLevel = currentLevel + 1;
+    setApprovalLevels((prev) => ({ ...prev, [r.id]: newLevel }));
+    addAuditEntry(
+      r.id,
+      isOverdue(r.createdAt) ? "AUTO_ESCALATED" : "ESCALATED",
+      `Escalated from level ${currentLevel} to level ${newLevel}${isOverdue(r.createdAt) ? " (overdue > 48h)" : ""}`,
+      newLevel
+    );
+  }
+
+  function handleMarkFulfilled(r: MarketRequest) {
+    store.update("marketRequests", r.id, { status: "FULFILLED" } as Partial<MarketRequest>);
+    setFulfillmentData((prev) => ({
+      ...prev,
+      [r.id]: { ...(prev[r.id] || { phase: "FULFILLED", percentage: 100 }), phase: "FULFILLED", percentage: 100 },
+    }));
+    addAuditEntry(r.id, "FULFILLED", "Request fulfilled", getRequiredApprovalLevel(r.type, r.amount));
   }
 
   function handleDelete(r: MarketRequest) {
@@ -622,26 +896,56 @@ export default function MarketRequestsPage() {
                 label: "Status",
                 render: (_v: unknown, row: unknown) => {
                   const r = row as MarketRequestExt;
+                  const sla = r.status === "PENDING" ? getSlaInfo(r.createdAt, r.type) : null;
+                  const overdue = r.status === "PENDING" && isOverdue(r.createdAt);
+                  const fData = fulfillmentData[r.id];
                   return (
                     <div className="flex flex-col gap-1 items-start">
-                      <Badge
-                        variant={
-                          r.status === "APPROVED"
-                            ? "success"
-                            : r.status === "REJECTED"
-                            ? "destructive"
-                            : r.status === "FULFILLED"
-                            ? "default"
-                            : "warning"
-                        }
-                      >
-                        {r.status}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge
+                          variant={
+                            r.status === "APPROVED"
+                              ? "success"
+                              : r.status === "REJECTED"
+                              ? "destructive"
+                              : r.status === "FULFILLED"
+                              ? "default"
+                              : "warning"
+                          }
+                        >
+                          {r.status}
+                        </Badge>
+                        {overdue && (
+                          <Badge className="bg-orange-100 text-orange-700 border-orange-300 text-[9px] px-1.5">
+                            Overdue
+                          </Badge>
+                        )}
+                      </div>
+                      {sla && (
+                        <span className={`text-[10px] font-medium ${sla.breached ? "text-red-600" : "text-slate-500"}`}>
+                          {sla.breached && <AlertTriangle className="inline h-2.5 w-2.5 mr-0.5" />}
+                          {sla.text}
+                        </span>
+                      )}
                       {r.linkedPONumber && (
                         <Badge variant="outline" className="text-[10px] gap-1 text-blue-700 border-blue-300 bg-blue-50">
                           <PackageCheck className="h-3 w-3" />
                           PO: {r.linkedPONumber}
                         </Badge>
+                      )}
+                      {fData && (r.status === "APPROVED" || r.status === "FULFILLED") && (
+                        <div className="w-full min-w-[80px]">
+                          <div className="flex items-center justify-between text-[9px] mb-0.5">
+                            <span className="text-slate-500">{fData.phase}</span>
+                            <span className="font-semibold">{fData.percentage}%</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${fData.percentage === 100 ? "bg-green-500" : "bg-blue-500"}`}
+                              style={{ width: `${fData.percentage}%` }}
+                            />
+                          </div>
+                        </div>
                       )}
                     </div>
                   );
@@ -665,6 +969,44 @@ export default function MarketRequestsPage() {
                 className: "text-right",
                 render: (_v: unknown, row: unknown) => {
                   const r = row as MarketRequest;
+                  const overdueRow = r.status === "PENDING" && isOverdue(r.createdAt);
+                  const isSubmitter = r.requestedById === user.id;
+                  const extraItems = [
+                    ...(canApprove && r.status === "PENDING"
+                      ? [
+                          {
+                            label: "Approve",
+                            onClick: () => handleApprove(r),
+                            icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
+                          },
+                          {
+                            label: "Reject",
+                            onClick: () => openRejectDialog(r),
+                            icon: <XCircle className="h-4 w-4 text-red-600" />,
+                            destructive: true,
+                          },
+                        ]
+                      : []),
+                    {
+                      label: "View Details",
+                      onClick: () => setDetailRequest(enrichRequest(r)),
+                      icon: <Eye className="h-4 w-4 text-slate-600" />,
+                    },
+                    ...((r.status === "PENDING" && (overdueRow || isSubmitter))
+                      ? [{
+                          label: overdueRow ? "Auto-Escalate" : "Escalate to Next Level",
+                          onClick: () => handleEscalate(r),
+                          icon: <ChevronUp className="h-4 w-4 text-orange-600" />,
+                        }]
+                      : []),
+                    ...(r.status === "APPROVED" && canApprove
+                      ? [{
+                          label: "Mark Fulfilled",
+                          onClick: () => handleMarkFulfilled(r),
+                          icon: <PackageCheck className="h-4 w-4 text-green-600" />,
+                        }]
+                      : []),
+                  ];
                   return (
                     <EditDeleteMenu
                       onEdit={
@@ -673,27 +1015,7 @@ export default function MarketRequestsPage() {
                       canEdit={r.status === "PENDING"}
                       onDelete={() => handleDelete(r)}
                       itemLabel={r.description.slice(0, 40)}
-                      extraItems={
-                        canApprove && r.status === "PENDING"
-                          ? [
-                              {
-                                label: "Approve",
-                                onClick: () => handleApprove(r),
-                                icon: (
-                                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                                ),
-                              },
-                              {
-                                label: "Reject",
-                                onClick: () => handleReject(r),
-                                icon: (
-                                  <XCircle className="h-4 w-4 text-red-600" />
-                                ),
-                                destructive: true,
-                              },
-                            ]
-                          : []
-                      }
+                      extraItems={extraItems}
                     />
                   );
                 },
@@ -789,7 +1111,7 @@ export default function MarketRequestsPage() {
                               size="sm"
                               variant="outline"
                               className="text-red-600 hover:bg-red-50"
-                              onClick={() => handleReject(r)}
+                              onClick={() => openRejectDialog(r)}
                             >
                               <XCircle className="h-3.5 w-3.5 mr-1" />
                               Reject

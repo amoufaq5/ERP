@@ -105,30 +105,48 @@ function seedExpenses(): Expense[] {
       date: "2026-04-02", type: "Transport", amount: 150,
       description: "Taxi to Cleopatra Hospital for morning visits",
       status: "APPROVED", approvedBy: "Ahmed Mostafa", createdAt: "2026-04-02T08:30:00Z",
+      approvalHistory: [
+        { id: "ah-1a", action: "SUBMITTED", performedBy: "Mohamed El-Sayed", timestamp: "2026-04-02T08:30:00Z", level: 1 },
+        { id: "ah-1b", action: "APPROVED", performedBy: "Ahmed Mostafa", timestamp: "2026-04-02T14:15:00Z", comment: "Verified with hospital log", level: 1 },
+      ],
     },
     {
       id: "exp-seed-2", userId: "u-rep-1", userName: "Mohamed El-Sayed",
       date: "2026-04-05", type: "Meals", amount: 85,
       description: "Lunch during field day in Nasr City",
       status: "APPROVED", approvedBy: "Ahmed Mostafa", createdAt: "2026-04-05T13:00:00Z",
+      approvalHistory: [
+        { id: "ah-2a", action: "SUBMITTED", performedBy: "Mohamed El-Sayed", timestamp: "2026-04-05T13:00:00Z", level: 1 },
+        { id: "ah-2b", action: "APPROVED", performedBy: "Ahmed Mostafa", timestamp: "2026-04-05T17:30:00Z", level: 1 },
+      ],
     },
     {
       id: "exp-seed-3", userId: "u-rep-1", userName: "Mohamed El-Sayed",
       date: "2026-04-12", type: "Transport", amount: 200,
       description: "Uber rides for 3 hospital visits in Heliopolis",
       status: "PENDING", createdAt: "2026-04-12T09:00:00Z",
+      approvalHistory: [
+        { id: "ah-3a", action: "SUBMITTED", performedBy: "Mohamed El-Sayed", timestamp: "2026-04-12T09:00:00Z", level: 1 },
+      ],
     },
     {
       id: "exp-seed-4", userId: "u-dm-1", userName: "Ahmed Mostafa",
       date: "2026-04-08", type: "Hotel", amount: 950,
       description: "Overnight stay for Alexandria territory review",
       status: "PENDING", createdAt: "2026-04-08T18:00:00Z",
+      approvalHistory: [
+        { id: "ah-4a", action: "SUBMITTED", performedBy: "Ahmed Mostafa", timestamp: "2026-04-08T18:00:00Z", level: 1 },
+      ],
     },
     {
       id: "exp-seed-5", userId: "u-dm-1", userName: "Ahmed Mostafa",
       date: "2026-04-10", type: "Meals", amount: 320,
       description: "Team dinner during quarterly meeting",
       status: "APPROVED", approvedBy: "Dr. Yasmin Salem", createdAt: "2026-04-10T20:00:00Z",
+      approvalHistory: [
+        { id: "ah-5a", action: "SUBMITTED", performedBy: "Ahmed Mostafa", timestamp: "2026-04-10T20:00:00Z", level: 1 },
+        { id: "ah-5b", action: "APPROVED", performedBy: "Dr. Yasmin Salem", timestamp: "2026-04-11T09:45:00Z", comment: "Quarterly meeting confirmed", level: 2 },
+      ],
     },
     {
       id: "exp-seed-6", userId: "u-mkt-1", userName: "Dr. Yasmin Salem",
@@ -136,18 +154,28 @@ function seedExpenses(): Expense[] {
       description: "Printing promotional materials for Cardioprex campaign",
       status: "REJECTED", rejectionReason: "Please use central procurement for print orders above 300 EGP",
       createdAt: "2026-04-15T11:00:00Z",
+      approvalHistory: [
+        { id: "ah-6a", action: "SUBMITTED", performedBy: "Dr. Yasmin Salem", timestamp: "2026-04-15T11:00:00Z", level: 1 },
+        { id: "ah-6b", action: "REJECTED", performedBy: "Admin", timestamp: "2026-04-15T16:20:00Z", comment: "Please use central procurement for print orders above 300 EGP", level: 2 },
+      ],
     },
     {
       id: "exp-seed-7", userId: "u-rep-1", userName: "Mohamed El-Sayed",
       date: "2026-04-20", type: "Accommodation", amount: 600,
       description: "Accommodation for Upper Egypt field trip",
       status: "PENDING", createdAt: "2026-04-20T16:00:00Z",
+      approvalHistory: [
+        { id: "ah-7a", action: "SUBMITTED", performedBy: "Mohamed El-Sayed", timestamp: "2026-04-20T16:00:00Z", level: 1 },
+      ],
     },
     {
       id: "exp-seed-8", userId: "u-dm-1", userName: "Ahmed Mostafa",
       date: "2026-04-22", type: "Transport", amount: 180,
       description: "Car rental for Giza district supervision",
       status: "PENDING", createdAt: "2026-04-22T07:30:00Z",
+      approvalHistory: [
+        { id: "ah-8a", action: "SUBMITTED", performedBy: "Ahmed Mostafa", timestamp: "2026-04-22T07:30:00Z", level: 1 },
+      ],
     },
   ];
 }
@@ -166,6 +194,13 @@ export default function ExpensesPage() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+
+  // Budget warning dialog state
+  const [budgetWarningOpen, setBudgetWarningOpen] = useState(false);
+  const [pendingExpenseCreate, setPendingExpenseCreate] = useState(false);
+
+  // Enhanced rejection flow state
+  const [rejectAction, setRejectAction] = useState<"REJECT" | "RETURN">("REJECT");
 
   // New expense form state
   const [formDate, setFormDate] = useState("");
@@ -221,6 +256,77 @@ export default function ExpensesPage() {
   const pendingAmount = expenses.filter((e) => e.status === "PENDING").reduce((s, e) => s + e.amount, 0);
   const approvedAmount = expenses.filter((e) => e.status === "APPROVED").reduce((s, e) => s + e.amount, 0);
   const rejectedAmount = expenses.filter((e) => e.status === "REJECTED").reduce((s, e) => s + e.amount, 0);
+
+  // ─── Budget Calculations ────────────────────────────────────────────────
+
+  const myApprovedThisMonth = useMemo(() => {
+    return expenses
+      .filter((e) => e.userId === user.id && e.status === "APPROVED")
+      .filter((e) => {
+        const d = new Date(e.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((s, e) => s + e.amount, 0);
+  }, [expenses, user.id]);
+
+  const myPendingThisMonth = useMemo(() => {
+    return expenses
+      .filter((e) => e.userId === user.id && e.status === "PENDING")
+      .filter((e) => {
+        const d = new Date(e.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((s, e) => s + e.amount, 0);
+  }, [expenses, user.id]);
+
+  const budgetRemaining = MONTHLY_BUDGET_PER_REP - myApprovedThisMonth;
+  const budgetUtilization = Math.round((myApprovedThisMonth / MONTHLY_BUDGET_PER_REP) * 100);
+  const budgetBarColor = budgetUtilization > 90 ? "bg-red-500" : budgetUtilization > 70 ? "bg-yellow-500" : "bg-green-500";
+
+  // ─── Analytics Data ────────────────────────────────────────────────────
+
+  const avgProcessingTime = useMemo(() => {
+    const processed = expenses.filter((e) => e.status === "APPROVED" || e.status === "REJECTED");
+    if (processed.length === 0) return 0;
+    const totalHours = processed.reduce((sum, e) => {
+      const history = e.approvalHistory || [];
+      const submitted = history.find((h) => h.action === "SUBMITTED");
+      const resolved = history.find((h) => h.action === "APPROVED" || h.action === "REJECTED");
+      if (submitted && resolved) {
+        const diff = new Date(resolved.timestamp).getTime() - new Date(submitted.timestamp).getTime();
+        return sum + diff / (1000 * 60 * 60);
+      }
+      return sum;
+    }, 0);
+    return Math.round(totalHours / processed.length);
+  }, [expenses]);
+
+  const expenseTrendLast6 = useMemo(() => {
+    const months: { month: string; total: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleString("default", { month: "short", year: "2-digit" });
+      const total = expenses
+        .filter((e) => e.date.startsWith(key) && e.status === "APPROVED")
+        .reduce((s, e) => s + e.amount, 0);
+      months.push({ month: label, total });
+    }
+    return months;
+  }, [expenses]);
+
+  const categoryBreakdown = useMemo(() => {
+    const map: Record<string, number> = {};
+    expenses.filter((e) => e.status === "APPROVED").forEach((e) => {
+      map[e.type] = (map[e.type] || 0) + e.amount;
+    });
+    const total = Object.values(map).reduce((s, v) => s + v, 0);
+    return Object.entries(map)
+      .map(([category, amount]) => ({ category, amount, pct: total > 0 ? Math.round((amount / total) * 100) : 0 }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [expenses]);
+
+  const CATEGORY_COLORS = ["bg-blue-500", "bg-green-500", "bg-yellow-500", "bg-purple-500", "bg-pink-500", "bg-orange-500"];
 
   // ─── My Expenses ───────────────────────────────────────────────────────
 
@@ -328,20 +434,43 @@ export default function ExpensesPage() {
 
   function handleCreateExpense() {
     if (!formDate || !formAmount || !formDescription) return;
+    const amt = parseFloat(formAmount);
+
+    // Budget warning check
+    if (!pendingExpenseCreate && (myApprovedThisMonth + amt) > MONTHLY_BUDGET_PER_REP) {
+      setPendingExpenseCreate(true);
+      setBudgetWarningOpen(true);
+      return;
+    }
+
+    const nowISO = new Date().toISOString();
+    const approvalLevel = getApprovalLevel(amt);
     const newExp: Expense = {
       id: genId(),
       userId: user.id,
       userName: user.name,
       date: formDate,
       type: formType,
-      amount: parseFloat(formAmount),
+      amount: amt,
       description: formDescription,
       receiptPhoto: formPhoto,
       status: "PENDING",
-      createdAt: new Date().toISOString(),
+      createdAt: nowISO,
+      approvalHistory: [
+        {
+          id: `ah-${Date.now().toString(36)}`,
+          action: "SUBMITTED",
+          performedBy: user.name,
+          timestamp: nowISO,
+          comment: `Requires ${approvalLevel.approver} approval (Level ${approvalLevel.level})`,
+          level: approvalLevel.level,
+        },
+      ],
     };
     persist([newExp, ...expenses]);
     setNewDialogOpen(false);
+    setBudgetWarningOpen(false);
+    setPendingExpenseCreate(false);
     resetForm();
   }
 
@@ -351,12 +480,12 @@ export default function ExpensesPage() {
     // Create a journal entry in accounting for the approved expense
     const jeId = store.genId("je");
     const jeNumber = store.generateJournalNumber();
-    const now = new Date().toISOString();
+    const nowISO = new Date().toISOString();
 
     store.add("journalEntries", {
       id: jeId,
       number: jeNumber,
-      date: now.slice(0, 10),
+      date: nowISO.slice(0, 10),
       description: `Approved expense — ${exp.description}`,
       reference: exp.id,
       type: "GENERAL",
@@ -376,12 +505,27 @@ export default function ExpensesPage() {
       ],
       status: "POSTED",
       createdBy: user.id,
-      createdAt: now,
+      createdAt: nowISO,
     });
+
+    const approvalEntry: ApprovalEntry = {
+      id: `ah-${Date.now().toString(36)}`,
+      action: "APPROVED",
+      performedBy: user.name,
+      timestamp: nowISO,
+      comment: `Approved and posted as Journal Entry ${jeNumber}`,
+      level: getApprovalLevel(exp.amount).level,
+    };
 
     const next = expenses.map((e) =>
       e.id === exp.id
-        ? { ...e, status: "APPROVED" as ExpenseStatus, approvedBy: user.name, journalEntryId: jeId }
+        ? {
+            ...e,
+            status: "APPROVED" as ExpenseStatus,
+            approvedBy: user.name,
+            journalEntryId: jeId,
+            approvalHistory: [...(e.approvalHistory || []), approvalEntry],
+          }
         : e
     );
     persist(next);
@@ -390,14 +534,32 @@ export default function ExpensesPage() {
   function openRejectDialog(exp: Expense) {
     setSelectedExpense(exp);
     setRejectionReason("");
+    setRejectAction("REJECT");
     setRejectDialogOpen(true);
   }
 
   function handleReject() {
-    if (!selectedExpense) return;
+    if (!selectedExpense || !rejectionReason.trim()) return;
+    const nowISO = new Date().toISOString();
+    const isReturn = rejectAction === "RETURN";
+
+    const auditEntry: ApprovalEntry = {
+      id: `ah-${Date.now().toString(36)}`,
+      action: isReturn ? "RETURNED" : "REJECTED",
+      performedBy: user.name,
+      timestamp: nowISO,
+      comment: rejectionReason,
+      level: getApprovalLevel(selectedExpense.amount).level,
+    };
+
     const next = expenses.map((e) =>
       e.id === selectedExpense.id
-        ? { ...e, status: "REJECTED" as ExpenseStatus, rejectionReason: rejectionReason || "No reason provided" }
+        ? {
+            ...e,
+            status: (isReturn ? "DRAFT" : "REJECTED") as ExpenseStatus,
+            rejectionReason: rejectionReason,
+            approvalHistory: [...(e.approvalHistory || []), auditEntry],
+          }
         : e
     );
     persist(next);
@@ -409,11 +571,12 @@ export default function ExpensesPage() {
 
   function statusBadge(status: ExpenseStatus) {
     const map: Record<ExpenseStatus, string> = {
+      DRAFT: "bg-slate-100 text-slate-800",
       PENDING: "bg-yellow-100 text-yellow-800",
       APPROVED: "bg-green-100 text-green-800",
       REJECTED: "bg-red-100 text-red-800",
     };
-    return <Badge className={map[status]}>{status}</Badge>;
+    return <Badge className={map[status]}>{status === "DRAFT" ? "REVISION NEEDED" : status}</Badge>;
   }
 
   // ─── Table columns ─────────────────────────────────────────────────────
@@ -476,7 +639,14 @@ export default function ExpensesPage() {
       key: "amount",
       label: "Amount (EGP)",
       sortable: true,
-      render: (v: number) => <span className="font-semibold">{v.toLocaleString()}</span>,
+      render: (v: number) => (
+        <div>
+          <span className="font-semibold">{v.toLocaleString()}</span>
+          <div className="text-[10px] text-slate-500 mt-0.5">
+            Level {getApprovalLevel(v).level}: {getApprovalLevel(v).approver}
+          </div>
+        </div>
+      ),
     },
     {
       key: "description",
@@ -612,6 +782,63 @@ export default function ExpensesPage() {
         <StatsCard icon={X} title="Rejected" value={`${rejectedAmount.toLocaleString()} EGP`} subtitle={`${expenses.filter((e) => e.status === "REJECTED").length} expenses`} iconColor="bg-red-100 text-red-600" />
       </div>
 
+      {/* Budget Controls */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" /> Monthly Budget Overview
+          </CardTitle>
+          <CardDescription>Your personal expense budget for this month</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="text-center p-3 rounded-lg bg-slate-50">
+              <p className="text-xs text-slate-500">Monthly Budget</p>
+              <p className="text-lg font-bold text-slate-800">{MONTHLY_BUDGET_PER_REP.toLocaleString()} EGP</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-green-50">
+              <p className="text-xs text-green-600">Approved This Month</p>
+              <p className="text-lg font-bold text-green-700">{myApprovedThisMonth.toLocaleString()} EGP</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-yellow-50">
+              <p className="text-xs text-yellow-600">Pending</p>
+              <p className="text-lg font-bold text-yellow-700">{myPendingThisMonth.toLocaleString()} EGP</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-blue-50">
+              <p className="text-xs text-blue-600">Remaining</p>
+              <p className={`text-lg font-bold ${budgetRemaining < 0 ? "text-red-700" : "text-blue-700"}`}>{budgetRemaining.toLocaleString()} EGP</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-purple-50">
+              <p className="text-xs text-purple-600">Utilization</p>
+              <p className={`text-lg font-bold ${budgetUtilization > 90 ? "text-red-700" : "text-purple-700"}`}>{budgetUtilization}%</p>
+            </div>
+          </div>
+          {/* Budget progress bar */}
+          <div>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="text-slate-500">Budget Used</span>
+              <span className={`font-semibold ${budgetUtilization > 90 ? "text-red-600" : "text-slate-700"}`}>
+                {myApprovedThisMonth.toLocaleString()} / {MONTHLY_BUDGET_PER_REP.toLocaleString()} EGP
+              </span>
+            </div>
+            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${budgetBarColor}`}
+                style={{ width: `${Math.min(budgetUtilization, 100)}%` }}
+              />
+            </div>
+            {budgetUtilization > 90 && (
+              <div className="flex items-center gap-2 mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+                <p className="text-xs text-red-700">
+                  Budget utilization is at {budgetUtilization}%. {budgetRemaining < 0 ? `You have exceeded your budget by ${Math.abs(budgetRemaining).toLocaleString()} EGP.` : `Only ${budgetRemaining.toLocaleString()} EGP remaining.`}
+                </p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Tabs */}
       <Tabs defaultValue="my-expenses">
         <TabsList>
@@ -660,6 +887,129 @@ export default function ExpensesPage() {
             <Button variant="outline" onClick={handleExportCSV}>
               <Download className="h-4 w-4 mr-2" /> Export to CSV
             </Button>
+          </div>
+
+          {/* Enhanced Analytics Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Budget Utilization Gauge */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <TrendingUp className="h-4 w-4" /> Budget Utilization
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-center">
+                  <div className="relative w-28 h-28">
+                    <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                      <circle cx="50" cy="50" r="40" fill="none" stroke="#e2e8f0" strokeWidth="10" />
+                      <circle
+                        cx="50" cy="50" r="40" fill="none"
+                        stroke={budgetUtilization > 90 ? "#ef4444" : budgetUtilization > 70 ? "#eab308" : "#22c55e"}
+                        strokeWidth="10"
+                        strokeDasharray={`${Math.min(budgetUtilization, 100) * 2.51} 251`}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className={`text-xl font-bold ${budgetUtilization > 90 ? "text-red-600" : "text-slate-800"}`}>{budgetUtilization}%</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-center text-xs text-slate-500 mt-2">
+                  {myApprovedThisMonth.toLocaleString()} / {MONTHLY_BUDGET_PER_REP.toLocaleString()} EGP
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Expense Trend (Last 6 Months) */}
+            <Card className="col-span-1 md:col-span-2 lg:col-span-1">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <BarChart3 className="h-4 w-4" /> 6-Month Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-end gap-1.5 h-24">
+                  {(() => {
+                    const maxVal = Math.max(...expenseTrendLast6.map((m) => m.total), 1);
+                    return expenseTrendLast6.map((m) => (
+                      <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
+                        <span className="text-[9px] text-slate-500 font-medium">{m.total > 0 ? `${(m.total / 1000).toFixed(1)}k` : "0"}</span>
+                        <div
+                          className="w-full bg-blue-500 rounded-t transition-all duration-300 min-h-[2px]"
+                          style={{ height: `${Math.max((m.total / maxVal) * 70, 2)}px` }}
+                        />
+                        <span className="text-[9px] text-slate-400">{m.month}</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Top Categories Pie Breakdown */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <PieChart className="h-4 w-4" /> Category Breakdown
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {categoryBreakdown.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4">No approved expenses</p>
+                ) : (
+                  <div className="space-y-2">
+                    {categoryBreakdown.map((cat, idx) => (
+                      <div key={cat.category} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <div className={`w-2.5 h-2.5 rounded-full ${CATEGORY_COLORS[idx % CATEGORY_COLORS.length]}`} />
+                            <span className="text-slate-700">{cat.category}</span>
+                          </div>
+                          <span className="text-slate-500">{cat.pct}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${CATEGORY_COLORS[idx % CATEGORY_COLORS.length]}`}
+                            style={{ width: `${cat.pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Average Processing Time */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <Timer className="h-4 w-4" /> Avg Processing Time
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center justify-center py-3">
+                  <div className="text-3xl font-bold text-slate-800">{avgProcessingTime}</div>
+                  <p className="text-xs text-slate-500 mt-1">hours average</p>
+                  <div className="mt-3 w-full grid grid-cols-3 gap-1 text-center">
+                    <div className="p-1.5 bg-green-50 rounded">
+                      <p className="text-xs font-semibold text-green-700">{expenses.filter((e) => e.status === "APPROVED").length}</p>
+                      <p className="text-[9px] text-green-600">Approved</p>
+                    </div>
+                    <div className="p-1.5 bg-yellow-50 rounded">
+                      <p className="text-xs font-semibold text-yellow-700">{expenses.filter((e) => e.status === "PENDING").length}</p>
+                      <p className="text-[9px] text-yellow-600">Pending</p>
+                    </div>
+                    <div className="p-1.5 bg-red-50 rounded">
+                      <p className="text-xs font-semibold text-red-700">{expenses.filter((e) => e.status === "REJECTED").length}</p>
+                      <p className="text-[9px] text-red-600">Rejected</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -798,6 +1148,54 @@ export default function ExpensesPage() {
                   </div>
                 )}
               </div>
+              {/* Approval Level Indicator */}
+              <div className="p-3 bg-slate-50 rounded-lg">
+                <p className="text-slate-500 text-xs mb-1">Required Approval</p>
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-indigo-100 text-indigo-700">
+                    Level {getApprovalLevel(selectedExpense.amount).level}
+                  </Badge>
+                  <span className="text-sm font-medium">{getApprovalLevel(selectedExpense.amount).approver}</span>
+                </div>
+              </div>
+
+              {/* Approval Audit Trail Timeline */}
+              {selectedExpense.approvalHistory && selectedExpense.approvalHistory.length > 0 && (
+                <div>
+                  <p className="text-slate-500 text-xs mb-3">Approval Timeline</p>
+                  <div className="relative pl-6 space-y-4">
+                    {/* Vertical line */}
+                    <div className="absolute left-[9px] top-1 bottom-1 w-0.5 bg-slate-200" />
+                    {selectedExpense.approvalHistory.map((entry) => {
+                      const dotColor: Record<string, string> = {
+                        SUBMITTED: "bg-blue-500",
+                        APPROVED: "bg-green-500",
+                        REJECTED: "bg-red-500",
+                        ESCALATED: "bg-orange-500",
+                        RETURNED: "bg-yellow-500",
+                      };
+                      return (
+                        <div key={entry.id} className="relative">
+                          {/* Colored dot */}
+                          <div className={`absolute -left-6 top-0.5 w-[18px] h-[18px] rounded-full border-2 border-white ${dotColor[entry.action] || "bg-slate-400"}`} />
+                          <div className="text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold">{entry.action}</span>
+                              <span className="text-[10px] text-slate-400">Level {entry.level}</span>
+                            </div>
+                            <p className="text-xs text-slate-600">{entry.performedBy}</p>
+                            <p className="text-[10px] text-slate-400">{new Date(entry.timestamp).toLocaleString()}</p>
+                            {entry.comment && (
+                              <p className="text-xs text-slate-500 mt-1 italic">&ldquo;{entry.comment}&rdquo;</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {selectedExpense.receiptPhoto && (
                 <div>
                   <p className="text-slate-500 text-xs mb-2">Receipt Photo</p>
@@ -815,28 +1213,101 @@ export default function ExpensesPage() {
 
       {/* ─── Reject Dialog ──────────────────────────────────────────────── */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Reject Expense</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <p className="text-sm text-slate-600">
               Rejecting expense from <strong>{selectedExpense?.userName}</strong> for{" "}
               <strong>{selectedExpense?.amount.toLocaleString()} EGP</strong>.
             </p>
+            {/* Action type selection */}
             <div className="space-y-2">
-              <Label>Reason for rejection</Label>
+              <Label>Action</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRejectAction("RETURN")}
+                  className={`flex items-center gap-2 p-3 rounded-lg border-2 text-sm transition-colors ${rejectAction === "RETURN" ? "border-yellow-400 bg-yellow-50 text-yellow-800" : "border-slate-200 hover:border-slate-300"}`}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <div className="text-left">
+                    <p className="font-medium">Return for revision</p>
+                    <p className="text-[10px] text-slate-500">Back to draft</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRejectAction("REJECT")}
+                  className={`flex items-center gap-2 p-3 rounded-lg border-2 text-sm transition-colors ${rejectAction === "REJECT" ? "border-red-400 bg-red-50 text-red-800" : "border-slate-200 hover:border-slate-300"}`}
+                >
+                  <X className="h-4 w-4" />
+                  <div className="text-left">
+                    <p className="font-medium">Reject (final)</p>
+                    <p className="text-[10px] text-slate-500">Cannot resubmit</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Reason (required)</Label>
               <Input
                 placeholder="Please provide a reason..."
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
               />
+              {!rejectionReason.trim() && (
+                <p className="text-[10px] text-red-500">A reason is required for rejection.</p>
+              )}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleReject}>
-              <X className="h-4 w-4 mr-2" /> Reject
+            {rejectAction === "RETURN" ? (
+              <Button className="bg-yellow-600 hover:bg-yellow-700 text-white" onClick={handleReject} disabled={!rejectionReason.trim()}>
+                <RotateCcw className="h-4 w-4 mr-2" /> Return for Revision
+              </Button>
+            ) : (
+              <Button variant="destructive" onClick={handleReject} disabled={!rejectionReason.trim()}>
+                <X className="h-4 w-4 mr-2" /> Reject
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Budget Warning Dialog ──────────────────────────────────────── */}
+      <Dialog open={budgetWarningOpen} onOpenChange={(open) => { setBudgetWarningOpen(open); if (!open) setPendingExpenseCreate(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-yellow-700">
+              <AlertTriangle className="h-5 w-5" /> Budget Warning
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                This expense (<strong>{parseFloat(formAmount || "0").toLocaleString()} EGP</strong>) will exceed your monthly budget by{" "}
+                <strong>{Math.abs(budgetRemaining - parseFloat(formAmount || "0")).toLocaleString()} EGP</strong>.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="p-2 bg-slate-50 rounded">
+                <p className="text-xs text-slate-500">Monthly Budget</p>
+                <p className="font-semibold">{MONTHLY_BUDGET_PER_REP.toLocaleString()} EGP</p>
+              </div>
+              <div className="p-2 bg-slate-50 rounded">
+                <p className="text-xs text-slate-500">Already Approved</p>
+                <p className="font-semibold">{myApprovedThisMonth.toLocaleString()} EGP</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600">Submit anyway?</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setBudgetWarningOpen(false); setPendingExpenseCreate(false); }}>Cancel</Button>
+            <Button className="bg-yellow-600 hover:bg-yellow-700 text-white" onClick={handleCreateExpense}>
+              <AlertTriangle className="h-4 w-4 mr-2" /> Submit Anyway
             </Button>
           </DialogFooter>
         </DialogContent>

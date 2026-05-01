@@ -87,6 +87,105 @@ function fmtDuration(mins: number | null): string {
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const SUSPICIOUS_THRESHOLD_MIN = 10;
+const EXTENDED_THRESHOLD_MIN = 120;
+const MAX_VISITS_PER_DAY = 8;
+const ESCALATION_HOURS = 48;
+const ESCALATION_CHAIN = ["DISTRICT_MANAGER", "MARKETEER", "BUM"] as const;
+const ESCALATION_CHAIN_LABELS: Record<string, string> = {
+  DISTRICT_MANAGER: "DM",
+  MARKETEER: "Marketeer",
+  BUM: "BUM",
+};
+
+/* ─── Conflict Detection Helpers ─── */
+interface PlanConflict {
+  type: "duplicate_doctor" | "overlapping_time" | "excessive_visits";
+  dayIndex: number;
+  message: string;
+}
+
+interface PlanValidation {
+  suspicious: number; // visits < 10min
+  extended: number;   // visits > 120min
+  conflicts: PlanConflict[];
+}
+
+function detectConflicts(days: DailyPlan[]): PlanConflict[] {
+  const conflicts: PlanConflict[] = [];
+  days.forEach((day, dayIdx) => {
+    // Same doctor visited twice in one day
+    const doctorIds = day.visits.filter((v) => v.doctorId).map((v) => v.doctorId!);
+    const seenDoctors = new Set<string>();
+    doctorIds.forEach((id) => {
+      if (seenDoctors.has(id)) {
+        conflicts.push({
+          type: "duplicate_doctor",
+          dayIndex: dayIdx,
+          message: `Same doctor visited twice on ${DAY_LABELS[dayIdx]}`,
+        });
+      }
+      seenDoctors.add(id);
+    });
+
+    // Same AM account visited twice in one day
+    const accountIds = day.visits.filter((v) => v.amAccountId).map((v) => v.amAccountId!);
+    const seenAccounts = new Set<string>();
+    accountIds.forEach((id) => {
+      if (seenAccounts.has(id)) {
+        conflicts.push({
+          type: "duplicate_doctor",
+          dayIndex: dayIdx,
+          message: `Same account visited twice on ${DAY_LABELS[dayIdx]}`,
+        });
+      }
+      seenAccounts.add(id);
+    });
+
+    // Overlapping time slots
+    const sortedVisits = [...day.visits].sort((a, b) => a.timeSlot.localeCompare(b.timeSlot));
+    for (let i = 0; i < sortedVisits.length - 1; i++) {
+      if (sortedVisits[i].timeSlot === sortedVisits[i + 1].timeSlot) {
+        conflicts.push({
+          type: "overlapping_time",
+          dayIndex: dayIdx,
+          message: `Overlapping time slot ${sortedVisits[i].timeSlot} on ${DAY_LABELS[dayIdx]}`,
+        });
+      }
+    }
+
+    // Excessive visits (>8 per day)
+    if (day.visits.length > MAX_VISITS_PER_DAY) {
+      conflicts.push({
+        type: "excessive_visits",
+        dayIndex: dayIdx,
+        message: `${day.visits.length} visits on ${DAY_LABELS[dayIdx]} (max ${MAX_VISITS_PER_DAY})`,
+      });
+    }
+  });
+  return conflicts;
+}
+
+function validatePlan(days: DailyPlan[]): PlanValidation {
+  const conflicts = detectConflicts(days);
+  let suspicious = 0;
+  let extended = 0;
+  days.forEach((day) => {
+    day.visits.forEach((v) => {
+      const dur = calcDurationMin(v.checkInTime, v.checkOutTime);
+      if (dur !== null && dur < SUSPICIOUS_THRESHOLD_MIN) suspicious++;
+      if (dur !== null && dur > EXTENDED_THRESHOLD_MIN) extended++;
+    });
+  });
+  return { suspicious, extended, conflicts };
+}
+
+/** Check if a plan has been submitted for more than 48 hours */
+function isPendingEscalation(plan: WeeklyPlan): boolean {
+  if (plan.status !== "SUBMITTED" || !plan.submittedAt) return false;
+  const submittedTime = new Date(plan.submittedAt).getTime();
+  const now = Date.now();
+  return (now - submittedTime) > ESCALATION_HOURS * 60 * 60 * 1000;
+}
 
 export default function WeeklyPlanPage() {
   const store = useDataStore();
@@ -142,30 +241,78 @@ export default function WeeklyPlanPage() {
   }
 
   function submitPlan(plan: WeeklyPlan) {
+    const entry: ApprovalEntry = {
+      id: store.genId("ah"),
+      action: "SUBMITTED",
+      performedBy: user.name,
+      performedById: user.id,
+      timestamp: new Date().toISOString(),
+      level: 0,
+    };
     store.update("weeklyPlans", plan.id, {
       status: "SUBMITTED",
       submittedAt: new Date().toISOString(),
+      approvalHistory: [...(plan.approvalHistory ?? []), entry],
+      approvalLevel: 0,
     });
   }
 
   function approvePlan(plan: WeeklyPlan) {
+    const entry: ApprovalEntry = {
+      id: store.genId("ah"),
+      action: "APPROVED",
+      performedBy: user.name,
+      performedById: user.id,
+      timestamp: new Date().toISOString(),
+      level: plan.approvalLevel ?? 0,
+    };
     store.update("weeklyPlans", plan.id, {
       status: "APPROVED",
       approvedById: user.id,
       approvedAt: new Date().toISOString(),
+      approvalHistory: [...(plan.approvalHistory ?? []), entry],
     });
   }
 
   function rejectPlan() {
     if (!rejectingPlan) return;
+    const entry: ApprovalEntry = {
+      id: store.genId("ah"),
+      action: "REJECTED",
+      performedBy: user.name,
+      performedById: user.id,
+      timestamp: new Date().toISOString(),
+      comment: rejectReason,
+      level: rejectingPlan.approvalLevel ?? 0,
+    };
     store.update("weeklyPlans", rejectingPlan.id, {
       status: "REJECTED",
       rejectionReason: rejectReason,
       approvedById: user.id,
       approvedAt: new Date().toISOString(),
+      approvalHistory: [...(rejectingPlan.approvalHistory ?? []), entry],
     });
     setRejectingPlan(null);
     setRejectReason("");
+  }
+
+  function escalatePlan(plan: WeeklyPlan) {
+    const currentLevel = plan.approvalLevel ?? 0;
+    const nextLevel = Math.min(currentLevel + 1, ESCALATION_CHAIN.length - 1);
+    const nextRole = ESCALATION_CHAIN[nextLevel];
+    const entry: ApprovalEntry = {
+      id: store.genId("ah"),
+      action: "ESCALATED",
+      performedBy: user.name,
+      performedById: user.id,
+      timestamp: new Date().toISOString(),
+      comment: `Escalated to ${ESCALATION_CHAIN_LABELS[nextRole]}`,
+      level: nextLevel,
+    };
+    store.update("weeklyPlans", plan.id, {
+      approvalLevel: nextLevel,
+      approvalHistory: [...(plan.approvalHistory ?? []), entry],
+    });
   }
 
   function deletePlan(plan: WeeklyPlan) {
@@ -262,6 +409,7 @@ export default function WeeklyPlanPage() {
                   onApprove={() => approvePlan(plan)}
                   onReject={() => setRejectingPlan(plan)}
                   onDelete={() => deletePlan(plan)}
+                  onEscalate={() => escalatePlan(plan)}
                 />
               ))
           )}
@@ -290,6 +438,7 @@ export default function WeeklyPlanPage() {
                     onApprove={() => approvePlan(plan)}
                     onReject={() => setRejectingPlan(plan)}
                     onDelete={() => deletePlan(plan)}
+                    onEscalate={() => escalatePlan(plan)}
                   />
                 ))
             )}
@@ -312,6 +461,7 @@ export default function WeeklyPlanPage() {
                 onApprove={() => approvePlan(plan)}
                 onReject={() => setRejectingPlan(plan)}
                 onDelete={() => deletePlan(plan)}
+                onEscalate={() => escalatePlan(plan)}
               />
             ))}
         </TabsContent>
@@ -412,6 +562,7 @@ function PlanCard({
   onApprove,
   onReject,
   onDelete,
+  onEscalate,
 }: {
   plan: WeeklyPlan;
   store: ReturnType<typeof useDataStore>;
@@ -423,7 +574,10 @@ function PlanCard({
   onApprove: () => void;
   onReject: () => void;
   onDelete: () => void;
+  onEscalate: () => void;
 }) {
+  const [showAuditTrail, setShowAuditTrail] = useState(false);
+
   const rep = allUsers.find((u) => u.id === plan.repId);
   const approver = plan.approvedById ? allUsers.find((u) => u.id === plan.approvedById) : null;
   const totalVisits = plan.days.reduce((sum, d) => sum + d.visits.length, 0);
@@ -436,6 +590,16 @@ function PlanCard({
   ).filter((d): d is number => d !== null);
   const avgDuration = durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null;
   const suspiciousCount = durations.filter((d) => d < SUSPICIOUS_THRESHOLD_MIN).length;
+  const extendedCount = durations.filter((d) => d > EXTENDED_THRESHOLD_MIN).length;
+
+  // Conflict detection
+  const validation = validatePlan(plan.days);
+  const conflictCount = validation.conflicts.length;
+
+  // Escalation check
+  const needsEscalation = isPendingEscalation(plan);
+  const currentEscalationLevel = plan.approvalLevel ?? 0;
+  const canEscalate = plan.status === "SUBMITTED" && currentEscalationLevel < ESCALATION_CHAIN.length - 1;
 
   const statusBadge: Record<typeof plan.status, { label: string; color: string }> = {
     DRAFT: { label: "Draft", color: "bg-slate-100 text-slate-700" },
@@ -458,12 +622,39 @@ function PlanCard({
                 <span className="ml-2">· Avg duration: {fmtDuration(avgDuration)}</span>
               )}
             </p>
+            {/* Validation summary line */}
+            {(conflictCount > 0 || validation.suspicious > 0 || extendedCount > 0) && (
+              <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-2">
+                <ShieldAlert className="h-3 w-3 text-amber-500" />
+                {conflictCount > 0 && <span className="text-amber-700">{conflictCount} conflict{conflictCount !== 1 ? "s" : ""}</span>}
+                {validation.suspicious > 0 && <span className="text-orange-700">{validation.suspicious} suspicious</span>}
+                {extendedCount > 0 && <span className="text-violet-700">{extendedCount} extended</span>}
+              </p>
+            )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {needsEscalation && (
+              <Badge className="bg-orange-100 text-orange-700 text-[10px] flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                Pending &gt;48h
+              </Badge>
+            )}
+            {conflictCount > 0 && (
+              <Badge className="bg-yellow-100 text-yellow-800 text-[10px] flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                {conflictCount} conflict{conflictCount !== 1 ? "s" : ""}
+              </Badge>
+            )}
             {suspiciousCount > 0 && (
               <Badge className="bg-orange-100 text-orange-700 text-[10px] flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3" />
                 {suspiciousCount} short
+              </Badge>
+            )}
+            {extendedCount > 0 && (
+              <Badge className="bg-violet-100 text-violet-700 text-[10px] flex items-center gap-1">
+                <Timer className="h-3 w-3" />
+                {extendedCount} extended
               </Badge>
             )}
             <Badge className={statusBadge[plan.status].color}>{statusBadge[plan.status].label}</Badge>
@@ -471,30 +662,70 @@ function PlanCard({
         </div>
       </CardHeader>
       <CardContent>
+        {/* Escalation chain indicator */}
+        {plan.status === "SUBMITTED" && (
+          <div className="flex items-center gap-1 mb-3 text-[10px] text-muted-foreground">
+            <span className="font-medium">Escalation:</span>
+            {ESCALATION_CHAIN.map((role, idx) => (
+              <span key={role} className="flex items-center gap-0.5">
+                {idx > 0 && <span className="mx-0.5">→</span>}
+                <span className={idx === currentEscalationLevel ? "font-bold text-blue-700 bg-blue-50 px-1 rounded" : ""}>
+                  {ESCALATION_CHAIN_LABELS[role]}
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="grid grid-cols-7 gap-2 mb-3">
-          {plan.days.map((d, i) => (
-            <div key={i} className="border rounded p-2 text-center">
-              <p className="text-[10px] text-muted-foreground font-medium uppercase">{DAY_LABELS[i]}</p>
-              <p className="text-xs font-medium mt-0.5">{new Date(d.date).getDate()}</p>
-              <div className="mt-2 space-y-1">
-                {d.visits.length === 0 ? (
-                  <p className="text-[10px] text-muted-foreground">—</p>
-                ) : (
-                  <>
-                    <p className="text-[10px] flex items-center justify-center gap-1">
-                      <Sun className="h-2.5 w-2.5 text-amber-500" />
-                      {d.visits.filter((v) => v.session === "AM").length}
-                    </p>
-                    <p className="text-[10px] flex items-center justify-center gap-1">
-                      <Moon className="h-2.5 w-2.5 text-indigo-500" />
-                      {d.visits.filter((v) => v.session === "PM").length}
-                    </p>
-                  </>
-                )}
+          {plan.days.map((d, i) => {
+            const dayConflicts = validation.conflicts.filter((c) => c.dayIndex === i);
+            return (
+              <div key={i} className={`border rounded p-2 text-center ${dayConflicts.length > 0 ? "border-yellow-400 bg-yellow-50/30" : ""}`}>
+                <p className="text-[10px] text-muted-foreground font-medium uppercase">{DAY_LABELS[i]}</p>
+                <p className="text-xs font-medium mt-0.5">{new Date(d.date).getDate()}</p>
+                <div className="mt-2 space-y-1">
+                  {d.visits.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground">—</p>
+                  ) : (
+                    <>
+                      <p className="text-[10px] flex items-center justify-center gap-1">
+                        <Sun className="h-2.5 w-2.5 text-amber-500" />
+                        {d.visits.filter((v) => v.session === "AM").length}
+                      </p>
+                      <p className="text-[10px] flex items-center justify-center gap-1">
+                        <Moon className="h-2.5 w-2.5 text-indigo-500" />
+                        {d.visits.filter((v) => v.session === "PM").length}
+                      </p>
+                    </>
+                  )}
+                  {dayConflicts.length > 0 && (
+                    <p className="text-[9px] text-yellow-700 font-medium">{dayConflicts.length} issue{dayConflicts.length !== 1 ? "s" : ""}</p>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
+
+        {/* Conflict details */}
+        {validation.conflicts.length > 0 && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mb-3 space-y-1">
+            <p className="text-xs font-semibold text-yellow-800 flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" /> Conflicts Detected
+            </p>
+            {validation.conflicts.map((c, idx) => (
+              <p key={idx} className="text-[10px] text-yellow-700 flex items-center gap-1">
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                  c.type === "duplicate_doctor" ? "bg-yellow-500" :
+                  c.type === "overlapping_time" ? "bg-red-500" :
+                  "bg-orange-500"
+                }`} />
+                {c.message}
+              </p>
+            ))}
+          </div>
+        )}
 
         {plan.status === "REJECTED" && plan.rejectionReason && (
           <div className="bg-red-50 border border-red-200 rounded p-2 mb-3">
@@ -541,15 +772,92 @@ function PlanCard({
               </Button>
             </>
           )}
+          {canEscalate && isManager && (
+            <Button size="sm" variant="outline" onClick={onEscalate} className="text-orange-700 border-orange-300 hover:bg-orange-50">
+              <ArrowUpCircle className="h-3.5 w-3.5 mr-1" />
+              Escalate
+            </Button>
+          )}
           {(plan.status === "DRAFT" || plan.status === "REJECTED") && isRep && (
             <Button size="sm" variant="ghost" onClick={onDelete} className="text-red-600">
               <Trash2 className="h-3.5 w-3.5 mr-1" />
               Delete
             </Button>
           )}
+          {/* Audit trail toggle */}
+          {(plan.approvalHistory ?? []).length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowAuditTrail(!showAuditTrail)}
+              className="text-slate-600 ml-auto"
+            >
+              <History className="h-3.5 w-3.5 mr-1" />
+              Audit Trail
+              {showAuditTrail ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
+            </Button>
+          )}
         </div>
+
+        {/* Approval Audit Trail */}
+        {showAuditTrail && (plan.approvalHistory ?? []).length > 0 && (
+          <ApprovalAuditTrail history={plan.approvalHistory!} />
+        )}
       </CardContent>
     </Card>
+  );
+}
+
+/* ─── Approval Audit Trail ─── */
+function ApprovalAuditTrail({ history }: { history: ApprovalEntry[] }) {
+  const actionConfig: Record<string, { color: string; borderColor: string; icon: string }> = {
+    SUBMITTED: { color: "bg-blue-500", borderColor: "border-blue-200", icon: "blue" },
+    APPROVED: { color: "bg-emerald-500", borderColor: "border-emerald-200", icon: "green" },
+    REJECTED: { color: "bg-red-500", borderColor: "border-red-200", icon: "red" },
+    ESCALATED: { color: "bg-orange-500", borderColor: "border-orange-200", icon: "orange" },
+    AUTO_ESCALATED: { color: "bg-orange-500", borderColor: "border-orange-200", icon: "orange" },
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t">
+      <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1">
+        <History className="h-3.5 w-3.5" /> Approval History
+      </p>
+      <div className="relative ml-2">
+        {/* Vertical timeline line */}
+        <div className="absolute left-[5px] top-1 bottom-1 w-px bg-slate-200" />
+        <div className="space-y-2">
+          {history.map((entry) => {
+            const cfg = actionConfig[entry.action] ?? actionConfig.SUBMITTED;
+            return (
+              <div key={entry.id} className="flex items-start gap-3 relative">
+                {/* Timeline dot */}
+                <div className={`w-[11px] h-[11px] rounded-full ${cfg.color} border-2 border-white ring-1 ring-slate-200 shrink-0 mt-0.5 z-10`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-medium">{entry.action.replace("_", " ")}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      by {entry.performedBy}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(entry.timestamp).toLocaleString()}
+                    </span>
+                    {entry.level > 0 && (
+                      <Badge variant="outline" className="text-[9px] h-4">
+                        Level {entry.level}
+                      </Badge>
+                    )}
+                  </div>
+                  {entry.comment && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5 italic">&quot;{entry.comment}&quot;</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -639,13 +947,28 @@ function PlanEditor({
         </DialogHeader>
 
         <div className="space-y-3 py-4">
-          {days.map((day, dayIdx) => (
-            <Card key={dayIdx}>
+          {days.map((day, dayIdx) => {
+            const dayConflictsEditor = detectConflicts([day]).map((c) => ({ ...c, dayIndex: dayIdx }));
+            return (
+            <Card key={dayIdx} className={dayConflictsEditor.length > 0 ? "border-yellow-300" : ""}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm">
-                    {DAY_LABELS[dayIdx]} · {fmtDate(day.date)}
-                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-sm">
+                      {DAY_LABELS[dayIdx]} · {fmtDate(day.date)}
+                    </CardTitle>
+                    {dayConflictsEditor.length > 0 && (
+                      <Badge className="bg-yellow-100 text-yellow-800 text-[10px]">
+                        <AlertTriangle className="h-3 w-3 mr-0.5" />
+                        {dayConflictsEditor.length} issue{dayConflictsEditor.length !== 1 ? "s" : ""}
+                      </Badge>
+                    )}
+                    {day.visits.length > MAX_VISITS_PER_DAY && (
+                      <Badge className="bg-orange-100 text-orange-800 text-[10px]">
+                        {day.visits.length} visits (max {MAX_VISITS_PER_DAY})
+                      </Badge>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                     {!isReadonly && (
                       <>
@@ -659,6 +982,21 @@ function PlanEditor({
                     )}
                   </div>
                 </div>
+                {/* Inline conflict messages for this day */}
+                {dayConflictsEditor.length > 0 && (
+                  <div className="mt-1 space-y-0.5">
+                    {dayConflictsEditor.map((c, idx) => (
+                      <p key={idx} className="text-[10px] text-yellow-700 flex items-center gap-1">
+                        <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                          c.type === "duplicate_doctor" ? "bg-yellow-500" :
+                          c.type === "overlapping_time" ? "bg-red-500" :
+                          "bg-orange-500"
+                        }`} />
+                        {c.message}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-3">
                 {/* Starting points */}
@@ -713,8 +1051,9 @@ function PlanEditor({
                     {day.visits.map((v, vIdx) => {
                       const dur = calcDurationMin(v.checkInTime, v.checkOutTime);
                       const isSuspicious = dur !== null && dur < SUSPICIOUS_THRESHOLD_MIN;
+                      const isExtended = dur !== null && dur > EXTENDED_THRESHOLD_MIN;
                       return (
-                        <div key={vIdx} className={`p-2 rounded border ${isSuspicious ? "border-orange-300 bg-orange-50/40" : v.session === "AM" ? "bg-amber-50/30" : "bg-indigo-50/30"}`}>
+                        <div key={vIdx} className={`p-2 rounded border ${isSuspicious ? "border-orange-300 bg-orange-50/40" : isExtended ? "border-violet-300 bg-violet-50/40" : v.session === "AM" ? "bg-amber-50/30" : "bg-indigo-50/30"}`}>
                           <div className="grid grid-cols-12 gap-2 items-center text-xs">
                             <div className="col-span-1">
                               {v.session === "AM" ? (
@@ -797,9 +1136,12 @@ function PlanEditor({
                             {/* Duration */}
                             <div className="col-span-1 text-center">
                               {dur !== null ? (
-                                <span className={`text-[10px] font-medium ${isSuspicious ? "text-orange-600" : "text-muted-foreground"}`}>
+                                <span className={`text-[10px] font-medium ${isSuspicious ? "text-orange-600" : isExtended ? "text-violet-600" : "text-muted-foreground"}`}>
                                   {isSuspicious && <AlertTriangle className="h-2.5 w-2.5 inline mr-0.5" />}
+                                  {isExtended && <Clock className="h-2.5 w-2.5 inline mr-0.5" />}
                                   {fmtDuration(dur)}
+                                  {isSuspicious && <span className="block text-[8px]">Suspicious</span>}
+                                  {isExtended && <span className="block text-[8px]">Extended</span>}
                                 </span>
                               ) : (
                                 <span className="text-[10px] text-muted-foreground">—</span>
@@ -846,9 +1188,10 @@ function PlanEditor({
                               {v.checkInTime && <span>Check-in: {v.checkInTime}</span>}
                               {v.checkOutTime && <span>Check-out: {v.checkOutTime}</span>}
                               {dur !== null && (
-                                <span className={isSuspicious ? "text-orange-600 font-semibold" : ""}>
+                                <span className={isSuspicious ? "text-orange-600 font-semibold" : isExtended ? "text-violet-600 font-semibold" : ""}>
                                   Duration: {fmtDuration(dur)}
                                   {isSuspicious && " (suspicious)"}
+                                  {isExtended && " (extended)"}
                                 </span>
                               )}
                               {v.category && <Badge variant="outline" className="text-[9px] h-4">{v.category}</Badge>}
@@ -873,8 +1216,19 @@ function PlanEditor({
                 )}
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
+
+        {/* Validation Summary */}
+        <PlanEditorValidationSummary days={days} />
+
+        {/* Approval Audit Trail in editor */}
+        {(plan.approvalHistory ?? []).length > 0 && (
+          <div className="mt-2">
+            <ApprovalAuditTrail history={plan.approvalHistory!} />
+          </div>
+        )}
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
@@ -882,6 +1236,67 @@ function PlanEditor({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ─── Plan Editor Validation Summary ─── */
+function PlanEditorValidationSummary({ days }: { days: DailyPlan[] }) {
+  const validation = validatePlan(days);
+  const hasIssues = validation.conflicts.length > 0 || validation.suspicious > 0 || validation.extended > 0;
+
+  if (!hasIssues) return null;
+
+  return (
+    <Card className="border-amber-200 bg-amber-50/30">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2 text-amber-800">
+          <ShieldAlert className="h-4 w-4" />
+          Validation Summary
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="flex items-center gap-4 flex-wrap text-xs">
+          {validation.conflicts.length > 0 && (
+            <div className="flex items-center gap-1">
+              <Badge className="bg-yellow-100 text-yellow-800 text-[10px]">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                {validation.conflicts.length} conflict{validation.conflicts.length !== 1 ? "s" : ""}
+              </Badge>
+            </div>
+          )}
+          {validation.suspicious > 0 && (
+            <div className="flex items-center gap-1">
+              <Badge className="bg-orange-100 text-orange-800 text-[10px]">
+                <Timer className="h-3 w-3 mr-1" />
+                {validation.suspicious} suspicious (&lt;{SUSPICIOUS_THRESHOLD_MIN}m)
+              </Badge>
+            </div>
+          )}
+          {validation.extended > 0 && (
+            <div className="flex items-center gap-1">
+              <Badge className="bg-violet-100 text-violet-800 text-[10px]">
+                <Clock className="h-3 w-3 mr-1" />
+                {validation.extended} extended (&gt;{EXTENDED_THRESHOLD_MIN}m)
+              </Badge>
+            </div>
+          )}
+        </div>
+        {validation.conflicts.length > 0 && (
+          <div className="space-y-1 pt-1 border-t border-amber-200">
+            {validation.conflicts.map((c, idx) => (
+              <p key={idx} className="text-[10px] text-amber-700 flex items-center gap-1">
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                  c.type === "duplicate_doctor" ? "bg-yellow-500" :
+                  c.type === "overlapping_time" ? "bg-red-500" :
+                  "bg-orange-500"
+                }`} />
+                {c.message}
+              </p>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
