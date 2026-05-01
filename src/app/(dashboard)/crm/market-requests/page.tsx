@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import {
   ClipboardList,
   Clock,
@@ -173,6 +173,19 @@ const APPROVAL_CHAIN = [
   { level: 3, role: "BUM", label: "BUM", action: "Level 3" },
 ] as const;
 
+// ─── Request Value Limits ────────────────────────────────────────────────────
+const REQUEST_VALUE_LIMITS: Record<string, { max: number; unit: string }> = {
+  SAMPLE: { max: 50000, unit: "EGP" },
+  EVENT: { max: 200000, unit: "EGP" },
+  DISCOUNT: { max: 30, unit: "%" },
+  LITERATURE: { max: 20000, unit: "EGP" },
+};
+
+// ─── Monthly Request Quota ────────��─────────────────────────────────────────
+const MONTHLY_QUOTA_REP = 10;
+const MONTHLY_QUOTA_MANAGER = 25; // DM, Marketeer
+// BUM and ADMIN are unlimited
+
 /**
  * Determine which approval levels are required for a given request.
  * Returns the max level needed (1 = DM only, 2 = DM+Marketeer, 3 = DM+Marketeer+BUM).
@@ -229,10 +242,16 @@ type MarketRequestExt = MarketRequest & {
 };
 
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
+import { useNotificationCenter } from "@/lib/notification-context";
+import { useAuditLogger } from "@/lib/audit-logger";
 
 export default function MarketRequestsPage() {
   const store = useDataStore();
   const { user, allUsers, getReportsOf } = useCurrentUser();
+
+  // ─── Notification & Audit hooks ──────────────────────────────────────────
+  const { addNotification } = useNotificationCenter();
+  const { logAction } = useAuditLogger();
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
@@ -251,6 +270,15 @@ export default function MarketRequestsPage() {
   const [fulfillmentData, setFulfillmentData] = useState<Record<string, FulfillmentInfo>>({});
   const [approvalLevels, setApprovalLevels] = useState<Record<string, number>>({});
   const [returnCounts, setReturnCounts] = useState<Record<string, number>>({});
+
+  // ─── Auto-escalation state ────────────────────────────────────────��──────
+  const [autoEscalationCount, setAutoEscalationCount] = useState(0);
+  const autoEscalationRan = useRef(false);
+  // Track which request+level combos have been auto-escalated
+  const [autoEscalatedLevels, setAutoEscalatedLevels] = useState<Record<string, number>>({});
+
+  // ─── Submission validation error state ──────────────────────────────────
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const repsUnderMe = getReportsOf(user.id).map((u) => u.id);
 
@@ -343,7 +371,117 @@ export default function MarketRequestsPage() {
     [myRequests]
   );
 
-  // ─── Analytics computations ─────────────────────────────────────────────
+  // ─── Monthly Quota ─────────────────────────────────────────────────────
+  const monthlyQuotaLimit = useMemo(() => {
+    if (user.role === "ADMIN" || user.role === "BUM") return Infinity;
+    if (user.role === "DISTRICT_MANAGER" || user.role === "MARKETEER") return MONTHLY_QUOTA_MANAGER;
+    return MONTHLY_QUOTA_REP;
+  }, [user.role]);
+
+  const monthlyRequestCount = useMemo(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    return myRequests.filter(
+      (r) => r.requestedById === user.id && r.createdAt >= monthStart
+    ).length;
+  }, [myRequests, user.id]);
+
+  const quotaReached = monthlyRequestCount >= monthlyQuotaLimit;
+
+  // ─── Auto-Escalation on mount ─���───────────────────────────────────────
+  useEffect(() => {
+    if (autoEscalationRan.current) return;
+    autoEscalationRan.current = true;
+
+    const pendingRequests = myRequests.filter((r) => r.status === "PENDING");
+    let escalated = 0;
+
+    pendingRequests.forEach((r) => {
+      const sla = getSlaInfo(r.createdAt, r.type);
+      if (!sla.breached) return;
+
+      const currentLevel = approvalLevels[r.id] ?? 0;
+      const alreadyEscalatedAt = autoEscalatedLevels[r.id] ?? -1;
+
+      // Don't re-escalate if already auto-escalated at this level
+      if (alreadyEscalatedAt >= currentLevel) return;
+
+      const newLevel = currentLevel + 1;
+      const slaDays = SLA_DAYS[r.type] ?? 5;
+      const breachDays = Math.floor(Math.abs(sla.remainingMs) / (24 * 60 * 60 * 1000));
+
+      // Update approval level
+      setApprovalLevels((prev) => ({ ...prev, [r.id]: newLevel }));
+
+      // Mark as auto-escalated at this level
+      setAutoEscalatedLevels((prev) => ({ ...prev, [r.id]: currentLevel }));
+
+      // Add audit trail entry
+      const entry: ApprovalEntry = {
+        id: genApprovalId(),
+        action: "AUTO_ESCALATED",
+        performedBy: "System",
+        timestamp: new Date().toISOString(),
+        comment: `SLA breached after ${breachDays} days (limit: ${slaDays} days). Auto-escalated from level ${currentLevel} to level ${newLevel}.`,
+        level: newLevel,
+      };
+      setAuditTrails((prev) => ({
+        ...prev,
+        [r.id]: [...(prev[r.id] || []), entry],
+      }));
+
+      // Send SLA breach + escalation notifications
+      try {
+        addNotification({
+          type: "SLA_BREACH",
+          title: `SLA Breached: ${r.type} request ${r.id}`,
+          message: `Request ${r.id} has breached its ${slaDays}-day SLA by ${breachDays} days. Auto-escalated to level ${newLevel}.`,
+          module: "MARKET_REQUEST",
+          entityType: "market_request",
+          entityId: r.id,
+          actionUrl: "/crm/market-requests",
+        });
+      } catch { /* ignore */ }
+
+      try {
+        addNotification({
+          type: "ESCALATION",
+          title: `Auto-Escalated: ${r.type} request ${r.id}`,
+          message: `Request ${r.id} auto-escalated from level ${currentLevel} to level ${newLevel} due to SLA breach.`,
+          module: "MARKET_REQUEST",
+          entityType: "market_request",
+          entityId: r.id,
+          actionUrl: "/crm/market-requests",
+        });
+      } catch { /* ignore */ }
+
+      // Audit log
+      try {
+        logAction({
+          userId: "system",
+          userName: "System",
+          userRole: "SYSTEM",
+          action: "ESCALATE",
+          module: "CRM",
+          entity: "MarketRequest",
+          entityId: r.id,
+          entityName: `Market Request ${r.id}`,
+          oldValues: { approvalLevel: currentLevel, status: "PENDING" },
+          newValues: { approvalLevel: newLevel, autoEscalated: true },
+          details: `Auto-escalated due to SLA breach (${breachDays} days over ${slaDays}-day SLA)`,
+        });
+      } catch { /* ignore */ }
+
+      escalated++;
+    });
+
+    if (escalated > 0) {
+      setAutoEscalationCount(escalated);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount
+
+  // ─── Analytics computations ──────────────────────────��──────────────────
 
   const monthlyVolume: MonthlyVolume[] = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -501,6 +639,7 @@ export default function MarketRequestsPage() {
     { name: "buId", label: "Business Unit", type: "select", options: buOptions },
     { name: "quantity", label: "Quantity", type: "number" },
     { name: "amount", label: "Amount (EGP)", type: "number" },
+    { name: "discountPercent", label: "Discount %", type: "number" },
     {
       name: "description",
       label: "Description",
@@ -522,19 +661,61 @@ export default function MarketRequestsPage() {
   }
 
   function handleSubmit(data: EntityFormData) {
+    setSubmitError(null);
+
+    const type = String(data.type) as MarketRequest["type"];
+    const amount = data.amount ? Number(data.amount) : undefined;
+    const discountPercent = data.discountPercent ? Number(data.discountPercent) : undefined;
+
+    // ─── Value limit enforcement ────────────────────────────────────────
+    const limit = REQUEST_VALUE_LIMITS[type];
+    if (limit) {
+      if (type === "DISCOUNT") {
+        if (discountPercent && discountPercent > limit.max) {
+          setSubmitError(`Maximum DISCOUNT request value is ${limit.max}${limit.unit}`);
+          return;
+        }
+      } else if (amount && amount > limit.max) {
+        setSubmitError(`Maximum ${type} request value is EGP ${limit.max.toLocaleString()}`);
+        return;
+      }
+    }
+
+    // ─── Monthly quota enforcement ──────────────────────────────────────
+    if (!editing && quotaReached) {
+      setSubmitError(`Monthly request quota reached (${monthlyRequestCount}/${monthlyQuotaLimit}). Contact your manager.`);
+      return;
+    }
+
     const payload = {
-      type: String(data.type) as MarketRequest["type"],
+      type,
       priority: String(data.priority) as MarketRequest["priority"],
       description: String(data.description),
       doctorId: data.doctorId ? String(data.doctorId) : undefined,
       productId: data.productId ? String(data.productId) : undefined,
       buId: data.buId ? String(data.buId) : null,
       quantity: data.quantity ? Number(data.quantity) : undefined,
-      amount: data.amount ? Number(data.amount) : undefined,
+      amount,
+      discountPercent,
     };
 
     if (editing) {
-      store.update("marketRequests", editing.id, payload);
+      store.update("marketRequests", editing.id, payload as unknown as Partial<MarketRequest>);
+      try {
+        logAction({
+          userId: user.id,
+          userName: user.name,
+          userRole: user.role,
+          action: "UPDATE",
+          module: "CRM",
+          entity: "MarketRequest",
+          entityId: editing.id,
+          entityName: `Market Request ${editing.id}`,
+          oldValues: { type: editing.type, description: editing.description, amount: editing.amount },
+          newValues: { type: payload.type, description: payload.description, amount: payload.amount },
+          details: `${user.name} updated market request ${editing.id}`,
+        });
+      } catch { /* ignore */ }
     } else {
       const newId = store.genId("mr");
       store.add("marketRequests", {
@@ -543,8 +724,37 @@ export default function MarketRequestsPage() {
         requestedById: user.id,
         status: "PENDING",
         createdAt: new Date().toISOString(),
-      });
+      } as unknown as MarketRequest);
       addAuditEntry(newId, "SUBMITTED", "Request submitted for approval", 0);
+
+      // Notification: Request submitted
+      try {
+        addNotification({
+          type: "APPROVAL",
+          title: `New ${type} Request Submitted`,
+          message: `${user.name} submitted a ${type} request${amount ? ` for EGP ${amount.toLocaleString()}` : ""}.`,
+          module: "MARKET_REQUEST",
+          entityType: "market_request",
+          entityId: newId,
+          actionUrl: "/crm/market-requests",
+        });
+      } catch { /* ignore */ }
+
+      // Audit log: Request created
+      try {
+        logAction({
+          userId: user.id,
+          userName: user.name,
+          userRole: user.role,
+          action: "CREATE",
+          module: "CRM",
+          entity: "MarketRequest",
+          entityId: newId,
+          entityName: `Market Request ${newId}`,
+          newValues: { type, description: payload.description, amount, status: "PENDING" },
+          details: `${user.name} submitted new ${type} market request`,
+        });
+      } catch { /* ignore */ }
     }
     setFormOpen(false);
     setEditing(null);
@@ -561,6 +771,23 @@ export default function MarketRequestsPage() {
     // Update approval level tracker
     setApprovalLevels((prev) => ({ ...prev, [r.id]: newLevel }));
 
+    // Audit log: approval
+    try {
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "APPROVE",
+        module: "CRM",
+        entity: "MarketRequest",
+        entityId: r.id,
+        entityName: `Market Request ${r.id}`,
+        oldValues: { status: "PENDING", approvalLevel: currentLevel },
+        newValues: { approvalLevel: newLevel, approvedBy: user.name },
+        details: `${user.name} approved request ${r.id} at level ${newLevel}/${requiredLevel}`,
+      });
+    } catch { /* ignore */ }
+
     // Only fully approve if all required levels are met
     if (newLevel >= requiredLevel) {
       store.update("marketRequests", r.id, {
@@ -568,6 +795,19 @@ export default function MarketRequestsPage() {
         approvedById: user.id,
         approvedAt: new Date().toISOString(),
       });
+
+      // Notification: Request approved
+      try {
+        addNotification({
+          type: "SUCCESS",
+          title: `Request ${r.id} Approved`,
+          message: `${r.type} request has been fully approved (all ${requiredLevel} level(s) cleared).${r.amount ? ` Amount: EGP ${r.amount.toLocaleString()}` : ""}`,
+          module: "MARKET_REQUEST",
+          entityType: "market_request",
+          entityId: r.id,
+          actionUrl: "/crm/market-requests",
+        });
+      } catch { /* ignore */ }
 
       // Initialize fulfillment tracking
       let initFulfillment: FulfillmentInfo = { phase: "APPROVED", percentage: 0 };
@@ -601,13 +841,22 @@ export default function MarketRequestsPage() {
       // Auto-create a Purchase Order for SAMPLE requests with a product
       if (r.type === "SAMPLE" && r.productId) {
         const product = store.products.find((p) => p.id === r.productId);
-        const vendor = store.vendors.length > 0 ? store.vendors[0] : null;
+        // Try to find a supplier based on the product's manufacturer or BU, then fall back to first vendor
+        const matchingVendor = product?.manufacturer
+          ? store.vendors.find((v) => v.name?.toLowerCase().includes(product.manufacturer!.toLowerCase()))
+          : null;
+        const vendor = matchingVendor ?? (store.vendors.length > 0 ? store.vendors[0] : null);
         if (product && vendor) {
           const qty = r.quantity ?? 1;
           const unitPrice = product.pricePerUnit ?? 0;
           const lineTotal = qty * unitPrice;
           const tax = Math.round(lineTotal * 0.14 * 100) / 100;
-          const poNumber = store.generatePONumber();
+          // Use PO-MR-YYYY-NNN format for market request POs
+          const year = new Date().getFullYear();
+          const basePoNumber = store.generatePONumber();
+          const seqMatch = basePoNumber.match(/\d+$/);
+          const seq = seqMatch ? seqMatch[0] : "001";
+          const poNumber = `PO-MR-${year}-${seq}`;
           const now = new Date().toISOString();
           const expectedDate = new Date(Date.now() + 7 * 86400000)
             .toISOString()
@@ -646,7 +895,13 @@ export default function MarketRequestsPage() {
           // Update fulfillment with PO info
           setFulfillmentData((prev) => ({
             ...prev,
-            [r.id]: { ...prev[r.id], phase: "PROCESSING", percentage: 50, poStatus: `PO ${poNumber} created`, deliveryStatus: `Expected by ${expectedDate}` },
+            [r.id]: {
+              ...prev[r.id],
+              phase: "PROCESSING",
+              percentage: 50,
+              poStatus: `PO Generated: ${poNumber}`,
+              deliveryStatus: `Expected by ${expectedDate}`,
+            },
           }));
         }
       }
@@ -662,12 +917,43 @@ export default function MarketRequestsPage() {
   }
 
   function handleReject(r: MarketRequest, reason?: string) {
+    const oldStatus = r.status;
     store.update("marketRequests", r.id, {
       status: "REJECTED",
       approvedById: user.id,
       rejectionReason: reason ?? "Rejected by supervisor",
     });
     addAuditEntry(r.id, "REJECTED", reason ?? "Rejected by supervisor", approvalLevels[r.id] ?? 1);
+
+    // Notification: Request rejected
+    try {
+      addNotification({
+        type: "WARNING",
+        title: `Request ${r.id} Rejected`,
+        message: `${r.type} request rejected by ${user.name}. Reason: ${reason ?? "Rejected by supervisor"}`,
+        module: "MARKET_REQUEST",
+        entityType: "market_request",
+        entityId: r.id,
+        actionUrl: "/crm/market-requests",
+      });
+    } catch { /* ignore */ }
+
+    // Audit log
+    try {
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "REJECT",
+        module: "CRM",
+        entity: "MarketRequest",
+        entityId: r.id,
+        entityName: `Market Request ${r.id}`,
+        oldValues: { status: oldStatus },
+        newValues: { status: "REJECTED", rejectionReason: reason ?? "Rejected by supervisor" },
+        details: `${user.name} rejected market request ${r.id}`,
+      });
+    } catch { /* ignore */ }
   }
 
   function handleRejectWithFlow() {
@@ -683,6 +969,36 @@ export default function MarketRequestsPage() {
       // Reset approval level so submitter can resubmit
       setApprovalLevels((prev) => ({ ...prev, [r.id]: 0 }));
       // Keep status PENDING so it shows up for revision
+
+      // Notification: returned
+      try {
+        addNotification({
+          type: "WARNING",
+          title: `Request ${r.id} Returned for Revision`,
+          message: `${r.type} request returned by ${user.name} (return #${newCount}). Reason: ${rejectReason || "Returned for revision"}`,
+          module: "MARKET_REQUEST",
+          entityType: "market_request",
+          entityId: r.id,
+          actionUrl: "/crm/market-requests",
+        });
+      } catch { /* ignore */ }
+
+      // Audit log
+      try {
+        logAction({
+          userId: user.id,
+          userName: user.name,
+          userRole: user.role,
+          action: "REJECT",
+          module: "CRM",
+          entity: "MarketRequest",
+          entityId: r.id,
+          entityName: `Market Request ${r.id}`,
+          oldValues: { status: "PENDING", returnCount: currentReturns },
+          newValues: { status: "PENDING", returnCount: newCount, returnedForRevision: true },
+          details: `${user.name} returned request ${r.id} for revision (return #${newCount})`,
+        });
+      } catch { /* ignore */ }
     } else {
       // Final reject or auto-reject after 3 returns
       const finalReason =
@@ -695,6 +1011,36 @@ export default function MarketRequestsPage() {
         rejectionReason: finalReason,
       });
       addAuditEntry(r.id, "FINAL_REJECTED", finalReason, approvalLevels[r.id] ?? 1);
+
+      // Notification: final rejection
+      try {
+        addNotification({
+          type: "WARNING",
+          title: `Request ${r.id} Permanently Rejected`,
+          message: `${r.type} request permanently rejected by ${user.name}. Reason: ${finalReason}`,
+          module: "MARKET_REQUEST",
+          entityType: "market_request",
+          entityId: r.id,
+          actionUrl: "/crm/market-requests",
+        });
+      } catch { /* ignore */ }
+
+      // Audit log
+      try {
+        logAction({
+          userId: user.id,
+          userName: user.name,
+          userRole: user.role,
+          action: "REJECT",
+          module: "CRM",
+          entity: "MarketRequest",
+          entityId: r.id,
+          entityName: `Market Request ${r.id}`,
+          oldValues: { status: "PENDING" },
+          newValues: { status: "REJECTED", rejectionReason: finalReason },
+          details: `${user.name} permanently rejected request ${r.id}`,
+        });
+      } catch { /* ignore */ }
     }
     setRejectDialogOpen(false);
     setRejectingRequest(null);
@@ -703,22 +1049,84 @@ export default function MarketRequestsPage() {
   function handleEscalate(r: MarketRequest) {
     const currentLevel = approvalLevels[r.id] ?? 0;
     const newLevel = currentLevel + 1;
+    const isAutoEsc = isOverdue(r.createdAt);
     setApprovalLevels((prev) => ({ ...prev, [r.id]: newLevel }));
     addAuditEntry(
       r.id,
-      isOverdue(r.createdAt) ? "AUTO_ESCALATED" : "ESCALATED",
-      `Escalated from level ${currentLevel} to level ${newLevel}${isOverdue(r.createdAt) ? " (overdue > 48h)" : ""}`,
+      isAutoEsc ? "AUTO_ESCALATED" : "ESCALATED",
+      `Escalated from level ${currentLevel} to level ${newLevel}${isAutoEsc ? " (overdue > 48h)" : ""}`,
       newLevel
     );
+
+    // Notification: escalation
+    try {
+      addNotification({
+        type: "ESCALATION",
+        title: `Request ${r.id} Escalated`,
+        message: `${r.type} request escalated from level ${currentLevel} to level ${newLevel}${isAutoEsc ? " (overdue)" : ""} by ${user.name}.`,
+        module: "MARKET_REQUEST",
+        entityType: "market_request",
+        entityId: r.id,
+        actionUrl: "/crm/market-requests",
+      });
+    } catch { /* ignore */ }
+
+    // Audit log
+    try {
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "ESCALATE",
+        module: "CRM",
+        entity: "MarketRequest",
+        entityId: r.id,
+        entityName: `Market Request ${r.id}`,
+        oldValues: { approvalLevel: currentLevel },
+        newValues: { approvalLevel: newLevel, autoEscalated: isAutoEsc },
+        details: `${user.name} escalated request ${r.id} from level ${currentLevel} to level ${newLevel}`,
+      });
+    } catch { /* ignore */ }
   }
 
   function handleMarkFulfilled(r: MarketRequest) {
+    const oldStatus = r.status;
     store.update("marketRequests", r.id, { status: "FULFILLED" } as Partial<MarketRequest>);
     setFulfillmentData((prev) => ({
       ...prev,
       [r.id]: { ...(prev[r.id] || { phase: "FULFILLED", percentage: 100 }), phase: "FULFILLED", percentage: 100 },
     }));
     addAuditEntry(r.id, "FULFILLED", "Request fulfilled", getRequiredApprovalLevel(r.type, r.amount));
+
+    // Notification: fulfilled
+    try {
+      addNotification({
+        type: "SUCCESS",
+        title: `Request ${r.id} Fulfilled`,
+        message: `${r.type} request has been fulfilled.${r.amount ? ` Amount: EGP ${r.amount.toLocaleString()}` : ""}`,
+        module: "MARKET_REQUEST",
+        entityType: "market_request",
+        entityId: r.id,
+        actionUrl: "/crm/market-requests",
+      });
+    } catch { /* ignore */ }
+
+    // Audit log
+    try {
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "UPDATE",
+        module: "CRM",
+        entity: "MarketRequest",
+        entityId: r.id,
+        entityName: `Market Request ${r.id}`,
+        oldValues: { status: oldStatus },
+        newValues: { status: "FULFILLED" },
+        details: `${user.name} marked request ${r.id} as fulfilled`,
+      });
+    } catch { /* ignore */ }
   }
 
   function handleDelete(r: MarketRequest) {
@@ -731,11 +1139,40 @@ export default function MarketRequestsPage() {
         title="Market Requests & Approvals"
         description="Submit, track, and approve market requests through the hierarchy chain."
         actions={
-          <Button onClick={handleCreate}>
+          <Button onClick={handleCreate} disabled={quotaReached} title={quotaReached ? `Monthly request quota reached (${monthlyRequestCount}/${monthlyQuotaLimit})` : undefined}>
             <Plus className="h-4 w-4 mr-2" /> New Request
           </Button>
         }
       />
+
+      {/* ─── Auto-Escalation Banner ──────────────────────────────────────── */}
+      {autoEscalationCount > 0 && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">
+          <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+          <span className="font-semibold">{autoEscalationCount} request{autoEscalationCount > 1 ? "s" : ""} auto-escalated due to SLA breach</span>
+          <span className="text-red-600 text-xs">(escalated to next approval level on page load)</span>
+        </div>
+      )}
+
+      {/* ─── Monthly Quota Counter ────────────────────────────────────────── */}
+      {monthlyQuotaLimit !== Infinity && (
+        <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm ${quotaReached ? "bg-red-50 border-red-200 text-red-800" : "bg-blue-50 border-blue-200 text-blue-800"}`}>
+          <ClipboardList className="h-4 w-4 shrink-0" />
+          <span className="font-medium">{monthlyRequestCount}/{monthlyQuotaLimit} requests used this month</span>
+          {quotaReached && (
+            <span className="text-red-600 font-semibold ml-1">— Monthly request quota reached. Contact your manager.</span>
+          )}
+        </div>
+      )}
+
+      {/* ─── Submission Error Banner ──────────────────────────────────────── */}
+      {submitError && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">
+          <XCircle className="h-4 w-4 text-red-600 shrink-0" />
+          <span className="font-medium">{submitError}</span>
+          <button className="ml-auto text-red-600 hover:text-red-800 text-xs underline" onClick={() => setSubmitError(null)}>Dismiss</button>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
@@ -1685,6 +2122,7 @@ export default function MarketRequestsPage() {
                 buId: editing.buId ?? "",
                 quantity: editing.quantity ?? "",
                 amount: editing.amount ?? "",
+                discountPercent: (editing as MarketRequestExt).discountPercent ?? "",
               }
             : undefined
         }

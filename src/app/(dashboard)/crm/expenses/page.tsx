@@ -16,6 +16,8 @@ import type { Column } from "@/components/shared/data-table";
 import { useCurrentUser } from "@/lib/user-context";
 import { useDataStore } from "@/lib/data-store";
 import { downloadCSV } from "@/lib/download";
+import { useNotificationCenter } from "@/lib/notification-context";
+import { useAuditLogger } from "@/lib/audit-logger";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -33,6 +35,9 @@ interface ApprovalEntry {
 
 // ─── Budget Constants ──────────────────────────────────────────────────────
 const MONTHLY_BUDGET_PER_REP = 5000;
+const HARD_BUDGET_LIMIT = MONTHLY_BUDGET_PER_REP * 1.2; // 6000 EGP — absolute cap (20% over)
+const RECEIPT_REQUIRED_THRESHOLD = 500; // EGP — receipt mandatory above this
+const OCR_TOLERANCE = 0.10; // 10% tolerance for OCR amount matching
 
 // ─── Approval Level Logic ──────────────────────────────────────────────────
 function getApprovalLevel(amount: number): { level: number; approver: string } {
@@ -188,6 +193,10 @@ export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loaded, setLoaded] = useState(false);
 
+  // Notification & audit hooks
+  const { addNotification } = useNotificationCenter();
+  const { logAction } = useAuditLogger();
+
   // Dialog state
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -198,6 +207,17 @@ export default function ExpensesPage() {
   // Budget warning dialog state
   const [budgetWarningOpen, setBudgetWarningOpen] = useState(false);
   const [pendingExpenseCreate, setPendingExpenseCreate] = useState(false);
+
+  // Hard budget block dialog state
+  const [budgetBlockOpen, setBudgetBlockOpen] = useState(false);
+
+  // Duplicate detection dialog state
+  const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
+  const [duplicateMatch, setDuplicateMatch] = useState<Expense | null>(null);
+  const skipDuplicateCheckRef = useRef(false);
+
+  // Form validation errors
+  const [formErrors, setFormErrors] = useState<string[]>([]);
 
   // Enhanced rejection flow state
   const [rejectAction, setRejectAction] = useState<"REJECT" | "RETURN">("REJECT");
@@ -430,14 +450,109 @@ export default function ExpensesPage() {
     setFormDescription("");
     setFormPhoto(undefined);
     setFormPhotoName("");
+    setFormErrors([]);
+  }
+
+  // ─── Receipt Validation ──────────────────────────────────────────────────
+  function validateReceipt(amt: number): string[] {
+    const errors: string[] = [];
+    // Receipt mandatory for expenses > threshold
+    if (amt > RECEIPT_REQUIRED_THRESHOLD && !formPhoto) {
+      errors.push(`Receipt required for expenses over EGP ${RECEIPT_REQUIRED_THRESHOLD.toLocaleString()}`);
+    }
+    // OCR amount mismatch check
+    if (formPhoto && ocrResult && ocrResult.imageBase64 === formPhoto) {
+      const ocrAmt = ocrResult.amount;
+      const tolerance = ocrAmt * OCR_TOLERANCE;
+      if (Math.abs(ocrAmt - amt) > tolerance) {
+        errors.push(`OCR amount (EGP ${ocrAmt.toLocaleString()}) doesn't match entered amount (EGP ${amt.toLocaleString()}). Please verify.`);
+      }
+    }
+    return errors;
+  }
+
+  // ─── Duplicate Detection ─────────────────────────────────────────────────
+  function findDuplicate(amt: number, date: string, category: ExpenseType): Expense | null {
+    return expenses.find(
+      (e) => e.userId === user.id && e.amount === amt && e.date === date && e.type === category
+    ) || null;
+  }
+
+  // ─── Budget Exception Request ────────────────────────────────────────────
+  function handleRequestBudgetException() {
+    const amt = parseFloat(formAmount || "0");
+    try {
+      store.add("marketRequests", {
+        id: store.genId("mr"),
+        type: "OTHER" as const,
+        requestedById: user.id,
+        description: `[BUDGET_EXCEPTION] Budget exception request for expense: ${formDescription}. Amount: EGP ${amt.toLocaleString()}. Current approved: EGP ${myApprovedThisMonth.toLocaleString()}. Monthly limit: EGP ${HARD_BUDGET_LIMIT.toLocaleString()}.`,
+        priority: "HIGH" as const,
+        status: "PENDING" as const,
+        amount: amt,
+        createdAt: new Date().toISOString(),
+      });
+    } catch { /* store unavailable */ }
+    try {
+      addNotification({
+        type: "APPROVAL",
+        title: "Budget Exception Requested",
+        message: `Budget exception requested for EGP ${amt.toLocaleString()}. Current monthly spend: EGP ${myApprovedThisMonth.toLocaleString()} / EGP ${HARD_BUDGET_LIMIT.toLocaleString()} limit.`,
+        module: "EXPENSES",
+        entityType: "expense",
+      });
+    } catch { /* notification context unavailable */ }
+    try {
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "CREATE",
+        module: "CRM",
+        entity: "BudgetException",
+        entityId: `be-${Date.now().toString(36)}`,
+        entityName: "Budget Exception Request",
+        details: `Budget exception requested. Amount: EGP ${amt.toLocaleString()}. Approved this month: EGP ${myApprovedThisMonth.toLocaleString()}. Hard limit: EGP ${HARD_BUDGET_LIMIT.toLocaleString()}.`,
+        newValues: { amount: amt, approvedThisMonth: myApprovedThisMonth, hardLimit: HARD_BUDGET_LIMIT },
+      });
+    } catch { /* audit logger unavailable */ }
+    setBudgetBlockOpen(false);
+    setNewDialogOpen(false);
+    resetForm();
   }
 
   function handleCreateExpense() {
     if (!formDate || !formAmount || !formDescription) return;
     const amt = parseFloat(formAmount);
 
-    // Budget warning check
-    if (!pendingExpenseCreate && (myApprovedThisMonth + amt) > MONTHLY_BUDGET_PER_REP) {
+    // ── Receipt validation ──
+    const receiptErrors = validateReceipt(amt);
+    if (receiptErrors.length > 0) {
+      setFormErrors(receiptErrors);
+      return;
+    }
+    setFormErrors([]);
+
+    // ── Duplicate detection (first pass — before budget checks) ──
+    if (!skipDuplicateCheckRef.current) {
+      const dup = findDuplicate(amt, formDate, formType);
+      if (dup) {
+        setDuplicateMatch(dup);
+        setDuplicateWarningOpen(true);
+        return;
+      }
+    }
+    skipDuplicateCheckRef.current = false;
+
+    // ── Hard budget block (>20% over = total > 6,000) ──
+    const projectedTotal = myApprovedThisMonth + amt;
+    if (projectedTotal > HARD_BUDGET_LIMIT) {
+      setBudgetBlockOpen(true);
+      return;
+    }
+
+    // ── Soft budget warning (0–20% over, i.e. 5,000–6,000) ──
+    if (!pendingExpenseCreate && projectedTotal > MONTHLY_BUDGET_PER_REP) {
       setPendingExpenseCreate(true);
       setBudgetWarningOpen(true);
       return;
@@ -468,9 +583,58 @@ export default function ExpensesPage() {
       ],
     };
     persist([newExp, ...expenses]);
+
+    // ── Notification: expense submitted ──
+    try {
+      addNotification({
+        type: "APPROVAL",
+        title: "Expense Submitted",
+        message: `Expense of EGP ${amt.toLocaleString()} submitted for approval. Category: ${formType}.`,
+        module: "EXPENSES",
+        entityType: "expense",
+        entityId: newExp.id,
+        actionUrl: "/crm/expenses",
+      });
+    } catch { /* notification context unavailable */ }
+
+    // ── Audit log: expense created ──
+    try {
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "CREATE",
+        module: "CRM",
+        entity: "Expense",
+        entityId: newExp.id,
+        entityName: `Expense ${newExp.id}`,
+        details: `${user.name} created expense: ${formDescription} — EGP ${amt.toLocaleString()}`,
+        newValues: { amount: amt, type: formType, date: formDate, status: "PENDING" },
+      });
+    } catch { /* audit logger unavailable */ }
+
+    // ── Budget threshold notification (>80%) ──
+    const newApprovedTotal = myApprovedThisMonth; // new expense is PENDING, not yet approved
+    const pendingInclNew = myPendingThisMonth + amt;
+    const projectedUtilization = Math.round(((newApprovedTotal + pendingInclNew) / MONTHLY_BUDGET_PER_REP) * 100);
+    if (projectedUtilization >= 80) {
+      try {
+        addNotification({
+          type: "WARNING",
+          title: "Budget Threshold Alert",
+          message: `Monthly budget ${Math.min(projectedUtilization, 100)}% utilized (including pending). ${budgetRemaining < 0 ? "Budget exceeded." : `Only EGP ${budgetRemaining.toLocaleString()} remaining.`}`,
+          module: "EXPENSES",
+          entityType: "expense",
+        });
+      } catch { /* notification context unavailable */ }
+    }
+
     setNewDialogOpen(false);
     setBudgetWarningOpen(false);
     setPendingExpenseCreate(false);
+    skipDuplicateCheckRef.current = false;
+    setDuplicateWarningOpen(false);
+    setDuplicateMatch(null);
     resetForm();
   }
 
@@ -529,6 +693,37 @@ export default function ExpensesPage() {
         : e
     );
     persist(next);
+
+    // ── Notification: expense approved ──
+    try {
+      addNotification({
+        type: "SUCCESS",
+        title: "Expense Approved",
+        message: `Expense of EGP ${exp.amount.toLocaleString()} by ${exp.userName} has been approved and posted as ${jeNumber}.`,
+        module: "EXPENSES",
+        entityType: "expense",
+        entityId: exp.id,
+        actionUrl: "/crm/expenses",
+        userId: exp.userId,
+      });
+    } catch { /* notification context unavailable */ }
+
+    // ── Audit log: expense approved ──
+    try {
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "APPROVE",
+        module: "CRM",
+        entity: "Expense",
+        entityId: exp.id,
+        entityName: `Expense ${exp.id}`,
+        details: `${user.name} approved expense by ${exp.userName}: ${exp.description} — EGP ${exp.amount.toLocaleString()}`,
+        oldValues: { status: "PENDING" },
+        newValues: { status: "APPROVED", approvedBy: user.name, journalEntryId: jeId },
+      });
+    } catch { /* audit logger unavailable */ }
   }
 
   function openRejectDialog(exp: Expense) {
@@ -563,6 +758,38 @@ export default function ExpensesPage() {
         : e
     );
     persist(next);
+
+    // ── Notification: expense rejected ──
+    try {
+      addNotification({
+        type: "WARNING",
+        title: isReturn ? "Expense Returned for Revision" : "Expense Rejected",
+        message: `Expense of EGP ${selectedExpense.amount.toLocaleString()} by ${selectedExpense.userName} ${isReturn ? "returned" : "rejected"}. Reason: ${rejectionReason}`,
+        module: "EXPENSES",
+        entityType: "expense",
+        entityId: selectedExpense.id,
+        actionUrl: "/crm/expenses",
+        userId: selectedExpense.userId,
+      });
+    } catch { /* notification context unavailable */ }
+
+    // ── Audit log: expense rejected ──
+    try {
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "REJECT",
+        module: "CRM",
+        entity: "Expense",
+        entityId: selectedExpense.id,
+        entityName: `Expense ${selectedExpense.id}`,
+        details: `${user.name} ${isReturn ? "returned" : "rejected"} expense by ${selectedExpense.userName}: ${selectedExpense.description} — EGP ${selectedExpense.amount.toLocaleString()}. Reason: ${rejectionReason}`,
+        oldValues: { status: "PENDING" },
+        newValues: { status: isReturn ? "DRAFT" : "REJECTED", rejectionReason },
+      });
+    } catch { /* audit logger unavailable */ }
+
     setRejectDialogOpen(false);
     setSelectedExpense(null);
   }
@@ -1098,6 +1325,17 @@ export default function ExpensesPage() {
               )}
             </div>
           </div>
+          {/* Form validation errors */}
+          {formErrors.length > 0 && (
+            <div className="space-y-1.5 p-3 bg-red-50 border border-red-200 rounded-lg">
+              {formErrors.map((err, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700">{err}</p>
+                </div>
+              ))}
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setNewDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleCreateExpense} disabled={!formDate || !formAmount || !formDescription}>
@@ -1312,6 +1550,79 @@ export default function ExpensesPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => { setBudgetWarningOpen(false); setPendingExpenseCreate(false); }}>Cancel</Button>
             <Button className="bg-yellow-600 hover:bg-yellow-700 text-white" onClick={handleCreateExpense}>
+              <AlertTriangle className="h-4 w-4 mr-2" /> Submit Anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Hard Budget Block Dialog ──────────────────────────────────── */}
+      <Dialog open={budgetBlockOpen} onOpenChange={setBudgetBlockOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <X className="h-5 w-5" /> Budget Exceeded
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-800 font-medium">
+                Budget exceeded. Maximum monthly limit: EGP {HARD_BUDGET_LIMIT.toLocaleString()}. Current approved: EGP {myApprovedThisMonth.toLocaleString()}. Cannot submit.
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <div className="p-2 bg-slate-50 rounded text-center">
+                <p className="text-xs text-slate-500">Monthly Budget</p>
+                <p className="font-semibold">{MONTHLY_BUDGET_PER_REP.toLocaleString()} EGP</p>
+              </div>
+              <div className="p-2 bg-slate-50 rounded text-center">
+                <p className="text-xs text-slate-500">Hard Limit (120%)</p>
+                <p className="font-semibold text-red-700">{HARD_BUDGET_LIMIT.toLocaleString()} EGP</p>
+              </div>
+              <div className="p-2 bg-slate-50 rounded text-center">
+                <p className="text-xs text-slate-500">Approved</p>
+                <p className="font-semibold">{myApprovedThisMonth.toLocaleString()} EGP</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600">
+              You can request a budget exception for review by management.
+            </p>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setBudgetBlockOpen(false)}>Cancel</Button>
+            <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={handleRequestBudgetException}>
+              <ArrowUpRight className="h-4 w-4 mr-2" /> Request Budget Exception
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Duplicate Warning Dialog ─────────────────────────────────────── */}
+      <Dialog open={duplicateWarningOpen} onOpenChange={(open) => { setDuplicateWarningOpen(open); if (!open) { skipDuplicateCheckRef.current = false; setDuplicateMatch(null); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-yellow-700">
+              <AlertTriangle className="h-5 w-5" /> Possible Duplicate
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                Possible duplicate: Similar expense found on <strong>{duplicateMatch?.date}</strong> for{" "}
+                <strong>EGP {duplicateMatch?.amount.toLocaleString()}</strong>. Submit anyway?
+              </p>
+            </div>
+            {duplicateMatch && (
+              <div className="text-sm text-slate-600 space-y-1 p-2 bg-slate-50 rounded">
+                <p><span className="text-slate-500">Category:</span> {duplicateMatch.type}</p>
+                <p><span className="text-slate-500">Description:</span> {duplicateMatch.description}</p>
+                <p><span className="text-slate-500">Status:</span> {duplicateMatch.status}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDuplicateWarningOpen(false); skipDuplicateCheckRef.current = false; setDuplicateMatch(null); }}>Cancel</Button>
+            <Button className="bg-yellow-600 hover:bg-yellow-700 text-white" onClick={() => { skipDuplicateCheckRef.current = true; setDuplicateWarningOpen(false); setDuplicateMatch(null); handleCreateExpense(); }}>
               <AlertTriangle className="h-4 w-4 mr-2" /> Submit Anyway
             </Button>
           </DialogFooter>

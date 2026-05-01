@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Package, Truck, ClipboardCheck, Plus, ShieldCheck, FileText, ArrowRight, CheckCircle, X, Anchor, Ship, Star, TrendingUp, TrendingDown, Minus, Award, MessageSquare } from "lucide-react";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
@@ -21,6 +21,8 @@ import { EntityFormModal, type EntityField, type EntityFormData } from "@/compon
 import { useDataStore, type PurchaseOrder, type RFQ, type GoodsReceipt, type Shipment } from "@/lib/data-store";
 import { VendorLink } from "@/components/shared/entity-detail-dialog";
 import { useTranslation } from "@/lib/i18n/i18n-context";
+import { useNotificationCenter } from "@/lib/notification-context";
+import { useAuditLogger } from "@/lib/audit-logger";
 
 const COMPANY_NAME = "PharmaCorp Egypt";
 
@@ -156,6 +158,19 @@ interface POLine {
 export default function ProcurementPage() {
   const store = useDataStore();
   const { t } = useTranslation();
+
+  /* ─── Notification & Audit Logger ─── */
+  let addNotification: any = () => {};
+  let logAction: any = () => {};
+  try {
+    const nc = useNotificationCenter();
+    addNotification = nc.addNotification;
+  } catch {}
+  try {
+    const al = useAuditLogger();
+    logAction = al.logAction;
+  } catch {}
+
   const [showPOModal, setShowPOModal] = useState(false);
   const [showRFQModal, setShowRFQModal] = useState(false);
   const [activeTab, setActiveTab] = useState("orders");
@@ -197,6 +212,35 @@ export default function ProcurementPage() {
 
   const vendorName = (id: string) => store.vendors.find((v) => v.id === id)?.name ?? id;
   const productName = (id: string) => { const p = store.products.find((pr) => pr.id === id); return p ? `${p.name} ${p.strength}` : id; };
+
+  /* ─── On-mount: delivery overdue check ─── */
+  const mountCheckedRef = useRef(false);
+  useEffect(() => {
+    if (mountCheckedRef.current) return;
+    mountCheckedRef.current = true;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    store.purchaseOrders.forEach((po) => {
+      if ((po.status === "APPROVED" || po.status === "ORDERED") && po.expectedDate) {
+        const expected = new Date(po.expectedDate);
+        expected.setHours(0, 0, 0, 0);
+        if (expected < today) {
+          const daysOverdue = Math.ceil((today.getTime() - expected.getTime()) / 86400000);
+          addNotification({
+            type: "WARNING",
+            title: `PO ${po.number} delivery overdue`,
+            message: `Purchase order ${po.number} from ${vendorName(po.vendorId)} was expected by ${po.expectedDate.slice(0, 10)}. Currently ${daysOverdue} day(s) overdue.`,
+            module: "PROCUREMENT",
+            entityType: "purchase_order",
+            entityId: po.id,
+            actionUrl: "/erp/procurement",
+          });
+        }
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Stats
   const totalPOs = store.purchaseOrders.length;
@@ -284,16 +328,33 @@ export default function ProcurementPage() {
         items, subtotal, tax, total,
         expectedDate: poExpectedDate,
       });
+      logAction({
+        userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+        action: "UPDATE", module: "ERP", entity: "PurchaseOrder",
+        entityId: editingPO.id, entityName: `PO ${editingPO.number}`,
+        details: `Purchase order updated: ${editingPO.number} - EGP ${total.toLocaleString()}`,
+        oldValues: { total: editingPO.total, vendorId: editingPO.vendorId },
+        newValues: { total, vendorId: poVendorId },
+      });
     } else {
+      const newId = store.genId("po");
+      const poNumber = store.generatePONumber();
       store.add("purchaseOrders", {
-        id: store.genId("po"),
-        number: store.generatePONumber(),
+        id: newId,
+        number: poNumber,
         vendorId: poVendorId,
         date: new Date().toISOString(),
         expectedDate: poExpectedDate,
         items, subtotal, tax, total,
         status: "DRAFT",
         createdAt: new Date().toISOString(),
+      });
+      logAction({
+        userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+        action: "CREATE", module: "ERP", entity: "PurchaseOrder",
+        entityId: newId, entityName: `PO ${poNumber}`,
+        details: `Purchase order created: ${poNumber} for ${vendorName(poVendorId)} - EGP ${total.toLocaleString()}`,
+        newValues: { number: poNumber, total, status: "DRAFT", vendorId: poVendorId },
       });
     }
     setShowPOModal(false);
@@ -371,11 +432,36 @@ export default function ProcurementPage() {
   // ─── Integration: Approve PO ─────────────────────────────────────────
   function approvePO(po: PurchaseOrder) {
     store.update("purchaseOrders", po.id, { status: "APPROVED" });
+    logAction({
+      userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+      action: "APPROVE", module: "ERP", entity: "PurchaseOrder",
+      entityId: po.id, entityName: `PO ${po.number}`,
+      details: `PO status change: ${po.number} DRAFT -> APPROVED`,
+      oldValues: { status: "DRAFT" },
+      newValues: { status: "APPROVED" },
+    });
+    addNotification({
+      type: "SUCCESS",
+      title: `PO ${po.number} approved`,
+      message: `Purchase order ${po.number} for ${vendorName(po.vendorId)} (EGP ${po.total.toLocaleString()}) has been approved.`,
+      module: "PROCUREMENT",
+      entityType: "purchase_order",
+      entityId: po.id,
+      actionUrl: "/erp/procurement",
+    });
   }
 
   // ─── Integration: Mark PO as Ordered ──────────────────────────────────
   function markOrdered(po: PurchaseOrder) {
     store.update("purchaseOrders", po.id, { status: "ORDERED" });
+    logAction({
+      userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+      action: "UPDATE", module: "ERP", entity: "PurchaseOrder",
+      entityId: po.id, entityName: `PO ${po.number}`,
+      details: `PO status change: ${po.number} APPROVED -> ORDERED`,
+      oldValues: { status: "APPROVED" },
+      newValues: { status: "ORDERED" },
+    });
   }
 
   // ─── Integration: Receive PO → auto-create GRN ───────────────────────
@@ -393,6 +479,14 @@ export default function ProcurementPage() {
       createdAt: new Date().toISOString(),
     });
     store.update("purchaseOrders", po.id, { status: "RECEIVED", grnId });
+    logAction({
+      userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+      action: "UPDATE", module: "ERP", entity: "PurchaseOrder",
+      entityId: po.id, entityName: `PO ${po.number}`,
+      details: `PO status change: ${po.number} ORDERED -> RECEIVED. GRN ${grnNumber} created.`,
+      oldValues: { status: "ORDERED" },
+      newValues: { status: "RECEIVED", grnId },
+    });
   }
 
   // ─── Integration: Confirm GRN → auto-create Invoice + Journal Entry ──
@@ -440,6 +534,14 @@ export default function ProcurementPage() {
     });
 
     store.update("purchaseOrders", po.id, { invoiceId: invId });
+    logAction({
+      userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+      action: "UPDATE", module: "ERP", entity: "GoodsReceipt",
+      entityId: grn.id, entityName: `GRN ${grn.number}`,
+      details: `GRN confirmed: ${grn.number} for PO ${po.number}. Auto-created Invoice ${invNumber} and JE ${jeNumber}.`,
+      oldValues: { status: "PENDING" },
+      newValues: { status: "RECEIVED" },
+    });
   }
 
   // ─── Integration: Convert RFQ → PO ───────────────────────────────────
@@ -490,6 +592,9 @@ export default function ProcurementPage() {
     const now = new Date();
     const monthStr = now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
+    const existingScore = vendorScores.find((v) => v.vendorId === rateVendorId);
+    const oldOverall = existingScore?.overall;
+
     setVendorScores((prev) => {
       const existing = prev.find((v) => v.vendorId === rateVendorId);
       if (existing) {
@@ -525,6 +630,17 @@ export default function ProcurementPage() {
         },
       ];
     });
+
+    const vName = scorecardVendorName(rateVendorId);
+    logAction({
+      userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+      action: existingScore ? "UPDATE" : "CREATE", module: "ERP", entity: "VendorRating",
+      entityId: rateVendorId, entityName: `Vendor Rating - ${vName}`,
+      details: `Vendor rating ${existingScore ? "updated" : "created"}: ${vName} - Overall ${oldOverall ?? "N/A"} -> ${overall}%`,
+      oldValues: existingScore ? { overall: oldOverall, quality: existingScore.quality, delivery: existingScore.delivery } : undefined,
+      newValues: { overall, quality: q, delivery: d, price: p, communication: c },
+    });
+
     setShowRateDialog(false);
   }
 

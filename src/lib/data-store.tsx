@@ -247,6 +247,7 @@ export interface PlannedVisit {
   checkOutTime?: string;
   category?: PlannedVisitCategory;
   outcome?: PlannedVisitOutcome;
+  shortDurationReason?: string;
 }
 
 export interface DailyPlan {

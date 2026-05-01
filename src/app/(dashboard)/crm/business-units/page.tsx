@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   Building, Plus, Users, Package, UserCog,
   MapPin, Pencil, Trash2, Eye, X, CheckCircle, Clock, Grid3x3,
   ShieldCheck, FileText, ChevronRight, Search, Check, XCircle,
-  Briefcase, BarChart3, DollarSign, Activity,
+  Briefcase, BarChart3, DollarSign, Activity, AlertTriangle,
 } from "lucide-react";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import PageHeader from "@/components/shared/page-header";
@@ -29,6 +29,8 @@ import {
 } from "@/components/shared/entity-form-modal";
 import { useDataStore } from "@/lib/data-store";
 import { useCurrentUser } from "@/lib/user-context";
+import { useNotificationCenter } from "@/lib/notification-context";
+import { useAuditLogger } from "@/lib/audit-logger";
 
 // ─── Local Interfaces ───────────────────────────────────────────────────────
 
@@ -181,6 +183,8 @@ export default function BusinessUnitsPage() {
   const store = useDataStore();
   const { user, allUsers } = useCurrentUser();
   const canEdit = user.role === "ADMIN" || user.role === "BUM" || user.role === "MARKETEER";
+  const { addNotification } = useNotificationCenter();
+  const { logAction } = useAuditLogger();
 
   // ── Main Tab State ──
   const [activeTab, setActiveTab] = useState<"list" | "detail" | "assignment">("list");
@@ -224,6 +228,68 @@ export default function BusinessUnitsPage() {
     businessUnits.forEach((bu) => bu.productIds.forEach((pid) => ids.add(pid)));
     return ids.size;
   }, [businessUnits]);
+
+  // ── getRepProducts: returns product IDs assigned to a given rep ──
+  const getRepProducts = useCallback(
+    (repId: string): string[] => {
+      return productRepAssignments
+        .filter((a) => a.repId === repId)
+        .map((a) => a.productId);
+    },
+    [productRepAssignments]
+  );
+
+  // ── BU Performance Metrics (for the selected BU overview) ──
+  const buPerformanceMetrics = useMemo(() => {
+    if (!selectedBU) return null;
+    const repMembers = selectedBU.members.filter((m) => m.role === "MEDICAL_REP");
+    const activeMembers = selectedBU.members.length;
+    const inactiveMembers = selectedBU.status === "INACTIVE" ? activeMembers : 0;
+    const revenue = BU_REVENUE[selectedBU.id] || 0;
+    const revenuePerRep = repMembers.length > 0 ? Math.round(revenue / repMembers.length) : 0;
+
+    // Products per rep (avg) — based on product-rep assignments within this BU
+    const repIds = new Set(repMembers.map((m) => m.userId));
+    const buProductIds = new Set(selectedBU.productIds);
+    let totalAssignedProducts = 0;
+    repMembers.forEach((m) => {
+      const count = productRepAssignments.filter(
+        (a) => a.repId === m.userId && buProductIds.has(a.productId)
+      ).length;
+      totalAssignedProducts += count;
+    });
+    const productsPerRep = repMembers.length > 0 ? (totalAssignedProducts / repMembers.length) : 0;
+
+    // Territory coverage: % of BU territories that have at least one assigned rep
+    const coveredTerritories = selectedBU.territoryIds.filter((tid) => {
+      const t = store.territories.find((tr) => tr.id === tid);
+      return t && t.assignedRepIds.length > 0;
+    }).length;
+    const territoryCoverage = selectedBU.territoryIds.length > 0
+      ? Math.round((coveredTerritories / selectedBU.territoryIds.length) * 100)
+      : 0;
+
+    // Territories with no assigned rep
+    const uncoveredTerritories = selectedBU.territoryIds.filter((tid) => {
+      const t = store.territories.find((tr) => tr.id === tid);
+      return !t || t.assignedRepIds.length === 0;
+    });
+
+    return {
+      revenuePerRep,
+      productsPerRep,
+      territoryCoverage,
+      activeMembers,
+      inactiveMembers: inactiveMembers,
+      repsWithNoProducts: repMembers.filter((m) => {
+        const count = productRepAssignments.filter(
+          (a) => a.repId === m.userId && buProductIds.has(a.productId)
+        ).length;
+        return count === 0;
+      }),
+      uncoveredTerritories,
+    };
+  }, [selectedBU, productRepAssignments, store.territories]);
 
   // ── Filtered BUs for main table ──
   const filteredBUs = useMemo(() => {
@@ -273,9 +339,13 @@ export default function BusinessUnitsPage() {
             : bu
         )
       );
+      try {
+        logAction({ userId: user.id, userName: user.name, userRole: user.role, action: "UPDATE", module: "CRM", entity: "BusinessUnit", entityId: editing.id, entityName: editing.name, details: `${user.name} updated Business Unit ${editing.name}` });
+      } catch { /* ignore */ }
     } else {
+      const newId = `lbu-${Date.now().toString(36)}`;
       const newBU: LocalBusinessUnit = {
-        id: `lbu-${Date.now().toString(36)}`,
+        id: newId,
         name: String(data.name),
         code: String(data.code),
         description: String(data.description ?? ""),
@@ -287,17 +357,24 @@ export default function BusinessUnitsPage() {
         territoryIds: [],
       };
       setBusinessUnits((prev) => [...prev, newBU]);
+      try {
+        logAction({ userId: user.id, userName: user.name, userRole: user.role, action: "CREATE", module: "CRM", entity: "BusinessUnit", entityId: newId, entityName: String(data.name), details: `${user.name} created Business Unit ${data.name}` });
+      } catch { /* ignore */ }
     }
     setFormOpen(false);
     setEditing(null);
   }
 
   function handleDeleteBU(buId: string) {
-    setBusinessUnits((prev) => prev.filter((bu) => bu.id !== buId));
+    const bu = businessUnits.find((b) => b.id === buId);
+    setBusinessUnits((prev) => prev.filter((b) => b.id !== buId));
     if (selectedBU?.id === buId) {
       setSelectedBU(null);
       setDetailDialogOpen(false);
     }
+    try {
+      logAction({ userId: user.id, userName: user.name, userRole: user.role, action: "DELETE", module: "CRM", entity: "BusinessUnit", entityId: buId, entityName: bu?.name, details: `${user.name} deleted Business Unit ${bu?.name ?? buId}` });
+    } catch { /* ignore */ }
   }
 
   function handleOpenDetail(bu: LocalBusinessUnit) {
@@ -309,6 +386,7 @@ export default function BusinessUnitsPage() {
   // ── Member Handlers ──
   function handleAddMember() {
     if (!selectedBU || !newMemberUserId) return;
+    const memberUser = allUsers.find((u) => u.id === newMemberUserId);
     setBusinessUnits((prev) =>
       prev.map((bu) =>
         bu.id === selectedBU.id
@@ -319,6 +397,12 @@ export default function BusinessUnitsPage() {
     setSelectedBU((prev) =>
       prev ? { ...prev, members: [...prev.members.filter((m) => m.userId !== newMemberUserId), { userId: newMemberUserId, role: newMemberRole }] } : prev
     );
+    try {
+      addNotification({ type: "INFO", title: "Member added to BU", message: `${memberUser?.name ?? newMemberUserId} added to ${selectedBU.name} as ${ROLE_LABELS[newMemberRole] ?? newMemberRole}.`, module: "CRM", entityType: "BusinessUnit", entityId: selectedBU.id, actionUrl: "/crm/business-units" });
+    } catch { /* ignore */ }
+    try {
+      logAction({ userId: user.id, userName: user.name, userRole: user.role, action: "UPDATE", module: "CRM", entity: "BusinessUnit", entityId: selectedBU.id, entityName: selectedBU.name, details: `${user.name} added ${memberUser?.name ?? newMemberUserId} to ${selectedBU.name} as ${ROLE_LABELS[newMemberRole] ?? newMemberRole}` });
+    } catch { /* ignore */ }
     setAddMemberOpen(false);
     setNewMemberUserId("");
     setNewMemberRole("MEDICAL_REP");
@@ -326,6 +410,7 @@ export default function BusinessUnitsPage() {
 
   function handleRemoveMember(userId: string) {
     if (!selectedBU) return;
+    const memberUser = allUsers.find((u) => u.id === userId);
     setBusinessUnits((prev) =>
       prev.map((bu) =>
         bu.id === selectedBU.id
@@ -336,11 +421,18 @@ export default function BusinessUnitsPage() {
     setSelectedBU((prev) =>
       prev ? { ...prev, members: prev.members.filter((m) => m.userId !== userId) } : prev
     );
+    try {
+      addNotification({ type: "WARNING", title: "Member removed from BU", message: `${memberUser?.name ?? userId} removed from ${selectedBU.name}.`, module: "CRM", entityType: "BusinessUnit", entityId: selectedBU.id, actionUrl: "/crm/business-units" });
+    } catch { /* ignore */ }
+    try {
+      logAction({ userId: user.id, userName: user.name, userRole: user.role, action: "UPDATE", module: "CRM", entity: "BusinessUnit", entityId: selectedBU.id, entityName: selectedBU.name, details: `${user.name} removed ${memberUser?.name ?? userId} from ${selectedBU.name}` });
+    } catch { /* ignore */ }
   }
 
   // ── Product Handlers ──
   function handleAddProduct(productId: string) {
     if (!selectedBU) return;
+    const product = store.products.find((p) => p.id === productId);
     setBusinessUnits((prev) =>
       prev.map((bu) =>
         bu.id === selectedBU.id && !bu.productIds.includes(productId)
@@ -353,10 +445,17 @@ export default function BusinessUnitsPage() {
         ? { ...prev, productIds: [...prev.productIds, productId] }
         : prev
     );
+    try {
+      addNotification({ type: "INFO", title: "Product assigned to BU", message: `${product?.name ?? productId} assigned to ${selectedBU.name}.`, module: "CRM", entityType: "BusinessUnit", entityId: selectedBU.id, actionUrl: "/crm/business-units" });
+    } catch { /* ignore */ }
+    try {
+      logAction({ userId: user.id, userName: user.name, userRole: user.role, action: "UPDATE", module: "CRM", entity: "BusinessUnit", entityId: selectedBU.id, entityName: selectedBU.name, details: `${user.name} assigned product ${product?.name ?? productId} to ${selectedBU.name}` });
+    } catch { /* ignore */ }
   }
 
   function handleRemoveProduct(productId: string) {
     if (!selectedBU) return;
+    const product = store.products.find((p) => p.id === productId);
     setBusinessUnits((prev) =>
       prev.map((bu) =>
         bu.id === selectedBU.id
@@ -367,11 +466,18 @@ export default function BusinessUnitsPage() {
     setSelectedBU((prev) =>
       prev ? { ...prev, productIds: prev.productIds.filter((id) => id !== productId) } : prev
     );
+    try {
+      addNotification({ type: "WARNING", title: "Product unassigned from BU", message: `${product?.name ?? productId} removed from ${selectedBU.name}.`, module: "CRM", entityType: "BusinessUnit", entityId: selectedBU.id, actionUrl: "/crm/business-units" });
+    } catch { /* ignore */ }
+    try {
+      logAction({ userId: user.id, userName: user.name, userRole: user.role, action: "UPDATE", module: "CRM", entity: "BusinessUnit", entityId: selectedBU.id, entityName: selectedBU.name, details: `${user.name} removed product ${product?.name ?? productId} from ${selectedBU.name}` });
+    } catch { /* ignore */ }
   }
 
   // ── Territory Handlers ──
   function handleAddTerritory(territoryId: string) {
     if (!selectedBU) return;
+    const territory = store.territories.find((t) => t.id === territoryId);
     setBusinessUnits((prev) =>
       prev.map((bu) =>
         bu.id === selectedBU.id && !bu.territoryIds.includes(territoryId)
@@ -384,10 +490,17 @@ export default function BusinessUnitsPage() {
         ? { ...prev, territoryIds: [...prev.territoryIds, territoryId] }
         : prev
     );
+    try {
+      addNotification({ type: "INFO", title: "Territory assigned to BU", message: `${territory?.name ?? territoryId} assigned to ${selectedBU.name}.`, module: "CRM", entityType: "BusinessUnit", entityId: selectedBU.id, actionUrl: "/crm/business-units" });
+    } catch { /* ignore */ }
+    try {
+      logAction({ userId: user.id, userName: user.name, userRole: user.role, action: "UPDATE", module: "CRM", entity: "BusinessUnit", entityId: selectedBU.id, entityName: selectedBU.name, details: `${user.name} assigned territory ${territory?.name ?? territoryId} to ${selectedBU.name}` });
+    } catch { /* ignore */ }
   }
 
   function handleRemoveTerritory(territoryId: string) {
     if (!selectedBU) return;
+    const territory = store.territories.find((t) => t.id === territoryId);
     setBusinessUnits((prev) =>
       prev.map((bu) =>
         bu.id === selectedBU.id
@@ -398,6 +511,12 @@ export default function BusinessUnitsPage() {
     setSelectedBU((prev) =>
       prev ? { ...prev, territoryIds: prev.territoryIds.filter((id) => id !== territoryId) } : prev
     );
+    try {
+      addNotification({ type: "WARNING", title: "Territory unassigned from BU", message: `${territory?.name ?? territoryId} removed from ${selectedBU.name}.`, module: "CRM", entityType: "BusinessUnit", entityId: selectedBU.id, actionUrl: "/crm/business-units" });
+    } catch { /* ignore */ }
+    try {
+      logAction({ userId: user.id, userName: user.name, userRole: user.role, action: "UPDATE", module: "CRM", entity: "BusinessUnit", entityId: selectedBU.id, entityName: selectedBU.name, details: `${user.name} removed territory ${territory?.name ?? territoryId} from ${selectedBU.name}` });
+    } catch { /* ignore */ }
   }
 
   // ── Product-Rep Assignment Handlers ──
@@ -734,6 +853,72 @@ export default function BusinessUnitsPage() {
                     <StatsCard icon={DollarSign} title="Revenue (EGP)" value={`${((BU_REVENUE[selectedBU.id] || 0) / 1000000).toFixed(1)}M`} subtitle="Current period" iconColor="bg-green-100 text-green-600" />
                   </div>
 
+                  {/* BU Performance Metrics */}
+                  {buPerformanceMetrics && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <BarChart3 className="h-4 w-4 text-indigo-600" />
+                          BU Performance Metrics
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="p-3 rounded-lg border text-center">
+                            <p className="text-xs text-muted-foreground mb-1">Revenue per Rep</p>
+                            <p className="text-lg font-bold text-green-700">EGP {(buPerformanceMetrics.revenuePerRep / 1000).toFixed(0)}K</p>
+                          </div>
+                          <div className="p-3 rounded-lg border text-center">
+                            <p className="text-xs text-muted-foreground mb-1">Products per Rep (avg)</p>
+                            <p className="text-lg font-bold text-blue-700">{buPerformanceMetrics.productsPerRep.toFixed(1)}</p>
+                          </div>
+                          <div className="p-3 rounded-lg border text-center">
+                            <p className="text-xs text-muted-foreground mb-1">Territory Coverage</p>
+                            <p className={`text-lg font-bold ${buPerformanceMetrics.territoryCoverage === 100 ? "text-green-700" : buPerformanceMetrics.territoryCoverage >= 50 ? "text-amber-600" : "text-red-600"}`}>
+                              {buPerformanceMetrics.territoryCoverage}%
+                            </p>
+                          </div>
+                          <div className="p-3 rounded-lg border text-center">
+                            <p className="text-xs text-muted-foreground mb-1">Active / Inactive Members</p>
+                            <p className="text-lg font-bold">
+                              <span className="text-green-700">{buPerformanceMetrics.activeMembers}</span>
+                              <span className="text-muted-foreground mx-1">/</span>
+                              <span className="text-gray-400">{buPerformanceMetrics.inactiveMembers}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Warnings */}
+                        {(buPerformanceMetrics.repsWithNoProducts.length > 0 || buPerformanceMetrics.uncoveredTerritories.length > 0) && (
+                          <div className="mt-4 space-y-2">
+                            {buPerformanceMetrics.repsWithNoProducts.length > 0 && (
+                              <div className="flex items-start gap-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
+                                <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                                <div className="text-sm">
+                                  <span className="font-medium text-red-700">Product gap detected:</span>{" "}
+                                  <span className="text-red-600">
+                                    {buPerformanceMetrics.repsWithNoProducts.map((m) => allUsers.find((u) => u.id === m.userId)?.name ?? m.userId).join(", ")} {buPerformanceMetrics.repsWithNoProducts.length === 1 ? "has" : "have"} no products assigned.
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                            {buPerformanceMetrics.uncoveredTerritories.length > 0 && (
+                              <div className="flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                                <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                                <div className="text-sm">
+                                  <span className="font-medium text-amber-700">Territory coverage gap:</span>{" "}
+                                  <span className="text-amber-600">
+                                    {buPerformanceMetrics.uncoveredTerritories.map((tid) => store.territories.find((t) => t.id === tid)?.name ?? tid).join(", ")} {buPerformanceMetrics.uncoveredTerritories.length === 1 ? "has" : "have"} no assigned rep.
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
                   {/* Role Distribution */}
                   <Card>
                     <CardHeader>
@@ -806,6 +991,10 @@ export default function BusinessUnitsPage() {
                           <div className="space-y-2">
                             {roleMembers.map((member) => {
                               const u = allUsers.find((usr) => usr.id === member.userId);
+                              const repProductIds = getRepProducts(member.userId);
+                              const buProductIdSet = new Set(selectedBU.productIds);
+                              const repBUProducts = repProductIds.filter((pid) => buProductIdSet.has(pid));
+                              const isRepRole = member.role === "MEDICAL_REP";
                               return (
                                 <div key={member.userId} className="flex items-center justify-between p-2.5 rounded-lg border hover:bg-muted/30 transition-colors">
                                   <div className="flex items-center gap-3">
@@ -815,6 +1004,24 @@ export default function BusinessUnitsPage() {
                                     <div>
                                       <p className="text-sm font-medium">{u?.name || member.userId}</p>
                                       <p className="text-xs text-muted-foreground">{u?.email || ""} {u?.territory ? `| ${u.territory}` : ""}</p>
+                                      {isRepRole && (
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                          {repBUProducts.length > 0 ? (
+                                            repBUProducts.map((pid) => {
+                                              const prod = store.products.find((p) => p.id === pid);
+                                              return (
+                                                <Badge key={pid} variant="outline" className="text-[9px] bg-blue-50 text-blue-700 border-blue-200">
+                                                  {prod?.name ?? pid}
+                                                </Badge>
+                                              );
+                                            })
+                                          ) : (
+                                            <Badge className="text-[9px] bg-red-100 text-red-700 border-red-200">
+                                              No products assigned
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                   {canEdit && (
@@ -929,8 +1136,9 @@ export default function BusinessUnitsPage() {
                     {selectedBUTerritories.map((territory) => {
                       const repsInTerritory = territory.assignedRepIds.length;
                       const doctorsInTerritory = store.doctors.filter((d) => d.brickId === territory.id).length;
+                      const hasNoRep = repsInTerritory === 0;
                       return (
-                        <Card key={territory.id}>
+                        <Card key={territory.id} className={hasNoRep ? "border-amber-300" : ""}>
                           <CardContent className="pt-5">
                             <div className="flex items-start justify-between mb-3">
                               <div>
@@ -947,6 +1155,12 @@ export default function BusinessUnitsPage() {
                                 </Button>
                               )}
                             </div>
+                            {hasNoRep && (
+                              <div className="flex items-center gap-1.5 mb-2 p-1.5 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+                                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                                <span>No assigned rep — territory uncovered</span>
+                              </div>
+                            )}
                             <div className="grid grid-cols-3 gap-2 text-xs">
                               <div className="p-2 bg-muted/50 rounded text-center">
                                 <span className="text-muted-foreground block">Level</span>
@@ -959,7 +1173,7 @@ export default function BusinessUnitsPage() {
                               </div>
                               <div className="p-2 bg-muted/50 rounded text-center">
                                 <span className="text-muted-foreground block">Reps</span>
-                                <span className="font-semibold">{repsInTerritory}</span>
+                                <span className={`font-semibold ${hasNoRep ? "text-amber-600" : ""}`}>{repsInTerritory}</span>
                               </div>
                               <div className="p-2 bg-muted/50 rounded text-center">
                                 <span className="text-muted-foreground block">Doctors</span>

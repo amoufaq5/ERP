@@ -70,6 +70,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 import { PartnerLink } from "@/components/shared/partner-link";
+import { useNotificationCenter } from "@/lib/notification-context";
+import { useAuditLogger } from "@/lib/audit-logger";
 
 // ─── E-Invoicing types & data ─────────────────────────────────────────
 interface EInvoice {
@@ -158,6 +160,19 @@ export default function AccountingPage() {
   const store = useDataStore();
   const approvals = useApprovals();
   const { t } = useTranslation();
+
+  /* ─── Notification & Audit Logger ─── */
+  let addNotification: any = () => {};
+  let logAction: any = () => {};
+  try {
+    const nc = useNotificationCenter();
+    addNotification = nc.addNotification;
+  } catch {}
+  try {
+    const al = useAuditLogger();
+    logAction = al.logAction;
+  } catch {}
+
   const [custSearch, setCustSearch] = useState("");
   const [custFilters, setCustFilters] = useState<FilterState>({});
   const [vendSearch, setVendSearch] = useState("");
@@ -218,6 +233,36 @@ export default function AccountingPage() {
   const [editingCC, setEditingCC] = useState<CostCenter | null>(null);
   const [budgetFormOpen, setBudgetFormOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+
+  /* ─── On-mount: overdue invoice alerts ─── */
+  const mountCheckedRef = useRef(false);
+  useEffect(() => {
+    if (mountCheckedRef.current) return;
+    mountCheckedRef.current = true;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    store.invoices.forEach((inv) => {
+      if (inv.status === "SENT" && inv.dueDate) {
+        const due = new Date(inv.dueDate);
+        due.setHours(0, 0, 0, 0);
+        if (due < today) {
+          const daysOverdue = Math.ceil((today.getTime() - due.getTime()) / 86400000);
+          const customer = store.customers.find((c) => c.id === inv.customerId);
+          addNotification({
+            type: "WARNING",
+            title: `Invoice ${inv.number} is overdue`,
+            message: `Invoice for ${customer?.name ?? "Unknown"} (EGP ${inv.total.toLocaleString()}) was due on ${inv.dueDate}. Currently ${daysOverdue} day(s) overdue.`,
+            module: "INVOICE",
+            entityType: "invoice",
+            entityId: inv.id,
+            actionUrl: "/erp/accounting",
+          });
+        }
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ─── E-Invoicing helpers ────────────────────────────────────────────
   useEffect(() => {
@@ -642,10 +687,43 @@ export default function AccountingPage() {
       notes: data.notes ? String(data.notes) : undefined,
     };
     if (editingInvoice) {
+      const oldStatus = editingInvoice.status;
       store.update("invoices", editingInvoice.id, payload);
+      // Audit: invoice status change
+      if (oldStatus !== payload.status) {
+        logAction({
+          userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+          action: "UPDATE", module: "ERP", entity: "Invoice",
+          entityId: editingInvoice.id, entityName: `Invoice ${editingInvoice.number}`,
+          details: `Invoice status change: ${editingInvoice.number} ${oldStatus} -> ${payload.status}`,
+          oldValues: { status: oldStatus },
+          newValues: { status: payload.status },
+        });
+      }
+      // Notification: payment received (status changed to PAID)
+      if (payload.status === "PAID" && oldStatus !== "PAID") {
+        const customer = store.customers.find((c) => c.id === payload.customerId);
+        addNotification({
+          type: "SUCCESS",
+          title: `Payment received for ${editingInvoice.number}`,
+          message: `Payment of EGP ${payload.total.toLocaleString()} received from ${customer?.name ?? "Unknown"} for invoice ${editingInvoice.number}.`,
+          module: "INVOICE",
+          entityType: "invoice",
+          entityId: editingInvoice.id,
+          actionUrl: "/erp/accounting",
+        });
+      }
     } else {
       const number = payload.number.trim() || store.generateInvoiceNumber();
-      store.add("invoices", { id: store.genId("inv"), ...payload, number });
+      const newId = store.genId("inv");
+      store.add("invoices", { id: newId, ...payload, number });
+      logAction({
+        userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+        action: "CREATE", module: "ERP", entity: "Invoice",
+        entityId: newId, entityName: `Invoice ${number}`,
+        details: `Invoice created: ${number} - EGP ${payload.total.toLocaleString()} (${payload.status})`,
+        newValues: { total: payload.total, status: payload.status, customerId: payload.customerId },
+      });
     }
     setInvFormOpen(false);
     setEditingInvoice(null);
@@ -691,13 +769,29 @@ export default function AccountingPage() {
   function handleJESubmit(data: EntityFormData) {
     if (editingJE) {
       store.update("journalEntries", editingJE.id, { date: String(data.date), description: String(data.description), reference: data.reference ? String(data.reference) : undefined, type: String(data.type) as JournalEntry["type"] });
+      logAction({
+        userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+        action: "UPDATE", module: "ERP", entity: "JournalEntry",
+        entityId: editingJE.id, entityName: `JE ${editingJE.number}`,
+        details: `Journal entry updated: ${editingJE.number} - ${String(data.description)}`,
+        oldValues: { description: editingJE.description, type: editingJE.type },
+        newValues: { description: String(data.description), type: String(data.type) },
+      });
     } else {
       const newId = store.genId("je");
+      const jeNumber = store.generateJournalNumber();
       store.add("journalEntries", {
-        id: newId, number: store.generateJournalNumber(), date: String(data.date),
+        id: newId, number: jeNumber, date: String(data.date),
         description: String(data.description), reference: data.reference ? String(data.reference) : undefined,
         type: String(data.type) as JournalEntry["type"], lines: [], status: "DRAFT",
         createdBy: "u-admin", createdAt: new Date().toISOString(),
+      });
+      logAction({
+        userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+        action: "CREATE", module: "ERP", entity: "JournalEntry",
+        entityId: newId, entityName: `JE ${jeNumber}`,
+        details: `Journal entry created: ${jeNumber} - ${String(data.description)} (${String(data.type)})`,
+        newValues: { number: jeNumber, description: String(data.description), type: String(data.type), status: "DRAFT" },
       });
       // Auto-open detail view so user can add lines
       setTimeout(() => setJeDetailId(newId), 100);
@@ -1255,8 +1349,14 @@ export default function AccountingPage() {
                   { key: "createdAt", label: "", render: (_v, row) => {
                     const je = row as unknown as JournalEntry;
                     const extras: { label: string; onClick: () => void }[] = [{ label: "View Lines", onClick: () => setJeDetailId(je.id) }];
-                    if (je.status === "DRAFT") extras.push({ label: "Post", onClick: () => store.update("journalEntries", je.id, { status: "POSTED" as JournalEntry["status"] }) });
-                    if (je.status === "POSTED") extras.push({ label: "Void", onClick: () => store.update("journalEntries", je.id, { status: "VOID" as JournalEntry["status"] }) });
+                    if (je.status === "DRAFT") extras.push({ label: "Post", onClick: () => {
+                      store.update("journalEntries", je.id, { status: "POSTED" as JournalEntry["status"] });
+                      logAction({ userId: "u-admin", userName: "Admin User", userRole: "ADMIN", action: "UPDATE", module: "ERP", entity: "JournalEntry", entityId: je.id, entityName: `JE ${je.number}`, details: `Journal entry posted: ${je.number}`, oldValues: { status: "DRAFT" }, newValues: { status: "POSTED" } });
+                    }});
+                    if (je.status === "POSTED") extras.push({ label: "Void", onClick: () => {
+                      store.update("journalEntries", je.id, { status: "VOID" as JournalEntry["status"] });
+                      logAction({ userId: "u-admin", userName: "Admin User", userRole: "ADMIN", action: "UPDATE", module: "ERP", entity: "JournalEntry", entityId: je.id, entityName: `JE ${je.number}`, details: `Journal entry voided: ${je.number}`, oldValues: { status: "POSTED" }, newValues: { status: "VOID" } });
+                    }});
                     return <EditDeleteMenu onEdit={() => { setEditingJE(je); setJeFormOpen(true); }} onDelete={() => store.remove("journalEntries", je.id)} itemLabel={je.number} compact extraItems={extras} />;
                   }},
                 ] as Column<Record<string, unknown>>[]}
@@ -1841,7 +1941,14 @@ export default function AccountingPage() {
                           return (
                             <div className="flex items-center justify-end gap-1">
                               <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => {
+                                const inv = store.invoices.find((i) => i.id === invId);
+                                const oldStatus = inv?.status;
                                 store.update("invoices", invId, { status: "PAID" as Invoice["status"] });
+                                if (inv) {
+                                  const cust = store.customers.find((c) => c.id === inv.customerId);
+                                  logAction({ userId: "u-admin", userName: "Admin User", userRole: "ADMIN", action: "UPDATE", module: "ERP", entity: "Invoice", entityId: invId, entityName: `Invoice ${inv.number}`, details: `Invoice status change: ${inv.number} ${oldStatus} -> PAID`, oldValues: { status: oldStatus }, newValues: { status: "PAID" } });
+                                  addNotification({ type: "SUCCESS", title: `Payment received for ${inv.number}`, message: `Payment of EGP ${inv.total.toLocaleString()} received from ${cust?.name ?? "Unknown"} for invoice ${inv.number}.`, module: "INVOICE", entityType: "invoice", entityId: invId, actionUrl: "/erp/accounting" });
+                                }
                               }}>
                                 Mark Paid
                               </Button>
@@ -2190,10 +2297,16 @@ export default function AccountingPage() {
                 <div className="flex items-center gap-2">
                   <span>Created: {new Date(jeDetail.createdAt).toLocaleDateString()}</span>
                   {jeDetail.status === "DRAFT" && (
-                    <Button size="sm" className="h-6 text-xs bg-green-600 hover:bg-green-700" onClick={() => { store.update("journalEntries", jeDetail.id, { status: "POSTED" as JournalEntry["status"] }); }}>Post</Button>
+                    <Button size="sm" className="h-6 text-xs bg-green-600 hover:bg-green-700" onClick={() => {
+                      store.update("journalEntries", jeDetail.id, { status: "POSTED" as JournalEntry["status"] });
+                      logAction({ userId: "u-admin", userName: "Admin User", userRole: "ADMIN", action: "UPDATE", module: "ERP", entity: "JournalEntry", entityId: jeDetail.id, entityName: `JE ${jeDetail.number}`, details: `Journal entry posted: ${jeDetail.number}`, oldValues: { status: "DRAFT" }, newValues: { status: "POSTED" } });
+                    }}>Post</Button>
                   )}
                   {jeDetail.status === "POSTED" && (
-                    <Button size="sm" variant="destructive" className="h-6 text-xs" onClick={() => { store.update("journalEntries", jeDetail.id, { status: "VOID" as JournalEntry["status"] }); }}>Void</Button>
+                    <Button size="sm" variant="destructive" className="h-6 text-xs" onClick={() => {
+                      store.update("journalEntries", jeDetail.id, { status: "VOID" as JournalEntry["status"] });
+                      logAction({ userId: "u-admin", userName: "Admin User", userRole: "ADMIN", action: "UPDATE", module: "ERP", entity: "JournalEntry", entityId: jeDetail.id, entityName: `JE ${jeDetail.number}`, details: `Journal entry voided: ${jeDetail.number}`, oldValues: { status: "POSTED" }, newValues: { status: "VOID" } });
+                    }}>Void</Button>
                   )}
                 </div>
               </div>

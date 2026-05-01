@@ -105,9 +105,10 @@ const ESCALATION_CHAIN_LABELS: Record<string, string> = {
 
 /* ─── Conflict Detection Helpers ─── */
 interface PlanConflict {
-  type: "duplicate_doctor" | "overlapping_time" | "excessive_visits";
+  type: "duplicate_doctor" | "overlapping_time" | "excessive_visits" | "short_duration_no_reason";
   dayIndex: number;
   message: string;
+  visitIndex?: number;
 }
 
 interface PlanValidation {
@@ -167,6 +168,19 @@ function detectConflicts(days: DailyPlan[]): PlanConflict[] {
         message: `${day.visits.length} visits on ${DAY_LABELS[dayIdx]} (max ${MAX_VISITS_PER_DAY})`,
       });
     }
+
+    // Enhancement 5: Short visit duration without reason
+    day.visits.forEach((v, vIdx) => {
+      const dur = calcDurationMin(v.checkInTime, v.checkOutTime);
+      if (dur !== null && dur < MIN_VISIT_DURATION_MIN && !v.shortDurationReason?.trim()) {
+        conflicts.push({
+          type: "short_duration_no_reason",
+          dayIndex: dayIdx,
+          visitIndex: vIdx,
+          message: `Visit #${vIdx + 1} on ${DAY_LABELS[dayIdx]} is ${fmtDuration(dur)} (<${MIN_VISIT_DURATION_MIN}m) without a reason`,
+        });
+      }
+    });
   });
   return conflicts;
 }
@@ -208,8 +222,10 @@ export default function WeeklyPlanPage() {
   const [autoEscalationAlert, setAutoEscalationAlert] = useState<number>(0);
 
   // Safe notification & audit hooks — wrapped so pages render even without providers
-  let addNotification: (n: { type: string; title: string; message: string; module: string; entityType?: string; entityId?: string }) => void = () => {};
-  let logAction: (entry: { userId: string; userName: string; userRole: string; action: string; module: string; entity: string; entityId: string; entityName?: string; details?: string; oldValues?: Record<string, unknown>; newValues?: Record<string, unknown> }) => void = () => {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let addNotification: (...args: any[]) => void = () => {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let logAction: (...args: any[]) => void = () => {};
   try {
     const nc = useNotificationCenter();
     addNotification = nc.addNotification;
@@ -242,6 +258,66 @@ export default function WeeklyPlanPage() {
 
   const myStartingPoints = store.startingPoints.filter((s) => s.userId === user.id);
 
+  // ── Enhancement 2: Auto-escalation on mount ──
+  const autoEscalationRan = useRef(false);
+  useEffect(() => {
+    if (autoEscalationRan.current) return;
+    autoEscalationRan.current = true;
+    const plansToEscalate = store.weeklyPlans.filter((p) => isPendingEscalation(p));
+    if (plansToEscalate.length === 0) return;
+    let escalatedCount = 0;
+    const escalatedSet = new Set<string>();
+    plansToEscalate.forEach((plan) => {
+      const currentLevel = plan.approvalLevel ?? 0;
+      if (currentLevel >= ESCALATION_CHAIN.length - 1) return; // already at top
+      const nextLevel = currentLevel + 1;
+      const nextRole = ESCALATION_CHAIN[nextLevel];
+      const entry: ApprovalEntry = {
+        id: store.genId("ah"),
+        action: "AUTO_ESCALATED",
+        performedBy: "System",
+        performedById: "SYSTEM",
+        timestamp: new Date().toISOString(),
+        comment: `Auto-escalated to ${ESCALATION_CHAIN_LABELS[nextRole]} (pending >48h)`,
+        level: nextLevel,
+      };
+      store.update("weeklyPlans", plan.id, {
+        approvalLevel: nextLevel,
+        approvalHistory: [...(plan.approvalHistory ?? []), entry],
+      });
+      escalatedSet.add(plan.id);
+      escalatedCount++;
+      try {
+        addNotification({
+          type: "ESCALATION",
+          title: "Plan Auto-Escalated",
+          message: `Weekly plan for ${fmtDate(plan.weekStartDate)} auto-escalated to ${ESCALATION_CHAIN_LABELS[nextRole]} (pending >48h)`,
+          module: "WEEKLY_PLAN",
+          entityType: "WeeklyPlan",
+          entityId: plan.id,
+        });
+      } catch { /* safe */ }
+      try {
+        logAction({
+          action: "ESCALATE",
+          module: "CRM",
+          entity: "WeeklyPlan",
+          entityId: plan.id,
+          entityName: `Week of ${fmtDate(plan.weekStartDate)}`,
+          userId: "SYSTEM",
+          userName: "System",
+          userRole: "SYSTEM",
+          details: `Auto-escalated to ${ESCALATION_CHAIN_LABELS[nextRole]} (pending >48h)`,
+        });
+      } catch { /* safe */ }
+    });
+    if (escalatedCount > 0) {
+      setAutoEscalatedIds(escalatedSet);
+      setAutoEscalationAlert(escalatedCount);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function createNewPlan() {
     const newPlan: WeeklyPlan = {
       id: store.genId("wp"),
@@ -257,11 +333,31 @@ export default function WeeklyPlanPage() {
       createdAt: new Date().toISOString(),
     };
     store.add("weeklyPlans", newPlan);
+    try {
+      logAction({
+        action: "CREATE",
+        module: "CRM",
+        entity: "WeeklyPlan",
+        entityId: newPlan.id,
+        entityName: `Week of ${fmtDate(activeWeek)}`,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        details: `Created weekly plan for ${fmtDate(activeWeek)}`,
+      });
+    } catch { /* safe */ }
     setEditing(newPlan);
     setShowCreateDialog(false);
   }
 
   function submitPlan(plan: WeeklyPlan) {
+    // Enhancement 1: Block submission if unresolved conflicts exist
+    const conflicts = detectConflicts(plan.days);
+    if (conflicts.length > 0) {
+      setConflictBlockDialog({ plan, conflicts });
+      return;
+    }
+
     const entry: ApprovalEntry = {
       id: store.genId("ah"),
       action: "SUBMITTED",
@@ -276,6 +372,30 @@ export default function WeeklyPlanPage() {
       approvalHistory: [...(plan.approvalHistory ?? []), entry],
       approvalLevel: 0,
     });
+    try {
+      addNotification({
+        type: "APPROVAL",
+        title: "Weekly Plan Submitted",
+        message: `Weekly plan for ${fmtDate(plan.weekStartDate)} has been submitted for approval`,
+        module: "WEEKLY_PLAN",
+        entityType: "WeeklyPlan",
+        entityId: plan.id,
+      });
+    } catch { /* safe */ }
+    try {
+      logAction({
+        action: "UPDATE",
+        module: "CRM",
+        entity: "WeeklyPlan",
+        entityId: plan.id,
+        entityName: `Week of ${fmtDate(plan.weekStartDate)}`,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        details: "Submitted for approval",
+        newValues: { status: "SUBMITTED" },
+      });
+    } catch { /* safe */ }
   }
 
   function approvePlan(plan: WeeklyPlan) {
@@ -293,6 +413,30 @@ export default function WeeklyPlanPage() {
       approvedAt: new Date().toISOString(),
       approvalHistory: [...(plan.approvalHistory ?? []), entry],
     });
+    try {
+      addNotification({
+        type: "SUCCESS",
+        title: "Weekly Plan Approved",
+        message: `Weekly plan for ${fmtDate(plan.weekStartDate)} has been approved`,
+        module: "WEEKLY_PLAN",
+        entityType: "WeeklyPlan",
+        entityId: plan.id,
+      });
+    } catch { /* safe */ }
+    try {
+      logAction({
+        action: "APPROVE",
+        module: "CRM",
+        entity: "WeeklyPlan",
+        entityId: plan.id,
+        entityName: `Week of ${fmtDate(plan.weekStartDate)}`,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        details: "Plan approved",
+        newValues: { status: "APPROVED" },
+      });
+    } catch { /* safe */ }
   }
 
   function rejectPlan() {
@@ -313,6 +457,30 @@ export default function WeeklyPlanPage() {
       approvedAt: new Date().toISOString(),
       approvalHistory: [...(rejectingPlan.approvalHistory ?? []), entry],
     });
+    try {
+      addNotification({
+        type: "WARNING",
+        title: "Weekly Plan Rejected",
+        message: `Weekly plan for ${fmtDate(rejectingPlan.weekStartDate)} has been rejected: ${rejectReason}`,
+        module: "WEEKLY_PLAN",
+        entityType: "WeeklyPlan",
+        entityId: rejectingPlan.id,
+      });
+    } catch { /* safe */ }
+    try {
+      logAction({
+        action: "REJECT",
+        module: "CRM",
+        entity: "WeeklyPlan",
+        entityId: rejectingPlan.id,
+        entityName: `Week of ${fmtDate(rejectingPlan.weekStartDate)}`,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        details: `Rejected: ${rejectReason}`,
+        newValues: { status: "REJECTED", rejectionReason: rejectReason },
+      });
+    } catch { /* safe */ }
     setRejectingPlan(null);
     setRejectReason("");
   }
@@ -334,6 +502,29 @@ export default function WeeklyPlanPage() {
       approvalLevel: nextLevel,
       approvalHistory: [...(plan.approvalHistory ?? []), entry],
     });
+    try {
+      addNotification({
+        type: "ESCALATION",
+        title: "Weekly Plan Escalated",
+        message: `Weekly plan for ${fmtDate(plan.weekStartDate)} escalated to ${ESCALATION_CHAIN_LABELS[nextRole]}`,
+        module: "WEEKLY_PLAN",
+        entityType: "WeeklyPlan",
+        entityId: plan.id,
+      });
+    } catch { /* safe */ }
+    try {
+      logAction({
+        action: "ESCALATE",
+        module: "CRM",
+        entity: "WeeklyPlan",
+        entityId: plan.id,
+        entityName: `Week of ${fmtDate(plan.weekStartDate)}`,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        details: `Escalated to ${ESCALATION_CHAIN_LABELS[nextRole]}`,
+      });
+    } catch { /* safe */ }
   }
 
   function deletePlan(plan: WeeklyPlan) {
@@ -348,6 +539,24 @@ export default function WeeklyPlanPage() {
 
   return (
     <div className="space-y-6">
+      {/* Enhancement 2: Auto-escalation alert */}
+      {autoEscalationAlert > 0 && (
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-orange-300 bg-orange-50">
+          <Bell className="h-5 w-5 text-orange-600 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-orange-800">
+              {autoEscalationAlert} plan{autoEscalationAlert !== 1 ? "s" : ""} auto-escalated due to inactivity
+            </p>
+            <p className="text-xs text-orange-700">
+              Plans pending approval for more than 48 hours have been automatically escalated to the next level.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-100" onClick={() => setAutoEscalationAlert(0)}>
+            Dismiss
+          </Button>
+        </div>
+      )}
+
       <PageHeader
         title="Weekly Visit Plans"
         description="Set, submit, and review weekly plans before starting field trips. Plans must be approved by a manager before execution."
@@ -425,6 +634,7 @@ export default function WeeklyPlanPage() {
                   allUsers={allUsers}
                   isRep={isRep}
                   isManager={false}
+                  isAutoEscalated={autoEscalatedIds.has(plan.id)}
                   onEdit={() => setEditing(plan)}
                   onSubmit={() => submitPlan(plan)}
                   onApprove={() => approvePlan(plan)}
@@ -454,6 +664,7 @@ export default function WeeklyPlanPage() {
                     allUsers={allUsers}
                     isRep={false}
                     isManager
+                    isAutoEscalated={autoEscalatedIds.has(plan.id)}
                     onEdit={() => setEditing(plan)}
                     onSubmit={() => submitPlan(plan)}
                     onApprove={() => approvePlan(plan)}
@@ -477,6 +688,7 @@ export default function WeeklyPlanPage() {
                 allUsers={allUsers}
                 isRep={plan.repId === user.id}
                 isManager={isManager && plan.repId !== user.id}
+                isAutoEscalated={autoEscalatedIds.has(plan.id)}
                 onEdit={() => setEditing(plan)}
                 onSubmit={() => submitPlan(plan)}
                 onApprove={() => approvePlan(plan)}
@@ -567,6 +779,51 @@ export default function WeeklyPlanPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Enhancement 1: Conflict blocking dialog */}
+      <Dialog open={!!conflictBlockDialog} onOpenChange={(o) => { if (!o) setConflictBlockDialog(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <AlertTriangle className="h-5 w-5" />
+              Cannot Submit: {conflictBlockDialog?.conflicts.length} Conflict{conflictBlockDialog?.conflicts.length !== 1 ? "s" : ""} Detected
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Resolve all conflicts before submitting this plan for approval.
+            </p>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {conflictBlockDialog?.conflicts.map((c, idx) => (
+                <div key={idx} className="flex items-center gap-2 p-2 rounded border border-red-200 bg-red-50/50">
+                  <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${
+                    c.type === "duplicate_doctor" ? "bg-yellow-500" :
+                    c.type === "overlapping_time" ? "bg-red-500" :
+                    "bg-orange-500"
+                  }`} />
+                  <span className="text-xs text-red-800">{c.message}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const plan = conflictBlockDialog?.plan;
+                setConflictBlockDialog(null);
+                if (plan) setEditing(plan);
+              }}
+            >
+              <Eye className="h-3.5 w-3.5 mr-1" />
+              View Conflicts
+            </Button>
+            <Button onClick={() => setConflictBlockDialog(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -578,6 +835,7 @@ function PlanCard({
   allUsers,
   isRep,
   isManager,
+  isAutoEscalated,
   onEdit,
   onSubmit,
   onApprove,
@@ -590,6 +848,7 @@ function PlanCard({
   allUsers: ReturnType<typeof useCurrentUser>["allUsers"];
   isRep: boolean;
   isManager: boolean;
+  isAutoEscalated?: boolean;
   onEdit: () => void;
   onSubmit: () => void;
   onApprove: () => void;
@@ -654,6 +913,12 @@ function PlanCard({
             )}
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
+            {isAutoEscalated && (
+              <Badge className="bg-orange-200 text-orange-900 text-[10px] flex items-center gap-1 font-semibold">
+                <ArrowUpCircle className="h-3 w-3" />
+                Auto-escalated
+              </Badge>
+            )}
             {needsEscalation && (
               <Badge className="bg-orange-100 text-orange-700 text-[10px] flex items-center gap-1">
                 <Clock className="h-3 w-3" />
@@ -906,6 +1171,10 @@ function PlanEditor({
   const isReadonly = plan.status === "APPROVED" || plan.status === "SUBMITTED";
 
   function addVisit(dayIdx: number, session: "AM" | "PM") {
+    // Enhancement 5: Enforce max 8 visits per day
+    if (days[dayIdx].visits.length >= MAX_VISITS_PER_DAY) {
+      return; // button is disabled, but guard anyway
+    }
     const next = [...days];
     next[dayIdx] = {
       ...next[dayIdx],
@@ -984,19 +1253,18 @@ function PlanEditor({
                         {dayConflictsEditor.length} issue{dayConflictsEditor.length !== 1 ? "s" : ""}
                       </Badge>
                     )}
-                    {day.visits.length > MAX_VISITS_PER_DAY && (
-                      <Badge className="bg-orange-100 text-orange-800 text-[10px]">
-                        {day.visits.length} visits (max {MAX_VISITS_PER_DAY})
-                      </Badge>
-                    )}
+                    {/* Enhancement 5: Running total per day */}
+                    <Badge className={`text-[10px] ${day.visits.length >= MAX_VISITS_PER_DAY ? "bg-red-100 text-red-800" : day.visits.length >= MAX_VISITS_PER_DAY - 2 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"}`}>
+                      {day.visits.length}/{MAX_VISITS_PER_DAY} visits planned
+                    </Badge>
                   </div>
                   <div className="flex items-center gap-2">
                     {!isReadonly && (
                       <>
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => addVisit(dayIdx, "AM")}>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => addVisit(dayIdx, "AM")} disabled={day.visits.length >= MAX_VISITS_PER_DAY}>
                           <Sun className="h-3 w-3 mr-1 text-amber-500" /> Add AM Visit
                         </Button>
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => addVisit(dayIdx, "PM")}>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => addVisit(dayIdx, "PM")} disabled={day.visits.length >= MAX_VISITS_PER_DAY}>
                           <Moon className="h-3 w-3 mr-1 text-indigo-500" /> Add PM Visit
                         </Button>
                       </>
@@ -1203,6 +1471,32 @@ function PlanEditor({
                               )}
                             </div>
                           </div>
+                          {/* Enhancement 5: Short visit duration reason */}
+                          {dur !== null && dur < MIN_VISIT_DURATION_MIN && (
+                            <div className="mt-1.5 flex items-start gap-2 p-1.5 rounded border border-orange-300 bg-orange-50">
+                              <AlertTriangle className="h-3.5 w-3.5 text-orange-600 shrink-0 mt-0.5" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[10px] font-semibold text-orange-800">
+                                  Visit is under {MIN_VISIT_DURATION_MIN} minutes ({fmtDuration(dur)}). A reason is required.
+                                </p>
+                                {!isReadonly ? (
+                                  <input
+                                    type="text"
+                                    className="w-full mt-1 rounded border border-orange-300 p-1 text-[10px] bg-white"
+                                    placeholder="Enter reason for short visit..."
+                                    value={v.shortDurationReason ?? ""}
+                                    onChange={(e) => updateVisit(dayIdx, vIdx, { shortDurationReason: e.target.value })}
+                                  />
+                                ) : (
+                                  v.shortDurationReason && (
+                                    <p className="text-[10px] text-orange-700 mt-0.5 italic">
+                                      Reason: {v.shortDurationReason}
+                                    </p>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          )}
                           {/* Labels row under the grid for check-in/out when in read-only */}
                           {isReadonly && (v.checkInTime || v.checkOutTime) && (
                             <div className="mt-1 flex items-center gap-3 text-[10px] text-muted-foreground pl-8">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
@@ -28,6 +28,8 @@ import {
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { useTranslation } from "@/lib/i18n/i18n-context";
+import { useNotificationCenter } from "@/lib/notification-context";
+import { useAuditLogger } from "@/lib/audit-logger";
 
 /* ─── Types ──────────────────────────────────────────────────────── */
 
@@ -198,6 +200,78 @@ export default function InventoryPage() {
   const [detailWH, setDetailWH] = useState<WarehouseRec | null>(null);
   const [detailBatch, setDetailBatch] = useState<BatchRecord | null>(null);
 
+  // Auto-reorder PO suggestions state
+  const [showPOSuggestions, setShowPOSuggestions] = useState(false);
+
+  /* ─── Notification & Audit Logger ─── */
+  let addNotification: any = () => {};
+  let logAction: any = () => {};
+  try {
+    const nc = useNotificationCenter();
+    addNotification = nc.addNotification;
+  } catch {}
+  try {
+    const al = useAuditLogger();
+    logAction = al.logAction;
+  } catch {}
+
+  /* ─── On-mount checks: low stock alerts, expiry alerts ─── */
+  const mountCheckedRef = useRef(false);
+  useEffect(() => {
+    if (mountCheckedRef.current) return;
+    mountCheckedRef.current = true;
+
+    // Low stock auto-alert for raw materials
+    rawMaterials.forEach((rm) => {
+      if (rm.quantityKg < rm.reorderLevel) {
+        addNotification({
+          type: "WARNING",
+          title: `Low stock: ${rm.name}`,
+          message: `${rm.name} - ${rm.quantityKg} kg remaining (reorder level: ${rm.reorderLevel} kg)`,
+          module: "INVENTORY",
+          entityType: "raw_material",
+          entityId: rm.id,
+          actionUrl: "/erp/inventory",
+        });
+      }
+    });
+
+    // Low stock auto-alert for finished products (using forecasting reorder points)
+    SEED_FORECASTS.forEach((fc) => {
+      if (fc.currentStock <= fc.reorderPoint) {
+        addNotification({
+          type: "WARNING",
+          title: `Low stock: ${fc.product}`,
+          message: `${fc.product} - ${fc.currentStock} ${fc.unit} remaining (reorder level: ${fc.reorderPoint})`,
+          module: "INVENTORY",
+          entityType: "product",
+          entityId: fc.productCode,
+          actionUrl: "/erp/inventory",
+        });
+      }
+    });
+
+    // Expiry alerts for batches expiring within 90 days
+    const now = new Date();
+    batches.forEach((b) => {
+      if (b.status !== "Active") return;
+      const exp = new Date(b.expiryDate);
+      const days = Math.ceil((exp.getTime() - now.getTime()) / 86400000);
+      if (days > 0 && days <= 90) {
+        addNotification({
+          type: "WARNING",
+          title: `Expiry alert: ${b.product} batch ${b.batchNo}`,
+          message: `Batch ${b.batchNo} of ${b.product} expires in ${days} days (${b.expiryDate}). ${b.quantity} ${b.unit} remaining.`,
+          module: "INVENTORY",
+          entityType: "batch",
+          entityId: b.id,
+          actionUrl: "/erp/inventory",
+        });
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Product catalog category filter
   const [catalogFilter, setCatalogFilter] = useState<"all" | "raw" | "finished">("all");
 
@@ -272,7 +346,19 @@ export default function InventoryPage() {
   }, [batches, expiryAlertDays]);
 
   const handleBatchStatusChange = (batchId: string, newStatus: BatchStatus) => {
+    const batch = batches.find((b) => b.id === batchId);
+    const oldStatus = batch?.status;
     setBatches((prev) => prev.map((b) => b.id === batchId ? { ...b, status: newStatus } : b));
+    if (batch) {
+      logAction({
+        userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+        action: "UPDATE", module: "ERP", entity: "Batch",
+        entityId: batchId, entityName: `Batch ${batch.batchNo}`,
+        details: `Batch status change: ${batch.batchNo} (${batch.product}) ${oldStatus} -> ${newStatus}`,
+        oldValues: { status: oldStatus },
+        newValues: { status: newStatus },
+      });
+    }
   };
 
   /* ─── Forecast Filtering ─── */
@@ -370,13 +456,39 @@ export default function InventoryPage() {
       qcStatus: data.qcStatus as RawMaterial["qcStatus"], warehouse: String(data.warehouse),
     };
     if (editingRm) {
+      const oldQty = editingRm.quantityKg;
       setRawMaterials((prev) => prev.map((r) => r.id === editingRm.id ? { ...r, ...payload } : r));
+      logAction({
+        userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+        action: "UPDATE", module: "ERP", entity: "RawMaterial",
+        entityId: editingRm.id, entityName: payload.name,
+        details: `Stock movement ADJUSTMENT: ${editingRm.name} qty ${oldQty} -> ${payload.quantityKg} kg`,
+        oldValues: { quantityKg: oldQty },
+        newValues: { quantityKg: payload.quantityKg },
+      });
     } else {
-      setRawMaterials((prev) => [...prev, { id: genId("rm"), ...payload }]);
+      const newId = genId("rm");
+      setRawMaterials((prev) => [...prev, { id: newId, ...payload }]);
+      logAction({
+        userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+        action: "CREATE", module: "ERP", entity: "RawMaterial",
+        entityId: newId, entityName: payload.name,
+        details: `Stock movement IN: Added ${payload.name} - ${payload.quantityKg} kg`,
+        newValues: { quantityKg: payload.quantityKg, warehouse: payload.warehouse },
+      });
     }
     setRmFormOpen(false); setEditingRm(null);
   }
-  function handleDeleteRM(r: RawMaterial) { setRawMaterials((prev) => prev.filter((x) => x.id !== r.id)); }
+  function handleDeleteRM(r: RawMaterial) {
+    setRawMaterials((prev) => prev.filter((x) => x.id !== r.id));
+    logAction({
+      userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+      action: "DELETE", module: "ERP", entity: "RawMaterial",
+      entityId: r.id, entityName: r.name,
+      details: `Stock movement OUT: Removed ${r.name} - ${r.quantityKg} kg from ${r.warehouse}`,
+      oldValues: { quantityKg: r.quantityKg, warehouse: r.warehouse },
+    });
+  }
 
   /* ─── FP CRUD ─── */
   const fpFields: EntityField[] = [
@@ -410,13 +522,39 @@ export default function InventoryPage() {
       warehouse: String(data.warehouse), qcReleased: Boolean(data.qcReleased),
     };
     if (editingFp) {
+      const oldQty = editingFp.quantity;
       setFinishedProducts((prev) => prev.map((p) => p.id === editingFp.id ? { ...p, ...payload } : p));
+      logAction({
+        userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+        action: "UPDATE", module: "ERP", entity: "FinishedProduct",
+        entityId: editingFp.id, entityName: `${payload.name} ${payload.strength}`,
+        details: `Stock movement ADJUSTMENT: ${editingFp.name} ${editingFp.strength} qty ${oldQty} -> ${payload.quantity} ${payload.unit}`,
+        oldValues: { quantity: oldQty },
+        newValues: { quantity: payload.quantity },
+      });
     } else {
-      setFinishedProducts((prev) => [...prev, { id: genId("fp"), ...payload }]);
+      const newId = genId("fp");
+      setFinishedProducts((prev) => [...prev, { id: newId, ...payload }]);
+      logAction({
+        userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+        action: "CREATE", module: "ERP", entity: "FinishedProduct",
+        entityId: newId, entityName: `${payload.name} ${payload.strength}`,
+        details: `Stock movement IN: Added ${payload.name} ${payload.strength} - ${payload.quantity} ${payload.unit}`,
+        newValues: { quantity: payload.quantity, warehouse: payload.warehouse },
+      });
     }
     setFpFormOpen(false); setEditingFp(null);
   }
-  function handleDeleteFP(p: FinishedProduct) { setFinishedProducts((prev) => prev.filter((x) => x.id !== p.id)); }
+  function handleDeleteFP(p: FinishedProduct) {
+    setFinishedProducts((prev) => prev.filter((x) => x.id !== p.id));
+    logAction({
+      userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+      action: "DELETE", module: "ERP", entity: "FinishedProduct",
+      entityId: p.id, entityName: `${p.name} ${p.strength}`,
+      details: `Stock movement OUT: Removed ${p.name} ${p.strength} - ${p.quantity} ${p.unit} from ${p.warehouse}`,
+      oldValues: { quantity: p.quantity, warehouse: p.warehouse },
+    });
+  }
 
   /* ─── Warehouse CRUD ─── */
   const whFields: EntityField[] = [
@@ -439,12 +577,37 @@ export default function InventoryPage() {
     };
     if (editingWh) {
       setWarehouses((prev) => prev.map((w) => w.id === editingWh.id ? { ...w, ...payload } : w));
+      logAction({
+        userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+        action: "UPDATE", module: "ERP", entity: "Warehouse",
+        entityId: editingWh.id, entityName: payload.name,
+        details: `Warehouse updated: ${payload.name}`,
+        oldValues: { capacity: editingWh.capacity, used: editingWh.used },
+        newValues: { capacity: payload.capacity, used: payload.used },
+      });
     } else {
-      setWarehouses((prev) => [...prev, { id: genId("wh"), ...payload }]);
+      const newId = genId("wh");
+      setWarehouses((prev) => [...prev, { id: newId, ...payload }]);
+      logAction({
+        userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+        action: "CREATE", module: "ERP", entity: "Warehouse",
+        entityId: newId, entityName: payload.name,
+        details: `Warehouse created: ${payload.name} (${payload.type}) at ${payload.location}`,
+        newValues: { type: payload.type, capacity: payload.capacity },
+      });
     }
     setWhFormOpen(false); setEditingWh(null);
   }
-  function handleDeleteWH(w: WarehouseRec) { setWarehouses((prev) => prev.filter((x) => x.id !== w.id)); }
+  function handleDeleteWH(w: WarehouseRec) {
+    setWarehouses((prev) => prev.filter((x) => x.id !== w.id));
+    logAction({
+      userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+      action: "DELETE", module: "ERP", entity: "Warehouse",
+      entityId: w.id, entityName: w.name,
+      details: `Warehouse deleted: ${w.name}`,
+      oldValues: { type: w.type, location: w.location },
+    });
+  }
 
   function handleAdd() {
     if (tab === "raw") handleCreateRM();
@@ -827,7 +990,7 @@ export default function InventoryPage() {
       {/* ── Demand Forecasting ── */}
       {tab === "forecasting" && (
         <>
-          {/* Reorder alerts */}
+          {/* Reorder alerts with auto-reorder suggestion */}
           {reorderAlerts.length > 0 && (
             <Card className="border-red-200 bg-red-50">
               <CardContent className="p-4">
@@ -839,6 +1002,10 @@ export default function InventoryPage() {
                     <p className="text-sm font-semibold text-red-800">Reorder Alerts</p>
                     <p className="text-xs text-red-700">{reorderAlerts.length} product(s) at or below reorder point: {reorderAlerts.map((r) => r.product).join(", ")}</p>
                   </div>
+                  <Button size="sm" variant="outline" className="border-red-300 text-red-700 hover:bg-red-100 text-xs"
+                    onClick={() => setShowPOSuggestions(true)}>
+                    Generate PO Suggestions
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -1184,6 +1351,37 @@ export default function InventoryPage() {
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── PO Suggestions Dialog ── */}
+      <Dialog open={showPOSuggestions} onOpenChange={setShowPOSuggestions}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Purchase Order Suggestions</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">The following products are below their reorder levels and need restocking:</p>
+            <div className="border rounded-lg divide-y">
+              {reorderAlerts.map((f) => (
+                <div key={f.id} className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">{f.product}</p>
+                    <p className="text-xs text-muted-foreground">Current: {f.currentStock.toLocaleString()} {f.unit} | Reorder Point: {f.reorderPoint.toLocaleString()} | Safety Stock: {f.safetyStock.toLocaleString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <Badge className="bg-blue-100 text-blue-700">{f.suggestedOrderQty.toLocaleString()} {f.unit}</Badge>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Suggested order</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground mb-1">Summary</p>
+              <p>Total products needing reorder: {reorderAlerts.length}</p>
+              <p>Based on 3-month SMA forecast with seasonal adjustment and safety stock requirements.</p>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

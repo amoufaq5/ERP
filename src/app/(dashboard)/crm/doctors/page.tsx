@@ -23,6 +23,25 @@ import {
 } from "@/lib/data-store";
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 
+// ─── Specialty → Product Matching ─────────────────────────────────────────────
+const SPECIALTY_PRODUCT_MAP: Record<string, string[]> = {
+  "Cardiology": ["Cardioprex", "Crestor", "Concor", "Plavix"],
+  "Internal Medicine": [], // empty means "All products"
+  "Pulmonology": ["Ventolin"],
+  "Gastroenterology": ["Omepak", "Nexium"],
+  "Endocrinology": ["Glimaryl"],
+  "General Practice": ["Panadol", "Augmentin", "Amoxil"],
+  "Infectious Disease": ["Augmentin", "Amoxil", "Zithromax"],
+};
+
+// Internal Medicine maps to all products — marked by empty array above
+const INTERNAL_MEDICINE_KEY = "Internal Medicine";
+
+function getSuggestedProductNames(specialty: string): string[] | "ALL" {
+  if (specialty === INTERNAL_MEDICINE_KEY) return "ALL";
+  return SPECIALTY_PRODUCT_MAP[specialty] ?? [];
+}
+
 export default function DoctorsPage() {
   const store = useDataStore();
   const { user, allUsers, getReportsOf } = useCurrentUser();
@@ -73,6 +92,45 @@ export default function DoctorsPage() {
 
   const canEdit = user.role !== "MEDICAL_REP";
   const isRep = user.role === "MEDICAL_REP";
+
+  // ── Rep's BU product portfolio (product names the current rep can promote) ──
+  const repPortfolioProductNames = useMemo(() => {
+    if (!isRep) return new Set<string>();
+    // Find all BUs where the current user is a member
+    const myBUs = store.businessUnits.filter((bu) =>
+      bu.memberIds.includes(user.id)
+    );
+    // Gather all product IDs from those BUs
+    const productIds = new Set<string>();
+    myBUs.forEach((bu) => bu.productIds.forEach((pid) => productIds.add(pid)));
+    // Resolve to product names
+    const names = new Set<string>();
+    store.products.forEach((p) => {
+      if (productIds.has(p.id)) names.add(p.name);
+    });
+    return names;
+  }, [isRep, store.businessUnits, store.products, user.id]);
+
+  // ── Build suggested products for a doctor based on specialty and rep portfolio ──
+  function getSuggestedForDoctor(specialty: string): { name: string; inPortfolio: boolean }[] {
+    const suggested = getSuggestedProductNames(specialty);
+    if (suggested === "ALL") {
+      // Internal Medicine: suggest all known products from the map
+      const allNames = new Set<string>();
+      Object.values(SPECIALTY_PRODUCT_MAP).forEach((names) =>
+        names.forEach((n) => allNames.add(n))
+      );
+      return Array.from(allNames).sort().map((name) => ({
+        name,
+        inPortfolio: !isRep || repPortfolioProductNames.has(name),
+      }));
+    }
+    if (suggested.length === 0) return [];
+    return suggested.map((name) => ({
+      name,
+      inPortfolio: !isRep || repPortfolioProductNames.has(name),
+    }));
+  }
 
   const repOptions = allUsers
     .filter((u) => u.role === "MEDICAL_REP")
@@ -275,6 +333,37 @@ export default function DoctorsPage() {
             },
           },
           {
+            key: "specialty",
+            label: "Suggested Products",
+            render: (_v: unknown, row: unknown) => {
+              const d = row as Doctor;
+              const suggestions = getSuggestedForDoctor(d.specialty);
+              if (suggestions.length === 0) {
+                return <span className="text-xs text-muted-foreground">—</span>;
+              }
+              return (
+                <div className="flex flex-wrap gap-1 max-w-[220px]">
+                  {suggestions.map((s) => (
+                    <Badge
+                      key={s.name}
+                      variant="outline"
+                      className={`text-[9px] ${
+                        s.inPortfolio
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-gray-50 text-gray-400 border-gray-200"
+                      }`}
+                    >
+                      {s.name}
+                      {!s.inPortfolio && isRep && (
+                        <span className="ml-0.5 text-[8px] opacity-70">(not in portfolio)</span>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+              );
+            },
+          },
+          {
             key: "lastVisitAt",
             label: "Last Visit",
             render: (_v: unknown, row: unknown) => {
@@ -334,6 +423,34 @@ export default function DoctorsPage() {
               {viewDoctor.notes && (
                 <div className="col-span-2"><span className="text-sm text-muted-foreground">Notes</span><p className="font-medium">{viewDoctor.notes}</p></div>
               )}
+              {/* Suggested Products based on specialty */}
+              {(() => {
+                const suggestions = getSuggestedForDoctor(viewDoctor.specialty);
+                if (suggestions.length === 0) return null;
+                return (
+                  <div className="col-span-2">
+                    <span className="text-sm text-muted-foreground">Suggested Products</span>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {suggestions.map((s) => (
+                        <Badge
+                          key={s.name}
+                          variant="outline"
+                          className={`text-xs ${
+                            s.inPortfolio
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-gray-50 text-gray-400 border-gray-200"
+                          }`}
+                        >
+                          {s.name}
+                          {!s.inPortfolio && isRep && (
+                            <span className="ml-1 text-[10px] opacity-70">(not in portfolio)</span>
+                          )}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </DialogContent>
