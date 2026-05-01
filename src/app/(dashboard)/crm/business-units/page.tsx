@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import {
-  Building, Plus, Users, Package, TrendingUp, UserCog, Stethoscope,
+  Building, Plus, Users, Package, UserCog,
   MapPin, Pencil, Trash2, Eye, X, CheckCircle, Clock, Grid3x3,
   ShieldCheck, FileText, ChevronRight, Search, Check, XCircle,
   Briefcase, BarChart3, DollarSign, Activity,
@@ -27,12 +27,8 @@ import {
   type EntityField,
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
-import {
-  useDataStore,
-  visibleBusinessUnits,
-  type BusinessUnit,
-} from "@/lib/data-store";
-import { useCurrentUser, type UserRole } from "@/lib/user-context";
+import { useDataStore } from "@/lib/data-store";
+import { useCurrentUser } from "@/lib/user-context";
 
 // ─── Local Interfaces ───────────────────────────────────────────────────────
 

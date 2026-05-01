@@ -1034,6 +1034,13 @@ export default function MarketRequestsPage() {
 
         {/* Pending requests */}
         <TabsContent value="pending" className="space-y-3">
+          {overdueCount > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-50 border border-orange-200 text-sm text-orange-800">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="font-medium">{overdueCount} request{overdueCount > 1 ? "s" : ""} overdue</span>
+              <span className="text-orange-600">(pending {"> "}48 hours)</span>
+            </div>
+          )}
           {myRequests.filter((r) => r.status === "PENDING").length === 0 ? (
             <Card className="p-8 text-center text-slate-500">
               <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-emerald-300" />
@@ -1058,8 +1065,13 @@ export default function MarketRequestsPage() {
                   const doctor = r.doctorId
                     ? store.doctors.find((d) => d.id === r.doctorId)
                     : null;
+                  const sla = getSlaInfo(r.createdAt, r.type);
+                  const overdue = isOverdue(r.createdAt);
+                  const reqLevel = getRequiredApprovalLevel(r.type, r.amount, (r as MarketRequestExt).discountPercent);
+                  const curLevel = approvalLevels[r.id] ?? 0;
+                  const returns = returnCounts[r.id] ?? 0;
                   return (
-                    <Card key={r.id} className="p-4">
+                    <Card key={r.id} className={`p-4 ${overdue ? "border-orange-300 bg-orange-50/30" : ""}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -1075,12 +1087,57 @@ export default function MarketRequestsPage() {
                             >
                               {r.priority}
                             </Badge>
+                            {overdue && (
+                              <Badge className="bg-orange-100 text-orange-700 border-orange-300 text-[10px]">
+                                Overdue
+                              </Badge>
+                            )}
+                            {returns > 0 && (
+                              <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-[10px]">
+                                Returned x{returns}
+                              </Badge>
+                            )}
                             {r.amount && (
                               <span className="text-sm font-bold text-slate-700">
                                 EGP {r.amount.toLocaleString()}
                               </span>
                             )}
                           </div>
+
+                          {/* SLA Countdown */}
+                          <div className={`mt-1.5 text-[11px] font-medium inline-flex items-center gap-1 px-2 py-0.5 rounded ${sla.breached ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>
+                            <Timer className="h-3 w-3" />
+                            {sla.text}
+                          </div>
+
+                          {/* Mini approval chain stepper */}
+                          <div className="flex items-center gap-1 mt-2">
+                            {APPROVAL_CHAIN.filter((_, i) => i <= reqLevel).map((step, i) => {
+                              const completed = i <= curLevel && i > 0;
+                              const isCurrent = i === curLevel + 1 || (i === 0 && curLevel === 0);
+                              return (
+                                <div key={step.level} className="flex items-center gap-1">
+                                  {i > 0 && <div className={`w-4 h-0.5 ${completed ? "bg-green-400" : "bg-slate-200"}`} />}
+                                  <div
+                                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border ${
+                                      completed
+                                        ? "bg-green-500 border-green-500 text-white"
+                                        : isCurrent
+                                        ? "bg-blue-100 border-blue-400 text-blue-700"
+                                        : "bg-slate-100 border-slate-300 text-slate-400"
+                                    }`}
+                                    title={`${step.label} (${step.action})`}
+                                  >
+                                    {completed ? "✓" : i}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            <span className="text-[9px] text-slate-400 ml-1">
+                              {APPROVAL_CHAIN[Math.min(curLevel + 1, reqLevel)]?.label ?? "Complete"}
+                            </span>
+                          </div>
+
                           <p className="text-sm mt-2">{r.description}</p>
                           <div className="flex items-center gap-4 mt-2 text-[11px] text-slate-500">
                             <span>By: {requester?.name ?? "—"}</span>
@@ -1105,27 +1162,51 @@ export default function MarketRequestsPage() {
                             </div>
                           )}
                         </div>
-                        {canApprove && (
-                          <div className="flex gap-2 shrink-0">
+                        <div className="flex flex-col gap-2 shrink-0 items-end">
+                          {canApprove && (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 hover:bg-red-50"
+                                onClick={() => openRejectDialog(r)}
+                              >
+                                <XCircle className="h-3.5 w-3.5 mr-1" />
+                                Reject
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="bg-emerald-600 hover:bg-emerald-700"
+                                onClick={() => handleApprove(r)}
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                                Approve
+                              </Button>
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            {(overdue || r.requestedById === user.id) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-orange-600 hover:bg-orange-50 text-xs"
+                                onClick={() => handleEscalate(r)}
+                              >
+                                <ChevronUp className="h-3 w-3 mr-1" />
+                                {overdue ? "Auto-Escalate" : "Escalate"}
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-red-600 hover:bg-red-50"
-                              onClick={() => openRejectDialog(r)}
+                              className="text-slate-600 text-xs"
+                              onClick={() => setDetailRequest(enrichRequest(r))}
                             >
-                              <XCircle className="h-3.5 w-3.5 mr-1" />
-                              Reject
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="bg-emerald-600 hover:bg-emerald-700"
-                              onClick={() => handleApprove(r)}
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-                              Approve
+                              <Eye className="h-3 w-3 mr-1" />
+                              Details
                             </Button>
                           </div>
-                        )}
+                        </div>
                       </div>
                     </Card>
                   );
@@ -1339,6 +1420,68 @@ export default function MarketRequestsPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* SLA Metrics */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">SLA Compliance by Request Type</CardTitle>
+              <CardDescription>Expected processing times and compliance rates</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {Object.entries(SLA_DAYS).map(([type, days]) => {
+                  const typeRequests = myRequests.filter((r) => r.type === type);
+                  const pendingOfType = typeRequests.filter((r) => r.status === "PENDING");
+                  const breachedOfType = pendingOfType.filter((r) => getSlaInfo(r.createdAt, r.type).breached);
+                  const processedOfType = typeRequests.filter((r) => r.status !== "PENDING");
+                  const withinSla = processedOfType.filter((r) => {
+                    if (!r.approvedAt) return true;
+                    const created = new Date(r.createdAt).getTime();
+                    const resolved = new Date(r.approvedAt).getTime();
+                    return (resolved - created) <= days * 24 * 60 * 60 * 1000;
+                  });
+                  const complianceRate = processedOfType.length > 0
+                    ? Math.round((withinSla.length / processedOfType.length) * 100)
+                    : 100;
+                  return (
+                    <div key={type} className="flex items-center gap-4">
+                      <div className="w-28">
+                        <Badge variant="outline" className="text-xs">{type}</Badge>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-slate-500">SLA: {days} days</span>
+                          <div className="flex items-center gap-2">
+                            {breachedOfType.length > 0 && (
+                              <span className="text-red-600 font-medium">{breachedOfType.length} breached</span>
+                            )}
+                            <span className={`font-semibold ${complianceRate >= 80 ? "text-green-700" : complianceRate >= 50 ? "text-yellow-700" : "text-red-700"}`}>
+                              {complianceRate}% compliant
+                            </span>
+                          </div>
+                        </div>
+                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${complianceRate >= 80 ? "bg-green-500" : complianceRate >= 50 ? "bg-yellow-500" : "bg-red-500"}`}
+                            style={{ width: `${complianceRate}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-4 pt-3 border-t flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <AlertTriangle className="h-4 w-4 text-orange-500" />
+                  <span>Overdue requests (pending {">"} 48h):</span>
+                </div>
+                <span className={`text-lg font-bold ${overdueCount > 0 ? "text-red-600" : "text-green-600"}`}>
+                  {overdueCount}
+                </span>
               </div>
             </CardContent>
           </Card>
