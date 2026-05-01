@@ -884,9 +884,44 @@ const SEED_INVOICES: Invoice[] = [
 ];
 
 const SEED_KPIS: KPIRecord[] = [
+  // Existing KPIs
   { id: "kpi-001", userId: "u-rep-1", period: "2026-04", metric: "Visits", target: 160, actual: 94, setBy: "u-dm-1" },
   { id: "kpi-002", userId: "u-rep-1", period: "2026-04", metric: "Coverage %", target: 90, actual: 87, setBy: "u-dm-1" },
   { id: "kpi-003", userId: "u-dm-1", period: "2026-04", metric: "District achievement %", target: 105, actual: 103, setBy: "u-mkt-1" },
+  // Additional KPIs for rep-1 (current month May 2026)
+  { id: "kpi-004", userId: "u-rep-1", period: "2026-05", metric: "Visits", target: 160, actual: 42, setBy: "u-dm-1" },
+  { id: "kpi-005", userId: "u-rep-1", period: "2026-05", metric: "Coverage %", target: 90, actual: 78, setBy: "u-dm-1" },
+  { id: "kpi-006", userId: "u-rep-1", period: "2026-05", metric: "Call Rate", target: 85, actual: 82, setBy: "u-dm-1" },
+  { id: "kpi-007", userId: "u-rep-1", period: "2026-05", metric: "New Doctor Listings", target: 5, actual: 3, setBy: "u-dm-1" },
+  { id: "kpi-008", userId: "u-rep-1", period: "2026-05", metric: "Samples Distributed", target: 200, actual: 145, setBy: "u-dm-1" },
+  { id: "kpi-009", userId: "u-rep-1", period: "2026-05", metric: "Revenue per Visit", target: 5500, actual: 5200, setBy: "u-dm-1" },
+  { id: "kpi-010", userId: "u-rep-1", period: "2026-05", metric: "Customer Retention Rate", target: 92, actual: 89, setBy: "u-dm-1" },
+  { id: "kpi-011", userId: "u-rep-1", period: "2026-05", metric: "New Account Acquisition", target: 8, actual: 6, setBy: "u-dm-1" },
+  { id: "kpi-012", userId: "u-rep-1", period: "2026-05", metric: "Market Share %", target: 18, actual: 16, setBy: "u-dm-1" },
+  // DM-1 KPIs (current month)
+  { id: "kpi-013", userId: "u-dm-1", period: "2026-05", metric: "District achievement %", target: 105, actual: 98, setBy: "u-mkt-1" },
+  { id: "kpi-014", userId: "u-dm-1", period: "2026-05", metric: "Plan Completion %", target: 95, actual: 91, setBy: "u-mkt-1" },
+  { id: "kpi-015", userId: "u-dm-1", period: "2026-05", metric: "Coverage %", target: 92, actual: 88, setBy: "u-mkt-1" },
+  { id: "kpi-016", userId: "u-dm-1", period: "2026-05", metric: "Revenue per Visit", target: 6200, actual: 6500, setBy: "u-mkt-1" },
+  { id: "kpi-017", userId: "u-dm-1", period: "2026-05", metric: "Customer Retention Rate", target: 94, actual: 95, setBy: "u-mkt-1" },
+  { id: "kpi-018", userId: "u-dm-1", period: "2026-05", metric: "New Account Acquisition", target: 12, actual: 14, setBy: "u-mkt-1" },
+  { id: "kpi-019", userId: "u-dm-1", period: "2026-05", metric: "Market Share %", target: 22, actual: 21, setBy: "u-mkt-1" },
+  // Marketeer KPIs (current month)
+  { id: "kpi-020", userId: "u-mkt-1", period: "2026-05", metric: "Market Requests Completed", target: 25, actual: 22, setBy: "u-bum" },
+  { id: "kpi-021", userId: "u-mkt-1", period: "2026-05", metric: "Coverage %", target: 88, actual: 90, setBy: "u-bum" },
+  { id: "kpi-022", userId: "u-mkt-1", period: "2026-05", metric: "Revenue per Visit", target: 7000, actual: 7200, setBy: "u-bum" },
+  { id: "kpi-023", userId: "u-mkt-1", period: "2026-05", metric: "Customer Retention Rate", target: 90, actual: 92, setBy: "u-bum" },
+  { id: "kpi-024", userId: "u-mkt-1", period: "2026-05", metric: "Market Share %", target: 25, actual: 24, setBy: "u-bum" },
+  // Historical data for sparklines (prior months for rep-1)
+  { id: "kpi-h01", userId: "u-rep-1", period: "2026-01", metric: "Visits", target: 160, actual: 148, setBy: "u-dm-1" },
+  { id: "kpi-h02", userId: "u-rep-1", period: "2026-02", metric: "Visits", target: 160, actual: 155, setBy: "u-dm-1" },
+  { id: "kpi-h03", userId: "u-rep-1", period: "2026-03", metric: "Visits", target: 160, actual: 162, setBy: "u-dm-1" },
+  { id: "kpi-h04", userId: "u-rep-1", period: "2026-01", metric: "Coverage %", target: 90, actual: 82, setBy: "u-dm-1" },
+  { id: "kpi-h05", userId: "u-rep-1", period: "2026-02", metric: "Coverage %", target: 90, actual: 84, setBy: "u-dm-1" },
+  { id: "kpi-h06", userId: "u-rep-1", period: "2026-03", metric: "Coverage %", target: 90, actual: 86, setBy: "u-dm-1" },
+  { id: "kpi-h07", userId: "u-dm-1", period: "2026-01", metric: "District achievement %", target: 105, actual: 95, setBy: "u-mkt-1" },
+  { id: "kpi-h08", userId: "u-dm-1", period: "2026-02", metric: "District achievement %", target: 105, actual: 100, setBy: "u-mkt-1" },
+  { id: "kpi-h09", userId: "u-dm-1", period: "2026-03", metric: "District achievement %", target: 105, actual: 102, setBy: "u-mkt-1" },
 ];
 
 const SEED_BANK_ACCOUNTS: BankAccount[] = [
