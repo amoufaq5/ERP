@@ -409,6 +409,57 @@ async function main() {
 
   await prisma.assetMaintenance.create({ data: { assetId: asset1.id, type: "PREVENTIVE", description: "Annual HPLC calibration and validation", scheduledDate: new Date("2025-06-15"), cost: 35000, status: "SCHEDULED" } })
 
+  // ─── Business Units ─────────────────────────────────────────────────
+  const bu1 = await prisma.businessUnit.create({
+    data: { name: "Cardiovascular Business Unit", code: "BU-CV", description: "Heart & circulatory system products", managerId: bum.id, color: "#ef4444" }
+  })
+  const bu2 = await prisma.businessUnit.create({
+    data: { name: "Anti-Infectives Business Unit", code: "BU-AI", description: "Antibiotics and antiviral products", managerId: manager.id, color: "#3b82f6" }
+  })
+  const bu3 = await prisma.businessUnit.create({
+    data: { name: "GI & Metabolic Business Unit", code: "BU-GI", description: "Gastrointestinal and diabetes products", managerId: bum.id, color: "#10b981" }
+  })
+
+  // BU Members
+  await prisma.businessUnitMember.createMany({
+    data: [
+      { businessUnitId: bu1.id, userId: bum.id, role: "BUM" },
+      { businessUnitId: bu1.id, userId: medRep1.id, role: "MEDICAL_REP" },
+      { businessUnitId: bu1.id, userId: medRep2.id, role: "MEDICAL_REP" },
+      { businessUnitId: bu2.id, userId: manager.id, role: "BUM" },
+      { businessUnitId: bu2.id, userId: medRep1.id, role: "MEDICAL_REP" },
+      { businessUnitId: bu3.id, userId: bum.id, role: "BUM" },
+      { businessUnitId: bu3.id, userId: medRep2.id, role: "MEDICAL_REP" },
+    ]
+  })
+
+  // BU Products (prod3=Cardioprex, prod5=Crestor, prod9=Concor, prod12=Plavix for CV)
+  await prisma.businessUnitProduct.createMany({
+    data: [
+      { businessUnitId: bu1.id, productId: prod3.id },
+      { businessUnitId: bu1.id, productId: prod5.id },
+      { businessUnitId: bu1.id, productId: prod9.id },
+      { businessUnitId: bu1.id, productId: prod12.id },
+      { businessUnitId: bu2.id, productId: prod1.id },
+      { businessUnitId: bu2.id, productId: prod4.id },
+      { businessUnitId: bu2.id, productId: prod10.id },
+      { businessUnitId: bu3.id, productId: prod6.id },
+      { businessUnitId: bu3.id, productId: prod8.id },
+      { businessUnitId: bu3.id, productId: prod11.id },
+    ]
+  })
+
+  // Sample approval logs
+  await prisma.approvalLog.createMany({
+    data: [
+      { entityType: "EXPENSE", entityId: "exp-001", action: "SUBMITTED", fromStatus: "DRAFT", toStatus: "PENDING", performedById: medRep1.id, level: 1, businessUnitId: bu1.id },
+      { entityType: "EXPENSE", entityId: "exp-001", action: "APPROVED", fromStatus: "PENDING", toStatus: "APPROVED", performedById: bum.id, comment: "Within budget", level: 3, businessUnitId: bu1.id },
+      { entityType: "WEEKLY_PLAN", entityId: "wp-001", action: "SUBMITTED", fromStatus: "DRAFT", toStatus: "SUBMITTED", performedById: medRep2.id, level: 1, businessUnitId: bu2.id },
+      { entityType: "MARKET_REQUEST", entityId: "mr-001", action: "SUBMITTED", fromStatus: "DRAFT", toStatus: "PENDING", performedById: medRep1.id, level: 1, businessUnitId: bu1.id },
+      { entityType: "MARKET_REQUEST", entityId: "mr-001", action: "APPROVED", fromStatus: "PENDING", toStatus: "APPROVED", performedById: manager.id, comment: "Approved - conference sponsorship", level: 2, businessUnitId: bu1.id },
+    ]
+  })
+
   console.log("Seeding completed! Egyptian Pharma ERP database ready.")
 }
 

@@ -20,6 +20,11 @@ import {
   Timer,
   TrendingUp,
   Users,
+  ArrowUpCircle,
+  History,
+  ShieldAlert,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +42,7 @@ import {
   type StartingPoint,
   type PlannedVisitCategory,
   type PlannedVisitOutcome,
+  type ApprovalEntry,
 } from "@/lib/data-store";
 import { useCurrentUser } from "@/lib/user-context";
 

@@ -48,6 +48,9 @@ model User {
   managedWH       Warehouse[]
   onboardTasks    OnboardingTask[] @relation("OnboardAssigner")
   hiringJobs      Job[]
+  managedBUs      BusinessUnit[]         @relation("BUManager")
+  buMemberships   BusinessUnitMember[]
+  approvalActions ApprovalLog[]          @relation("ApprovalPerformer")
 
   @@map("users")
 }
@@ -418,6 +421,7 @@ model Product {
   salesOrderItems SalesOrderItem[]
   boms            BillOfMaterials[]
   bomMaterials    BOMItem[]
+  businessUnits   BusinessUnitProduct[]
 
   @@map("products")
 }
@@ -946,6 +950,7 @@ model Territory {
   boundaries   String?  // JSON
   color        String?
   createdAt    DateTime @default(now())
+  businessUnits   BusinessUnitTerritory[]
 
   @@map("territories")
 }
@@ -1155,6 +1160,86 @@ model TrainingEnrollment {
   score         Int?
 
   @@map("training_enrollments")
+}
+
+// ==================== BUSINESS UNITS ====================
+
+model BusinessUnit {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  description String?
+  managerId   String
+  manager     User     @relation("BUManager", fields: [managerId], references: [id])
+  color       String?
+  status      String   @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     BusinessUnitMember[]
+  products    BusinessUnitProduct[]
+  territories BusinessUnitTerritory[]
+  approvalLogs ApprovalLog[]
+
+  @@map("business_units")
+}
+
+model BusinessUnitMember {
+  id             String       @id @default(cuid())
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  role           String       @default("MEDICAL_REP") // BUM, MARKETEER, DISTRICT_MANAGER, MEDICAL_REP
+  assignedAt     DateTime     @default(now())
+
+  @@unique([businessUnitId, userId])
+  @@map("business_unit_members")
+}
+
+model BusinessUnitProduct {
+  id             String       @id @default(cuid())
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  productId      String
+  product        Product      @relation(fields: [productId], references: [id])
+  assignedAt     DateTime     @default(now())
+
+  @@unique([businessUnitId, productId])
+  @@map("business_unit_products")
+}
+
+model BusinessUnitTerritory {
+  id             String       @id @default(cuid())
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  territoryId    String
+  territory      Territory    @relation(fields: [territoryId], references: [id])
+  assignedAt     DateTime     @default(now())
+
+  @@unique([businessUnitId, territoryId])
+  @@map("business_unit_territories")
+}
+
+// ==================== APPROVAL SYSTEM ====================
+
+model ApprovalLog {
+  id             String        @id @default(cuid())
+  entityType     String        // WEEKLY_PLAN, EXPENSE, MARKET_REQUEST, STRATEGIC
+  entityId       String
+  action         String        // SUBMITTED, APPROVED, REJECTED, ESCALATED, AUTO_ESCALATED
+  fromStatus     String
+  toStatus       String
+  performedById  String
+  performedBy    User          @relation("ApprovalPerformer", fields: [performedById], references: [id])
+  comment        String?
+  level          Int           @default(1) // 1=DM, 2=Marketeer, 3=BUM
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+  createdAt      DateTime      @default(now())
+
+  @@index([entityType, entityId])
+  @@map("approval_logs")
 }
 
 // ==================== DOCUMENTS ====================

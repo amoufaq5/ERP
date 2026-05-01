@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Receipt, Upload, Plus, Check, X, Download, Eye, Camera, DollarSign, Clock, BookOpen, ScanLine, Loader2, FileImage, Percent } from "lucide-react";
+import { Receipt, Upload, Plus, Check, X, Download, Eye, Camera, DollarSign, Clock, BookOpen, ScanLine, Loader2, FileImage, Percent, AlertTriangle, ArrowUpRight, RotateCcw, TrendingUp, BarChart3, PieChart, Timer } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,26 @@ import { downloadCSV } from "@/lib/download";
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 type ExpenseType = "Transport" | "Meals" | "Accommodation" | "Hotel" | "Office Supplies" | "Other";
-type ExpenseStatus = "PENDING" | "APPROVED" | "REJECTED";
+type ExpenseStatus = "PENDING" | "APPROVED" | "REJECTED" | "DRAFT";
+
+interface ApprovalEntry {
+  id: string;
+  action: "SUBMITTED" | "APPROVED" | "REJECTED" | "ESCALATED" | "RETURNED";
+  performedBy: string;
+  timestamp: string;
+  comment?: string;
+  level: number;
+}
+
+// ─── Budget Constants ──────────────────────────────────────────────────────
+const MONTHLY_BUDGET_PER_REP = 5000;
+
+// ─── Approval Level Logic ──────────────────────────────────────────────────
+function getApprovalLevel(amount: number): { level: number; approver: string } {
+  if (amount < 1000) return { level: 1, approver: "District Manager" };
+  if (amount <= 5000) return { level: 2, approver: "Marketeer" };
+  return { level: 3, approver: "BUM" };
+}
 
 // ─── OCR Types ──────────────────────────────────────────────────────────────
 
@@ -67,6 +86,7 @@ interface Expense {
   approvedBy?: string;
   journalEntryId?: string;
   createdAt: string;
+  approvalHistory: ApprovalEntry[];
 }
 
 const EXPENSE_TYPES: ExpenseType[] = ["Transport", "Meals", "Accommodation", "Hotel", "Office Supplies", "Other"];

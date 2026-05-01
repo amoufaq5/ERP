@@ -256,6 +256,18 @@ export interface DailyPlan {
   visits: PlannedVisit[];
 }
 
+export type ApprovalAction = "SUBMITTED" | "APPROVED" | "REJECTED" | "ESCALATED" | "AUTO_ESCALATED";
+
+export interface ApprovalEntry {
+  id: string;
+  action: ApprovalAction;
+  performedBy: string;
+  performedById: string;
+  timestamp: string;
+  comment?: string;
+  level: number;
+}
+
 export interface WeeklyPlan {
   id: string;
   repId: string;
@@ -268,6 +280,8 @@ export interface WeeklyPlan {
   rejectionReason?: string;
   notes?: string;
   createdAt: string;
+  approvalHistory?: ApprovalEntry[];
+  approvalLevel?: number;
 }
 
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "BLOCKED";
