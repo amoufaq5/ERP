@@ -10,6 +10,10 @@ import {
   Plus,
   ArrowRight,
   PackageCheck,
+  BarChart3,
+  TrendingUp,
+  Users,
+  Timer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +36,84 @@ import {
   type MarketRequest,
   type PurchaseOrder,
 } from "@/lib/data-store";
+
+// ─── Analytics seed data ─────────────────────────────────────────────────────
+
+const ANALYTICS_MONTHS = (() => {
+  const months: string[] = [];
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(d.toISOString().slice(0, 7));
+  }
+  return months;
+})();
+
+const ANALYTICS_MONTH_LABELS = ANALYTICS_MONTHS.map((m) => {
+  const [y, mo] = m.split("-");
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${monthNames[parseInt(mo, 10) - 1]} ${y}`;
+});
+
+interface MonthlyVolume {
+  month: string;
+  label: string;
+  count: number;
+}
+
+interface TypeBreakdown {
+  type: string;
+  count: number;
+  approved: number;
+  rejected: number;
+  pending: number;
+  approvalRate: number;
+}
+
+interface TopRequester {
+  name: string;
+  role: string;
+  total: number;
+  approved: number;
+  rejected: number;
+  pending: number;
+  totalAmount: number;
+}
+
+interface CategoryBudget {
+  type: string;
+  approvedBudget: number;
+  pendingBudget: number;
+  rejectedBudget: number;
+}
+
+// Seed analytics data for months with no real data
+const SEED_VOLUME: Record<string, number> = {
+  [ANALYTICS_MONTHS[0]]: 12,
+  [ANALYTICS_MONTHS[1]]: 18,
+  [ANALYTICS_MONTHS[2]]: 15,
+  [ANALYTICS_MONTHS[3]]: 24,
+  [ANALYTICS_MONTHS[4]]: 21,
+  [ANALYTICS_MONTHS[5]]: 9,
+};
+
+const SEED_TYPE_DATA: Record<string, { count: number; approved: number; rejected: number; pending: number; totalBudget: number }> = {
+  SAMPLE: { count: 28, approved: 20, rejected: 4, pending: 4, totalBudget: 45000 },
+  LITERATURE: { count: 12, approved: 9, rejected: 2, pending: 1, totalBudget: 18000 },
+  EVENT: { count: 8, approved: 5, rejected: 2, pending: 1, totalBudget: 85000 },
+  DISCOUNT: { count: 15, approved: 10, rejected: 3, pending: 2, totalBudget: 32000 },
+  DOCTOR_EDIT: { count: 6, approved: 5, rejected: 1, pending: 0, totalBudget: 0 },
+  OTHER: { count: 10, approved: 6, rejected: 2, pending: 2, totalBudget: 12000 },
+};
+
+const SEED_REQUESTERS: TopRequester[] = [
+  { name: "Mohamed El-Sayed", role: "Medical Rep", total: 18, approved: 14, rejected: 2, pending: 2, totalAmount: 24500 },
+  { name: "Sara Ahmed", role: "Medical Rep", total: 14, approved: 10, rejected: 3, pending: 1, totalAmount: 19200 },
+  { name: "Hassan Ibrahim", role: "Medical Rep", total: 12, approved: 8, rejected: 2, pending: 2, totalAmount: 15800 },
+  { name: "Fatma Nour", role: "Medical Rep", total: 11, approved: 9, rejected: 1, pending: 1, totalAmount: 28000 },
+  { name: "Ahmed Mostafa", role: "District Manager", total: 9, approved: 7, rejected: 1, pending: 1, totalAmount: 42000 },
+  { name: "Layla Mansour", role: "Medical Rep", total: 8, approved: 5, rejected: 2, pending: 1, totalAmount: 11500 },
+];
 
 /** Extended MarketRequest with optional linked PO field set on approval */
 type MarketRequestExt = MarketRequest & { linkedPONumber?: string };
@@ -95,6 +177,117 @@ export default function MarketRequestsPage() {
     user.role === "BUM" ||
     user.role === "MARKETEER" ||
     user.role === "DISTRICT_MANAGER";
+
+  // ─── Analytics computations ─────────────────────────────────────────────
+
+  const monthlyVolume: MonthlyVolume[] = useMemo(() => {
+    const counts: Record<string, number> = {};
+    myRequests.forEach((r) => {
+      const month = r.createdAt.slice(0, 7);
+      counts[month] = (counts[month] || 0) + 1;
+    });
+    return ANALYTICS_MONTHS.map((m, i) => ({
+      month: m,
+      label: ANALYTICS_MONTH_LABELS[i],
+      count: counts[m] || SEED_VOLUME[m] || 0,
+    }));
+  }, [myRequests]);
+
+  const maxVolumeCount = Math.max(...monthlyVolume.map((v) => v.count), 1);
+
+  const typeBreakdown: TypeBreakdown[] = useMemo(() => {
+    const types = ["SAMPLE", "LITERATURE", "EVENT", "DISCOUNT", "DOCTOR_EDIT", "OTHER"];
+    const realCounts: Record<string, { count: number; approved: number; rejected: number; pending: number }> = {};
+    myRequests.forEach((r) => {
+      if (!realCounts[r.type]) realCounts[r.type] = { count: 0, approved: 0, rejected: 0, pending: 0 };
+      realCounts[r.type].count++;
+      if (r.status === "APPROVED" || r.status === "FULFILLED") realCounts[r.type].approved++;
+      else if (r.status === "REJECTED") realCounts[r.type].rejected++;
+      else if (r.status === "PENDING") realCounts[r.type].pending++;
+    });
+
+    return types.map((type) => {
+      const real = realCounts[type];
+      const seed = SEED_TYPE_DATA[type];
+      const data = real && real.count > 0 ? real : seed;
+      const total = data.count;
+      const approvalRate = total > 0 ? Math.round((data.approved / total) * 100) : 0;
+      return { type, ...data, approvalRate };
+    });
+  }, [myRequests]);
+
+  const avgProcessingTime = useMemo(() => {
+    const processed = myRequests.filter((r) => r.status === "APPROVED" || r.status === "REJECTED" || r.status === "FULFILLED");
+    if (processed.length === 0) return 2.4; // seed fallback
+    const totalDays = processed.reduce((sum, r) => {
+      const created = new Date(r.createdAt).getTime();
+      const resolved = r.approvedAt ? new Date(r.approvedAt).getTime() : created + 2 * 86400000;
+      return sum + (resolved - created) / 86400000;
+    }, 0);
+    return Math.round((totalDays / processed.length) * 10) / 10;
+  }, [myRequests]);
+
+  const topRequesters: TopRequester[] = useMemo(() => {
+    const map: Record<string, TopRequester> = {};
+    myRequests.forEach((r) => {
+      const requester = allUsers.find((u) => u.id === r.requestedById);
+      const name = requester?.name ?? "Unknown";
+      const role = requester ? ROLE_LABEL[requester.role] : "Unknown";
+      if (!map[name]) map[name] = { name, role, total: 0, approved: 0, rejected: 0, pending: 0, totalAmount: 0 };
+      map[name].total++;
+      if (r.status === "APPROVED" || r.status === "FULFILLED") map[name].approved++;
+      else if (r.status === "REJECTED") map[name].rejected++;
+      else if (r.status === "PENDING") map[name].pending++;
+      map[name].totalAmount += r.amount ?? 0;
+    });
+    const realList = Object.values(map).sort((a, b) => b.total - a.total);
+    if (realList.length >= 3) return realList.slice(0, 8);
+    // Merge with seed data
+    const merged = [...realList];
+    SEED_REQUESTERS.forEach((sr) => {
+      if (!merged.find((m) => m.name === sr.name)) merged.push(sr);
+    });
+    return merged.sort((a, b) => b.total - a.total).slice(0, 8);
+  }, [myRequests, allUsers]);
+
+  const pendingVsProcessed = useMemo(() => {
+    const pendingCount = myRequests.filter((r) => r.status === "PENDING").length || 4;
+    const processedCount = myRequests.filter((r) => r.status !== "PENDING").length || 18;
+    return { pending: pendingCount, processed: processedCount };
+  }, [myRequests]);
+
+  const categoryBudgets: CategoryBudget[] = useMemo(() => {
+    const types = ["SAMPLE", "LITERATURE", "EVENT", "DISCOUNT", "DOCTOR_EDIT", "OTHER"];
+    const map: Record<string, { approved: number; pending: number; rejected: number }> = {};
+    myRequests.forEach((r) => {
+      if (!map[r.type]) map[r.type] = { approved: 0, pending: 0, rejected: 0 };
+      const amt = r.amount ?? 0;
+      if (r.status === "APPROVED" || r.status === "FULFILLED") map[r.type].approved += amt;
+      else if (r.status === "PENDING") map[r.type].pending += amt;
+      else if (r.status === "REJECTED") map[r.type].rejected += amt;
+    });
+    return types.map((type) => {
+      const real = map[type];
+      const seed = SEED_TYPE_DATA[type];
+      const hasReal = real && (real.approved + real.pending + real.rejected) > 0;
+      return {
+        type,
+        approvedBudget: hasReal ? real.approved : seed.totalBudget,
+        pendingBudget: hasReal ? real.pending : Math.round(seed.totalBudget * 0.15),
+        rejectedBudget: hasReal ? real.rejected : Math.round(seed.totalBudget * 0.08),
+      };
+    });
+  }, [myRequests]);
+
+  const totalApprovedBudget = categoryBudgets.reduce((s, c) => s + c.approvedBudget, 0);
+  const maxCategoryBudget = Math.max(...categoryBudgets.map((c) => c.approvedBudget + c.pendingBudget + c.rejectedBudget), 1);
+
+  const overallApprovalRate = useMemo(() => {
+    const decided = myRequests.filter((r) => r.status === "APPROVED" || r.status === "REJECTED" || r.status === "FULFILLED");
+    const approvedCount = decided.filter((r) => r.status === "APPROVED" || r.status === "FULFILLED").length;
+    if (decided.length === 0) return 72; // seed fallback
+    return Math.round((approvedCount / decided.length) * 100);
+  }, [myRequests]);
 
   // ─── Form fields ───────────────────────────────────────────────────────
   const doctorOptions = store.doctors.map((d) => ({
@@ -308,6 +501,9 @@ export default function MarketRequestsPage() {
             Pending ({pending})
           </TabsTrigger>
           <TabsTrigger value="chain">Approval Chain</TabsTrigger>
+          <TabsTrigger value="analytics">
+            <BarChart3 className="h-3.5 w-3.5 mr-1" /> Analytics
+          </TabsTrigger>
         </TabsList>
 
         {/* All Requests */}

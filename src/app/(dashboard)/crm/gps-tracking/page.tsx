@@ -458,6 +458,322 @@ export default function GpsTrackingPage() {
             ))}
           </div>
         </TabsContent>
+
+        {/* ---------- Route Planner Tab ---------- */}
+        <TabsContent value="route-planner">
+          <div className="space-y-4">
+            {/* Route summary cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                      <MapPin className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total Stops</p>
+                      <p className="text-xl font-bold text-foreground">{routeStops.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+                      <Route className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total Distance</p>
+                      <p className="text-xl font-bold text-foreground">{currentRouteDistance.toFixed(1)} km</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
+                      <Clock className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Estimated Time</p>
+                      <p className="text-xl font-bold text-foreground">{Math.floor(currentRouteTime / 60)}h {currentRouteTime % 60}m</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+                      <Zap className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Status</p>
+                      <p className="text-sm font-semibold text-foreground">{isOptimized ? "Optimized" : "Original Order"}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Optimization action & savings */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Route className="h-4 w-4 text-primary" /> Route for Mohamed El-Sayed — Today
+                    </CardTitle>
+                    <CardDescription>
+                      {isOptimized
+                        ? "Route optimized using nearest-neighbor algorithm"
+                        : "Planned visit order — click Optimize to minimize travel distance"}
+                    </CardDescription>
+                  </div>
+                  <Button onClick={handleOptimizeRoute} className="gap-2">
+                    <Zap className="h-4 w-4" />
+                    {isOptimized ? "Reset to Original" : "Optimize Route"}
+                  </Button>
+                </div>
+              </CardHeader>
+
+              {isOptimized && originalDistance !== null && originalTime !== null && (
+                <div className="mx-4 mb-4 rounded-lg bg-emerald-50 border border-emerald-200 p-4">
+                  <h4 className="text-sm font-semibold text-emerald-800 mb-2 flex items-center gap-2">
+                    <Zap className="h-4 w-4" /> Optimization Savings
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <p className="text-emerald-600 text-xs">Original Distance</p>
+                      <p className="font-semibold text-emerald-900">{originalDistance.toFixed(1)} km</p>
+                    </div>
+                    <div>
+                      <p className="text-emerald-600 text-xs">Optimized Distance</p>
+                      <p className="font-semibold text-emerald-900">{currentRouteDistance.toFixed(1)} km</p>
+                    </div>
+                    <div>
+                      <p className="text-emerald-600 text-xs">Distance Saved</p>
+                      <p className="font-bold text-emerald-900">{distanceSaved.toFixed(1)} km ({originalDistance > 0 ? Math.round((distanceSaved / originalDistance) * 100) : 0}%)</p>
+                    </div>
+                    <div>
+                      <p className="text-emerald-600 text-xs">Time Saved</p>
+                      <p className="font-bold text-emerald-900">{timeSaved} min</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <CardContent className="p-0">
+                {/* Route stops list */}
+                <div className="divide-y divide-border">
+                  {routeStops.map((stop, idx) => {
+                    const nextStop = routeStops[idx + 1];
+                    const distToNext = nextStop
+                      ? haversineKm(stop.lat, stop.lng, nextStop.lat, nextStop.lng)
+                      : null;
+                    const driveToNext = distToNext ? estimateDriveMin(distToNext) : null;
+
+                    return (
+                      <div key={stop.id}>
+                        <div className="flex items-center gap-4 p-4">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                              {stop.order}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium text-foreground text-sm">{stop.account}</p>
+                              <Badge variant="outline" className="text-xs">
+                                {stop.type}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">{stop.address}</p>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                              <span className="font-mono">{stop.lat.toFixed(4)}, {stop.lng.toFixed(4)}</span>
+                              <span>|</span>
+                              <span>{stop.estimatedDuration} min on-site</span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-semibold text-foreground">{stop.estimatedArrival}</p>
+                            <p className="text-xs text-muted-foreground">ETA</p>
+                          </div>
+                        </div>
+                        {distToNext !== null && driveToNext !== null && (
+                          <div className="flex items-center gap-2 px-4 py-2 bg-muted/40 text-xs text-muted-foreground">
+                            <ArrowRight className="h-3 w-3" />
+                            <span>{distToNext.toFixed(1)} km drive</span>
+                            <span className="mx-1">·</span>
+                            <span>~{driveToNext} min travel time</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* ---------- Geofencing Tab ---------- */}
+        <TabsContent value="geofencing">
+          <div className="space-y-4">
+            {/* Geofencing summary cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                      <Target className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Active Zones</p>
+                      <p className="text-xl font-bold text-foreground">{GEOFENCE_ZONES.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+                      <Shield className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Overall Compliance</p>
+                      <p className="text-xl font-bold text-foreground">{overallCompliance}%</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
+                      <AlertTriangle className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Alerts Today</p>
+                      <p className="text-xl font-bold text-foreground">{GEOFENCE_ALERTS.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
+                      <AlertTriangle className="h-5 w-5 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Non-Compliant</p>
+                      <p className="text-xl font-bold text-foreground">{GEOFENCE_ALERTS.filter((a) => !a.compliant).length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Geofence Zones */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" /> Defined Geofence Zones
+                </CardTitle>
+                <CardDescription>Monitored locations with radius-based compliance tracking</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-border">
+                  {GEOFENCE_ZONES.map((zone) => {
+                    const compliance = zone.totalVisits > 0 ? Math.round((zone.compliantVisits / zone.totalVisits) * 100) : 0;
+                    const complianceColor = compliance >= 90 ? "text-emerald-700 bg-emerald-100" : compliance >= 75 ? "text-amber-700 bg-amber-100" : "text-red-700 bg-red-100";
+                    const barColor = compliance >= 90 ? "bg-emerald-500" : compliance >= 75 ? "bg-amber-500" : "bg-red-500";
+                    return (
+                      <div key={zone.id} className="flex items-center gap-4 p-4">
+                        <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                          {zone.type === "Hospital" && <Activity className="h-5 w-5 text-blue-600" />}
+                          {zone.type === "Pharmacy" && <MapPin className="h-5 w-5 text-emerald-600" />}
+                          {zone.type === "Clinic" && <Users className="h-5 w-5 text-purple-600" />}
+                          {zone.type === "Distributor" && <Navigation className="h-5 w-5 text-amber-600" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium text-foreground text-sm">{zone.name}</p>
+                            <Badge variant="outline" className="text-xs">{zone.type}</Badge>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            <span className="font-mono">{zone.centerLat.toFixed(4)}, {zone.centerLng.toFixed(4)}</span>
+                            <span>|</span>
+                            <span>Radius: {zone.radius}m</span>
+                            <span>|</span>
+                            <span>{zone.compliantVisits}/{zone.totalVisits} visits compliant</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="w-24">
+                            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${barColor}`} style={{ width: `${compliance}%` }} />
+                            </div>
+                          </div>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${complianceColor}`}>
+                            {compliance}%
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Geofence Alerts Table */}
+            <div className="bg-card rounded-xl border border-border shadow-sm">
+              <div className="p-4 border-b border-border flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" /> Geofence Alerts
+                </h3>
+                <Badge variant="outline" className="text-xs">
+                  {GEOFENCE_ALERTS.length} events today
+                </Badge>
+              </div>
+              <DataTable
+                columns={[
+                  { key: "rep", label: "Rep" },
+                  { key: "zone", label: "Zone" },
+                  {
+                    key: "event",
+                    label: "Event",
+                    render: (v) => (
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${GEOFENCE_EVENT_STYLES[v as GeofenceEventType]}`}>
+                        {v as string}
+                      </span>
+                    ),
+                  },
+                  { key: "timestamp", label: "Timestamp" },
+                  { key: "duration", label: "Duration" },
+                  {
+                    key: "compliant",
+                    label: "Compliant",
+                    render: (v) =>
+                      v ? (
+                        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">Yes</Badge>
+                      ) : (
+                        <Badge className="bg-red-100 text-red-800 hover:bg-red-100">No</Badge>
+                      ),
+                  },
+                ] as Column<Record<string, unknown>>[]}
+                data={GEOFENCE_ALERTS as unknown as Record<string, unknown>[]}
+                exportable
+                exportFilename="crm-geofence-alerts.csv"
+                emptyMessage="No geofence alerts."
+              />
+            </div>
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );

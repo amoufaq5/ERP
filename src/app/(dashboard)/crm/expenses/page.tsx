@@ -821,6 +821,165 @@ export default function ExpensesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ─── OCR Scan Receipt Dialog ───────────────────────────────────── */}
+      <Dialog open={ocrDialogOpen} onOpenChange={setOcrDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ScanLine className="h-5 w-5" /> Receipt OCR Scanner
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            {/* Upload area */}
+            <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-400 hover:bg-blue-50/30 transition-colors">
+              <input
+                ref={ocrFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleOCRFileUpload}
+              />
+              <FileImage className="h-10 w-10 mx-auto mb-3 text-slate-400" />
+              <p className="text-sm text-slate-600 mb-2">
+                Upload a receipt image to extract expense details
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => ocrFileRef.current?.click()}
+                disabled={ocrScanning}
+              >
+                {ocrScanning ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Scanning...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" /> Choose Receipt Image
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Scanning indicator */}
+            {ocrScanning && (
+              <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800">Processing receipt...</p>
+                  <p className="text-xs text-blue-600">Extracting vendor, amount, date, and category</p>
+                </div>
+              </div>
+            )}
+
+            {/* OCR Result */}
+            {ocrResult && !ocrScanning && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-700">Extracted Data</h3>
+                  <Badge className={`${confidenceColor(ocrResult.confidence)} gap-1`}>
+                    <Percent className="h-3 w-3" />
+                    {ocrResult.confidence}% Confidence
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Thumbnail */}
+                  <div className="col-span-2 flex gap-4">
+                    {ocrImagePreview && (
+                      <div className="w-28 h-20 rounded-lg overflow-hidden border border-slate-200 shrink-0">
+                        <img src={ocrImagePreview} alt="Receipt" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="flex-1 space-y-1">
+                      <p className="text-xs text-slate-500">Vendor</p>
+                      <p className="font-semibold text-sm">{ocrResult.vendor}</p>
+                      <p className="text-xs text-slate-500 mt-1">File</p>
+                      <p className="text-xs text-slate-600 truncate">{ocrResult.fileName}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-slate-500">Amount</p>
+                    <p className="font-bold text-lg text-green-700">{ocrResult.amount.toLocaleString()} EGP</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Date</p>
+                    <p className="font-medium text-sm">{ocrResult.date}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Category</p>
+                    <Badge variant="outline">{ocrResult.category}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Scanned At</p>
+                    <p className="text-xs text-slate-600">{new Date(ocrResult.scannedAt).toLocaleTimeString()}</p>
+                  </div>
+                </div>
+
+                {/* Confidence bar */}
+                <div>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-slate-500">OCR Confidence</span>
+                    <span className={`font-semibold ${ocrResult.confidence >= 90 ? "text-green-700" : ocrResult.confidence >= 80 ? "text-yellow-700" : "text-orange-700"}`}>
+                      {ocrResult.confidence}%
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${ocrResult.confidence >= 90 ? "bg-green-500" : ocrResult.confidence >= 80 ? "bg-yellow-500" : "bg-orange-500"}`}
+                      style={{ width: `${ocrResult.confidence}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* OCR History */}
+            {ocrHistory.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-slate-700 mb-2">Recent Scans</h3>
+                <div className="max-h-40 overflow-y-auto space-y-1.5">
+                  {ocrHistory.map((scan) => (
+                    <div
+                      key={scan.id}
+                      className="flex items-center justify-between p-2 rounded-lg border border-slate-100 hover:bg-slate-50 cursor-pointer text-sm"
+                      onClick={() => {
+                        setOcrResult(scan);
+                        setOcrImagePreview(scan.imageBase64);
+                      }}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 rounded overflow-hidden border border-slate-200 shrink-0">
+                          <img src={scan.imageBase64} alt="" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium truncate">{scan.vendor}</p>
+                          <p className="text-[10px] text-slate-400">{scan.fileName}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-semibold text-xs">{scan.amount.toLocaleString()} EGP</span>
+                        <Badge className={`text-[10px] px-1.5 py-0 ${confidenceColor(scan.confidence)}`}>
+                          {scan.confidence}%
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOcrDialogOpen(false)}>Close</Button>
+            <Button onClick={applyOCRToForm} disabled={!ocrResult || ocrScanning}>
+              <Check className="h-4 w-4 mr-2" /> Use Extracted Data
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

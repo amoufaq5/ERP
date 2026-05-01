@@ -163,6 +163,146 @@ export default function TerritoriesPage() {
     setEditing(null);
   }
 
+  // ─── Territory Optimization Data ──────────────────────────────────────────
+  interface TerritoryPerformance {
+    id: string;
+    territory: string;
+    repsCount: number;
+    doctorsCount: number;
+    visitsPerMonth: number;
+    revenue: number;
+    revenuePerRep: number;
+    revenuePerDoctor: number;
+    coverageEfficiency: number; // % of doctors visited
+    workloadScore: number; // doctors per rep
+    potential: number; // potential revenue
+  }
+
+  const territoryPerformanceData: TerritoryPerformance[] = useMemo(() => [
+    {
+      id: "tp-1", territory: "Cairo North", repsCount: 8, doctorsCount: 320,
+      visitsPerMonth: 1280, revenue: 2450000, revenuePerRep: 306250, revenuePerDoctor: 7656,
+      coverageEfficiency: 87, workloadScore: 40, potential: 2900000,
+    },
+    {
+      id: "tp-2", territory: "Cairo South", repsCount: 5, doctorsCount: 290,
+      visitsPerMonth: 820, revenue: 1680000, revenuePerRep: 336000, revenuePerDoctor: 5793,
+      coverageEfficiency: 72, workloadScore: 58, potential: 2500000,
+    },
+    {
+      id: "tp-3", territory: "Alexandria", repsCount: 6, doctorsCount: 245,
+      visitsPerMonth: 960, revenue: 1920000, revenuePerRep: 320000, revenuePerDoctor: 7837,
+      coverageEfficiency: 82, workloadScore: 41, potential: 2300000,
+    },
+    {
+      id: "tp-4", territory: "Delta Region", repsCount: 4, doctorsCount: 180,
+      visitsPerMonth: 580, revenue: 980000, revenuePerRep: 245000, revenuePerDoctor: 5444,
+      coverageEfficiency: 68, workloadScore: 45, potential: 1600000,
+    },
+    {
+      id: "tp-5", territory: "Upper Egypt", repsCount: 3, doctorsCount: 150,
+      visitsPerMonth: 420, revenue: 720000, revenuePerRep: 240000, revenuePerDoctor: 4800,
+      coverageEfficiency: 63, workloadScore: 50, potential: 1350000,
+    },
+    {
+      id: "tp-6", territory: "Canal Cities", repsCount: 4, doctorsCount: 135,
+      visitsPerMonth: 520, revenue: 890000, revenuePerRep: 222500, revenuePerDoctor: 6593,
+      coverageEfficiency: 78, workloadScore: 34, potential: 1200000,
+    },
+  ], []);
+
+  const avgWorkload = useMemo(() => {
+    const total = territoryPerformanceData.reduce((s, t) => s + t.workloadScore, 0);
+    return Math.round(total / territoryPerformanceData.length);
+  }, [territoryPerformanceData]);
+
+  const overallCoverage = useMemo(() => {
+    const totalDocs = territoryPerformanceData.reduce((s, t) => s + t.doctorsCount, 0);
+    const weightedCoverage = territoryPerformanceData.reduce((s, t) => s + t.coverageEfficiency * t.doctorsCount, 0);
+    return Math.round(weightedCoverage / totalDocs);
+  }, [territoryPerformanceData]);
+
+  const workloadImbalance = useMemo(() => {
+    const scores = territoryPerformanceData.map((t) => t.workloadScore);
+    const max = Math.max(...scores);
+    const min = Math.min(...scores);
+    return Math.round(((max - min) / avgWorkload) * 100);
+  }, [territoryPerformanceData, avgWorkload]);
+
+  interface SuggestedTransfer {
+    id: string;
+    action: string;
+    from: string;
+    to: string;
+    reason: string;
+    impact: string;
+    priority: "high" | "medium" | "low";
+  }
+
+  const suggestedTransfers: SuggestedTransfer[] = useMemo(() => [
+    {
+      id: "st-1", action: "Transfer 2 doctors", from: "Cairo North", to: "Cairo South",
+      reason: "Cairo South has 58 doctors/rep vs Cairo North's 40. Rebalancing will improve coverage.",
+      impact: "+8% coverage in Cairo South", priority: "high",
+    },
+    {
+      id: "st-2", action: "Reassign 1 rep", from: "Canal Cities", to: "Upper Egypt",
+      reason: "Canal Cities has only 34 doctors/rep while Upper Egypt has 50. Rep utilization is low in Canal Cities.",
+      impact: "+12% coverage in Upper Egypt", priority: "high",
+    },
+    {
+      id: "st-3", action: "Transfer 15 doctors", from: "Cairo South", to: "Delta Region",
+      reason: "Delta Region has high potential gap (39%) but low doctor count relative to opportunity.",
+      impact: "+5% revenue capture in Delta", priority: "medium",
+    },
+    {
+      id: "st-4", action: "Add 1 new rep", from: "—", to: "Upper Egypt",
+      reason: "Lowest coverage efficiency (63%) and highest revenue gap. Adding a rep could close the gap.",
+      impact: "+15% coverage, +EGP 180K/month", priority: "medium",
+    },
+    {
+      id: "st-5", action: "Merge micro-bricks", from: "Canal Cities", to: "Canal Cities",
+      reason: "3 bricks have fewer than 10 doctors each. Merging reduces travel time.",
+      impact: "-20% travel time for reps", priority: "low",
+    },
+  ], []);
+
+  const perfColumns: Column<TerritoryPerformance>[] = [
+    { key: "territory", label: "Territory", sortable: true },
+    { key: "repsCount", label: "Reps", sortable: true },
+    { key: "doctorsCount", label: "Doctors", sortable: true },
+    { key: "visitsPerMonth", label: "Visits/Month", sortable: true, render: (v: number) => v.toLocaleString() },
+    { key: "revenue", label: "Revenue (EGP)", sortable: true, render: (v: number) => `${(v / 1000).toFixed(0)}K` },
+    { key: "revenuePerRep", label: "Rev/Rep", sortable: true, render: (v: number) => `${(v / 1000).toFixed(0)}K` },
+    { key: "revenuePerDoctor", label: "Rev/Doctor", sortable: true, render: (v: number) => v.toLocaleString() },
+    {
+      key: "coverageEfficiency", label: "Coverage %", sortable: true,
+      render: (v: number) => (
+        <div className="flex items-center gap-2">
+          <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full ${v >= 80 ? "bg-green-500" : v >= 70 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${v}%` }} />
+          </div>
+          <span className={`text-xs font-medium ${v >= 80 ? "text-green-700" : v >= 70 ? "text-amber-700" : "text-red-700"}`}>{v}%</span>
+        </div>
+      ),
+    },
+    {
+      key: "workloadScore", label: "Workload", sortable: true,
+      render: (v: number) => {
+        const status = v > 50 ? "over" : v < 36 ? "under" : "balanced";
+        return (
+          <Badge className={
+            status === "over" ? "bg-red-100 text-red-700" :
+            status === "under" ? "bg-blue-100 text-blue-700" :
+            "bg-green-100 text-green-700"
+          }>
+            {v} dr/rep {status === "over" ? "(Over)" : status === "under" ? "(Under)" : "(OK)"}
+          </Badge>
+        );
+      },
+    },
+  ];
+
   // Filtered by search
   const matchesSearch = (t: Territory) => {
     if (!search) return true;
