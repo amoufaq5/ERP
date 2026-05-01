@@ -161,6 +161,168 @@ function RoleHeader({ title, subtitle, badge }: { title: string; subtitle: strin
   );
 }
 
+// ─── Quiz types & storage keys ──────────────────────────────────────────────
+
+const STORAGE_QUIZZES = "pharma.quizzes";
+const STORAGE_ATTEMPTS = "pharma.quizAttempts";
+
+interface QuizInfo {
+  id: string;
+  title: string;
+  passingScore: number;
+}
+
+interface QuizAttemptInfo {
+  id: string;
+  quizId: string;
+  userId: string;
+  userName: string;
+  score: number;
+  passed: boolean;
+  completedAt: string;
+}
+
+function useQuizData() {
+  const [quizzes, setQuizzes] = useState<QuizInfo[]>([]);
+  const [attempts, setAttempts] = useState<QuizAttemptInfo[]>([]);
+
+  useEffect(() => {
+    try {
+      const q = localStorage.getItem(STORAGE_QUIZZES);
+      if (q) setQuizzes(JSON.parse(q));
+    } catch { /* ignore */ }
+    try {
+      const a = localStorage.getItem(STORAGE_ATTEMPTS);
+      if (a) setAttempts(JSON.parse(a));
+    } catch { /* ignore */ }
+  }, []);
+
+  return { quizzes, attempts };
+}
+
+function MyQuizResultsCard({ userId }: { userId: string }) {
+  const { quizzes, attempts } = useQuizData();
+  const myAttempts = attempts.filter((a) => a.userId === userId);
+  const avgScore = myAttempts.length > 0 ? Math.round(myAttempts.reduce((s, a) => s + a.score, 0) / myAttempts.length) : 0;
+  const passRate = myAttempts.length > 0 ? Math.round((myAttempts.filter((a) => a.passed).length / myAttempts.length) * 100) : 0;
+  const quizIds = new Set(myAttempts.map((a) => a.quizId));
+  const lastThree = [...myAttempts].sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()).slice(0, 3);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <GraduationCap className="h-5 w-5 text-indigo-600" />
+          My Quiz Results
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {myAttempts.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No quiz attempts yet.</p>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <div className="text-2xl font-bold text-indigo-600">{avgScore}%</div>
+                <div className="text-xs text-muted-foreground">Avg Score</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-blue-600">{quizIds.size}</div>
+                <div className="text-xs text-muted-foreground">Quizzes Taken</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-green-600">{passRate}%</div>
+                <div className="text-xs text-muted-foreground">Pass Rate</div>
+              </div>
+            </div>
+            {lastThree.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Recent Results</div>
+                {lastThree.map((a) => {
+                  const quiz = quizzes.find((q) => q.id === a.quizId);
+                  return (
+                    <div key={a.id} className="flex items-center justify-between p-2 rounded border text-sm">
+                      <div>
+                        <div className="font-medium">{quiz?.title ?? "Unknown Quiz"}</div>
+                        <div className="text-xs text-muted-foreground">{new Date(a.completedAt).toLocaleDateString()}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{a.score}%</span>
+                        <Badge variant={a.passed ? "success" : "destructive"} className="text-[10px]">
+                          {a.passed ? "PASS" : "FAIL"}
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TeamQuizResultsCard({ getReportsOf, userId }: { getReportsOf: (id: string) => { id: string; name: string; role: string }[]; userId: string }) {
+  const { quizzes, attempts } = useQuizData();
+  const subordinates = getReportsOf(userId);
+
+  const teamData = subordinates.map((sub) => {
+    const subAttempts = attempts.filter((a) => a.userId === sub.id);
+    const avgScore = subAttempts.length > 0 ? Math.round(subAttempts.reduce((s, a) => s + a.score, 0) / subAttempts.length) : 0;
+    const passRate = subAttempts.length > 0 ? Math.round((subAttempts.filter((a) => a.passed).length / subAttempts.length) * 100) : 0;
+    return { id: sub.id, name: sub.name, quizzesTaken: subAttempts.length, avgScore, passRate };
+  }).filter((d) => d.quizzesTaken > 0);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <GraduationCap className="h-5 w-5 text-purple-600" />
+          Team Quiz Results
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {teamData.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No team quiz attempts yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b text-muted-foreground">
+                  <th className="text-left py-1.5 font-medium">Name</th>
+                  <th className="text-center py-1.5 font-medium">Taken</th>
+                  <th className="text-center py-1.5 font-medium">Avg Score</th>
+                  <th className="text-center py-1.5 font-medium">Pass Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teamData.map((d) => (
+                  <tr key={d.id} className="border-b last:border-0">
+                    <td className="py-1.5 font-medium">{d.name}</td>
+                    <td className="text-center py-1.5">{d.quizzesTaken}</td>
+                    <td className="text-center py-1.5">
+                      <span className={d.avgScore >= 70 ? "text-green-600 font-semibold" : d.avgScore >= 50 ? "text-amber-600 font-semibold" : "text-red-600 font-semibold"}>
+                        {d.avgScore}%
+                      </span>
+                    </td>
+                    <td className="text-center py-1.5">
+                      <span className={d.passRate >= 70 ? "text-green-600 font-semibold" : d.passRate >= 50 ? "text-amber-600 font-semibold" : "text-red-600 font-semibold"}>
+                        {d.passRate}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Role-specific dashboards ────────────────────────────────────────────────
 
 function AdminDashboard() {
@@ -506,6 +668,12 @@ function BUMDashboard() {
         </Card>
       </div>
 
+      {/* Quiz Results */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <MyQuizResultsCard userId={user.id} />
+        <TeamQuizResultsCard getReportsOf={getReportsOf} userId={user.id} />
+      </div>
+
       <QuickActions items={[
         { label: "CRM Reports", icon: TrendingUp, href: "/crm/reports" },
         { label: "GPS Tracking", icon: MapPin, href: "/crm/gps-tracking" },
@@ -653,6 +821,9 @@ function MarketeerDashboard() {
           })}
         </CardContent>
       </Card>
+
+      {/* Quiz Results */}
+      <MyQuizResultsCard userId={user.id} />
 
       <QuickActions items={[
         { label: "My Region", icon: MapPin, href: "/crm/marketeer" },
@@ -880,6 +1051,12 @@ function DistrictManagerDashboard() {
             ))}
           </CardContent>
         </Card>
+      </div>
+
+      {/* Quiz Results */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <MyQuizResultsCard userId={user.id} />
+        <TeamQuizResultsCard getReportsOf={getReportsOf} userId={user.id} />
       </div>
 
       <QuickActions items={[
@@ -1175,6 +1352,9 @@ function MedicalRepDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Quiz Results */}
+      <MyQuizResultsCard userId={user.id} />
 
       <QuickActions items={[
         { label: "Check-in", icon: MapPin, href: "/crm/gps-tracking" },

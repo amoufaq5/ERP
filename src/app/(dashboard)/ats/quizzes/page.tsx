@@ -16,12 +16,14 @@ import {
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  SelectGroup, SelectLabel, SelectSeparator,
 } from "@/components/ui/select";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { useCurrentUser } from "@/lib/user-context";
+import { useDataStore } from "@/lib/data-store";
 
 /* ─── Types ─── */
 
@@ -127,6 +129,7 @@ const STORAGE_ATTEMPTS = "pharma.quizAttempts";
 
 export default function QuizzesPage() {
   const { user, allUsers, getReportsOf } = useCurrentUser();
+  const store = useDataStore();
   const isManager = ["ADMIN", "BUM", "MARKETEER"].includes(user.role);
   const canCreate = isManager;
 
@@ -153,8 +156,18 @@ export default function QuizzesPage() {
 
   // Quizzes assigned to current user
   const myQuizzes = useMemo(() => {
-    return quizzes.filter((q) => q.status === "PUBLISHED" && (q.assignedTo.includes("all") || q.assignedTo.includes(user.id)));
-  }, [quizzes, user.id]);
+    return quizzes.filter((q) => {
+      if (q.status !== "PUBLISHED") return false;
+      if (q.assignedTo.includes("all") || q.assignedTo.includes(user.id)) return true;
+      // Check BU-based assignments: user must be a member (not manager) of the BU
+      return q.assignedTo.some((entry) => {
+        if (!entry.startsWith("bu:")) return false;
+        const buId = entry.slice(3);
+        const bu = store.businessUnits.find((b) => b.id === buId);
+        return bu ? bu.memberIds.includes(user.id) && bu.managerId !== user.id : false;
+      });
+    });
+  }, [quizzes, user.id, store.businessUnits]);
 
   const myAttempts = useMemo(() => attempts.filter((a) => a.userId === user.id), [attempts, user.id]);
 
@@ -259,7 +272,7 @@ export default function QuizzesPage() {
       passingScore: Number(newPassing) || 80,
       dueDate: newDue,
       createdBy: user.id,
-      assignedTo: newAssign === "all" ? ["all"] : [newAssign],
+      assignedTo: newAssign === "all" ? ["all"] : newAssign.startsWith("bu:") ? [newAssign] : [newAssign],
       questions: newQuestions,
       status: "PUBLISHED",
       createdAt: new Date().toISOString().split("T")[0],
@@ -406,6 +419,21 @@ export default function QuizzesPage() {
                         <span>{quiz.questions.length} questions</span>
                         <span>{attemptCount} attempts</span>
                         {attemptCount > 0 && <span>Avg: {avgQuizScore}%</span>}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        <span>Assigned to: {
+                          quiz.assignedTo.includes("all")
+                            ? "All Reps"
+                            : quiz.assignedTo.map((entry) => {
+                                if (entry.startsWith("bu:")) {
+                                  const bu = store.businessUnits.find((b) => b.id === entry.slice(3));
+                                  return bu?.name ?? entry;
+                                }
+                                const rep = allUsers.find((u) => u.id === entry);
+                                return rep?.name ?? entry;
+                              }).join(", ")
+                        }</span>
                       </div>
                       <div className="flex gap-2 pt-1">
                         <Button size="sm" variant="outline" className="h-6 text-xs flex-1" onClick={() => {
@@ -584,9 +612,24 @@ export default function QuizzesPage() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Medical Reps</SelectItem>
-                    {reps.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>{r.name} ({r.role})</SelectItem>
-                    ))}
+                    {store.businessUnits.length > 0 && (
+                      <>
+                        <SelectSeparator />
+                        <SelectGroup>
+                          <SelectLabel>By Business Unit</SelectLabel>
+                          {store.businessUnits.map((bu) => (
+                            <SelectItem key={bu.id} value={`bu:${bu.id}`}>BU: {bu.name}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </>
+                    )}
+                    <SelectSeparator />
+                    <SelectGroup>
+                      <SelectLabel>Individual Reps</SelectLabel>
+                      {reps.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>{r.name} ({r.role})</SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
