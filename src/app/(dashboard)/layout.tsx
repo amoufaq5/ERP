@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/lib/theme-context";
 import { FavoritesProvider } from "@/lib/favorites";
 import { ApprovalProvider } from "@/lib/approval-workflow";
 import { KeyboardShortcutsInit } from "@/lib/keyboard-init";
+import { QueryProvider } from "@/lib/api/query-provider";
 
 export default function DashboardLayout({
   children,
@@ -18,24 +19,26 @@ export default function DashboardLayout({
   return (
     <ThemeProvider>
       <I18nProvider>
-        <UserProvider>
-          <ConfigProvider>
-            <DataStoreProvider>
-              <NotificationProvider>
-                <AuditProvider>
-                  <ApprovalProvider>
-                    <FavoritesProvider>
-                      <DashboardShell>
-                        <KeyboardShortcutsInit />
-                        {children}
-                      </DashboardShell>
-                    </FavoritesProvider>
-                  </ApprovalProvider>
-                </AuditProvider>
-              </NotificationProvider>
-            </DataStoreProvider>
-          </ConfigProvider>
-        </UserProvider>
+        <QueryProvider>
+          <UserProvider>
+            <ConfigProvider>
+              <DataStoreProvider>
+                <NotificationProvider>
+                  <AuditProvider>
+                    <ApprovalProvider>
+                      <FavoritesProvider>
+                        <DashboardShell>
+                          <KeyboardShortcutsInit />
+                          {children}
+                        </DashboardShell>
+                      </FavoritesProvider>
+                    </ApprovalProvider>
+                  </AuditProvider>
+                </NotificationProvider>
+              </DataStoreProvider>
+            </ConfigProvider>
+          </UserProvider>
+        </QueryProvider>
       </I18nProvider>
     </ThemeProvider>
   );
