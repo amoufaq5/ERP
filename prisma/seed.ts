@@ -4,175 +4,412 @@ import { hashSync } from "bcryptjs"
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log("Seeding database...")
+  console.log("Seeding Egyptian Pharma ERP database...")
 
-  // Users
-  const admin = await prisma.user.create({
-    data: { name: "Admin User", email: "admin@enterprise.com", passwordHash: hashSync("admin123", 10), role: "ADMIN", department: "Management" },
+  // ─── Users ──────────────────────────────────────────────────────────
+  const admin = await prisma.user.upsert({
+    where: { email: "admin@pharmaerp.eg" },
+    update: {},
+    create: { name: "Ahmed Hassan", email: "admin@pharmaerp.eg", passwordHash: hashSync("admin123", 10), role: "ADMIN", department: "Management" },
   })
-  const manager = await prisma.user.create({
-    data: { name: "Sarah Johnson", email: "manager@enterprise.com", passwordHash: hashSync("manager123", 10), role: "MANAGER", department: "Sales" },
+  const manager = await prisma.user.upsert({
+    where: { email: "sarah@pharmaerp.eg" },
+    update: {},
+    create: { name: "Sara El-Masry", email: "sarah@pharmaerp.eg", passwordHash: hashSync("manager123", 10), role: "MANAGER", department: "Commercial" },
   })
-  const employee = await prisma.user.create({
-    data: { name: "John Smith", email: "user@enterprise.com", passwordHash: hashSync("user123", 10), role: "EMPLOYEE", department: "Engineering" },
+  const employee = await prisma.user.upsert({
+    where: { email: "omar@pharmaerp.eg" },
+    update: {},
+    create: { name: "Omar Farouk", email: "omar@pharmaerp.eg", passwordHash: hashSync("user123", 10), role: "EMPLOYEE", department: "Supply Chain" },
+  })
+  const medRep1 = await prisma.user.upsert({
+    where: { email: "mona@pharmaerp.eg" },
+    update: {},
+    create: { name: "Mona Abdel-Nour", email: "mona@pharmaerp.eg", passwordHash: hashSync("user123", 10), role: "EMPLOYEE", department: "Medical Affairs" },
+  })
+  const medRep2 = await prisma.user.upsert({
+    where: { email: "khaled@pharmaerp.eg" },
+    update: {},
+    create: { name: "Khaled Mansour", email: "khaled@pharmaerp.eg", passwordHash: hashSync("user123", 10), role: "EMPLOYEE", department: "Sales" },
+  })
+  const bum = await prisma.user.upsert({
+    where: { email: "nadia@pharmaerp.eg" },
+    update: {},
+    create: { name: "Nadia Rizk", email: "nadia@pharmaerp.eg", passwordHash: hashSync("bum123", 10), role: "MANAGER", department: "Commercial" },
   })
 
-  // API Tokens
-  await prisma.apiToken.create({
-    data: { userId: admin.id, name: "Production API", token: "sk-prod-ent-xxxx-1234", permissions: '["read","write"]', isActive: true },
+  // ─── API Tokens ─────────────────────────────────────────────────────
+  await prisma.apiToken.upsert({
+    where: { token: "sk-pharma-prod-xxxx-1234" },
+    update: {},
+    create: { userId: admin.id, name: "Production API", token: "sk-pharma-prod-xxxx-1234", permissions: '["read","write"]', isActive: true },
   })
 
-  // System Settings
-  await prisma.systemSetting.createMany({
-    data: [
-      { key: "company_name", value: "Enterprise Suite Inc.", category: "general" },
-      { key: "currency", value: "USD", category: "general" },
-      { key: "timezone", value: "America/Los_Angeles", category: "general" },
-      { key: "ai_provider", value: "openai", category: "ai" },
-    ],
-  })
+  // ─── System Settings ────────────────────────────────────────────────
+  const settings = [
+    { key: "company_name", value: "PharmaFlow ERP", category: "general" },
+    { key: "currency", value: "EGP", category: "general" },
+    { key: "timezone", value: "Africa/Cairo", category: "general" },
+    { key: "country", value: "Egypt", category: "general" },
+    { key: "tax_rate", value: "14", category: "finance" },
+    { key: "fiscal_year_start", value: "07-01", category: "finance" },
+  ]
+  for (const s of settings) {
+    await prisma.systemSetting.upsert({ where: { key: s.key }, update: {}, create: s })
+  }
 
-  // Departments
-  const eng = await prisma.department.create({ data: { name: "Engineering", managerId: employee.id, budget: 2400000 } })
-  const sales = await prisma.department.create({ data: { name: "Sales", managerId: manager.id, budget: 1200000 } })
-  const hr = await prisma.department.create({ data: { name: "Human Resources", managerId: admin.id, budget: 400000 } })
-  const fin = await prisma.department.create({ data: { name: "Finance", managerId: admin.id, budget: 600000 } })
+  // ─── Departments ────────────────────────────────────────────────────
+  const commercial = await prisma.department.create({ data: { name: "Commercial", managerId: manager.id, budget: 8500000, description: "Sales and marketing operations" } })
+  const medAffairs = await prisma.department.create({ data: { name: "Medical Affairs", managerId: medRep1.id, budget: 3200000, description: "Medical information and pharmacovigilance" } })
+  const regulatory = await prisma.department.create({ data: { name: "Regulatory Affairs", managerId: admin.id, budget: 1800000, description: "Drug registration and compliance" } })
+  const qa = await prisma.department.create({ data: { name: "Quality Assurance", managerId: admin.id, budget: 2400000, description: "GMP compliance and quality control" } })
+  const supplyChain = await prisma.department.create({ data: { name: "Supply Chain", managerId: employee.id, budget: 5600000, description: "Procurement, warehousing, distribution" } })
+  const rnd = await prisma.department.create({ data: { name: "Research & Development", managerId: admin.id, budget: 6000000, description: "Drug development and formulation" } })
+  const hr = await prisma.department.create({ data: { name: "Human Resources", managerId: admin.id, budget: 1200000, description: "People management and development" } })
+  const finance = await prisma.department.create({ data: { name: "Finance", managerId: admin.id, budget: 1500000, description: "Accounting and financial planning" } })
 
-  // Employees
-  const emp1 = await prisma.employee.create({ data: { userId: employee.id, employeeNumber: "EMP001", firstName: "John", lastName: "Smith", email: "john@enterprise.com", departmentId: eng.id, position: "Senior Developer", hireDate: new Date("2022-03-15"), salary: 95000, status: "ACTIVE" } })
-  const emp2 = await prisma.employee.create({ data: { userId: manager.id, employeeNumber: "EMP002", firstName: "Sarah", lastName: "Johnson", email: "sarah@enterprise.com", departmentId: sales.id, position: "Sales Manager", hireDate: new Date("2021-06-01"), salary: 85000, status: "ACTIVE" } })
-  const emp3 = await prisma.employee.create({ data: { employeeNumber: "EMP003", firstName: "Michael", lastName: "Chen", email: "michael@enterprise.com", departmentId: fin.id, position: "Financial Analyst", hireDate: new Date("2023-01-10"), salary: 75000, status: "ACTIVE" } })
+  // ─── Employees ──────────────────────────────────────────────────────
+  const emp1 = await prisma.employee.create({ data: { userId: admin.id, employeeNumber: "EMP001", firstName: "Ahmed", lastName: "Hassan", email: "ahmed@pharmaerp.eg", departmentId: commercial.id, position: "General Manager", hireDate: new Date("2019-01-15"), salary: 85000, status: "ACTIVE" } })
+  const emp2 = await prisma.employee.create({ data: { userId: manager.id, employeeNumber: "EMP002", firstName: "Sara", lastName: "El-Masry", email: "sara@pharmaerp.eg", departmentId: commercial.id, position: "Sales Director", hireDate: new Date("2019-06-01"), salary: 65000, status: "ACTIVE" } })
+  const emp3 = await prisma.employee.create({ data: { userId: employee.id, employeeNumber: "EMP003", firstName: "Omar", lastName: "Farouk", email: "omar@pharmaerp.eg", departmentId: supplyChain.id, position: "Supply Chain Manager", hireDate: new Date("2020-03-10"), salary: 55000, status: "ACTIVE" } })
+  const emp4 = await prisma.employee.create({ data: { userId: medRep1.id, employeeNumber: "EMP004", firstName: "Mona", lastName: "Abdel-Nour", email: "mona@pharmaerp.eg", departmentId: medAffairs.id, position: "Medical Representative", hireDate: new Date("2021-01-15"), salary: 25000, status: "ACTIVE" } })
+  const emp5 = await prisma.employee.create({ data: { userId: medRep2.id, employeeNumber: "EMP005", firstName: "Khaled", lastName: "Mansour", email: "khaled@pharmaerp.eg", departmentId: commercial.id, position: "Senior Medical Rep", hireDate: new Date("2020-09-01"), salary: 30000, status: "ACTIVE" } })
+  const emp6 = await prisma.employee.create({ data: { userId: bum.id, employeeNumber: "EMP006", firstName: "Nadia", lastName: "Rizk", email: "nadia@pharmaerp.eg", departmentId: commercial.id, position: "Business Unit Manager", hireDate: new Date("2018-04-01"), salary: 72000, status: "ACTIVE" } })
+  const emp7 = await prisma.employee.create({ data: { employeeNumber: "EMP007", firstName: "Youssef", lastName: "Gamal", email: "youssef@pharmaerp.eg", departmentId: qa.id, position: "QA Specialist", hireDate: new Date("2022-02-01"), salary: 28000, status: "ACTIVE" } })
+  const emp8 = await prisma.employee.create({ data: { employeeNumber: "EMP008", firstName: "Fatma", lastName: "Ali", email: "fatma@pharmaerp.eg", departmentId: regulatory.id, position: "Regulatory Specialist", hireDate: new Date("2021-08-15"), salary: 32000, status: "ACTIVE" } })
+  const emp9 = await prisma.employee.create({ data: { employeeNumber: "EMP009", firstName: "Tarek", lastName: "Ibrahim", email: "tarek@pharmaerp.eg", departmentId: rnd.id, position: "R&D Scientist", hireDate: new Date("2020-11-01"), salary: 42000, status: "ACTIVE" } })
+  const emp10 = await prisma.employee.create({ data: { employeeNumber: "EMP010", firstName: "Laila", lastName: "Mahmoud", email: "laila@pharmaerp.eg", departmentId: finance.id, position: "Financial Analyst", hireDate: new Date("2022-06-01"), salary: 35000, status: "ACTIVE" } })
 
-  // Chart of Accounts
+  // ─── Chart of Accounts (EGP) ───────────────────────────────────────
   await prisma.chartOfAccount.createMany({
     data: [
-      { code: "1000", name: "Cash", type: "ASSET", balance: 500000 },
-      { code: "1100", name: "Accounts Receivable", type: "ASSET", balance: 245000 },
-      { code: "2000", name: "Accounts Payable", type: "LIABILITY", balance: 125000 },
-      { code: "3000", name: "Owner Equity", type: "EQUITY", balance: 800000 },
-      { code: "4000", name: "Sales Revenue", type: "REVENUE", balance: 2845000 },
-      { code: "5000", name: "Cost of Goods Sold", type: "EXPENSE", balance: 1200000 },
-      { code: "5100", name: "Salaries Expense", type: "EXPENSE", balance: 680000 },
-      { code: "5200", name: "Rent Expense", type: "EXPENSE", balance: 120000 },
+      { code: "1000", name: "Cash & Bank", type: "ASSET", balance: 12500000 },
+      { code: "1100", name: "Accounts Receivable", type: "ASSET", balance: 8750000 },
+      { code: "1200", name: "Inventory", type: "ASSET", balance: 15200000 },
+      { code: "1300", name: "Prepaid Expenses", type: "ASSET", balance: 850000 },
+      { code: "1400", name: "Fixed Assets", type: "ASSET", balance: 22000000 },
+      { code: "1410", name: "Accumulated Depreciation", type: "ASSET", balance: -5500000 },
+      { code: "2000", name: "Accounts Payable", type: "LIABILITY", balance: 6200000 },
+      { code: "2100", name: "Accrued Expenses", type: "LIABILITY", balance: 1800000 },
+      { code: "2200", name: "VAT Payable", type: "LIABILITY", balance: 2100000 },
+      { code: "2300", name: "Employee Benefits Payable", type: "LIABILITY", balance: 950000 },
+      { code: "3000", name: "Share Capital", type: "EQUITY", balance: 25000000 },
+      { code: "3100", name: "Retained Earnings", type: "EQUITY", balance: 18500000 },
+      { code: "4000", name: "Product Sales Revenue", type: "REVENUE", balance: 45800000 },
+      { code: "4100", name: "Service Revenue", type: "REVENUE", balance: 3200000 },
+      { code: "4200", name: "Export Revenue", type: "REVENUE", balance: 8500000 },
+      { code: "5000", name: "Cost of Goods Sold", type: "EXPENSE", balance: 28500000 },
+      { code: "5100", name: "Salaries & Wages", type: "EXPENSE", balance: 9600000 },
+      { code: "5200", name: "Marketing & Promotion", type: "EXPENSE", balance: 4200000 },
+      { code: "5300", name: "Distribution Costs", type: "EXPENSE", balance: 2800000 },
+      { code: "5400", name: "R&D Expenses", type: "EXPENSE", balance: 3500000 },
+      { code: "5500", name: "Administrative Expenses", type: "EXPENSE", balance: 1900000 },
+      { code: "5600", name: "Depreciation Expense", type: "EXPENSE", balance: 1100000 },
     ],
   })
 
-  // Accounts (CRM)
-  const acme = await prisma.account.create({ data: { name: "Acme Corporation", industry: "Technology", website: "https://acme.com", phone: "(555) 100-2000", email: "info@acme.com", type: "CUSTOMER", city: "San Francisco", country: "USA", annualRevenue: 5000000, employeeCount: 250, ownerId: manager.id, latitude: 37.7749, longitude: -122.4194 } })
-  const globex = await prisma.account.create({ data: { name: "Globex Industries", industry: "Manufacturing", phone: "(555) 200-3000", type: "CUSTOMER", city: "Chicago", country: "USA", annualRevenue: 12000000, employeeCount: 800, ownerId: manager.id, latitude: 41.8781, longitude: -87.6298 } })
-  const wayne = await prisma.account.create({ data: { name: "Wayne Enterprises", industry: "Defense", phone: "(555) 300-4000", type: "PROSPECT", city: "New York", country: "USA", annualRevenue: 50000000, employeeCount: 5000, ownerId: admin.id, latitude: 40.7128, longitude: -74.006 } })
+  // ─── Suppliers (Pharma) ─────────────────────────────────────────────
+  const sup1 = await prisma.supplier.create({ data: { name: "Al Kahira Pharmaceutical Trading", email: "orders@alkahirapharma.eg", phone: "+20 2 2345 6789", city: "Cairo", country: "Egypt", status: "ACTIVE", rating: 4.5, paymentTerms: "Net 30" } })
+  const sup2 = await prisma.supplier.create({ data: { name: "EIPICO Raw Materials", email: "supply@eipico.com.eg", phone: "+20 3 456 7890", city: "10th of Ramadan", country: "Egypt", status: "ACTIVE", rating: 4.8, paymentTerms: "Net 45" } })
+  const sup3 = await prisma.supplier.create({ data: { name: "India API Suppliers Ltd", email: "export@indiaapi.com", phone: "+91 22 6789 0123", city: "Mumbai", country: "India", status: "ACTIVE", rating: 4.2, paymentTerms: "LC 60" } })
+  const sup4 = await prisma.supplier.create({ data: { name: "China Fine Chemicals Co.", email: "sales@chinafine.cn", phone: "+86 21 5678 9012", city: "Shanghai", country: "China", status: "ACTIVE", rating: 3.8, paymentTerms: "LC 90" } })
+  const sup5 = await prisma.supplier.create({ data: { name: "Nile Packaging Solutions", email: "info@nilepack.eg", phone: "+20 2 3456 7891", city: "6th of October", country: "Egypt", status: "ACTIVE", rating: 4.0, paymentTerms: "Net 30" } })
 
-  // Contacts
+  // ─── Products (Pharma) ──────────────────────────────────────────────
+  const prod1 = await prisma.product.create({ data: { sku: "AUG-1G", name: "Augmentin 1g", category: "Antibiotics", unitPrice: 185.00, costPrice: 92.00, quantity: 5000, reorderLevel: 1000, unit: "box", description: "Amoxicillin/Clavulanic Acid 1000mg tablets", status: "ACTIVE" } })
+  const prod2 = await prisma.product.create({ data: { sku: "PAN-500", name: "Panadol Extra 500mg", category: "Analgesics", unitPrice: 42.50, costPrice: 18.00, quantity: 12000, reorderLevel: 3000, unit: "box", description: "Paracetamol 500mg + Caffeine tablets", status: "ACTIVE" } })
+  const prod3 = await prisma.product.create({ data: { sku: "CRD-10", name: "Cardioprex 10mg", category: "Cardiovascular", unitPrice: 225.00, costPrice: 115.00, quantity: 3200, reorderLevel: 800, unit: "box", description: "Atorvastatin 10mg film-coated tablets", status: "ACTIVE" } })
+  const prod4 = await prisma.product.create({ data: { sku: "AMX-500", name: "Amoxil 500mg", category: "Antibiotics", unitPrice: 95.00, costPrice: 45.00, quantity: 8000, reorderLevel: 2000, unit: "box", description: "Amoxicillin 500mg capsules", status: "ACTIVE" } })
+  const prod5 = await prisma.product.create({ data: { sku: "CRS-20", name: "Crestor 20mg", category: "Cardiovascular", unitPrice: 310.00, costPrice: 155.00, quantity: 2500, reorderLevel: 600, unit: "box", description: "Rosuvastatin 20mg tablets", status: "ACTIVE" } })
+  const prod6 = await prisma.product.create({ data: { sku: "OMP-20", name: "Omepak 20mg", category: "Gastrointestinal", unitPrice: 65.00, costPrice: 28.00, quantity: 9500, reorderLevel: 2500, unit: "box", description: "Omeprazole 20mg capsules", status: "ACTIVE" } })
+  const prod7 = await prisma.product.create({ data: { sku: "VNT-INH", name: "Ventolin Inhaler", category: "Respiratory", unitPrice: 120.00, costPrice: 55.00, quantity: 4000, reorderLevel: 800, unit: "unit", description: "Salbutamol 100mcg/dose inhaler", status: "ACTIVE" } })
+  const prod8 = await prisma.product.create({ data: { sku: "GLM-2", name: "Glimaryl 2mg", category: "Diabetes", unitPrice: 78.00, costPrice: 35.00, quantity: 6000, reorderLevel: 1500, unit: "box", description: "Glimepiride 2mg tablets", status: "ACTIVE" } })
+  const prod9 = await prisma.product.create({ data: { sku: "CNC-8", name: "Concor 5mg", category: "Cardiovascular", unitPrice: 195.00, costPrice: 98.00, quantity: 3800, reorderLevel: 900, unit: "box", description: "Bisoprolol 5mg tablets", status: "ACTIVE" } })
+  const prod10 = await prisma.product.create({ data: { sku: "ZTH-250", name: "Zithromax 250mg", category: "Antibiotics", unitPrice: 145.00, costPrice: 68.00, quantity: 4200, reorderLevel: 1000, unit: "box", description: "Azithromycin 250mg capsules", status: "ACTIVE" } })
+  const prod11 = await prisma.product.create({ data: { sku: "NXM-40", name: "Nexium 40mg", category: "Gastrointestinal", unitPrice: 198.00, costPrice: 95.00, quantity: 3500, reorderLevel: 800, unit: "box", description: "Esomeprazole 40mg tablets", status: "ACTIVE" } })
+  const prod12 = await prisma.product.create({ data: { sku: "DPG-75", name: "Plavix 75mg", category: "Cardiovascular", unitPrice: 280.00, costPrice: 140.00, quantity: 2800, reorderLevel: 700, unit: "box", description: "Clopidogrel 75mg film-coated tablets", status: "ACTIVE" } })
+
+  // ─── Warehouses ─────────────────────────────────────────────────────
+  const wh1 = await prisma.warehouse.create({ data: { name: "Cairo Central Warehouse", location: "10th of Ramadan Industrial Zone, Cairo", capacity: 50000, managerId: employee.id } })
+  const wh2 = await prisma.warehouse.create({ data: { name: "Alexandria Distribution Center", location: "Borg El Arab Industrial Area, Alexandria", capacity: 25000, managerId: employee.id } })
+  const wh3 = await prisma.warehouse.create({ data: { name: "Upper Egypt Hub", location: "Assiut Industrial Zone", capacity: 15000, managerId: admin.id } })
+
+  // ─── CRM Accounts (Hospitals, Pharmacies, Chains) ───────────────────
+  const acc1 = await prisma.account.create({ data: { name: "Ain Shams University Hospital", industry: "Healthcare", phone: "+20 2 2685 0000", email: "pharmacy@ainshams.edu.eg", type: "CUSTOMER", city: "Cairo", country: "Egypt", annualRevenue: 2500000, employeeCount: 3500, ownerId: manager.id, latitude: 30.0761, longitude: 31.2828 } })
+  const acc2 = await prisma.account.create({ data: { name: "El Ezaby Pharmacy Chain", industry: "Retail Pharmacy", phone: "+20 2 1234 5678", email: "procurement@elezaby.com.eg", type: "CUSTOMER", city: "Cairo", country: "Egypt", annualRevenue: 8500000, employeeCount: 1200, ownerId: manager.id, latitude: 30.0444, longitude: 31.2357 } })
+  const acc3 = await prisma.account.create({ data: { name: "Dar Al Fouad Hospital", industry: "Healthcare", phone: "+20 2 3837 5555", email: "pharmacy@daralfouad.com", type: "CUSTOMER", city: "6th of October", country: "Egypt", annualRevenue: 5000000, employeeCount: 2000, ownerId: bum.id, latitude: 30.0131, longitude: 31.0087 } })
+  const acc4 = await prisma.account.create({ data: { name: "Seif Pharmacies", industry: "Retail Pharmacy", phone: "+20 2 1900 0900", email: "orders@seifpharma.com", type: "CUSTOMER", city: "Cairo", country: "Egypt", annualRevenue: 12000000, employeeCount: 2500, ownerId: manager.id, latitude: 30.0626, longitude: 31.2497 } })
+  const acc5 = await prisma.account.create({ data: { name: "Kasr El Aini Hospital", industry: "Healthcare", phone: "+20 2 2792 4455", email: "pharmacy@kasrelaini.edu.eg", type: "CUSTOMER", city: "Cairo", country: "Egypt", annualRevenue: 3200000, employeeCount: 5000, ownerId: bum.id, latitude: 30.0291, longitude: 31.2272 } })
+  const acc6 = await prisma.account.create({ data: { name: "Alexandria University Hospital", industry: "Healthcare", phone: "+20 3 4869 000", email: "pharma@alexuni.edu.eg", type: "CUSTOMER", city: "Alexandria", country: "Egypt", annualRevenue: 1800000, employeeCount: 2800, ownerId: manager.id, latitude: 31.2001, longitude: 29.9187 } })
+  const acc7 = await prisma.account.create({ data: { name: "Roshdy Pharmacy", industry: "Retail Pharmacy", phone: "+20 2 2580 1234", type: "PROSPECT", city: "Giza", country: "Egypt", annualRevenue: 650000, employeeCount: 45, ownerId: medRep2.id, latitude: 30.0131, longitude: 31.2089 } })
+  const acc8 = await prisma.account.create({ data: { name: "Saudi German Hospital Cairo", industry: "Healthcare", website: "https://sghcairo.com", phone: "+20 2 2452 9999", type: "CUSTOMER", city: "Cairo", country: "Egypt", annualRevenue: 7500000, employeeCount: 1500, ownerId: bum.id, latitude: 30.0082, longitude: 31.4092 } })
+
+  // ─── Contacts (Doctors, Pharmacists) ────────────────────────────────
   await prisma.contact.createMany({
     data: [
-      { firstName: "Alice", lastName: "Williams", email: "alice@acme.com", phone: "(555) 100-2001", title: "CTO", accountId: acme.id, ownerId: manager.id },
-      { firstName: "Bob", lastName: "Brown", email: "bob@globex.com", phone: "(555) 200-3001", title: "Procurement Director", accountId: globex.id, ownerId: manager.id },
-      { firstName: "Carol", lastName: "White", email: "carol@wayne.com", phone: "(555) 300-4001", title: "VP Operations", accountId: wayne.id, ownerId: admin.id },
+      { firstName: "Dr. Mohamed", lastName: "El-Sayed", email: "msayed@ainshams.edu.eg", phone: "+20 100 234 5678", title: "Chief Pharmacist", accountId: acc1.id, ownerId: medRep1.id },
+      { firstName: "Dr. Heba", lastName: "Kamal", email: "hkamal@ainshams.edu.eg", phone: "+20 101 345 6789", title: "Head of Cardiology", accountId: acc1.id, ownerId: medRep1.id },
+      { firstName: "Mahmoud", lastName: "Salem", email: "msalem@elezaby.com.eg", phone: "+20 102 456 7890", title: "Procurement Manager", accountId: acc2.id, ownerId: medRep2.id },
+      { firstName: "Dr. Amira", lastName: "Nabil", email: "anabil@daralfouad.com", phone: "+20 103 567 8901", title: "Head of Internal Medicine", accountId: acc3.id, ownerId: medRep1.id },
+      { firstName: "Tarek", lastName: "Youssef", email: "tyoussef@seifpharma.com", phone: "+20 104 678 9012", title: "Regional Manager", accountId: acc4.id, ownerId: medRep2.id },
+      { firstName: "Dr. Laila", lastName: "Mostafa", email: "lmostafa@kasrelaini.edu.eg", phone: "+20 105 789 0123", title: "Endocrinology Consultant", accountId: acc5.id, ownerId: medRep1.id },
+      { firstName: "Dr. Ashraf", lastName: "Zaki", email: "azaki@alexuni.edu.eg", phone: "+20 106 890 1234", title: "Head of Pulmonology", accountId: acc6.id, ownerId: medRep2.id },
+      { firstName: "Rania", lastName: "Adel", email: "radel@roshdy.com", phone: "+20 107 901 2345", title: "Pharmacy Owner", accountId: acc7.id, ownerId: medRep2.id },
+      { firstName: "Dr. Hussein", lastName: "Fathy", email: "hfathy@sghcairo.com", phone: "+20 108 012 3456", title: "Medical Director", accountId: acc8.id, ownerId: bum.id },
+      { firstName: "Dr. Noha", lastName: "Samir", email: "nsamir@sghcairo.com", phone: "+20 109 123 4567", title: "Chief Pharmacist", accountId: acc8.id, ownerId: medRep1.id },
     ],
   })
 
-  // Suppliers
-  const supplier1 = await prisma.supplier.create({ data: { name: "TechParts Inc.", email: "orders@techparts.com", phone: "(555) 500-1000", city: "Austin", country: "USA", status: "ACTIVE", rating: 4.5, paymentTerms: "Net 30" } })
-  const supplier2 = await prisma.supplier.create({ data: { name: "Global Materials Co.", email: "sales@globalmaterials.com", phone: "(555) 500-2000", city: "Detroit", country: "USA", status: "ACTIVE", rating: 4.0, paymentTerms: "Net 45" } })
-
-  // Products
-  const prod1 = await prisma.product.create({ data: { sku: "WK-2000", name: "Wireless Keyboard", category: "Electronics", unitPrice: 79.99, costPrice: 35.00, quantity: 500, reorderLevel: 50, status: "ACTIVE" } })
-  const prod2 = await prisma.product.create({ data: { sku: "MON-27X", name: "27\" LED Monitor", category: "Electronics", unitPrice: 349.99, costPrice: 180.00, quantity: 120, reorderLevel: 20, status: "ACTIVE" } })
-  const prod3 = await prisma.product.create({ data: { sku: "EM-500", name: "Ergonomic Mouse", category: "Electronics", unitPrice: 49.99, costPrice: 18.00, quantity: 800, reorderLevel: 100, status: "ACTIVE" } })
-
-  // Invoices
-  await prisma.invoice.create({
-    data: { invoiceNumber: "INV-2024-001", customerId: acme.id, date: new Date("2024-03-01"), dueDate: new Date("2024-03-31"), status: "PAID", subtotal: 15000, tax: 1350, total: 16350, items: { create: [{ description: "Consulting Services - March", quantity: 1, unitPrice: 15000, total: 15000 }] } },
+  // ─── Invoices (EGP) ────────────────────────────────────────────────
+  const inv1 = await prisma.invoice.create({
+    data: { invoiceNumber: "INV-2025-001", customerId: acc1.id, date: new Date("2025-01-15"), dueDate: new Date("2025-02-15"), status: "PAID", subtotal: 185000, tax: 25900, total: 210900, items: { create: [
+      { description: "Augmentin 1g - 500 boxes", quantity: 500, unitPrice: 185, total: 92500 },
+      { description: "Amoxil 500mg - 500 boxes", quantity: 500, unitPrice: 95, total: 47500 },
+      { description: "Cardioprex 10mg - 200 boxes", quantity: 200, unitPrice: 225, total: 45000 },
+    ] } },
+  })
+  const inv2 = await prisma.invoice.create({
+    data: { invoiceNumber: "INV-2025-002", customerId: acc2.id, date: new Date("2025-01-20"), dueDate: new Date("2025-02-20"), status: "PAID", subtotal: 342500, tax: 47950, total: 390450, items: { create: [
+      { description: "Panadol Extra - 2000 boxes", quantity: 2000, unitPrice: 42.5, total: 85000 },
+      { description: "Augmentin 1g - 800 boxes", quantity: 800, unitPrice: 185, total: 148000 },
+      { description: "Omepak 20mg - 500 boxes", quantity: 500, unitPrice: 65, total: 32500 },
+      { description: "Ventolin Inhaler - 500 units", quantity: 500, unitPrice: 120, total: 60000 },
+      { description: "Zithromax 250mg - 100 boxes", quantity: 100, unitPrice: 145, total: 14500 },
+      { description: "Plavix 75mg - 10 boxes", quantity: 10, unitPrice: 280, total: 2500 },
+    ] } },
   })
   await prisma.invoice.create({
-    data: { invoiceNumber: "INV-2024-002", customerId: globex.id, date: new Date("2024-03-15"), dueDate: new Date("2024-04-15"), status: "SENT", subtotal: 25000, tax: 2250, total: 27250, items: { create: [{ description: "Product Supply - Q1", quantity: 100, unitPrice: 250, total: 25000 }] } },
+    data: { invoiceNumber: "INV-2025-003", customerId: acc3.id, date: new Date("2025-02-01"), dueDate: new Date("2025-03-01"), status: "SENT", subtotal: 256000, tax: 35840, total: 291840, items: { create: [
+      { description: "Crestor 20mg - 400 boxes", quantity: 400, unitPrice: 310, total: 124000 },
+      { description: "Concor 5mg - 300 boxes", quantity: 300, unitPrice: 195, total: 58500 },
+      { description: "Nexium 40mg - 200 boxes", quantity: 200, unitPrice: 198, total: 39600 },
+      { description: "Glimaryl 2mg - 350 boxes", quantity: 350, unitPrice: 78, total: 27300 },
+      { description: "Plavix 75mg - 20 boxes", quantity: 20, unitPrice: 280, total: 5600 },
+      { description: "Panadol Extra - 250 boxes", quantity: 250, unitPrice: 42.5, total: 1000 },
+    ] } },
+  })
+  await prisma.invoice.create({
+    data: { invoiceNumber: "INV-2025-004", customerId: acc4.id, date: new Date("2025-02-10"), dueDate: new Date("2025-03-10"), status: "SENT", subtotal: 485000, tax: 67900, total: 552900, items: { create: [
+      { description: "Bulk order - Mixed pharmaceuticals", quantity: 1, unitPrice: 485000, total: 485000 },
+    ] } },
+  })
+  await prisma.invoice.create({
+    data: { invoiceNumber: "INV-2025-005", customerId: acc5.id, date: new Date("2025-02-15"), dueDate: new Date("2025-03-15"), status: "OVERDUE", subtotal: 128000, tax: 17920, total: 145920, items: { create: [
+      { description: "Cardioprex 10mg - 300 boxes", quantity: 300, unitPrice: 225, total: 67500 },
+      { description: "Glimaryl 2mg - 400 boxes", quantity: 400, unitPrice: 78, total: 31200 },
+      { description: "Amoxil 500mg - 200 boxes", quantity: 200, unitPrice: 95, total: 19000 },
+      { description: "Omepak 20mg - 150 boxes", quantity: 150, unitPrice: 65, total: 9750 },
+      { description: "Augmentin 1g - 3 boxes", quantity: 3, unitPrice: 185, total: 550 },
+    ] } },
+  })
+  await prisma.invoice.create({
+    data: { invoiceNumber: "INV-2025-006", customerId: acc6.id, date: new Date("2025-03-01"), dueDate: new Date("2025-04-01"), status: "DRAFT", subtotal: 92000, tax: 12880, total: 104880, items: { create: [
+      { description: "Ventolin Inhaler - 200 units", quantity: 200, unitPrice: 120, total: 24000 },
+      { description: "Zithromax 250mg - 300 boxes", quantity: 300, unitPrice: 145, total: 43500 },
+      { description: "Panadol Extra - 500 boxes", quantity: 500, unitPrice: 42.5, total: 21250 },
+      { description: "Amoxil 500mg - 34 boxes", quantity: 34, unitPrice: 95, total: 3250 },
+    ] } },
   })
 
-  // Leads
+  // ─── Payments (EGP) ────────────────────────────────────────────────
+  await prisma.payment.create({ data: { type: "INCOMING", amount: 210900, date: new Date("2025-02-10"), method: "BANK_TRANSFER", reference: "PAY-AIN-001", invoiceId: inv1.id } })
+  await prisma.payment.create({ data: { type: "INCOMING", amount: 390450, date: new Date("2025-02-18"), method: "CHECK", reference: "PAY-EZB-001", invoiceId: inv2.id } })
+  await prisma.payment.create({ data: { type: "OUTGOING", amount: 850000, date: new Date("2025-01-25"), method: "BANK_TRANSFER", reference: "PAY-SUP-EIPICO-001" } })
+  await prisma.payment.create({ data: { type: "OUTGOING", amount: 1200000, date: new Date("2025-02-05"), method: "BANK_TRANSFER", reference: "PAY-SUP-INDIA-001" } })
+
+  // ─── Purchase Orders ────────────────────────────────────────────────
+  const po1 = await prisma.purchaseOrder.create({
+    data: { poNumber: "PO-2025-001", supplierId: sup2.id, date: new Date("2025-01-10"), expectedDate: new Date("2025-02-10"), status: "RECEIVED", total: 2400000, createdById: employee.id,
+      items: { create: [
+        { productId: prod1.id, description: "Amoxicillin/Clavulanic Acid API", quantity: 500, unitPrice: 2400, total: 1200000 },
+        { productId: prod4.id, description: "Amoxicillin Trihydrate API", quantity: 500, unitPrice: 2400, total: 1200000 },
+      ] } },
+  })
+  await prisma.purchaseOrder.create({
+    data: { poNumber: "PO-2025-002", supplierId: sup3.id, date: new Date("2025-01-15"), expectedDate: new Date("2025-03-15"), status: "SENT", total: 3500000, createdById: employee.id,
+      items: { create: [
+        { productId: prod3.id, description: "Atorvastatin Calcium API", quantity: 200, unitPrice: 8500, total: 1700000 },
+        { productId: prod5.id, description: "Rosuvastatin Calcium API", quantity: 150, unitPrice: 12000, total: 1800000 },
+      ] } },
+  })
+  await prisma.purchaseOrder.create({
+    data: { poNumber: "PO-2025-003", supplierId: sup5.id, date: new Date("2025-02-01"), expectedDate: new Date("2025-02-20"), status: "APPROVED", total: 450000, createdById: employee.id,
+      items: { create: [
+        { description: "Blister packing foil - 5000 rolls", quantity: 5000, unitPrice: 50, total: 250000 },
+        { description: "Carton boxes - 10000 units", quantity: 10000, unitPrice: 20, total: 200000 },
+      ] } },
+  })
+
+  // ─── Sales Orders ───────────────────────────────────────────────────
+  await prisma.salesOrder.create({
+    data: { orderNumber: "SO-2025-001", customerId: acc1.id, date: new Date("2025-01-12"), status: "DELIVERED", total: 210900, shippingAddress: "Ain Shams University Hospital, Abbassia, Cairo",
+      items: { create: [
+        { productId: prod1.id, quantity: 500, unitPrice: 185, total: 92500 },
+        { productId: prod4.id, quantity: 500, unitPrice: 95, total: 47500 },
+        { productId: prod3.id, quantity: 200, unitPrice: 225, total: 45000 },
+      ] } },
+  })
+  await prisma.salesOrder.create({
+    data: { orderNumber: "SO-2025-002", customerId: acc4.id, date: new Date("2025-02-05"), status: "CONFIRMED", total: 552900, shippingAddress: "Seif Pharmacies Central Warehouse, Nasr City, Cairo",
+      items: { create: [
+        { productId: prod2.id, quantity: 3000, unitPrice: 42.5, total: 127500 },
+        { productId: prod1.id, quantity: 1000, unitPrice: 185, total: 185000 },
+        { productId: prod6.id, quantity: 1500, unitPrice: 65, total: 97500 },
+        { productId: prod7.id, quantity: 800, unitPrice: 120, total: 96000 },
+      ] } },
+  })
+  await prisma.salesOrder.create({
+    data: { orderNumber: "SO-2025-003", customerId: acc2.id, date: new Date("2025-02-20"), status: "PENDING", total: 178500, shippingAddress: "El Ezaby Distribution Center, Heliopolis, Cairo",
+      items: { create: [
+        { productId: prod10.id, quantity: 300, unitPrice: 145, total: 43500 },
+        { productId: prod9.id, quantity: 200, unitPrice: 195, total: 39000 },
+        { productId: prod12.id, quantity: 150, unitPrice: 280, total: 42000 },
+        { productId: prod8.id, quantity: 400, unitPrice: 78, total: 31200 },
+        { productId: prod11.id, quantity: 100, unitPrice: 198, total: 19800 },
+        { productId: prod2.id, quantity: 200, unitPrice: 42.5, total: 3000 },
+      ] } },
+  })
+
+  // ─── Stock Movements ────────────────────────────────────────────────
+  await prisma.stockMovement.createMany({
+    data: [
+      { productId: prod1.id, warehouseId: wh1.id, type: "IN", quantity: 2000, date: new Date("2025-01-15"), reference: "PO-2025-001", notes: "Received from EIPICO", createdById: employee.id },
+      { productId: prod1.id, warehouseId: wh1.id, type: "OUT", quantity: 500, date: new Date("2025-01-20"), reference: "SO-2025-001", notes: "Shipped to Ain Shams Hospital", createdById: employee.id },
+      { productId: prod2.id, warehouseId: wh1.id, type: "IN", quantity: 5000, date: new Date("2025-01-10"), reference: "MFG-2025-001", notes: "Production batch B2025-01", createdById: employee.id },
+      { productId: prod3.id, warehouseId: wh2.id, type: "TRANSFER", quantity: 500, date: new Date("2025-02-01"), reference: "TRF-001", notes: "Transfer from Cairo to Alex", createdById: employee.id },
+      { productId: prod7.id, warehouseId: wh1.id, type: "IN", quantity: 1000, date: new Date("2025-02-05"), reference: "IMP-2025-001", notes: "Import shipment from GSK", createdById: employee.id },
+      { productId: prod6.id, warehouseId: wh3.id, type: "OUT", quantity: 200, date: new Date("2025-02-10"), reference: "SO-LOCAL-001", notes: "Upper Egypt distribution", createdById: employee.id },
+    ],
+  })
+
+  // ─── Leads ──────────────────────────────────────────────────────────
   await prisma.lead.createMany({
     data: [
-      { firstName: "Tom", lastName: "Harris", email: "tom@startup.io", company: "StartupIO", source: "WEB", status: "NEW", score: 72, value: 50000, assignedToId: manager.id },
-      { firstName: "Jane", lastName: "Cooper", email: "jane@techfirm.com", company: "TechFirm LLC", source: "REFERRAL", status: "QUALIFIED", score: 88, value: 120000, assignedToId: manager.id },
-      { firstName: "Mike", lastName: "Ross", email: "mike@bigco.com", company: "BigCo Inc", source: "EVENT", status: "CONTACTED", score: 65, value: 75000, assignedToId: admin.id },
+      { firstName: "Dr. Sameh", lastName: "Barakat", email: "sbarakat@clinic.eg", company: "Barakat Medical Center", source: "REFERRAL", status: "QUALIFIED", score: 85, value: 250000, assignedToId: medRep1.id },
+      { firstName: "Eng. Hany", lastName: "Shaker", email: "hshaker@newpharmacy.eg", company: "New Cairo Pharmacy", source: "WEB", status: "NEW", score: 62, value: 120000, assignedToId: medRep2.id },
+      { firstName: "Dr. Iman", lastName: "Hashim", email: "ihashim@militaryhospital.eg", company: "Military Medical Complex", source: "EVENT", status: "CONTACTED", score: 78, value: 500000, assignedToId: bum.id },
+      { firstName: "Ahmed", lastName: "Mostafa", email: "amostafa@pharmacychain.eg", company: "El Nile Pharmacy Chain", source: "COLD_CALL", status: "NEW", score: 55, value: 180000, assignedToId: medRep2.id },
+      { firstName: "Dr. Yasmin", lastName: "Tawfik", email: "ytawfik@children.eg", company: "Cairo Children's Hospital", source: "REFERRAL", status: "QUALIFIED", score: 90, value: 350000, assignedToId: medRep1.id },
+      { firstName: "Mahmoud", lastName: "Hegazy", email: "mhegazy@deltachain.eg", company: "Delta Pharmacy Group", source: "SOCIAL", status: "CONTACTED", score: 70, value: 220000, assignedToId: medRep2.id },
     ],
   })
 
-  // Opportunities
+  // ─── Opportunities ──────────────────────────────────────────────────
   await prisma.opportunity.createMany({
     data: [
-      { title: "Acme Enterprise License", accountId: acme.id, stage: "PROPOSAL", value: 150000, probability: 70, assignedToId: manager.id, expectedCloseDate: new Date("2024-04-30") },
-      { title: "Globex Equipment Supply", accountId: globex.id, stage: "NEGOTIATION", value: 280000, probability: 60, assignedToId: manager.id, expectedCloseDate: new Date("2024-05-15") },
-      { title: "Wayne Security Upgrade", accountId: wayne.id, stage: "PROSPECTING", value: 500000, probability: 20, assignedToId: admin.id, expectedCloseDate: new Date("2024-06-30") },
+      { title: "Ain Shams Annual Supply Contract", accountId: acc1.id, stage: "NEGOTIATION", value: 2500000, probability: 75, assignedToId: manager.id, expectedCloseDate: new Date("2025-04-30") },
+      { title: "El Ezaby New Product Launch", accountId: acc2.id, stage: "PROPOSAL", value: 1800000, probability: 60, assignedToId: bum.id, expectedCloseDate: new Date("2025-05-15") },
+      { title: "Dar Al Fouad Cardio Portfolio", accountId: acc3.id, stage: "QUALIFICATION", value: 3200000, probability: 40, assignedToId: medRep1.id, expectedCloseDate: new Date("2025-06-30") },
+      { title: "Seif Exclusive Distribution Deal", accountId: acc4.id, stage: "CLOSED_WON", value: 8500000, probability: 100, assignedToId: manager.id, expectedCloseDate: new Date("2025-03-01") },
+      { title: "Kasr El Aini Diabetes Care", accountId: acc5.id, stage: "PROSPECTING", value: 750000, probability: 20, assignedToId: medRep1.id, expectedCloseDate: new Date("2025-07-31") },
+      { title: "SGH Cairo Respiratory Products", accountId: acc8.id, stage: "PROPOSAL", value: 1200000, probability: 55, assignedToId: bum.id, expectedCloseDate: new Date("2025-05-30") },
     ],
   })
 
-  // Tickets
+  // ─── Tickets ────────────────────────────────────────────────────────
   await prisma.ticket.createMany({
     data: [
-      { ticketNumber: "TK-001", subject: "Login issues after update", description: "Cannot access dashboard", accountId: acme.id, status: "OPEN", priority: "HIGH", assignedToId: employee.id, category: "Technical" },
-      { ticketNumber: "TK-002", subject: "Invoice discrepancy", description: "Amount doesn't match PO", accountId: globex.id, status: "IN_PROGRESS", priority: "MEDIUM", assignedToId: admin.id, category: "Billing" },
+      { ticketNumber: "TK-001", subject: "Augmentin batch recall inquiry", description: "Customer reporting suspected quality issue with batch B2024-12", accountId: acc1.id, status: "IN_PROGRESS", priority: "CRITICAL", assignedToId: admin.id, category: "Quality" },
+      { ticketNumber: "TK-002", subject: "Late delivery - SO-2025-003", description: "Order delayed by 3 days, customer requesting compensation", accountId: acc2.id, status: "OPEN", priority: "HIGH", assignedToId: employee.id, category: "Logistics" },
+      { ticketNumber: "TK-003", subject: "Invoice discrepancy INV-2025-005", description: "Pricing mismatch on Cardioprex 10mg, agreed price was EGP 210/box", accountId: acc5.id, status: "OPEN", priority: "MEDIUM", assignedToId: manager.id, category: "Billing" },
+      { ticketNumber: "TK-004", subject: "Product registration certificate needed", description: "Requesting updated EDA registration for Crestor 20mg", accountId: acc3.id, status: "WAITING", priority: "LOW", assignedToId: medRep1.id, category: "Regulatory" },
+      { ticketNumber: "TK-005", subject: "Cold chain temperature excursion", description: "Temperature log shows 12°C spike during transport", accountId: acc4.id, status: "ESCALATED", priority: "CRITICAL", assignedToId: admin.id, category: "Quality" },
     ],
   })
 
-  // Campaigns
+  // ─── Campaigns ──────────────────────────────────────────────────────
   await prisma.campaign.createMany({
     data: [
-      { name: "Spring Product Launch", type: "EMAIL", status: "ACTIVE", budget: 15000, spent: 8500, leads: 245, conversions: 32, ownerId: manager.id, startDate: new Date("2024-03-01"), endDate: new Date("2024-04-30") },
-      { name: "Tech Conference 2024", type: "EVENT", status: "SCHEDULED", budget: 50000, spent: 12000, leads: 0, conversions: 0, ownerId: admin.id, startDate: new Date("2024-05-15"), endDate: new Date("2024-05-17") },
+      { name: "Cardioprex Launch Campaign", type: "EVENT", status: "ACTIVE", budget: 450000, spent: 280000, leads: 45, conversions: 12, ownerId: manager.id, startDate: new Date("2025-01-01"), endDate: new Date("2025-03-31") },
+      { name: "Ramadan Health Awareness", type: "SOCIAL", status: "COMPLETED", budget: 150000, spent: 142000, leads: 89, conversions: 28, ownerId: bum.id, startDate: new Date("2025-02-28"), endDate: new Date("2025-03-31") },
+      { name: "PharmExpo Egypt 2025", type: "EVENT", status: "SCHEDULED", budget: 800000, spent: 250000, leads: 0, conversions: 0, ownerId: manager.id, startDate: new Date("2025-06-15"), endDate: new Date("2025-06-18") },
+      { name: "Diabetes Care Digital", type: "EMAIL", status: "ACTIVE", budget: 120000, spent: 45000, leads: 34, conversions: 8, ownerId: medRep1.id, startDate: new Date("2025-02-01"), endDate: new Date("2025-05-31") },
     ],
   })
 
-  // Projects
-  const proj = await prisma.project.create({ data: { name: "ERP System v2.0", description: "Major platform upgrade", managerId: employee.id, status: "ACTIVE", startDate: new Date("2024-01-15"), endDate: new Date("2024-06-30"), budget: 250000, spent: 85000, progress: 35 } })
+  // ─── Projects ───────────────────────────────────────────────────────
+  const proj = await prisma.project.create({
+    data: { name: "EDA Registration - New Formulations", description: "Register 5 new drug formulations with Egyptian Drug Authority", managerId: admin.id, status: "ACTIVE", startDate: new Date("2025-01-01"), endDate: new Date("2025-12-31"), budget: 2500000, spent: 450000, progress: 25 },
+  })
   await prisma.projectTask.createMany({
     data: [
-      { projectId: proj.id, title: "Database migration", assigneeId: employee.id, status: "DONE", priority: "HIGH", dueDate: new Date("2024-02-28"), estimatedHours: 40, actualHours: 38 },
-      { projectId: proj.id, title: "API redesign", assigneeId: employee.id, status: "IN_PROGRESS", priority: "HIGH", dueDate: new Date("2024-04-15"), estimatedHours: 80, actualHours: 32 },
-      { projectId: proj.id, title: "Frontend rebuild", status: "TODO", priority: "MEDIUM", dueDate: new Date("2024-05-30"), estimatedHours: 120 },
+      { projectId: proj.id, title: "Bioequivalence studies - Cardioprex", assigneeId: employee.id, status: "DONE", priority: "HIGH", dueDate: new Date("2025-03-31"), estimatedHours: 200, actualHours: 185 },
+      { projectId: proj.id, title: "Stability testing - Omepak reformulation", assigneeId: employee.id, status: "IN_PROGRESS", priority: "HIGH", dueDate: new Date("2025-06-30"), estimatedHours: 160, actualHours: 65 },
+      { projectId: proj.id, title: "Dossier preparation - Glimaryl XR", status: "TODO", priority: "MEDIUM", dueDate: new Date("2025-08-31"), estimatedHours: 120 },
+      { projectId: proj.id, title: "GMP audit preparation", assigneeId: admin.id, status: "IN_PROGRESS", priority: "URGENT", dueDate: new Date("2025-04-15"), estimatedHours: 80, actualHours: 40 },
     ],
   })
 
-  // Jobs
-  const job1 = await prisma.job.create({ data: { title: "Senior Full Stack Developer", departmentId: eng.id, location: "San Francisco, CA", type: "FULL_TIME", status: "OPEN", description: "We are looking for an experienced full stack developer", requirements: "5+ years React, Node.js, PostgreSQL", salaryMin: 120000, salaryMax: 160000, postedDate: new Date("2024-03-01"), hiringManagerId: employee.id } })
-  const job2 = await prisma.job.create({ data: { title: "Sales Development Representative", departmentId: sales.id, location: "Remote", type: "FULL_TIME", status: "OPEN", description: "Join our growing sales team", requirements: "2+ years B2B sales", salaryMin: 55000, salaryMax: 75000, postedDate: new Date("2024-03-10"), hiringManagerId: manager.id } })
+  // ─── Jobs (ATS) ─────────────────────────────────────────────────────
+  const job1 = await prisma.job.create({ data: { title: "Medical Representative - Cairo", departmentId: commercial.id, location: "Cairo, Egypt", type: "FULL_TIME", status: "OPEN", description: "Promote pharma products to healthcare professionals in Cairo region", requirements: "Pharmacy/Science degree, 1+ years pharma sales", salaryMin: 15000, salaryMax: 25000, postedDate: new Date("2025-02-01"), hiringManagerId: manager.id } })
+  const job2 = await prisma.job.create({ data: { title: "Quality Control Analyst", departmentId: qa.id, location: "10th of Ramadan, Egypt", type: "FULL_TIME", status: "OPEN", description: "Perform QC testing on raw materials and finished products", requirements: "Pharmacy/Chemistry degree, HPLC experience", salaryMin: 18000, salaryMax: 28000, postedDate: new Date("2025-02-15"), hiringManagerId: admin.id } })
+  const job3 = await prisma.job.create({ data: { title: "Regulatory Affairs Specialist", departmentId: regulatory.id, location: "Cairo, Egypt", type: "FULL_TIME", status: "OPEN", description: "Handle drug registration with EDA", requirements: "Pharmacy degree, 3+ years regulatory experience", salaryMin: 25000, salaryMax: 40000, postedDate: new Date("2025-03-01"), hiringManagerId: admin.id } })
 
-  // Candidates
-  const cand1 = await prisma.candidate.create({ data: { firstName: "Emily", lastName: "Chen", email: "emily.chen@email.com", phone: "(555) 600-1001", source: "LINKEDIN", status: "INTERVIEW", currentCompany: "Google", currentTitle: "Software Engineer", expectedSalary: 145000, rating: 4 } })
-  const cand2 = await prisma.candidate.create({ data: { firstName: "James", lastName: "Park", email: "james.park@email.com", phone: "(555) 600-1002", source: "REFERRAL", status: "SCREENING", currentCompany: "Salesforce", currentTitle: "SDR", expectedSalary: 65000, rating: 3 } })
+  // ─── Candidates ─────────────────────────────────────────────────────
+  const cand1 = await prisma.candidate.create({ data: { firstName: "Yasser", lastName: "Mahmoud", email: "yasser.mahmoud@gmail.com", phone: "+20 111 234 5678", source: "LINKEDIN", status: "INTERVIEW", currentCompany: "Eva Pharma", currentTitle: "Medical Rep", expectedSalary: 22000, rating: 4 } })
+  const cand2 = await prisma.candidate.create({ data: { firstName: "Dina", lastName: "Fawzy", email: "dina.fawzy@outlook.com", phone: "+20 112 345 6789", source: "REFERRAL", status: "SCREENING", currentCompany: "Pharco", currentTitle: "QC Analyst", expectedSalary: 25000, rating: 3 } })
+  const cand3 = await prisma.candidate.create({ data: { firstName: "Kareem", lastName: "Abdel-Rahman", email: "kareem.ar@hotmail.com", phone: "+20 113 456 7890", source: "WEBSITE", status: "NEW", currentCompany: "Amoun Pharmaceutical", currentTitle: "Regulatory Coordinator", expectedSalary: 35000, rating: 4 } })
 
-  // Applications
-  const app1 = await prisma.application.create({ data: { candidateId: cand1.id, jobId: job1.id, status: "INTERVIEW", coverLetter: "I am excited to apply...", score: 88 } })
-  await prisma.application.create({ data: { candidateId: cand2.id, jobId: job2.id, status: "SCREENING", score: 72 } })
+  // ─── Applications ───────────────────────────────────────────────────
+  const app1 = await prisma.application.create({ data: { candidateId: cand1.id, jobId: job1.id, status: "INTERVIEW", coverLetter: "Experienced medical rep with 3 years in cardiovascular portfolio", score: 82 } })
+  await prisma.application.create({ data: { candidateId: cand2.id, jobId: job2.id, status: "SCREENING", score: 75 } })
+  await prisma.application.create({ data: { candidateId: cand3.id, jobId: job3.id, status: "APPLIED", score: 68 } })
 
-  // Interviews
-  await prisma.interview.create({ data: { applicationId: app1.id, interviewerIds: employee.id, scheduledDate: new Date("2024-04-01T14:00:00"), duration: 60, type: "VIDEO", status: "SCHEDULED" } })
+  // ─── Interviews ─────────────────────────────────────────────────────
+  await prisma.interview.create({ data: { applicationId: app1.id, interviewerIds: manager.id, scheduledDate: new Date("2025-04-01T10:00:00"), duration: 45, type: "ONSITE", status: "SCHEDULED", location: "Head Office - Nasr City, Cairo" } })
 
-  // Workflows
+  // ─── Workflows ──────────────────────────────────────────────────────
   await prisma.workflow.createMany({
     data: [
-      { name: "Auto-assign new leads", module: "CRM", triggerType: "RECORD_CREATE", triggerConfig: '{"entity":"Lead"}', conditions: '{"source":["WEB","SOCIAL"]}', actions: '{"type":"ASSIGN","to":"round_robin"}', isActive: true, createdById: admin.id, runCount: 342 },
-      { name: "Invoice overdue reminder", module: "ERP", triggerType: "SCHEDULE", triggerConfig: '{"cron":"0 9 * * *"}', conditions: '{"status":"SENT","daysOverdue":7}', actions: '{"type":"EMAIL","template":"overdue_reminder"}', isActive: true, createdById: admin.id, runCount: 156 },
-      { name: "Low stock alert", module: "ERP", triggerType: "FIELD_CHANGE", triggerConfig: '{"entity":"Product","field":"quantity"}', conditions: '{"quantity_below":"reorderLevel"}', actions: '{"type":"NOTIFY","to":"procurement_team"}', isActive: true, createdById: admin.id, runCount: 412 },
+      { name: "Auto-assign leads by territory", module: "CRM", triggerType: "RECORD_CREATE", triggerConfig: '{"entity":"Lead"}', conditions: '{"source":["WEB","SOCIAL"]}', actions: '{"type":"ASSIGN","to":"territory_based"}', isActive: true, createdById: admin.id, runCount: 234 },
+      { name: "Invoice overdue reminder", module: "ERP", triggerType: "SCHEDULE", triggerConfig: '{"cron":"0 9 * * *"}', conditions: '{"status":"SENT","daysOverdue":7}', actions: '{"type":"EMAIL","template":"overdue_reminder_ar"}', isActive: true, createdById: admin.id, runCount: 89 },
+      { name: "Low stock alert", module: "ERP", triggerType: "FIELD_CHANGE", triggerConfig: '{"entity":"Product","field":"quantity"}', conditions: '{"quantity_below":"reorderLevel"}', actions: '{"type":"NOTIFY","to":"supply_chain_team"}', isActive: true, createdById: admin.id, runCount: 156 },
+      { name: "Expiry date warning", module: "ERP", triggerType: "SCHEDULE", triggerConfig: '{"cron":"0 8 * * 1"}', conditions: '{"daysToExpiry":90}', actions: '{"type":"NOTIFY","to":"qa_team"}', isActive: true, createdById: admin.id, runCount: 45 },
     ],
   })
 
-  // Loyalty
-  const loyaltyProg = await prisma.loyaltyProgram.create({ data: { name: "Enterprise Rewards", description: "Earn points on every purchase", pointsPerDollar: 10, redemptionRate: 0.01, status: "ACTIVE" } })
-  await prisma.loyaltyMember.create({ data: { programId: loyaltyProg.id, accountId: acme.id, points: 15000, tier: "GOLD" } })
+  // ─── Loyalty Program ────────────────────────────────────────────────
+  const loyalty = await prisma.loyaltyProgram.create({ data: { name: "PharmaFlow Rewards", description: "Earn points on every order - redeem for discounts", pointsPerDollar: 10, redemptionRate: 0.005, status: "ACTIVE" } })
+  await prisma.loyaltyMember.create({ data: { programId: loyalty.id, accountId: acc2.id, points: 45000, tier: "PLATINUM" } })
+  await prisma.loyaltyMember.create({ data: { programId: loyalty.id, accountId: acc4.id, points: 38000, tier: "GOLD" } })
+  await prisma.loyaltyMember.create({ data: { programId: loyalty.id, accountId: acc1.id, points: 22000, tier: "SILVER" } })
 
-  // Territories
+  // ─── Territories ────────────────────────────────────────────────────
   await prisma.territory.createMany({
     data: [
-      { name: "West Coast", description: "CA, OR, WA", assignedToId: manager.id, color: "#3b82f6" },
-      { name: "East Coast", description: "NY, NJ, CT, MA", assignedToId: admin.id, color: "#10b981" },
+      { name: "Greater Cairo", description: "Cairo, Giza, Qalyubia", assignedToId: medRep1.id, color: "#3b82f6" },
+      { name: "Alexandria & Delta", description: "Alexandria, Beheira, Kafr El-Sheikh, Gharbia, Dakahlia", assignedToId: medRep2.id, color: "#10b981" },
+      { name: "Upper Egypt", description: "Minya, Assiut, Sohag, Qena, Luxor, Aswan", assignedToId: bum.id, color: "#f59e0b" },
+      { name: "Canal Zone", description: "Suez, Ismailia, Port Said", assignedToId: medRep2.id, color: "#8b5cf6" },
     ],
   })
 
-  // Training Courses
-  const course = await prisma.trainingCourse.create({ data: { title: "Security Awareness", description: "Annual security training", category: "Compliance", duration: "2 hours", format: "ONLINE", status: "PUBLISHED" } })
-  await prisma.trainingEnrollment.create({ data: { courseId: course.id, employeeId: emp1.id, status: "COMPLETED", completedDate: new Date("2024-03-15"), score: 92 } })
+  // ─── Training Courses ───────────────────────────────────────────────
+  const course1 = await prisma.trainingCourse.create({ data: { title: "GMP Compliance Fundamentals", description: "Good Manufacturing Practice standards for pharma", category: "Compliance", duration: "8 hours", format: "CLASSROOM", status: "PUBLISHED" } })
+  const course2 = await prisma.trainingCourse.create({ data: { title: "Cardiovascular Product Knowledge", description: "Deep dive into CV portfolio: Cardioprex, Crestor, Concor, Plavix", category: "Product Training", duration: "4 hours", format: "ONLINE", status: "PUBLISHED" } })
+  await prisma.trainingCourse.create({ data: { title: "EDA Regulatory Updates 2025", description: "Latest regulatory changes from Egyptian Drug Authority", category: "Regulatory", duration: "2 hours", format: "ONLINE", status: "PUBLISHED" } })
 
-  console.log("Seeding completed!")
+  await prisma.trainingEnrollment.create({ data: { courseId: course1.id, employeeId: emp7.id, status: "COMPLETED", completedDate: new Date("2025-02-15"), score: 94 } })
+  await prisma.trainingEnrollment.create({ data: { courseId: course2.id, employeeId: emp4.id, status: "COMPLETED", completedDate: new Date("2025-03-01"), score: 88 } })
+  await prisma.trainingEnrollment.create({ data: { courseId: course2.id, employeeId: emp5.id, status: "IN_PROGRESS" } })
+
+  // ─── BOM (Bill of Materials) ────────────────────────────────────────
+  const bom1 = await prisma.billOfMaterials.create({ data: { productId: prod1.id, name: "Augmentin 1g Manufacturing BOM", version: "2.1", status: "ACTIVE" } })
+  await prisma.bOMItem.createMany({
+    data: [
+      { bomId: bom1.id, materialId: prod4.id, quantity: 0.5, unit: "kg", wastagePercent: 2 },
+      { bomId: bom1.id, materialId: prod2.id, quantity: 0.1, unit: "kg", wastagePercent: 1 },
+    ],
+  })
+
+  // ─── Assets ─────────────────────────────────────────────────────────
+  const asset1 = await prisma.asset.create({ data: { name: "HPLC System - Agilent 1260", assetTag: "AST-LAB-001", category: "Laboratory Equipment", status: "ACTIVE", purchaseDate: new Date("2022-06-15"), purchasePrice: 1500000, currentValue: 1125000, location: "QC Lab - 10th of Ramadan", assignedToId: emp7.id, depreciationRate: 10 } })
+  await prisma.asset.create({ data: { name: "Tablet Press - Korsch XL400", assetTag: "AST-MFG-001", category: "Manufacturing Equipment", status: "ACTIVE", purchaseDate: new Date("2021-03-01"), purchasePrice: 3200000, currentValue: 2240000, location: "Production Hall A", depreciationRate: 10 } })
+  await prisma.asset.create({ data: { name: "Cold Storage Unit - Thermo Fisher", assetTag: "AST-WH-001", category: "Warehouse Equipment", status: "ACTIVE", purchaseDate: new Date("2023-01-10"), purchasePrice: 450000, currentValue: 382500, location: "Cairo Central Warehouse", depreciationRate: 15 } })
+
+  await prisma.assetMaintenance.create({ data: { assetId: asset1.id, type: "PREVENTIVE", description: "Annual HPLC calibration and validation", scheduledDate: new Date("2025-06-15"), cost: 35000, status: "SCHEDULED" } })
+
+  console.log("Seeding completed! Egyptian Pharma ERP database ready.")
 }
 
 main()
