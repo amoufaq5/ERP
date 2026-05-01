@@ -812,6 +812,258 @@ export default function MarketRequestsPage() {
           )}
         </TabsContent>
 
+        {/* Analytics */}
+        <TabsContent value="analytics" className="space-y-6">
+          {/* Summary row */}
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-100">
+                  <TrendingUp className="h-5 w-5 text-blue-700" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Overall Approval Rate</p>
+                  <p className="text-2xl font-bold">{overallApprovalRate}%</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-green-100">
+                  <DollarSign className="h-5 w-5 text-green-700" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Total Approved Budget</p>
+                  <p className="text-2xl font-bold">EGP {totalApprovedBudget.toLocaleString()}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-100">
+                  <Timer className="h-5 w-5 text-purple-700" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Avg. Processing Time</p>
+                  <p className="text-2xl font-bold">{avgProcessingTime} days</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-amber-100">
+                  <Users className="h-5 w-5 text-amber-700" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Active Requesters</p>
+                  <p className="text-2xl font-bold">{topRequesters.length}</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Request Volume over Time + Pending vs Processed */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-sm">Request Volume (Last 6 Months)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-end gap-2 h-48">
+                  {monthlyVolume.map((v) => (
+                    <div key={v.month} className="flex-1 flex flex-col items-center justify-end h-full">
+                      <span className="text-xs font-semibold text-slate-700 mb-1">{v.count}</span>
+                      <div
+                        className="w-full rounded-t-md bg-blue-500 hover:bg-blue-600 transition-colors min-h-[4px]"
+                        style={{ height: `${(v.count / maxVolumeCount) * 100}%` }}
+                        title={`${v.label}: ${v.count} requests`}
+                      />
+                      <span className="text-[10px] text-slate-500 mt-2 text-center leading-tight">{v.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Pending vs Processed</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-end gap-6 h-48 justify-center">
+                  <div className="flex flex-col items-center justify-end h-full">
+                    <span className="text-lg font-bold text-amber-700 mb-1">{pendingVsProcessed.pending}</span>
+                    <div
+                      className="w-16 rounded-t-md bg-amber-400 min-h-[4px]"
+                      style={{ height: `${(pendingVsProcessed.pending / (pendingVsProcessed.pending + pendingVsProcessed.processed)) * 100}%` }}
+                    />
+                    <span className="text-xs text-slate-500 mt-2">Pending</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-end h-full">
+                    <span className="text-lg font-bold text-green-700 mb-1">{pendingVsProcessed.processed}</span>
+                    <div
+                      className="w-16 rounded-t-md bg-green-500 min-h-[4px]"
+                      style={{ height: `${(pendingVsProcessed.processed / (pendingVsProcessed.pending + pendingVsProcessed.processed)) * 100}%` }}
+                    />
+                    <span className="text-xs text-slate-500 mt-2">Processed</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Type Breakdown + Approval Rate by Type */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Request Type Breakdown</CardTitle>
+                <CardDescription>Distribution of requests by type</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {typeBreakdown.map((tb) => {
+                    const total = tb.count;
+                    const maxCount = Math.max(...typeBreakdown.map((t) => t.count), 1);
+                    return (
+                      <div key={tb.type} className="space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">{tb.type}</Badge>
+                          </div>
+                          <span className="font-semibold">{total}</span>
+                        </div>
+                        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden flex">
+                          <div className="h-full bg-green-500 transition-all" style={{ width: `${(tb.approved / maxCount) * 100}%` }} title={`Approved: ${tb.approved}`} />
+                          <div className="h-full bg-amber-400 transition-all" style={{ width: `${(tb.pending / maxCount) * 100}%` }} title={`Pending: ${tb.pending}`} />
+                          <div className="h-full bg-red-400 transition-all" style={{ width: `${(tb.rejected / maxCount) * 100}%` }} title={`Rejected: ${tb.rejected}`} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="flex items-center gap-4 mt-3 text-[10px] text-slate-500">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> Approved</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> Pending</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> Rejected</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Approval Rate by Type</CardTitle>
+                <CardDescription>Percentage of requests approved per type</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {typeBreakdown.map((tb) => (
+                    <div key={tb.type} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <Badge variant="outline" className="text-xs">{tb.type}</Badge>
+                        <span className={`font-semibold text-xs ${tb.approvalRate >= 70 ? "text-green-700" : tb.approvalRate >= 50 ? "text-yellow-700" : "text-red-700"}`}>
+                          {tb.approvalRate}%
+                        </span>
+                      </div>
+                      <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${tb.approvalRate >= 70 ? "bg-green-500" : tb.approvalRate >= 50 ? "bg-yellow-500" : "bg-red-500"}`}
+                          style={{ width: `${tb.approvalRate}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Top Requesters Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Top Requesters</CardTitle>
+              <CardDescription>Users with the most market requests</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-slate-500">
+                      <th className="pb-2 font-medium">Name</th>
+                      <th className="pb-2 font-medium">Role</th>
+                      <th className="pb-2 font-medium text-center">Total</th>
+                      <th className="pb-2 font-medium text-center">Approved</th>
+                      <th className="pb-2 font-medium text-center">Rejected</th>
+                      <th className="pb-2 font-medium text-center">Pending</th>
+                      <th className="pb-2 font-medium text-right">Total Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topRequesters.map((tr) => (
+                      <tr key={tr.name} className="border-b last:border-0 hover:bg-slate-50">
+                        <td className="py-2 font-medium">{tr.name}</td>
+                        <td className="py-2 text-slate-500 text-xs">{tr.role}</td>
+                        <td className="py-2 text-center font-semibold">{tr.total}</td>
+                        <td className="py-2 text-center">
+                          <Badge className="bg-green-100 text-green-700 text-xs">{tr.approved}</Badge>
+                        </td>
+                        <td className="py-2 text-center">
+                          <Badge className="bg-red-100 text-red-700 text-xs">{tr.rejected}</Badge>
+                        </td>
+                        <td className="py-2 text-center">
+                          <Badge className="bg-amber-100 text-amber-700 text-xs">{tr.pending}</Badge>
+                        </td>
+                        <td className="py-2 text-right font-semibold">EGP {tr.totalAmount.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Cost Analysis */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Cost Analysis: Total Approved Budget by Category</CardTitle>
+              <CardDescription>Budget breakdown across request types (approved, pending, rejected)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {categoryBudgets.map((cb) => {
+                  const totalBudget = cb.approvedBudget + cb.pendingBudget + cb.rejectedBudget;
+                  return (
+                    <div key={cb.type} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">{cb.type}</Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="text-green-700 font-semibold">EGP {cb.approvedBudget.toLocaleString()}</span>
+                          {cb.pendingBudget > 0 && <span className="text-amber-600">+{cb.pendingBudget.toLocaleString()} pending</span>}
+                        </div>
+                      </div>
+                      <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex">
+                        <div className="h-full bg-green-500 transition-all" style={{ width: `${(cb.approvedBudget / maxCategoryBudget) * 100}%` }} title={`Approved: EGP ${cb.approvedBudget.toLocaleString()}`} />
+                        <div className="h-full bg-amber-400 transition-all" style={{ width: `${(cb.pendingBudget / maxCategoryBudget) * 100}%` }} title={`Pending: EGP ${cb.pendingBudget.toLocaleString()}`} />
+                        <div className="h-full bg-red-400 transition-all" style={{ width: `${(cb.rejectedBudget / maxCategoryBudget) * 100}%` }} title={`Rejected: EGP ${cb.rejectedBudget.toLocaleString()}`} />
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="flex items-center justify-between pt-3 border-t">
+                  <span className="text-sm font-semibold text-slate-700">Total Approved</span>
+                  <span className="text-lg font-bold text-green-700">EGP {totalApprovedBudget.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center gap-4 text-[10px] text-slate-500">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> Approved</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> Pending</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> Rejected</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Approval chain */}
         <TabsContent value="chain">
           <Card>

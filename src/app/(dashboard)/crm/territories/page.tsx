@@ -385,7 +385,7 @@ export default function TerritoriesPage() {
         title="Territory Management"
         description="IMS-IQVIA geographic hierarchy — Region > Governorate > District > Brick"
         actions={
-          canEdit ? (
+          canEdit && activeTab === "hierarchy" ? (
             <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" /> Add Territory
             </Button>
@@ -393,203 +393,396 @@ export default function TerritoriesPage() {
         }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatsCard icon={Globe} title="Regions" value={regions.length} subtitle="Top-level geographic areas" iconColor="bg-red-100 text-red-600" />
-        <StatsCard icon={Map} title="Districts / Areas" value={districts.length} subtitle="IMS district-level areas" iconColor="bg-blue-100 text-blue-600" />
-        <StatsCard icon={Layers} title="Bricks" value={`${coveredBricks}/${bricks.length}`} subtitle="Covered / Total IMS bricks" iconColor="bg-green-100 text-green-600" />
-        <StatsCard icon={Users} title="Field Reps Assigned" value={totalReps} subtitle="Across all territories" iconColor="bg-purple-100 text-purple-600" />
+      {/* ── Tab Switcher ── */}
+      <div className="flex gap-2">
+        <Button variant={activeTab === "hierarchy" ? "default" : "ghost"} onClick={() => setActiveTab("hierarchy")} className="gap-2">
+          <Layers className="h-4 w-4" /> Territory Hierarchy
+        </Button>
+        <Button variant={activeTab === "optimization" ? "default" : "ghost"} onClick={() => setActiveTab("optimization")} className="gap-2">
+          <Zap className="h-4 w-4" /> Territory Optimization
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Territory Tree */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-base">Territory Hierarchy</CardTitle>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Search territories..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-48 text-sm h-8"
-              />
-              <Button size="sm" variant="outline" onClick={() => {
-                const allIds = territories.map((t) => t.id);
-                setExpandedIds(expandedIds.size === allIds.length ? new Set() : new Set(allIds));
-              }}>
-                {expandedIds.size > 5 ? "Collapse All" : "Expand All"}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0 max-h-[600px] overflow-y-auto">
-            <div className="p-2 space-y-0.5">
-              {renderTree(null)}
-            </div>
-          </CardContent>
-        </Card>
+      {/* ════════════════════════════════════════════════════════════════════════
+          HIERARCHY TAB
+         ════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "hierarchy" && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <StatsCard icon={Globe} title="Regions" value={regions.length} subtitle="Top-level geographic areas" iconColor="bg-red-100 text-red-600" />
+            <StatsCard icon={Map} title="Districts / Areas" value={districts.length} subtitle="IMS district-level areas" iconColor="bg-blue-100 text-blue-600" />
+            <StatsCard icon={Layers} title="Bricks" value={`${coveredBricks}/${bricks.length}`} subtitle="Covered / Total IMS bricks" iconColor="bg-green-100 text-green-600" />
+            <StatsCard icon={Users} title="Field Reps Assigned" value={totalReps} subtitle="Across all territories" iconColor="bg-purple-100 text-purple-600" />
+          </div>
 
-        {/* Detail Panel */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              {selectedTerritory ? selectedTerritory.name : "Select a Territory"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {!selectedTerritory ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <MapPin className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">Click a territory in the tree to view details</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div><span className="text-muted-foreground block text-xs">Level</span>
-                    <Badge className={LEVEL_COLORS[selectedTerritory.level]}>{LEVEL_LABELS[selectedTerritory.level]}</Badge>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Territory Tree */}
+            <Card className="lg:col-span-2">
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <CardTitle className="text-base">Territory Hierarchy</CardTitle>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Search territories..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-48 text-sm h-8"
+                  />
+                  <Button size="sm" variant="outline" onClick={() => {
+                    const allIds = territories.map((t) => t.id);
+                    setExpandedIds(expandedIds.size === allIds.length ? new Set() : new Set(allIds));
+                  }}>
+                    {expandedIds.size > 5 ? "Collapse All" : "Expand All"}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 max-h-[600px] overflow-y-auto">
+                <div className="p-2 space-y-0.5">
+                  {renderTree(null)}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Detail Panel */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {selectedTerritory ? selectedTerritory.name : "Select a Territory"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!selectedTerritory ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MapPin className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">Click a territory in the tree to view details</p>
                   </div>
-                  <div><span className="text-muted-foreground block text-xs">IMS Code</span>
-                    <span className="font-mono font-medium">{selectedTerritory.imsCode}</span>
-                  </div>
-                  <div><span className="text-muted-foreground block text-xs">English Name</span>
-                    <span className="font-medium">{selectedTerritory.name}</span>
-                  </div>
-                  <div><span className="text-muted-foreground block text-xs">Arabic Name</span>
-                    <span className="font-medium">{selectedTerritory.nameAr}</span>
-                  </div>
-                  <div><span className="text-muted-foreground block text-xs">Doctors</span>
-                    <span className="font-semibold">{getDoctorsInTerritory(selectedTerritory.id)}</span>
-                  </div>
-                  <div><span className="text-muted-foreground block text-xs">Sub-territories</span>
-                    <span className="font-semibold">{getChildren(selectedTerritory.id).length}</span>
-                  </div>
-                  {selectedTerritory.geoShare != null && (
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground block text-xs">% GEO. SHARE (IMS)</span>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(selectedTerritory.geoShare * 10, 100)}%` }} />
-                        </div>
-                        <span className="font-semibold font-mono text-emerald-600">{selectedTerritory.geoShare.toFixed(4)}%</span>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div><span className="text-muted-foreground block text-xs">Level</span>
+                        <Badge className={LEVEL_COLORS[selectedTerritory.level]}>{LEVEL_LABELS[selectedTerritory.level]}</Badge>
                       </div>
-                    </div>
-                  )}
-                  {selectedTerritory.level !== "brick" && (
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground block text-xs">Aggregate GEO. SHARE</span>
-                      <span className="font-semibold font-mono text-emerald-600">
-                        {(() => {
-                          const sum = (id: string): number => {
-                            const t = territories.find(x => x.id === id);
-                            if (!t) return 0;
-                            if (t.geoShare != null) return t.geoShare;
-                            return getChildren(id).reduce((s, c) => s + sum(c.id), 0);
-                          };
-                          return sum(selectedTerritory.id).toFixed(4);
-                        })()}%
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Assigned Reps */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-xs font-semibold uppercase text-muted-foreground">Assigned Reps</h4>
-                    {canEdit && (
-                      <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => {
-                        setAssignTarget(selectedTerritory);
-                        setAssignDialogOpen(true);
-                      }}>
-                        <Pencil className="h-3 w-3 mr-1" /> Edit
-                      </Button>
-                    )}
-                  </div>
-                  {selectedTerritory.assignedRepIds.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No reps assigned</p>
-                  ) : (
-                    <div className="space-y-1">
-                      {selectedTerritory.assignedRepIds.map((repId) => {
-                        const rep = allUsers.find((u) => u.id === repId);
-                        return rep ? (
-                          <div key={repId} className="flex items-center gap-2 p-1.5 rounded border text-xs">
-                            <Users className="h-3 w-3 text-muted-foreground" />
-                            <span className="font-medium">{rep.name}</span>
-                            <Badge variant="secondary" className="text-[10px] ml-auto">{rep.territory || rep.department}</Badge>
-                          </div>
-                        ) : null;
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Assigned BUs */}
-                <div>
-                  <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Business Units</h4>
-                  {selectedTerritory.assignedBUIds.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No BUs active</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-1">
-                      {selectedTerritory.assignedBUIds.map((buId) => {
-                        const bu = store.businessUnits.find((b) => b.id === buId);
-                        return bu ? (
-                          <Badge key={buId} variant="outline" className="text-xs" style={{ borderColor: bu.color, color: bu.color }}>
-                            {bu.name}
-                          </Badge>
-                        ) : null;
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Doctors in this brick */}
-                {selectedTerritory.level === "brick" && (
-                  <div>
-                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Doctors in Brick</h4>
-                    {getDoctorsInBrick(selectedTerritory.id).length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No doctors mapped to this brick</p>
-                    ) : (
-                      <div className="space-y-1">
-                        {getDoctorsInBrick(selectedTerritory.id).map((doc) => (
-                          <div key={doc.id} className="flex items-center gap-2 p-1.5 rounded border text-xs">
-                            <Stethoscope className="h-3 w-3 text-muted-foreground" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{doc.name}</p>
-                              <p className="text-muted-foreground">{doc.specialty} · {doc.hospital}</p>
+                      <div><span className="text-muted-foreground block text-xs">IMS Code</span>
+                        <span className="font-mono font-medium">{selectedTerritory.imsCode}</span>
+                      </div>
+                      <div><span className="text-muted-foreground block text-xs">English Name</span>
+                        <span className="font-medium">{selectedTerritory.name}</span>
+                      </div>
+                      <div><span className="text-muted-foreground block text-xs">Arabic Name</span>
+                        <span className="font-medium">{selectedTerritory.nameAr}</span>
+                      </div>
+                      <div><span className="text-muted-foreground block text-xs">Doctors</span>
+                        <span className="font-semibold">{getDoctorsInTerritory(selectedTerritory.id)}</span>
+                      </div>
+                      <div><span className="text-muted-foreground block text-xs">Sub-territories</span>
+                        <span className="font-semibold">{getChildren(selectedTerritory.id).length}</span>
+                      </div>
+                      {selectedTerritory.geoShare != null && (
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground block text-xs">% GEO. SHARE (IMS)</span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(selectedTerritory.geoShare * 10, 100)}%` }} />
                             </div>
-                            <Badge className={
-                              doc.classification === "A" ? "bg-green-100 text-green-800" :
-                              doc.classification === "B" ? "bg-blue-100 text-blue-800" :
-                              doc.classification === "C" ? "bg-amber-100 text-amber-800" :
-                              "bg-gray-100 text-gray-800"
-                            }>{doc.classification}</Badge>
+                            <span className="font-semibold font-mono text-emerald-600">{selectedTerritory.geoShare.toFixed(4)}%</span>
                           </div>
-                        ))}
+                        </div>
+                      )}
+                      {selectedTerritory.level !== "brick" && (
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground block text-xs">Aggregate GEO. SHARE</span>
+                          <span className="font-semibold font-mono text-emerald-600">
+                            {(() => {
+                              const sum = (id: string): number => {
+                                const t = territories.find(x => x.id === id);
+                                if (!t) return 0;
+                                if (t.geoShare != null) return t.geoShare;
+                                return getChildren(id).reduce((s, c) => s + sum(c.id), 0);
+                              };
+                              return sum(selectedTerritory.id).toFixed(4);
+                            })()}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Assigned Reps */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-xs font-semibold uppercase text-muted-foreground">Assigned Reps</h4>
+                        {canEdit && (
+                          <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => {
+                            setAssignTarget(selectedTerritory);
+                            setAssignDialogOpen(true);
+                          }}>
+                            <Pencil className="h-3 w-3 mr-1" /> Edit
+                          </Button>
+                        )}
+                      </div>
+                      {selectedTerritory.assignedRepIds.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No reps assigned</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {selectedTerritory.assignedRepIds.map((repId) => {
+                            const rep = allUsers.find((u) => u.id === repId);
+                            return rep ? (
+                              <div key={repId} className="flex items-center gap-2 p-1.5 rounded border text-xs">
+                                <Users className="h-3 w-3 text-muted-foreground" />
+                                <span className="font-medium">{rep.name}</span>
+                                <Badge variant="secondary" className="text-[10px] ml-auto">{rep.territory || rep.department}</Badge>
+                              </div>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Assigned BUs */}
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Business Units</h4>
+                      {selectedTerritory.assignedBUIds.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No BUs active</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {selectedTerritory.assignedBUIds.map((buId) => {
+                            const bu = store.businessUnits.find((b) => b.id === buId);
+                            return bu ? (
+                              <Badge key={buId} variant="outline" className="text-xs" style={{ borderColor: bu.color, color: bu.color }}>
+                                {bu.name}
+                              </Badge>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Doctors in this brick */}
+                    {selectedTerritory.level === "brick" && (
+                      <div>
+                        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Doctors in Brick</h4>
+                        {getDoctorsInBrick(selectedTerritory.id).length === 0 ? (
+                          <p className="text-xs text-muted-foreground">No doctors mapped to this brick</p>
+                        ) : (
+                          <div className="space-y-1">
+                            {getDoctorsInBrick(selectedTerritory.id).map((doc) => (
+                              <div key={doc.id} className="flex items-center gap-2 p-1.5 rounded border text-xs">
+                                <Stethoscope className="h-3 w-3 text-muted-foreground" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium truncate">{doc.name}</p>
+                                  <p className="text-muted-foreground">{doc.specialty} · {doc.hospital}</p>
+                                </div>
+                                <Badge className={
+                                  doc.classification === "A" ? "bg-green-100 text-green-800" :
+                                  doc.classification === "B" ? "bg-blue-100 text-blue-800" :
+                                  doc.classification === "C" ? "bg-amber-100 text-amber-800" :
+                                  "bg-gray-100 text-gray-800"
+                                }>{doc.classification}</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    {canEdit && (
+                      <div className="flex gap-2 pt-2 border-t">
+                        <Button size="sm" variant="outline" className="flex-1" onClick={() => {
+                          setEditing(selectedTerritory);
+                          setFormOpen(true);
+                        }}>
+                          <Pencil className="h-3 w-3 mr-1" /> Edit
+                        </Button>
+                        <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => {
+                          store.remove("territories", selectedTerritory.id);
+                          setSelectedTerritory(null);
+                        }}>
+                          <Trash2 className="h-3 w-3 mr-1" /> Delete
+                        </Button>
                       </div>
                     )}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
 
-                {/* Actions */}
-                {canEdit && (
-                  <div className="flex gap-2 pt-2 border-t">
-                    <Button size="sm" variant="outline" className="flex-1" onClick={() => {
-                      setEditing(selectedTerritory);
-                      setFormOpen(true);
-                    }}>
-                      <Pencil className="h-3 w-3 mr-1" /> Edit
-                    </Button>
-                    <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => {
-                      store.remove("territories", selectedTerritory.id);
-                      setSelectedTerritory(null);
-                    }}>
-                      <Trash2 className="h-3 w-3 mr-1" /> Delete
-                    </Button>
-                  </div>
-                )}
+      {/* ════════════════════════════════════════════════════════════════════════
+          OPTIMIZATION TAB
+         ════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "optimization" && (
+        <>
+          {/* Optimization Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <StatsCard icon={Target} title="Overall Coverage" value={`${overallCoverage}%`} subtitle="Weighted avg across territories" iconColor="bg-emerald-100 text-emerald-600" />
+            <StatsCard icon={Activity} title="Workload Imbalance" value={`${workloadImbalance}%`} subtitle="Max-min spread vs average" iconColor="bg-amber-100 text-amber-600" />
+            <StatsCard icon={ArrowRightLeft} title="Suggested Transfers" value={suggestedTransfers.length} subtitle="Actionable adjustments" iconColor="bg-blue-100 text-blue-600" />
+            <StatsCard icon={TrendingUp} title="Revenue Opportunity" value={`${((territoryPerformanceData.reduce((s, t) => s + t.potential - t.revenue, 0)) / 1000000).toFixed(1)}M`} subtitle="Potential vs actual gap (EGP)" iconColor="bg-purple-100 text-purple-600" />
+          </div>
+
+          {/* Performance Comparison Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-blue-600" />
+                Territory Performance Comparison
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DataTable<TerritoryPerformance>
+                columns={perfColumns}
+                data={territoryPerformanceData}
+                searchable
+                searchKeys={["territory"]}
+                pagination={false}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Potential vs Actual Gap */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-purple-600" />
+                Territory Potential vs Actual Performance
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {territoryPerformanceData.map((t) => {
+                  const gap = t.potential - t.revenue;
+                  const gapPct = Math.round((gap / t.potential) * 100);
+                  const actualPct = Math.round((t.revenue / t.potential) * 100);
+                  return (
+                    <div key={t.id} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium">{t.territory}</span>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="text-muted-foreground">
+                            Actual: <strong className="text-foreground">{(t.revenue / 1000).toFixed(0)}K</strong>
+                          </span>
+                          <span className="text-muted-foreground">
+                            Potential: <strong className="text-foreground">{(t.potential / 1000).toFixed(0)}K</strong>
+                          </span>
+                          <Badge className={gapPct <= 15 ? "bg-green-100 text-green-700" : gapPct <= 30 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}>
+                            {gapPct}% gap
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="h-3 bg-gray-100 rounded-full overflow-hidden relative">
+                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${actualPct}%` }} />
+                        <div className="absolute right-0 top-0 h-full bg-blue-200 rounded-r-full" style={{ width: `${100 - actualPct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="text-xs text-muted-foreground pt-2 border-t">
+                  Blue bar = actual revenue achieved. Light area = unrealized potential.
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Workload Balance Analysis */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="h-4 w-4 text-amber-600" />
+                  Workload Balance Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="text-xs text-muted-foreground mb-3 p-2 bg-muted/50 rounded">
+                    Ideal workload: <strong>38-45 doctors/rep</strong>. Territories outside this range need rebalancing.
+                  </div>
+                  {territoryPerformanceData.map((t) => {
+                    const status = t.workloadScore > 50 ? "over" : t.workloadScore < 36 ? "under" : "balanced";
+                    const barWidth = Math.min((t.workloadScore / 65) * 100, 100);
+                    return (
+                      <div key={t.id} className="space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-medium">{t.territory}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">{t.repsCount} reps, {t.doctorsCount} doctors</span>
+                            {status === "over" && <TrendingUp className="h-3.5 w-3.5 text-red-500" />}
+                            {status === "under" && <TrendingDown className="h-3.5 w-3.5 text-blue-500" />}
+                            {status === "balanced" && <CheckCircle className="h-3.5 w-3.5 text-green-500" />}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden relative">
+                            {/* Ideal zone indicator */}
+                            <div className="absolute h-full bg-green-100 rounded-full" style={{ left: `${(36 / 65) * 100}%`, width: `${((45 - 36) / 65) * 100}%` }} />
+                            <div className={`h-full rounded-full relative z-10 ${
+                              status === "over" ? "bg-red-500" :
+                              status === "under" ? "bg-blue-500" :
+                              "bg-green-500"
+                            }`} style={{ width: `${barWidth}%` }} />
+                          </div>
+                          <span className={`text-xs font-semibold min-w-[80px] text-right ${
+                            status === "over" ? "text-red-600" :
+                            status === "under" ? "text-blue-600" :
+                            "text-green-600"
+                          }`}>
+                            {t.workloadScore} dr/rep
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Suggested Territory Adjustments */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-orange-600" />
+                  Suggested Territory Adjustments
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {suggestedTransfers.map((st) => (
+                    <div key={st.id} className={`p-3 rounded-lg border-l-4 ${
+                      st.priority === "high" ? "border-l-red-500 bg-red-50/50" :
+                      st.priority === "medium" ? "border-l-amber-500 bg-amber-50/50" :
+                      "border-l-blue-500 bg-blue-50/50"
+                    }`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-semibold">{st.action}</span>
+                        <Badge className={
+                          st.priority === "high" ? "bg-red-100 text-red-700" :
+                          st.priority === "medium" ? "bg-amber-100 text-amber-700" :
+                          "bg-blue-100 text-blue-700"
+                        }>
+                          {st.priority}
+                        </Badge>
+                      </div>
+                      {st.from !== "—" && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                          <span className="font-medium text-foreground">{st.from}</span>
+                          <ArrowRightLeft className="h-3 w-3" />
+                          <span className="font-medium text-foreground">{st.to}</span>
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground mb-1.5">{st.reason}</p>
+                      <div className="flex items-center gap-1 text-xs">
+                        <TrendingUp className="h-3 w-3 text-green-600" />
+                        <span className="font-medium text-green-700">{st.impact}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
 
       {/* Create/Edit Territory */}
       <EntityFormModal

@@ -15,6 +15,11 @@ import {
   Building2,
   Stethoscope,
   Trash2,
+  BarChart3,
+  AlertTriangle,
+  Timer,
+  TrendingUp,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +35,8 @@ import {
   type DailyPlan,
   type PlannedVisit,
   type StartingPoint,
+  type PlannedVisitCategory,
+  type PlannedVisitOutcome,
 } from "@/lib/data-store";
 import { useCurrentUser } from "@/lib/user-context";
 
@@ -54,7 +61,26 @@ function fmtIsoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Calculate duration in minutes from HH:MM times. Returns null if either is missing. */
+function calcDurationMin(checkIn?: string, checkOut?: string): number | null {
+  if (!checkIn || !checkOut) return null;
+  const [h1, m1] = checkIn.split(":").map(Number);
+  const [h2, m2] = checkOut.split(":").map(Number);
+  const mins = (h2 * 60 + m2) - (h1 * 60 + m1);
+  return mins > 0 ? mins : null;
+}
+
+/** Format duration in minutes to a readable string */
+function fmtDuration(mins: number | null): string {
+  if (mins == null) return "—";
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const SUSPICIOUS_THRESHOLD_MIN = 10;
 
 export default function WeeklyPlanPage() {
   const store = useDataStore();
@@ -203,6 +229,7 @@ export default function WeeklyPlanPage() {
           <TabsTrigger value="my">My Plans</TabsTrigger>
           {isManager && <TabsTrigger value="approvals">Pending Approvals</TabsTrigger>}
           <TabsTrigger value="all">All Plans</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="my" className="space-y-3">
@@ -281,6 +308,10 @@ export default function WeeklyPlanPage() {
                 onDelete={() => deletePlan(plan)}
               />
             ))}
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-6">
+          <VisitAnalytics plans={myPlans} allUsers={allUsers} />
         </TabsContent>
       </Tabs>
 
@@ -393,6 +424,13 @@ function PlanCard({
   const amVisits = plan.days.reduce((sum, d) => sum + d.visits.filter((v) => v.session === "AM").length, 0);
   const pmVisits = plan.days.reduce((sum, d) => sum + d.visits.filter((v) => v.session === "PM").length, 0);
 
+  // Duration stats for this plan
+  const durations = plan.days.flatMap((d) =>
+    d.visits.map((v) => calcDurationMin(v.checkInTime, v.checkOutTime))
+  ).filter((d): d is number => d !== null);
+  const avgDuration = durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null;
+  const suspiciousCount = durations.filter((d) => d < SUSPICIOUS_THRESHOLD_MIN).length;
+
   const statusBadge: Record<typeof plan.status, { label: string; color: string }> = {
     DRAFT: { label: "Draft", color: "bg-slate-100 text-slate-700" },
     SUBMITTED: { label: "Awaiting Approval", color: "bg-amber-100 text-amber-700" },
@@ -410,9 +448,20 @@ function PlanCard({
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
               {rep?.name ?? "—"} · {totalVisits} planned visits ({amVisits} AM, {pmVisits} PM)
+              {avgDuration != null && (
+                <span className="ml-2">· Avg duration: {fmtDuration(avgDuration)}</span>
+              )}
             </p>
           </div>
-          <Badge className={statusBadge[plan.status].color}>{statusBadge[plan.status].label}</Badge>
+          <div className="flex items-center gap-2">
+            {suspiciousCount > 0 && (
+              <Badge className="bg-orange-100 text-orange-700 text-[10px] flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                {suspiciousCount} short
+              </Badge>
+            )}
+            <Badge className={statusBadge[plan.status].color}>{statusBadge[plan.status].label}</Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -527,7 +576,7 @@ function PlanEditor({
       ...next[dayIdx],
       visits: [
         ...next[dayIdx].visits,
-        { session, timeSlot: session === "AM" ? "09:00" : "14:00", visitType: "SINGLE" },
+        { session, timeSlot: session === "AM" ? "09:00" : "14:00", visitType: "SINGLE", category: "planned" as PlannedVisitCategory, outcome: "pending" as PlannedVisitOutcome },
       ],
     };
     setDays(next);
@@ -655,80 +704,165 @@ function PlanEditor({
                   <p className="text-xs text-muted-foreground text-center py-2">No visits planned for this day</p>
                 ) : (
                   <div className="space-y-2">
-                    {day.visits.map((v, vIdx) => (
-                      <div key={vIdx} className={`p-2 rounded border ${v.session === "AM" ? "bg-amber-50/30" : "bg-indigo-50/30"}`}>
-                        <div className="grid grid-cols-12 gap-2 items-center text-xs">
-                          <div className="col-span-1">
-                            {v.session === "AM" ? (
-                              <Badge className="bg-amber-100 text-amber-800 text-[10px]">AM</Badge>
-                            ) : (
-                              <Badge className="bg-indigo-100 text-indigo-800 text-[10px]">PM</Badge>
-                            )}
-                          </div>
-                          <div className="col-span-2">
-                            <Input
-                              type="time"
-                              value={v.timeSlot}
-                              onChange={(e) => updateVisit(dayIdx, vIdx, { timeSlot: e.target.value })}
-                              disabled={isReadonly}
-                              className="h-7 text-xs"
-                            />
-                          </div>
-                          <div className="col-span-5">
-                            {v.session === "AM" ? (
+                    {day.visits.map((v, vIdx) => {
+                      const dur = calcDurationMin(v.checkInTime, v.checkOutTime);
+                      const isSuspicious = dur !== null && dur < SUSPICIOUS_THRESHOLD_MIN;
+                      return (
+                        <div key={vIdx} className={`p-2 rounded border ${isSuspicious ? "border-orange-300 bg-orange-50/40" : v.session === "AM" ? "bg-amber-50/30" : "bg-indigo-50/30"}`}>
+                          <div className="grid grid-cols-12 gap-2 items-center text-xs">
+                            <div className="col-span-1">
+                              {v.session === "AM" ? (
+                                <Badge className="bg-amber-100 text-amber-800 text-[10px]">AM</Badge>
+                              ) : (
+                                <Badge className="bg-indigo-100 text-indigo-800 text-[10px]">PM</Badge>
+                              )}
+                            </div>
+                            <div className="col-span-1">
+                              <Input
+                                type="time"
+                                value={v.timeSlot}
+                                onChange={(e) => updateVisit(dayIdx, vIdx, { timeSlot: e.target.value })}
+                                disabled={isReadonly}
+                                className="h-7 text-xs"
+                              />
+                            </div>
+                            <div className="col-span-3">
+                              {v.session === "AM" ? (
+                                <select
+                                  className="w-full rounded border p-1 text-xs"
+                                  value={v.amAccountId ?? ""}
+                                  onChange={(e) => updateVisit(dayIdx, vIdx, { amAccountId: e.target.value, doctorId: undefined })}
+                                  disabled={isReadonly}
+                                >
+                                  <option value="">— Select Account —</option>
+                                  {amOptions.map((o) => (
+                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <select
+                                  className="w-full rounded border p-1 text-xs"
+                                  value={v.doctorId ?? ""}
+                                  onChange={(e) => updateVisit(dayIdx, vIdx, { doctorId: e.target.value, amAccountId: undefined })}
+                                  disabled={isReadonly}
+                                >
+                                  <option value="">— Select Doctor —</option>
+                                  {drOptions.map((o) => (
+                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                            <div className="col-span-1">
                               <select
                                 className="w-full rounded border p-1 text-xs"
-                                value={v.amAccountId ?? ""}
-                                onChange={(e) => updateVisit(dayIdx, vIdx, { amAccountId: e.target.value, doctorId: undefined })}
+                                value={v.visitType}
+                                onChange={(e) => updateVisit(dayIdx, vIdx, { visitType: e.target.value as "SINGLE" | "DOUBLE" })}
                                 disabled={isReadonly}
                               >
-                                <option value="">— Select Account —</option>
-                                {amOptions.map((o) => (
-                                  <option key={o.value} value={o.value}>{o.label}</option>
-                                ))}
+                                <option value="SINGLE">Single</option>
+                                <option value="DOUBLE">Double</option>
                               </select>
-                            ) : (
+                            </div>
+                            {/* Check-in time */}
+                            <div className="col-span-1">
+                              <Input
+                                type="time"
+                                value={v.checkInTime ?? ""}
+                                onChange={(e) => updateVisit(dayIdx, vIdx, { checkInTime: e.target.value || undefined })}
+                                disabled={isReadonly}
+                                className="h-7 text-xs"
+                                placeholder="In"
+                                title="Check-in time"
+                              />
+                            </div>
+                            {/* Check-out time */}
+                            <div className="col-span-1">
+                              <Input
+                                type="time"
+                                value={v.checkOutTime ?? ""}
+                                onChange={(e) => updateVisit(dayIdx, vIdx, { checkOutTime: e.target.value || undefined })}
+                                disabled={isReadonly}
+                                className="h-7 text-xs"
+                                placeholder="Out"
+                                title="Check-out time"
+                              />
+                            </div>
+                            {/* Duration */}
+                            <div className="col-span-1 text-center">
+                              {dur !== null ? (
+                                <span className={`text-[10px] font-medium ${isSuspicious ? "text-orange-600" : "text-muted-foreground"}`}>
+                                  {isSuspicious && <AlertTriangle className="h-2.5 w-2.5 inline mr-0.5" />}
+                                  {fmtDuration(dur)}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground">—</span>
+                              )}
+                            </div>
+                            {/* Category */}
+                            <div className="col-span-1">
                               <select
-                                className="w-full rounded border p-1 text-xs"
-                                value={v.doctorId ?? ""}
-                                onChange={(e) => updateVisit(dayIdx, vIdx, { doctorId: e.target.value, amAccountId: undefined })}
+                                className="w-full rounded border p-1 text-[10px]"
+                                value={v.category ?? "planned"}
+                                onChange={(e) => updateVisit(dayIdx, vIdx, { category: e.target.value as PlannedVisitCategory })}
                                 disabled={isReadonly}
                               >
-                                <option value="">— Select Doctor —</option>
-                                {drOptions.map((o) => (
-                                  <option key={o.value} value={o.value}>{o.label}</option>
-                                ))}
+                                <option value="planned">Planned</option>
+                                <option value="unplanned">Unplanned</option>
+                                <option value="follow-up">Follow-up</option>
                               </select>
-                            )}
+                            </div>
+                            {/* Outcome */}
+                            <div className="col-span-1">
+                              <select
+                                className="w-full rounded border p-1 text-[10px]"
+                                value={v.outcome ?? "pending"}
+                                onChange={(e) => updateVisit(dayIdx, vIdx, { outcome: e.target.value as PlannedVisitOutcome })}
+                                disabled={isReadonly}
+                              >
+                                <option value="pending">Pending</option>
+                                <option value="successful">Successful</option>
+                                <option value="follow-up needed">Follow-up</option>
+                                <option value="no show">No Show</option>
+                              </select>
+                            </div>
+                            <div className="col-span-1 text-right">
+                              {!isReadonly && (
+                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-600" onClick={() => removeVisit(dayIdx, vIdx)}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                          <div className="col-span-2">
-                            <select
-                              className="w-full rounded border p-1 text-xs"
-                              value={v.visitType}
-                              onChange={(e) => updateVisit(dayIdx, vIdx, { visitType: e.target.value as "SINGLE" | "DOUBLE" })}
-                              disabled={isReadonly}
-                            >
-                              <option value="SINGLE">Single</option>
-                              <option value="DOUBLE">Double</option>
-                            </select>
-                          </div>
-                          <div className="col-span-1 text-center">
-                            {v.amAccountId ? (
-                              <Building2 className="h-3.5 w-3.5 text-emerald-600 inline" />
-                            ) : v.doctorId ? (
-                              <Stethoscope className="h-3.5 w-3.5 text-blue-600 inline" />
-                            ) : null}
-                          </div>
-                          <div className="col-span-1 text-right">
-                            {!isReadonly && (
-                              <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-600" onClick={() => removeVisit(dayIdx, vIdx)}>
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
+                          {/* Labels row under the grid for check-in/out when in read-only */}
+                          {isReadonly && (v.checkInTime || v.checkOutTime) && (
+                            <div className="mt-1 flex items-center gap-3 text-[10px] text-muted-foreground pl-8">
+                              {v.checkInTime && <span>Check-in: {v.checkInTime}</span>}
+                              {v.checkOutTime && <span>Check-out: {v.checkOutTime}</span>}
+                              {dur !== null && (
+                                <span className={isSuspicious ? "text-orange-600 font-semibold" : ""}>
+                                  Duration: {fmtDuration(dur)}
+                                  {isSuspicious && " (suspicious)"}
+                                </span>
+                              )}
+                              {v.category && <Badge variant="outline" className="text-[9px] h-4">{v.category}</Badge>}
+                              {v.outcome && v.outcome !== "pending" && (
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[9px] h-4 ${
+                                    v.outcome === "successful" ? "border-emerald-300 text-emerald-700" :
+                                    v.outcome === "no show" ? "border-red-300 text-red-700" :
+                                    "border-amber-300 text-amber-700"
+                                  }`}
+                                >
+                                  {v.outcome}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -742,6 +876,399 @@ function PlanEditor({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ─── Visit Analytics ─── */
+function VisitAnalytics({
+  plans,
+  allUsers,
+}: {
+  plans: WeeklyPlan[];
+  allUsers: ReturnType<typeof useCurrentUser>["allUsers"];
+}) {
+  // Collect all visits across all plans
+  const allVisits = useMemo(() => {
+    return plans.flatMap((p) =>
+      p.days.flatMap((d) =>
+        d.visits.map((v) => ({
+          ...v,
+          date: d.date,
+          repId: p.repId,
+          planStatus: p.status,
+          weekStart: p.weekStartDate,
+        }))
+      )
+    );
+  }, [plans]);
+
+  // -- Summary stats --
+  const totalVisitsThisWeek = allVisits.length;
+  const visitsWithDuration = allVisits
+    .map((v) => ({ ...v, dur: calcDurationMin(v.checkInTime, v.checkOutTime) }))
+    .filter((v): v is typeof v & { dur: number } => v.dur !== null);
+  const avgDuration = visitsWithDuration.length > 0
+    ? Math.round(visitsWithDuration.reduce((s, v) => s + v.dur, 0) / visitsWithDuration.length)
+    : 0;
+  const suspiciousVisits = visitsWithDuration.filter((v) => v.dur < SUSPICIOUS_THRESHOLD_MIN);
+
+  // Completion rate: visits with check-in AND outcome not pending / total planned
+  const plannedVisits = allVisits.filter((v) => v.category === "planned" || !v.category);
+  const completedVisits = allVisits.filter((v) => v.outcome && v.outcome !== "pending" && v.outcome !== "no show");
+  const completionRate = plannedVisits.length > 0
+    ? Math.round((completedVisits.length / plannedVisits.length) * 100)
+    : 0;
+
+  // Planned vs Actual
+  const actualVisits = allVisits.filter((v) => v.checkInTime);
+
+  // -- Visits per day (last 7 days from seed data) --
+  const visitsByDay = useMemo(() => {
+    const map: Record<string, number> = {};
+    allVisits.forEach((v) => {
+      const dateKey = new Date(v.date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+      map[dateKey] = (map[dateKey] || 0) + 1;
+    });
+    // Sort by date
+    const entries = Object.entries(map).sort((a, b) => {
+      // Parse dates for sorting
+      const findDate = (label: string) => {
+        const match = allVisits.find((v) => {
+          const d = new Date(v.date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+          return d === label;
+        });
+        return match ? new Date(match.date).getTime() : 0;
+      };
+      return findDate(a[0]) - findDate(b[0]);
+    });
+    return entries;
+  }, [allVisits]);
+
+  const maxVisitsPerDay = Math.max(...visitsByDay.map(([, c]) => c), 1);
+
+  // -- Visit type breakdown --
+  const categoryBreakdown = useMemo(() => {
+    const cats: Record<string, number> = { planned: 0, unplanned: 0, "follow-up": 0 };
+    allVisits.forEach((v) => {
+      const cat = v.category || "planned";
+      cats[cat] = (cats[cat] || 0) + 1;
+    });
+    return cats;
+  }, [allVisits]);
+
+  // -- Visit outcome distribution --
+  const outcomeBreakdown = useMemo(() => {
+    const outcomes: Record<string, number> = { successful: 0, "follow-up needed": 0, "no show": 0, pending: 0 };
+    allVisits.forEach((v) => {
+      const out = v.outcome || "pending";
+      outcomes[out] = (outcomes[out] || 0) + 1;
+    });
+    return outcomes;
+  }, [allVisits]);
+
+  // -- Top performing reps by visit count --
+  const repStats = useMemo(() => {
+    const map: Record<string, { count: number; name: string }> = {};
+    allVisits.forEach((v) => {
+      if (!map[v.repId]) {
+        const u = allUsers.find((u) => u.id === v.repId);
+        map[v.repId] = { count: 0, name: u?.name ?? v.repId };
+      }
+      map[v.repId].count += 1;
+    });
+    return Object.values(map).sort((a, b) => b.count - a.count);
+  }, [allVisits, allUsers]);
+
+  // -- Average visits per rep per day --
+  const uniqueReps = new Set(allVisits.map((v) => v.repId)).size || 1;
+  const uniqueDays = new Set(allVisits.map((v) => new Date(v.date).toDateString())).size || 1;
+  const avgVisitsPerRepPerDay = (totalVisitsThisWeek / uniqueReps / uniqueDays).toFixed(1);
+
+  // -- Heatmap: visits per day-of-week --
+  const heatmapData = useMemo(() => {
+    const map: Record<string, number> = {};
+    DAY_LABELS.forEach((l) => { map[l] = 0; });
+    allVisits.forEach((v) => {
+      const dayOfWeek = new Date(v.date).getDay();
+      // Convert JS day (0=Sun) to our label index (0=Mon)
+      const idx = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      if (idx >= 0 && idx < 7) {
+        map[DAY_LABELS[idx]] = (map[DAY_LABELS[idx]] || 0) + 1;
+      }
+    });
+    return map;
+  }, [allVisits]);
+
+  const maxHeatmap = Math.max(...Object.values(heatmapData), 1);
+
+  const outcomeColors: Record<string, string> = {
+    successful: "bg-emerald-500",
+    "follow-up needed": "bg-amber-500",
+    "no show": "bg-red-500",
+    pending: "bg-slate-400",
+  };
+
+  const categoryColors: Record<string, string> = {
+    planned: "bg-blue-500",
+    unplanned: "bg-purple-500",
+    "follow-up": "bg-teal-500",
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard
+          icon={Target}
+          title="Total Visits"
+          value={totalVisitsThisWeek}
+          subtitle="Across all plans"
+          iconColor="bg-blue-100 text-blue-600"
+        />
+        <StatsCard
+          icon={TrendingUp}
+          title="Completion Rate"
+          value={`${completionRate}%`}
+          subtitle={`${completedVisits.length} of ${plannedVisits.length} planned`}
+          iconColor="bg-emerald-100 text-emerald-600"
+        />
+        <StatsCard
+          icon={Timer}
+          title="Avg Duration"
+          value={fmtDuration(avgDuration)}
+          subtitle={suspiciousVisits.length > 0 ? `${suspiciousVisits.length} suspicious (<${SUSPICIOUS_THRESHOLD_MIN}m)` : "No suspicious visits"}
+          iconColor="bg-violet-100 text-violet-600"
+        />
+        <StatsCard
+          icon={Calendar}
+          title="Planned vs Actual"
+          value={`${plannedVisits.length} / ${actualVisits.length}`}
+          subtitle={`${avgVisitsPerRepPerDay} avg per rep/day`}
+          iconColor="bg-amber-100 text-amber-600"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Visits per Day - Bar Chart */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Visits per Day
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {visitsByDay.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No visit data available</p>
+            ) : (
+              <div className="space-y-2">
+                {visitsByDay.map(([label, count]) => (
+                  <div key={label} className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground w-28 truncate text-right">{label}</span>
+                    <div className="flex-1 h-6 bg-muted/30 rounded overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 rounded transition-all"
+                        style={{ width: `${(count / maxVisitsPerDay) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-medium w-6 text-right">{count}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Day-of-Week Heatmap */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Visits by Day of Week
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-7 gap-2">
+              {DAY_LABELS.map((label) => {
+                const count = heatmapData[label];
+                const intensity = count / maxHeatmap;
+                const bgColor = count === 0
+                  ? "bg-slate-100"
+                  : intensity < 0.33
+                  ? "bg-blue-100"
+                  : intensity < 0.66
+                  ? "bg-blue-300"
+                  : "bg-blue-500";
+                const textColor = intensity >= 0.66 ? "text-white" : "text-foreground";
+                return (
+                  <div
+                    key={label}
+                    className={`${bgColor} ${textColor} rounded-lg p-3 text-center transition-colors`}
+                  >
+                    <p className="text-[10px] font-medium uppercase opacity-70">{label}</p>
+                    <p className="text-lg font-bold mt-1">{count}</p>
+                    <p className="text-[10px] opacity-70">visits</p>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-end gap-2 mt-3">
+              <span className="text-[10px] text-muted-foreground">Low</span>
+              <div className="flex gap-1">
+                <div className="w-4 h-3 rounded bg-slate-100 border" />
+                <div className="w-4 h-3 rounded bg-blue-100" />
+                <div className="w-4 h-3 rounded bg-blue-300" />
+                <div className="w-4 h-3 rounded bg-blue-500" />
+              </div>
+              <span className="text-[10px] text-muted-foreground">High</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Visit Type Breakdown */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Visit Type Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {Object.entries(categoryBreakdown).map(([cat, count]) => {
+                const pct = totalVisitsThisWeek > 0 ? Math.round((count / totalVisitsThisWeek) * 100) : 0;
+                return (
+                  <div key={cat}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium capitalize">{cat}</span>
+                      <span className="text-xs text-muted-foreground">{count} ({pct}%)</span>
+                    </div>
+                    <div className="h-2 bg-muted/30 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${categoryColors[cat] || "bg-slate-400"}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Legend */}
+            <div className="flex items-center gap-4 mt-4 pt-3 border-t">
+              {Object.entries(categoryColors).map(([cat, color]) => (
+                <div key={cat} className="flex items-center gap-1.5">
+                  <div className={`w-2.5 h-2.5 rounded-full ${color}`} />
+                  <span className="text-[10px] text-muted-foreground capitalize">{cat}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Visit Outcome Distribution */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              Visit Outcome Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {Object.entries(outcomeBreakdown).map(([outcome, count]) => {
+                const pct = totalVisitsThisWeek > 0 ? Math.round((count / totalVisitsThisWeek) * 100) : 0;
+                return (
+                  <div key={outcome}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium capitalize">{outcome}</span>
+                      <span className="text-xs text-muted-foreground">{count} ({pct}%)</span>
+                    </div>
+                    <div className="h-2 bg-muted/30 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${outcomeColors[outcome] || "bg-slate-400"}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Legend */}
+            <div className="flex items-center gap-4 mt-4 pt-3 border-t">
+              {Object.entries(outcomeColors).map(([out, color]) => (
+                <div key={out} className="flex items-center gap-1.5">
+                  <div className={`w-2.5 h-2.5 rounded-full ${color}`} />
+                  <span className="text-[10px] text-muted-foreground capitalize">{out}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Top Performing Reps */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Top Performing Reps
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {repStats.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No data</p>
+            ) : (
+              <div className="space-y-2">
+                {repStats.slice(0, 5).map((rep, idx) => (
+                  <div key={rep.name} className="flex items-center gap-3">
+                    <span className={`text-xs font-bold w-5 text-center ${idx === 0 ? "text-amber-500" : idx === 1 ? "text-slate-400" : idx === 2 ? "text-orange-400" : "text-muted-foreground"}`}>
+                      #{idx + 1}
+                    </span>
+                    <span className="text-xs flex-1 truncate">{rep.name}</span>
+                    <Badge variant="outline" className="text-[10px]">{rep.count} visits</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Suspicious Visits (under threshold) */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-orange-500" />
+              Suspicious Visits (&lt;{SUSPICIOUS_THRESHOLD_MIN}m)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {suspiciousVisits.length === 0 ? (
+              <div className="text-center py-4">
+                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-emerald-400 opacity-50" />
+                <p className="text-sm text-muted-foreground">No suspicious visits detected</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {suspiciousVisits.map((v, idx) => {
+                  const repName = allUsers.find((u) => u.id === v.repId)?.name ?? v.repId;
+                  return (
+                    <div key={idx} className="flex items-center gap-2 p-2 rounded border border-orange-200 bg-orange-50/50">
+                      <AlertTriangle className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{repName}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {fmtDate(v.date)} · {v.checkInTime}–{v.checkOutTime} · {fmtDuration(v.dur)}
+                        </p>
+                      </div>
+                      <Badge className="bg-orange-100 text-orange-700 text-[10px]">{fmtDuration(v.dur)}</Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DataTable, type Column } from "@/components/shared/data-table";
 import { downloadCSV, downloadHTML, buildPrintableReport } from "@/lib/download";
 import {
   UserCheck,
@@ -25,6 +27,16 @@ import {
   X,
   CheckSquare,
   Square,
+  Wrench,
+  Save,
+  Trash2,
+  Play,
+  Clock,
+  Mail,
+  Plus,
+  Settings,
+  Eye,
+  BarChart3,
 } from "lucide-react";
 
 // ─── Field force hierarchy & demo data ───────────────────────────────────────
@@ -261,6 +273,170 @@ const roleConfig = {
 
 type RoleFilter = "ALL" | "BUM" | "MARKETEER" | "DISTRICT_MANAGER" | "MEDICAL_REP";
 
+// ─── Report Builder Types & Seed Data ────────────────────────────────────────
+
+type ReportTemplate = "sales" | "visit" | "expense" | "pipeline";
+type GroupByField = "territory" | "rep" | "product" | "specialty" | "month";
+type ScheduleFrequency = "daily" | "weekly" | "biweekly" | "monthly";
+
+interface ReportConfig {
+  id: string;
+  name: string;
+  template: ReportTemplate;
+  dateFrom: string;
+  dateTo: string;
+  territoryFilter: string;
+  repFilter: string;
+  groupBy: GroupByField;
+  schedule?: {
+    frequency: ScheduleFrequency;
+    recipients: string;
+    enabled: boolean;
+  };
+  createdAt: string;
+}
+
+interface ReportRow {
+  id: string;
+  group: string;
+  metric1: number;
+  metric2: number;
+  metric3: number;
+  metric4: number;
+  metric5: number;
+}
+
+const TEMPLATE_CONFIG: Record<ReportTemplate, {
+  label: string;
+  description: string;
+  metrics: string[];
+  icon: typeof BarChart3;
+}> = {
+  sales: {
+    label: "Sales Report",
+    description: "Revenue, units sold, and growth by territory/rep",
+    metrics: ["Revenue (EGP)", "Units Sold", "Avg Order Value", "Growth %", "Target %"],
+    icon: TrendingUp,
+  },
+  visit: {
+    label: "Visit Report",
+    description: "Doctor visits, coverage, and call frequency",
+    metrics: ["Total Visits", "Unique Doctors", "Avg Visits/Doctor", "Coverage %", "GPS Verified %"],
+    icon: MapPin,
+  },
+  expense: {
+    label: "Expense Report",
+    description: "Field expenses, travel costs, and budget utilization",
+    metrics: ["Total Expenses", "Travel Cost", "Per Diem", "Budget Used %", "Cost/Visit"],
+    icon: FileText,
+  },
+  pipeline: {
+    label: "Pipeline Report",
+    description: "Leads, opportunities, and conversion rates",
+    metrics: ["Total Leads", "Qualified", "Proposals", "Won", "Conversion %"],
+    icon: Target,
+  },
+};
+
+const INITIAL_SAVED_REPORTS: ReportConfig[] = [
+  {
+    id: "sr-1",
+    name: "Monthly Sales by Territory",
+    template: "sales",
+    dateFrom: "2026-04-01",
+    dateTo: "2026-04-30",
+    territoryFilter: "all",
+    repFilter: "all",
+    groupBy: "territory",
+    schedule: { frequency: "monthly", recipients: "hossam@pharma.eg, yasmin@pharma.eg", enabled: true },
+    createdAt: "2026-03-15",
+  },
+  {
+    id: "sr-2",
+    name: "Weekly Visit Coverage",
+    template: "visit",
+    dateFrom: "2026-04-01",
+    dateTo: "2026-04-30",
+    territoryFilter: "all",
+    repFilter: "all",
+    groupBy: "rep",
+    schedule: { frequency: "weekly", recipients: "yasmin@pharma.eg", enabled: true },
+    createdAt: "2026-03-20",
+  },
+  {
+    id: "sr-3",
+    name: "Q1 Expense Analysis",
+    template: "expense",
+    dateFrom: "2026-01-01",
+    dateTo: "2026-03-31",
+    territoryFilter: "all",
+    repFilter: "all",
+    groupBy: "territory",
+    createdAt: "2026-04-01",
+  },
+];
+
+function generateReportData(template: ReportTemplate, groupBy: GroupByField): ReportRow[] {
+  const groups: Record<GroupByField, string[]> = {
+    territory: ["Cairo North", "Cairo South", "Alexandria", "Delta Region", "Upper Egypt", "Canal Cities"],
+    rep: ["Mohamed El-Sayed", "Salma Ibrahim", "Hany Magdy", "Reem Adly", "Tamer Adel"],
+    product: ["Insulin Glargine", "Metformin 850mg", "Atorvastatin 20mg", "Amoxicillin 250mg", "Omeprazole 20mg"],
+    specialty: ["Cardiology", "Endocrinology", "GP", "Pediatrics", "Dermatology"],
+    month: ["January", "February", "March", "April"],
+  };
+
+  const seeds: Record<ReportTemplate, number[][]> = {
+    sales: [
+      [485000, 1230, 394, 12, 108],
+      [392000, 980, 400, 8, 95],
+      [445000, 1100, 405, 15, 112],
+      [310000, 780, 397, 5, 88],
+      [268000, 650, 412, -2, 82],
+      [355000, 890, 399, 10, 97],
+    ],
+    visit: [
+      [168, 72, 2.3, 92, 95],
+      [175, 79, 2.2, 96, 88],
+      [162, 78, 2.1, 91, 92],
+      [170, 76, 2.2, 95, 90],
+      [154, 68, 2.3, 91, 87],
+      [145, 65, 2.2, 88, 93],
+    ],
+    expense: [
+      [28500, 12400, 8200, 78, 170],
+      [22100, 9800, 6500, 65, 145],
+      [31200, 14200, 9100, 82, 195],
+      [19800, 8600, 5800, 58, 130],
+      [25400, 11100, 7200, 72, 165],
+      [21800, 9500, 6300, 64, 150],
+    ],
+    pipeline: [
+      [45, 28, 18, 12, 27],
+      [38, 22, 14, 9, 24],
+      [52, 35, 22, 16, 31],
+      [29, 17, 11, 7, 24],
+      [34, 20, 13, 8, 24],
+      [41, 25, 16, 11, 27],
+    ],
+  };
+
+  const groupLabels = groups[groupBy];
+  const templateSeeds = seeds[template];
+
+  return groupLabels.map((label, i) => {
+    const seedRow = templateSeeds[i % templateSeeds.length];
+    return {
+      id: `rr-${i}`,
+      group: label,
+      metric1: seedRow[0],
+      metric2: seedRow[1],
+      metric3: seedRow[2],
+      metric4: seedRow[3],
+      metric5: seedRow[4],
+    };
+  });
+}
+
 // Sensible defaults for a monthly reporting window
 function getDefaultDateRange() {
   const today = new Date();
@@ -284,6 +460,7 @@ function scaleMetrics(p: FieldForcePerson, days: number): FieldForcePerson {
 }
 
 export default function CRMReportsPage() {
+  const [activeTab, setActiveTab] = useState<"fieldforce" | "builder">("fieldforce");
   const [filter, setFilter] = useState<RoleFilter>("ALL");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -291,6 +468,119 @@ export default function CRMReportsPage() {
   const [dateFrom, setDateFrom] = useState<string>(defaultRange.from);
   const [dateTo, setDateTo] = useState<string>(defaultRange.to);
   const [selectedPeople, setSelectedPeople] = useState<Set<string>>(new Set());
+
+  // ── Report Builder State ──
+  const [builderTemplate, setBuilderTemplate] = useState<ReportTemplate>("sales");
+  const [builderDateFrom, setBuilderDateFrom] = useState("2026-04-01");
+  const [builderDateTo, setBuilderDateTo] = useState("2026-04-30");
+  const [builderTerritory, setBuilderTerritory] = useState("all");
+  const [builderRep, setBuilderRep] = useState("all");
+  const [builderGroupBy, setBuilderGroupBy] = useState<GroupByField>("territory");
+  const [builderPreviewVisible, setBuilderPreviewVisible] = useState(true);
+  const [savedReports, setSavedReports] = useState<ReportConfig[]>(INITIAL_SAVED_REPORTS);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [saveReportName, setSaveReportName] = useState("");
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleFrequency, setScheduleFrequency] = useState<ScheduleFrequency>("weekly");
+  const [scheduleRecipients, setScheduleRecipients] = useState("");
+
+  const reportPreviewData = useMemo(
+    () => generateReportData(builderTemplate, builderGroupBy),
+    [builderTemplate, builderGroupBy]
+  );
+
+  const templateCfg = TEMPLATE_CONFIG[builderTemplate];
+
+  const reportColumns: Column<ReportRow>[] = useMemo(() => [
+    { key: "group", label: builderGroupBy.charAt(0).toUpperCase() + builderGroupBy.slice(1), sortable: true },
+    { key: "metric1", label: templateCfg.metrics[0], sortable: true, render: (v: number) => v.toLocaleString() },
+    { key: "metric2", label: templateCfg.metrics[1], sortable: true, render: (v: number) => v.toLocaleString() },
+    { key: "metric3", label: templateCfg.metrics[2], sortable: true, render: (v: number) => typeof v === "number" && v < 10 ? v.toFixed(1) : v.toLocaleString() },
+    { key: "metric4", label: templateCfg.metrics[3], sortable: true, render: (v: number) => {
+      const isPercent = templateCfg.metrics[3].includes("%");
+      if (isPercent) return `${v}%`;
+      return v.toLocaleString();
+    }},
+    { key: "metric5", label: templateCfg.metrics[4], sortable: true, render: (v: number) => {
+      const isPercent = templateCfg.metrics[4].includes("%");
+      if (isPercent) return (
+        <Badge className={v >= 100 ? "bg-green-100 text-green-700" : v >= 85 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}>
+          {v}%
+        </Badge>
+      );
+      return v.toLocaleString();
+    }},
+  ], [builderGroupBy, templateCfg]);
+
+  const handleSaveReport = useCallback(() => {
+    if (!saveReportName.trim()) return;
+    const newReport: ReportConfig = {
+      id: `sr-${Date.now()}`,
+      name: saveReportName.trim(),
+      template: builderTemplate,
+      dateFrom: builderDateFrom,
+      dateTo: builderDateTo,
+      territoryFilter: builderTerritory,
+      repFilter: builderRep,
+      groupBy: builderGroupBy,
+      schedule: scheduleEnabled ? {
+        frequency: scheduleFrequency,
+        recipients: scheduleRecipients,
+        enabled: true,
+      } : undefined,
+      createdAt: new Date().toISOString().slice(0, 10),
+    };
+    setSavedReports((prev) => [...prev, newReport]);
+    setSaveDialogOpen(false);
+    setSaveReportName("");
+    setScheduleEnabled(false);
+    setScheduleRecipients("");
+  }, [saveReportName, builderTemplate, builderDateFrom, builderDateTo, builderTerritory, builderRep, builderGroupBy, scheduleEnabled, scheduleFrequency, scheduleRecipients]);
+
+  const handleLoadReport = useCallback((config: ReportConfig) => {
+    setBuilderTemplate(config.template);
+    setBuilderDateFrom(config.dateFrom);
+    setBuilderDateTo(config.dateTo);
+    setBuilderTerritory(config.territoryFilter);
+    setBuilderRep(config.repFilter);
+    setBuilderGroupBy(config.groupBy);
+    setBuilderPreviewVisible(true);
+  }, []);
+
+  const handleDeleteReport = useCallback((id: string) => {
+    setSavedReports((prev) => prev.filter((r) => r.id !== id));
+  }, []);
+
+  const handleExportBuilderCSV = useCallback(() => {
+    const rows = reportPreviewData.map((r) => ({
+      [builderGroupBy]: r.group,
+      [templateCfg.metrics[0]]: r.metric1,
+      [templateCfg.metrics[1]]: r.metric2,
+      [templateCfg.metrics[2]]: r.metric3,
+      [templateCfg.metrics[3]]: r.metric4,
+      [templateCfg.metrics[4]]: r.metric5,
+    }));
+    downloadCSV(`${builderTemplate}-report-${builderDateFrom}-to-${builderDateTo}.csv`, rows);
+  }, [reportPreviewData, builderTemplate, builderDateFrom, builderDateTo, builderGroupBy, templateCfg]);
+
+  const handleExportBuilderPDF = useCallback(() => {
+    const html = buildPrintableReport({
+      title: `${templateCfg.label} — Custom Report`,
+      subtitle: `${builderDateFrom} to ${builderDateTo} | Grouped by ${builderGroupBy}`,
+      sections: [{
+        heading: `${templateCfg.label} Data`,
+        rows: reportPreviewData.map((r) => ({
+          [builderGroupBy.charAt(0).toUpperCase() + builderGroupBy.slice(1)]: r.group,
+          [templateCfg.metrics[0]]: r.metric1,
+          [templateCfg.metrics[1]]: r.metric2,
+          [templateCfg.metrics[2]]: r.metric3,
+          [templateCfg.metrics[3]]: r.metric4,
+          [templateCfg.metrics[4]]: r.metric5,
+        })),
+      }],
+    });
+    downloadHTML(`${builderTemplate}-report-${builderDateFrom}-to-${builderDateTo}.html`, html);
+  }, [reportPreviewData, builderTemplate, builderDateFrom, builderDateTo, builderGroupBy, templateCfg]);
 
   // Days in the window (inclusive)
   const rangeDays = useMemo(() => {
@@ -491,17 +781,34 @@ export default function CRMReportsPage() {
         title="CRM Reports"
         description="Per-rep, per-DM, per-marketeer & per-BUM performance with downloadable templates"
         actions={
-          <>
-            <Button variant="outline" onClick={downloadAllCSV}>
-              <Download className="h-4 w-4 mr-2" /> Export All CSV
-            </Button>
-            <Button onClick={downloadConsolidated}>
-              <Printer className="h-4 w-4 mr-2" /> Consolidated Report
-            </Button>
-          </>
+          activeTab === "fieldforce" ? (
+            <>
+              <Button variant="outline" onClick={downloadAllCSV}>
+                <Download className="h-4 w-4 mr-2" /> Export All CSV
+              </Button>
+              <Button onClick={downloadConsolidated}>
+                <Printer className="h-4 w-4 mr-2" /> Consolidated Report
+              </Button>
+            </>
+          ) : undefined
         }
       />
 
+      {/* ── Tab Switcher ── */}
+      <div className="flex gap-2">
+        <Button variant={activeTab === "fieldforce" ? "default" : "ghost"} onClick={() => setActiveTab("fieldforce")} className="gap-2">
+          <Users className="h-4 w-4" /> Field Force Reports
+        </Button>
+        <Button variant={activeTab === "builder" ? "default" : "ghost"} onClick={() => setActiveTab("builder")} className="gap-2">
+          <Wrench className="h-4 w-4" /> Report Builder
+        </Button>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          FIELD FORCE TAB
+         ════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "fieldforce" && (
+      <>
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
