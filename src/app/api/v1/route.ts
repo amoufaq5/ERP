@@ -90,6 +90,7 @@ export async function GET() {
       system: [
         { path: "/api/v1/health", methods: ["GET"], description: "Health check & system status" },
         { path: "/api/v1/logs", methods: ["GET"], description: "API request logs (admin)" },
+        { path: "/api/v1/stats", methods: ["GET"], description: "API usage statistics" },
       ],
     },
     pagination: {

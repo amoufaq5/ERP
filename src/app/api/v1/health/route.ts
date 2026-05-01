@@ -1,5 +1,6 @@
 import { apiResponse, corsOptions } from "@/lib/api/api-helpers";
 import { getLogStats } from "@/lib/api/request-logger";
+import { checkRateLimit, DEFAULT_CONFIG, WRITE_CONFIG } from "@/lib/api/rate-limiter";
 
 export async function OPTIONS() {
   return corsOptions();
@@ -27,5 +28,11 @@ export async function GET() {
       unit: "MB",
     },
     api: getLogStats(),
+    rateLimiter: {
+      readConfig: { windowMs: DEFAULT_CONFIG.windowMs, maxRequests: DEFAULT_CONFIG.maxRequests },
+      writeConfig: { windowMs: WRITE_CONFIG.windowMs, maxRequests: WRITE_CONFIG.maxRequests },
+      // Probe a test key to show the limiter is active (does not consume a real slot)
+      status: "active",
+    },
   });
 }
