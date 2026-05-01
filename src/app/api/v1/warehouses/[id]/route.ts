@@ -5,6 +5,7 @@ import {
   corsOptions,
 } from "@/lib/api/api-helpers";
 import { validate, updateWarehouseSchema } from "@/lib/api/validations";
+import { withAuthParams } from "@/lib/api/with-auth";
 
 let prisma: any = null;
 try {
@@ -63,10 +64,7 @@ export async function GET(
 
 // ─── PATCH /api/v1/warehouses/:id ──────────────────────────────────────────
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export const PATCH = withAuthParams(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }, { role, userId }) => {
   const { id } = await params;
 
   try {
@@ -103,14 +101,11 @@ export async function PATCH(
   } catch (err: unknown) {
     return apiError((err as Error).message || "Failed to update warehouse", 500);
   }
-}
+});
 
 // ─── DELETE /api/v1/warehouses/:id ─────────────────────────────────────────
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export const DELETE = withAuthParams(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }, { role, userId }) => {
   const { id } = await params;
 
   try {
@@ -131,4 +126,4 @@ export async function DELETE(
   } catch (err: unknown) {
     return apiError((err as Error).message || "Failed to delete warehouse", 500);
   }
-}
+});

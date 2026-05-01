@@ -8,6 +8,7 @@ import {
   parseQueryParams,
 } from "@/lib/api/api-helpers";
 import { validate, createProductSchema } from "@/lib/api/validations";
+import { withAuth } from "@/lib/api/with-auth";
 
 let prisma: any = null;
 try {
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest) {
 
 // ─── POST /api/v1/products ──────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
+export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
   try {
     const body = await req.json();
     const validation = validate(createProductSchema, body);
@@ -112,7 +113,7 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     return apiError((err as Error).message || "Failed to create product", 500);
   }
-}
+});
 
 // ─── Mock data ───────────────────────────────────────────────────────────────
 

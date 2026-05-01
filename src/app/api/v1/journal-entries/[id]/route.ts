@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { apiResponse, apiError, corsOptions } from "@/lib/api/api-helpers";
 import { validate, updateJournalEntrySchema } from "@/lib/api/validations";
+import { withAuthParams } from "@/lib/api/with-auth";
 
 let prisma: any = null;
 try {
@@ -42,10 +43,7 @@ export async function GET(
 
 // ─── PATCH /api/v1/journal-entries/:id ─────────────────────────────────────
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export const PATCH = withAuthParams(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }, { role, userId }) => {
   try {
     const { id } = await params;
     const body = await req.json();
@@ -100,14 +98,11 @@ export async function PATCH(
   } catch (err: unknown) {
     return apiError((err as Error).message || "Failed to update journal entry", 500);
   }
-}
+});
 
 // ─── DELETE /api/v1/journal-entries/:id ────────────────────────────────────
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export const DELETE = withAuthParams(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }, { role, userId }) => {
   try {
     const { id } = await params;
 
@@ -129,4 +124,4 @@ export async function DELETE(
   } catch (err: unknown) {
     return apiError((err as Error).message || "Failed to delete journal entry", 500);
   }
-}
+});

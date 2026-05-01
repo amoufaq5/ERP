@@ -1,6 +1,6 @@
 import { apiResponse, corsOptions } from "@/lib/api/api-helpers";
 import { getLogStats } from "@/lib/api/request-logger";
-import { checkRateLimit, DEFAULT_CONFIG, WRITE_CONFIG } from "@/lib/api/rate-limiter";
+import { DEFAULT_CONFIG, WRITE_CONFIG } from "@/lib/api/rate-limiter";
 
 export async function OPTIONS() {
   return corsOptions();

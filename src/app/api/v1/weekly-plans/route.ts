@@ -8,6 +8,7 @@ import {
   validateRequiredFields,
   parseQueryParams,
 } from "@/lib/api/api-helpers";
+import { withAuth } from "@/lib/api/with-auth";
 
 let prisma: any = null;
 try {
@@ -74,7 +75,7 @@ export async function GET(req: NextRequest) {
 
 // ─── POST /api/v1/weekly-plans ─────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
+export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
   try {
     const body = await req.json();
     const missing = validateRequiredFields(body, ["repId", "weekStartDate"]);
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     return apiError((err as Error).message || "Failed to create weekly plan", 500);
   }
-}
+});
 
 // ─── Mock data ───────────────────────────────────────────────────────────────
 
