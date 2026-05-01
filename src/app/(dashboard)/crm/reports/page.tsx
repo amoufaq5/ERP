@@ -1244,6 +1244,295 @@ export default function CRMReportsPage() {
           ))}
         </CardContent>
       </Card>
+      </>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          REPORT BUILDER TAB
+         ════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "builder" && (
+        <>
+          {/* Template Selection */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {(Object.entries(TEMPLATE_CONFIG) as [ReportTemplate, typeof TEMPLATE_CONFIG[ReportTemplate]][]).map(([key, cfg]) => {
+              const Icon = cfg.icon;
+              const isActive = builderTemplate === key;
+              return (
+                <Card
+                  key={key}
+                  className={`cursor-pointer transition-all hover:shadow-md ${isActive ? "ring-2 ring-blue-500 bg-blue-50/30" : ""}`}
+                  onClick={() => setBuilderTemplate(key)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${isActive ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-semibold">{cfg.label}</h4>
+                        <p className="text-xs text-muted-foreground truncate">{cfg.description}</p>
+                      </div>
+                      {isActive && <Badge className="bg-blue-100 text-blue-700 shrink-0">Active</Badge>}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Configuration Parameters */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Settings className="h-4 w-4 text-gray-600" />
+                Report Parameters
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Date From</Label>
+                  <Input type="date" value={builderDateFrom} onChange={(e) => setBuilderDateFrom(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Date To</Label>
+                  <Input type="date" value={builderDateTo} min={builderDateFrom} onChange={(e) => setBuilderDateTo(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Territory</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    value={builderTerritory}
+                    onChange={(e) => setBuilderTerritory(e.target.value)}
+                  >
+                    <option value="all">All Territories</option>
+                    <option value="cairo-north">Cairo North</option>
+                    <option value="cairo-south">Cairo South</option>
+                    <option value="alexandria">Alexandria</option>
+                    <option value="delta">Delta Region</option>
+                    <option value="upper-egypt">Upper Egypt</option>
+                    <option value="canal">Canal Cities</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Rep</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    value={builderRep}
+                    onChange={(e) => setBuilderRep(e.target.value)}
+                  >
+                    <option value="all">All Reps</option>
+                    {fieldForce.filter((p) => p.role === "MEDICAL_REP").map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Group By</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    value={builderGroupBy}
+                    onChange={(e) => setBuilderGroupBy(e.target.value as GroupByField)}
+                  >
+                    <option value="territory">Territory</option>
+                    <option value="rep">Rep</option>
+                    <option value="product">Product</option>
+                    <option value="specialty">Specialty</option>
+                    <option value="month">Month</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4 pt-3 border-t">
+                <Button onClick={() => setBuilderPreviewVisible(true)}>
+                  <Eye className="h-4 w-4 mr-2" /> Preview Report
+                </Button>
+                <Button variant="outline" onClick={handleExportBuilderCSV}>
+                  <Download className="h-4 w-4 mr-2" /> Export CSV
+                </Button>
+                <Button variant="outline" onClick={handleExportBuilderPDF}>
+                  <Printer className="h-4 w-4 mr-2" /> Export PDF
+                </Button>
+                <div className="flex-1" />
+                <Button variant="outline" onClick={() => setSaveDialogOpen(true)}>
+                  <Save className="h-4 w-4 mr-2" /> Save Configuration
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Report Preview */}
+          {builderPreviewVisible && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-blue-600" />
+                  {templateCfg.label} Preview
+                  <Badge variant="outline" className="text-xs ml-2">
+                    {builderDateFrom} to {builderDateTo}
+                  </Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    Grouped by {builderGroupBy}
+                  </Badge>
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setBuilderPreviewVisible(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <DataTable<ReportRow>
+                  columns={reportColumns}
+                  data={reportPreviewData}
+                  searchable
+                  searchKeys={["group"]}
+                  pagination={false}
+                />
+                <div className="flex gap-2 mt-4 pt-3 border-t">
+                  <Button size="sm" onClick={handleExportBuilderCSV}>
+                    <Download className="h-3.5 w-3.5 mr-1.5" /> Export CSV
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handleExportBuilderPDF}>
+                    <Printer className="h-3.5 w-3.5 mr-1.5" /> Export PDF
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Saved Reports */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="h-4 w-4 text-emerald-600" />
+                Saved Report Configurations
+                <Badge variant="secondary" className="ml-1">{savedReports.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {savedReports.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">No saved reports. Build a report and save its configuration.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {savedReports.map((report) => {
+                    const cfg = TEMPLATE_CONFIG[report.template];
+                    const Icon = cfg.icon;
+                    return (
+                      <div key={report.id} className="flex items-center gap-4 p-3 rounded-lg border hover:shadow-sm transition-shadow">
+                        <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-gray-100 shrink-0">
+                          <Icon className="h-4 w-4 text-gray-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-semibold truncate">{report.name}</h4>
+                            <Badge variant="outline" className="text-[10px] shrink-0">{cfg.label}</Badge>
+                            {report.schedule?.enabled && (
+                              <Badge className="bg-purple-100 text-purple-700 text-[10px] shrink-0">
+                                <Clock className="h-2.5 w-2.5 mr-0.5" />
+                                {report.schedule.frequency}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {report.dateFrom} to {report.dateTo} | Group by {report.groupBy} | Created {report.createdAt}
+                          </p>
+                          {report.schedule?.enabled && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <Mail className="h-3 w-3" /> {report.schedule.recipients}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex gap-1.5 shrink-0">
+                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleLoadReport(report)}>
+                            <Play className="h-3 w-3 mr-1" /> Load
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 hover:text-red-700" onClick={() => handleDeleteReport(report.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* Save Report Dialog */}
+      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save Report Configuration</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Report Name</Label>
+              <Input
+                placeholder="e.g. Monthly Sales by Territory"
+                value={saveReportName}
+                onChange={(e) => setSaveReportName(e.target.value)}
+              />
+            </div>
+            <div className="p-3 rounded-lg bg-muted/50 text-xs space-y-1">
+              <div className="flex justify-between"><span className="text-muted-foreground">Template:</span> <span className="font-medium">{templateCfg.label}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Date Range:</span> <span className="font-medium">{builderDateFrom} to {builderDateTo}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Group By:</span> <span className="font-medium capitalize">{builderGroupBy}</span></div>
+            </div>
+
+            {/* Schedule Section */}
+            <div className="space-y-3 pt-2 border-t">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={scheduleEnabled}
+                  onChange={(e) => setScheduleEnabled(e.target.checked)}
+                />
+                <div>
+                  <span className="text-sm font-medium">Schedule this report</span>
+                  <p className="text-xs text-muted-foreground">Automatically generate and email this report</p>
+                </div>
+              </label>
+              {scheduleEnabled && (
+                <div className="space-y-3 pl-6">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Frequency</Label>
+                    <select
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={scheduleFrequency}
+                      onChange={(e) => setScheduleFrequency(e.target.value as ScheduleFrequency)}
+                    >
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly (Monday)</option>
+                      <option value="biweekly">Bi-weekly</option>
+                      <option value="monthly">Monthly (1st)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Email Recipients</Label>
+                    <Input
+                      placeholder="email1@company.com, email2@company.com"
+                      value={scheduleRecipients}
+                      onChange={(e) => setScheduleRecipients(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">Comma-separated email addresses</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSaveReport} disabled={!saveReportName.trim()}>
+                <Save className="h-4 w-4 mr-2" /> Save Report
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
