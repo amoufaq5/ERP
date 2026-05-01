@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Calendar,
   CheckCircle2,
@@ -25,6 +25,8 @@ import {
   ShieldAlert,
   ChevronDown,
   ChevronUp,
+  Eye,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +47,10 @@ import {
   type ApprovalEntry,
 } from "@/lib/data-store";
 import { useCurrentUser } from "@/lib/user-context";
+import { useNotificationCenter } from "@/lib/notification-context";
+import { useAuditLogger } from "@/lib/audit-logger";
+
+const MIN_VISIT_DURATION_MIN = 10;
 
 function startOfWeek(date: Date): Date {
   const d = new Date(date);
@@ -197,6 +203,21 @@ export default function WeeklyPlanPage() {
   const [showStartingPoints, setShowStartingPoints] = useState(false);
   const [rejectingPlan, setRejectingPlan] = useState<WeeklyPlan | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [conflictBlockDialog, setConflictBlockDialog] = useState<{ plan: WeeklyPlan; conflicts: PlanConflict[] } | null>(null);
+  const [autoEscalatedIds, setAutoEscalatedIds] = useState<Set<string>>(new Set());
+  const [autoEscalationAlert, setAutoEscalationAlert] = useState<number>(0);
+
+  // Safe notification & audit hooks — wrapped so pages render even without providers
+  let addNotification: (n: { type: string; title: string; message: string; module: string; entityType?: string; entityId?: string }) => void = () => {};
+  let logAction: (entry: { userId: string; userName: string; userRole: string; action: string; module: string; entity: string; entityId: string; entityName?: string; details?: string; oldValues?: Record<string, unknown>; newValues?: Record<string, unknown> }) => void = () => {};
+  try {
+    const nc = useNotificationCenter();
+    addNotification = nc.addNotification;
+  } catch { /* provider not mounted */ }
+  try {
+    const al = useAuditLogger();
+    logAction = al.logAction;
+  } catch { /* provider not mounted */ }
 
   const isRep = user.role === "MEDICAL_REP";
   const isManager = ["DISTRICT_MANAGER", "MARKETEER", "BUM", "ADMIN"].includes(user.role);
