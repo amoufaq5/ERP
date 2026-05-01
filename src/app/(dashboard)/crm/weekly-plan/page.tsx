@@ -221,19 +221,9 @@ export default function WeeklyPlanPage() {
   const [autoEscalatedIds, setAutoEscalatedIds] = useState<Set<string>>(new Set());
   const [autoEscalationAlert, setAutoEscalationAlert] = useState<number>(0);
 
-  // Safe notification & audit hooks — wrapped so pages render even without providers
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let addNotification: (...args: any[]) => void = () => {};
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let logAction: (...args: any[]) => void = () => {};
-  try {
-    const nc = useNotificationCenter();
-    addNotification = nc.addNotification;
-  } catch { /* provider not mounted */ }
-  try {
-    const al = useAuditLogger();
-    logAction = al.logAction;
-  } catch { /* provider not mounted */ }
+  // Notification & audit hooks — providers are in dashboard layout
+  const { addNotification } = useNotificationCenter();
+  const { logAction } = useAuditLogger();
 
   const isRep = user.role === "MEDICAL_REP";
   const isManager = ["DISTRICT_MANAGER", "MARKETEER", "BUM", "ADMIN"].includes(user.role);
