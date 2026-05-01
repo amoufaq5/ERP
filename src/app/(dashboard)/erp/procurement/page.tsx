@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Package, Truck, ClipboardCheck, Plus, ShieldCheck, FileText, ArrowRight, CheckCircle, X, Anchor, Ship } from "lucide-react";
+import { Package, Truck, ClipboardCheck, Plus, ShieldCheck, FileText, ArrowRight, CheckCircle, X, Anchor, Ship, Star, TrendingUp, TrendingDown, Minus, Award, MessageSquare } from "lucide-react";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,129 @@ import { VendorLink } from "@/components/shared/entity-detail-dialog";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
 const COMPANY_NAME = "PharmaCorp Egypt";
+
+// ─── Vendor Scorecard types & seed data ────────────────────────────────────
+
+interface VendorRating {
+  vendorId: string;
+  quality: number;          // 1-100 percentage
+  delivery: number;         // % on-time deliveries
+  price: number;            // % vs market avg (lower is better, stored as competitiveness score 1-100)
+  communication: number;    // 1-100
+  overall: number;          // weighted average
+  history: { month: string; overall: number; quality: number; delivery: number }[];
+  totalOrders: number;
+  lastRated: string;
+  notes?: string;
+}
+
+const VENDOR_SCORECARD_DATA: VendorRating[] = [
+  {
+    vendorId: "ve-001",
+    quality: 92, delivery: 88, price: 78, communication: 90, overall: 88,
+    history: [
+      { month: "Feb 2026", overall: 85, quality: 89, delivery: 84 },
+      { month: "Mar 2026", overall: 87, quality: 91, delivery: 86 },
+      { month: "Apr 2026", overall: 88, quality: 92, delivery: 88 },
+    ],
+    totalOrders: 47, lastRated: "2026-04-18",
+  },
+  {
+    vendorId: "ve-002",
+    quality: 96, delivery: 94, price: 65, communication: 93, overall: 90,
+    history: [
+      { month: "Feb 2026", overall: 89, quality: 95, delivery: 92 },
+      { month: "Mar 2026", overall: 90, quality: 96, delivery: 93 },
+      { month: "Apr 2026", overall: 90, quality: 96, delivery: 94 },
+    ],
+    totalOrders: 32, lastRated: "2026-04-22",
+  },
+  {
+    vendorId: "ve-003",
+    quality: 88, delivery: 72, price: 82, communication: 75, overall: 79,
+    history: [
+      { month: "Feb 2026", overall: 82, quality: 90, delivery: 78 },
+      { month: "Mar 2026", overall: 80, quality: 89, delivery: 74 },
+      { month: "Apr 2026", overall: 79, quality: 88, delivery: 72 },
+    ],
+    totalOrders: 21, lastRated: "2026-04-10",
+  },
+  {
+    vendorId: "ve-004",
+    quality: 84, delivery: 91, price: 88, communication: 86, overall: 87,
+    history: [
+      { month: "Feb 2026", overall: 84, quality: 82, delivery: 89 },
+      { month: "Mar 2026", overall: 85, quality: 83, delivery: 90 },
+      { month: "Apr 2026", overall: 87, quality: 84, delivery: 91 },
+    ],
+    totalOrders: 28, lastRated: "2026-04-15",
+  },
+  {
+    vendorId: "ve-005",
+    quality: 68, delivery: 60, price: 92, communication: 62, overall: 68,
+    history: [
+      { month: "Feb 2026", overall: 71, quality: 72, delivery: 65 },
+      { month: "Mar 2026", overall: 69, quality: 70, delivery: 62 },
+      { month: "Apr 2026", overall: 68, quality: 68, delivery: 60 },
+    ],
+    totalOrders: 14, lastRated: "2026-03-28",
+  },
+  {
+    vendorId: "ve-006-extra",
+    quality: 90, delivery: 85, price: 74, communication: 88, overall: 85,
+    history: [
+      { month: "Feb 2026", overall: 83, quality: 88, delivery: 82 },
+      { month: "Mar 2026", overall: 84, quality: 89, delivery: 84 },
+      { month: "Apr 2026", overall: 85, quality: 90, delivery: 85 },
+    ],
+    totalOrders: 19, lastRated: "2026-04-20",
+  },
+];
+
+// Extra vendor entry for ve-006-extra (not in main vendor store)
+const EXTRA_VENDOR_NAMES: Record<string, string> = {
+  "ve-006-extra": "Evonik Pharma Excipients",
+};
+
+function getScoreColor(score: number): string {
+  if (score >= 85) return "text-green-600";
+  if (score >= 70) return "text-amber-600";
+  return "text-red-600";
+}
+
+function getScoreBg(score: number): string {
+  if (score >= 85) return "bg-green-100 text-green-800";
+  if (score >= 70) return "bg-amber-100 text-amber-800";
+  return "bg-red-100 text-red-800";
+}
+
+function getScoreBgBar(score: number): string {
+  if (score >= 85) return "bg-green-500";
+  if (score >= 70) return "bg-amber-500";
+  return "bg-red-500";
+}
+
+function getTrendIcon(current: number, previous: number) {
+  const diff = current - previous;
+  if (diff > 1) return <TrendingUp className="h-3.5 w-3.5 text-green-600" />;
+  if (diff < -1) return <TrendingDown className="h-3.5 w-3.5 text-red-600" />;
+  return <Minus className="h-3.5 w-3.5 text-gray-400" />;
+}
+
+function renderStars(score: number) {
+  const starCount = Math.round(score / 20); // convert 0-100 to 1-5 stars
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star
+          key={i}
+          className={`h-3.5 w-3.5 ${i <= starCount ? "fill-amber-400 text-amber-400" : "text-gray-300"}`}
+        />
+      ))}
+      <span className="ml-1 text-xs text-muted-foreground">{starCount}/5</span>
+    </div>
+  );
+}
 
 interface POLine {
   productId: string;

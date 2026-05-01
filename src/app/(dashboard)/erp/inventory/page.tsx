@@ -22,6 +22,8 @@ import {
 import {
   FlaskConical, Pill, Warehouse, AlertTriangle,
   Thermometer, Download, Plus, Package, BookOpen,
+  Layers, TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown,
+  Clock, ShieldAlert, BarChart3,
 } from "lucide-react";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";

@@ -234,19 +234,20 @@ export default function AccountingPage() {
   }
 
   function convertInvoiceToEInvoice(invoiceId: string) {
-    const invoice = store.invoices?.find((inv: Record<string, unknown>) => inv.id === invoiceId);
+    const invoice = store.invoices?.find((inv) => inv.id === invoiceId);
     if (!invoice) return;
+    const inv = invoice as unknown as Record<string, unknown>;
     const newEInv: EInvoice = {
       id: Date.now().toString(36),
-      internalId: String((invoice as Record<string, unknown>).invoiceNumber || invoice.id),
-      receiverName: String((invoice as Record<string, unknown>).customerName || "—"),
+      internalId: String(inv.invoiceNumber || invoice.id),
+      receiverName: String(inv.customerName || "—"),
       receiverTaxId: einvSubmitForm.receiverTaxId || "000-000-000",
-      dateIssued: String((invoice as Record<string, unknown>).date || new Date().toISOString().split("T")[0]),
-      totalAmount: Number((invoice as Record<string, unknown>).total) || 0,
-      vatAmount: (Number((invoice as Record<string, unknown>).total) || 0) * 0.14,
-      netAmount: Number((invoice as Record<string, unknown>).total) || 0,
+      dateIssued: String(inv.date || new Date().toISOString().split("T")[0]),
+      totalAmount: Number(inv.total) || 0,
+      vatAmount: (Number(inv.total) || 0) * 0.14,
+      netAmount: Number(inv.total) || 0,
       status: "draft",
-      items: [{ description: "Items from " + String((invoice as Record<string, unknown>).invoiceNumber || "invoice"), quantity: 1, unitPrice: Number((invoice as Record<string, unknown>).total) || 0, total: Number((invoice as Record<string, unknown>).total) || 0 }],
+      items: [{ description: "Items from " + String(inv.invoiceNumber || "invoice"), quantity: 1, unitPrice: Number(inv.total) || 0, total: Number(inv.total) || 0 }],
     };
     setEinvoices(prev => [newEInv, ...prev]);
     setEinvSubmitForm({ selectedInvoiceId: "", receiverTaxId: "" });
@@ -1899,9 +1900,12 @@ export default function AccountingPage() {
                     <Label>Select Existing Invoice</Label>
                     <select className="w-full rounded-md border px-3 py-2 text-sm mt-1" value={einvSubmitForm.selectedInvoiceId} onChange={e => setEinvSubmitForm(p => ({ ...p, selectedInvoiceId: e.target.value }))}>
                       <option value="">Choose invoice...</option>
-                      {(store.invoices || []).map((inv: Record<string, unknown>) => (
-                        <option key={String(inv.id)} value={String(inv.id)}>{String((inv as Record<string, unknown>).invoiceNumber || inv.id)} — {String((inv as Record<string, unknown>).customerName || "N/A")} — EGP {Number((inv as Record<string, unknown>).total || 0).toLocaleString()}</option>
-                      ))}
+                      {(store.invoices || []).map((invoice) => {
+                        const inv = invoice as unknown as Record<string, unknown>;
+                        return (
+                          <option key={String(inv.id)} value={String(inv.id)}>{String(inv.invoiceNumber || inv.id)} — {String(inv.customerName || "N/A")} — EGP {Number(inv.total || 0).toLocaleString()}</option>
+                        );
+                      })}
                     </select>
                   </div>
                   <div>
@@ -2438,6 +2442,114 @@ export default function AccountingPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* E-Invoice view dialog */}
+      <Dialog open={!!viewEInvoice} onOpenChange={o => !o && setViewEInvoice(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>E-Invoice: {viewEInvoice?.internalId}</DialogTitle></DialogHeader>
+          {viewEInvoice && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="text-muted-foreground">Receiver</span><p className="font-medium">{viewEInvoice.receiverName}</p></div>
+                <div><span className="text-muted-foreground">Tax ID</span><p className="font-mono">{viewEInvoice.receiverTaxId}</p></div>
+                <div><span className="text-muted-foreground">Date</span><p className="font-medium">{viewEInvoice.dateIssued}</p></div>
+                <div><span className="text-muted-foreground">Status</span><p><span className={`px-2 py-0.5 rounded-full text-xs capitalize ${einvoiceStatusColors[viewEInvoice.status]}`}>{viewEInvoice.status}</span></p></div>
+                <div><span className="text-muted-foreground">Net Amount</span><p className="font-medium">EGP {viewEInvoice.netAmount.toLocaleString()}</p></div>
+                <div><span className="text-muted-foreground">VAT (14%)</span><p className="font-medium">EGP {viewEInvoice.vatAmount.toLocaleString()}</p></div>
+                <div><span className="text-muted-foreground">Total</span><p className="font-bold text-lg">EGP {viewEInvoice.totalAmount.toLocaleString()}</p></div>
+                <div><span className="text-muted-foreground">ETA UUID</span><p className="font-mono text-xs">{viewEInvoice.uuid || "—"}</p></div>
+              </div>
+              {viewEInvoice.items.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Line Items</h4>
+                  <table className="w-full text-xs">
+                    <thead><tr className="border-b"><th className="text-left p-2">Description</th><th className="text-right p-2">Qty</th><th className="text-right p-2">Unit Price</th><th className="text-right p-2">Total</th></tr></thead>
+                    <tbody>{viewEInvoice.items.map((item, i) => (
+                      <tr key={i} className="border-b"><td className="p-2">{item.description}</td><td className="p-2 text-right">{item.quantity}</td><td className="p-2 text-right">{item.unitPrice.toLocaleString()}</td><td className="p-2 text-right font-medium">{item.total.toLocaleString()}</td></tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Asset form modal */}
+      <EntityFormModal
+        open={assetModalOpen}
+        onOpenChange={(open) => { setAssetModalOpen(open); if (!open) setAssetEditing(null); }}
+        title={assetEditing ? "Edit Asset" : "Register New Asset"}
+        fields={assetFields}
+        initialData={assetEditing ? { name: assetEditing.name, category: assetEditing.category, purchasePrice: assetEditing.purchasePrice, location: assetEditing.location, assignedTo: assetEditing.assignedTo } : undefined}
+        onSubmit={(data) => {
+          if (assetEditing) {
+            setAssets(prev => prev.map(a => a.id === assetEditing.id ? { ...a, name: data.name as string, category: (data.category as string) || a.category, purchasePrice: (data.purchasePrice as number) || a.purchasePrice, location: (data.location as string) || a.location, assignedTo: (data.assignedTo as string) || a.assignedTo } : a));
+          } else {
+            setAssets(prev => { const uid = Date.now().toString(36); return [...prev, { id: uid, name: data.name as string, assetTag: `AST-${uid}`, category: (data.category as string) || "Other", status: "ACTIVE", purchaseDate: new Date().toISOString().split("T")[0], purchasePrice: (data.purchasePrice as number) || 0, currentValue: (data.purchasePrice as number) || 0, location: (data.location as string) || "Office", assignedTo: (data.assignedTo as string) || "Unassigned", warrantyExpiry: "2027-01-01" }]; });
+          }
+          setAssetModalOpen(false); setAssetEditing(null);
+        }}
+      />
+
+      {/* Asset Detail Dialog */}
+      <Dialog open={!!assetDetailItem} onOpenChange={(open) => { if (!open) setAssetDetailItem(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{assetDetailItem?.name}</DialogTitle>
+          </DialogHeader>
+          {assetDetailItem && (() => {
+            const depreciationPct = assetDetailItem.purchasePrice > 0 ? Math.round((assetDetailItem.currentValue / assetDetailItem.purchasePrice) * 100) : 0;
+            const warrantyActive = new Date(assetDetailItem.warrantyExpiry) > new Date();
+            const relatedMaintenance = assetMaintenanceRecords.filter(m => m.asset === assetDetailItem.name);
+            return (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><span className="text-sm text-muted-foreground">Asset Tag</span><p className="font-medium font-mono">{assetDetailItem.assetTag}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Category</span><p className="font-medium">{assetDetailItem.category}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Status</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${assetStatusColor[assetDetailItem.status]}`}>{assetDetailItem.status}</span></p></div>
+                  <div><span className="text-sm text-muted-foreground">Location</span><p className="font-medium">{assetDetailItem.location}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Assigned To</span><p className="font-medium">{assetDetailItem.assignedTo}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Purchase Date</span><p className="font-medium">{assetDetailItem.purchaseDate}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Purchase Price</span><p className="font-medium">{assetFmt(assetDetailItem.purchasePrice)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Current Value</span><p className="font-medium">{assetFmt(assetDetailItem.currentValue)}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Warranty Expiry</span><p className={`font-medium ${warrantyActive ? "text-green-600" : "text-red-600"}`}>{assetDetailItem.warrantyExpiry} {warrantyActive ? "(Active)" : "(Expired)"}</p></div>
+                </div>
+                {/* Depreciation Bar */}
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">Remaining Value</span>
+                    <span className="font-medium">{depreciationPct}% &mdash; {assetFmt(assetDetailItem.currentValue)} / {assetFmt(assetDetailItem.purchasePrice)}</span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${depreciationPct >= 60 ? "bg-green-500" : depreciationPct >= 30 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${depreciationPct}%` }} />
+                  </div>
+                </div>
+                {/* Related Maintenance */}
+                {relatedMaintenance.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">Maintenance History ({relatedMaintenance.length})</h4>
+                    <div className="border rounded-lg divide-y">
+                      {relatedMaintenance.map((m) => (
+                        <div key={m.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium">{m.description}</span>
+                            <span className="text-muted-foreground ml-2 text-xs">{m.type}</span>
+                          </div>
+                          <div className="flex items-center gap-2 ml-2 shrink-0">
+                            <span className="text-xs text-muted-foreground">{m.scheduledDate}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${assetStatusColor[m.status]}`}>{m.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

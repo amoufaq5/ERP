@@ -106,6 +106,19 @@ export default function FinancePage() {
   const [bankingFilterMatch, setBankingFilterMatch] = useState("");
   const [bankingPaymentAmount, setBankingPaymentAmount] = useState("");
 
+  // ─── Reconciliation interactive state ─────────────────────────
+  const [reconAccountId, setReconAccountId] = useState("");
+  const [reconPeriodStart, setReconPeriodStart] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); });
+  const [reconPeriodEnd, setReconPeriodEnd] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reconSelectedBankTx, setReconSelectedBankTx] = useState<string | null>(null);
+  const [reconSelectedBookEntry, setReconSelectedBookEntry] = useState<string | null>(null);
+  const [reconMatches, setReconMatches] = useState<{ bankTxId: string; bookEntryId: string }[]>([]);
+  const [reconCompleted, setReconCompleted] = useState(false);
+
+  // ─── Trial Balance state ──────────────────────────────────────
+  const [trialDateFrom, setTrialDateFrom] = useState("");
+  const [trialDateTo, setTrialDateTo] = useState("");
+
   const bankingTotalBalance = bankingAccounts.filter(a => a.isActive).reduce((s, a) => s + a.balance, 0);
   const bankingUnreconciled = bankingTransactions.filter(tx => tx.matchStatus === "unmatched").length;
 
