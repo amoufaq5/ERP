@@ -263,6 +263,39 @@ export default function GpsTrackingPage() {
   const [mapView, setMapView] = useState<"live" | "visits">("live");
   const [visitFilters, setVisitFilters] = useState<FilterState>({ _search: "", status: "" });
 
+  // Route Planner state
+  const [routeStops, setRouteStops] = useState<RouteStop[]>(ROUTE_STOPS);
+  const [isOptimized, setIsOptimized] = useState(false);
+  const [originalDistance, setOriginalDistance] = useState<number | null>(null);
+  const [originalTime, setOriginalTime] = useState<number | null>(null);
+
+  const handleOptimizeRoute = useCallback(() => {
+    if (isOptimized) {
+      // Reset to original
+      setRouteStops(ROUTE_STOPS);
+      setIsOptimized(false);
+      setOriginalDistance(null);
+      setOriginalTime(null);
+    } else {
+      setOriginalDistance(totalRouteDistance(routeStops));
+      setOriginalTime(totalRouteTime(routeStops));
+      setRouteStops(optimizeRoute(routeStops));
+      setIsOptimized(true);
+    }
+  }, [isOptimized, routeStops]);
+
+  const currentRouteDistance = totalRouteDistance(routeStops);
+  const currentRouteTime = totalRouteTime(routeStops);
+  const distanceSaved = originalDistance ? originalDistance - currentRouteDistance : 0;
+  const timeSaved = originalTime ? originalTime - currentRouteTime : 0;
+
+  // Geofencing computed values
+  const overallCompliance = useMemo(() => {
+    const totalVisits = GEOFENCE_ZONES.reduce((s, z) => s + z.totalVisits, 0);
+    const compliantVisits = GEOFENCE_ZONES.reduce((s, z) => s + z.compliantVisits, 0);
+    return totalVisits > 0 ? Math.round((compliantVisits / totalVisits) * 100) : 0;
+  }, []);
+
   const completedVisits = FIELD_VISITS.filter((v) => v.status === "COMPLETED").length;
   const inProgressVisits = FIELD_VISITS.filter((v) => v.status === "IN_PROGRESS").length;
 
@@ -370,6 +403,8 @@ export default function GpsTrackingPage() {
           <TabsTrigger value="visits">Field Visits</TabsTrigger>
           <TabsTrigger value="live">Live Locations</TabsTrigger>
           <TabsTrigger value="territories">Territories</TabsTrigger>
+          <TabsTrigger value="route-planner">Route Planner</TabsTrigger>
+          <TabsTrigger value="geofencing">Geofencing</TabsTrigger>
         </TabsList>
 
         <TabsContent value="visits">

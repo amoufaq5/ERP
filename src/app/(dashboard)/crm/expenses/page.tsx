@@ -229,6 +229,72 @@ export default function ExpensesPage() {
     reader.readAsDataURL(file);
   }
 
+  // ─── OCR Simulation ──────────────────────────────────────────────────────
+
+  function simulateOCR(fileName: string, imageBase64: string) {
+    setOcrScanning(true);
+    setOcrImagePreview(imageBase64);
+    setOcrResult(null);
+
+    // Simulate OCR processing delay (1.5-3 seconds)
+    const delay = 1500 + Math.random() * 1500;
+    setTimeout(() => {
+      const category = EXPENSE_TYPES[Math.floor(Math.random() * EXPENSE_TYPES.length)];
+      const vendor = OCR_VENDORS[Math.floor(Math.random() * OCR_VENDORS.length)];
+      const amount = Math.round((50 + Math.random() * 950) * 100) / 100;
+      const confidence = Math.round((75 + Math.random() * 24) * 10) / 10;
+      const daysAgo = Math.floor(Math.random() * 14);
+      const receiptDate = new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
+
+      const result: OCRResult = {
+        id: `ocr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
+        fileName,
+        imageBase64,
+        vendor,
+        amount,
+        date: receiptDate,
+        category,
+        confidence,
+        scannedAt: new Date().toISOString(),
+      };
+
+      setOcrResult(result);
+      setOcrHistory((prev) => [result, ...prev].slice(0, 20));
+      setOcrScanning(false);
+    }, delay);
+  }
+
+  function handleOCRFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      simulateOCR(file.name, reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    // Reset the input so re-selecting the same file works
+    e.target.value = "";
+  }
+
+  function applyOCRToForm() {
+    if (!ocrResult) return;
+    setFormDate(ocrResult.date);
+    setFormType(ocrResult.category);
+    setFormAmount(ocrResult.amount.toString());
+    const descriptions = OCR_DESCRIPTIONS[ocrResult.category];
+    setFormDescription(descriptions[Math.floor(Math.random() * descriptions.length)] + ` — ${ocrResult.vendor}`);
+    setFormPhoto(ocrResult.imageBase64);
+    setFormPhotoName(ocrResult.fileName);
+    setOcrDialogOpen(false);
+    setNewDialogOpen(true);
+  }
+
+  function confidenceColor(confidence: number): string {
+    if (confidence >= 90) return "text-green-700 bg-green-100";
+    if (confidence >= 80) return "text-yellow-700 bg-yellow-100";
+    return "text-orange-700 bg-orange-100";
+  }
+
   // ─── Create Expense ─────────────────────────────────────────────────────
 
   function resetForm() {
@@ -507,9 +573,14 @@ export default function ExpensesPage() {
         title="Expenses"
         description="Submit, track, and approve field expenses. Upload receipt photos for verification."
         actions={
-          <Button onClick={() => { resetForm(); setNewDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" /> New Expense
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => { setOcrResult(null); setOcrImagePreview(null); setOcrDialogOpen(true); }}>
+              <ScanLine className="h-4 w-4 mr-2" /> Scan Receipt
+            </Button>
+            <Button onClick={() => { resetForm(); setNewDialogOpen(true); }}>
+              <Plus className="h-4 w-4 mr-2" /> New Expense
+            </Button>
+          </div>
         }
       />
 

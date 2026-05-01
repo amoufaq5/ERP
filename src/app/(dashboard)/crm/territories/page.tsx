@@ -4,7 +4,10 @@ import { useMemo, useState } from "react";
 import {
   Map, ChevronRight, ChevronDown, Users, Stethoscope, Building,
   Plus, Pencil, Trash2, MapPin, Globe, Layers, BarChart3,
+  TrendingUp, TrendingDown, AlertTriangle, ArrowRightLeft, Target,
+  CheckCircle, Activity, Zap,
 } from "lucide-react";
+import { DataTable, type Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +53,7 @@ export default function TerritoriesPage() {
   const { user, allUsers } = useCurrentUser();
   const canEdit = user.role === "ADMIN" || user.role === "BUM" || user.role === "MARKETEER";
 
+  const [activeTab, setActiveTab] = useState<"hierarchy" | "optimization">("hierarchy");
   const [search, setSearch] = useState("");
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(["reg-cairo"]));
   const [selectedTerritory, setSelectedTerritory] = useState<Territory | null>(null);

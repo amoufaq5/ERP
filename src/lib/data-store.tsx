@@ -796,19 +796,29 @@ const SEED_WEEKLY_PLANS: WeeklyPlan[] = [
     id: "wp-001", repId: "u-rep-1", weekStartDate: daysAgo(7),
     days: [
       { date: daysAgo(7), startingPointAM: "sp-001", startingPointPM: "sp-002", visits: [
-        { amAccountId: "am-hosp-001", timeSlot: "09:00", session: "AM", visitType: "SINGLE" },
-        { amAccountId: "am-poly-001", timeSlot: "10:30", session: "AM", visitType: "SINGLE" },
-        { doctorId: "dr-001", timeSlot: "14:00", session: "PM", visitType: "SINGLE" },
-        { doctorId: "dr-003", timeSlot: "15:30", session: "PM", visitType: "SINGLE" },
+        { amAccountId: "am-hosp-001", timeSlot: "09:00", session: "AM", visitType: "SINGLE", checkInTime: "09:02", checkOutTime: "09:30", category: "planned", outcome: "successful" },
+        { amAccountId: "am-poly-001", timeSlot: "10:30", session: "AM", visitType: "SINGLE", checkInTime: "10:35", checkOutTime: "11:10", category: "planned", outcome: "successful" },
+        { doctorId: "dr-001", timeSlot: "14:00", session: "PM", visitType: "SINGLE", checkInTime: "14:05", checkOutTime: "14:32", category: "planned", outcome: "successful" },
+        { doctorId: "dr-003", timeSlot: "15:30", session: "PM", visitType: "SINGLE", checkInTime: "15:33", checkOutTime: "15:40", category: "follow-up", outcome: "follow-up needed" },
       ]},
       { date: daysAgo(6), startingPointAM: "sp-001", startingPointPM: "sp-002", visits: [
-        { amAccountId: "am-hosp-004", timeSlot: "09:00", session: "AM", visitType: "SINGLE" },
-        { doctorId: "dr-005", timeSlot: "14:00", session: "PM", visitType: "SINGLE" },
-        { doctorId: "dr-004", timeSlot: "15:30", session: "PM", visitType: "SINGLE" },
+        { amAccountId: "am-hosp-004", timeSlot: "09:00", session: "AM", visitType: "SINGLE", checkInTime: "09:10", checkOutTime: "09:45", category: "planned", outcome: "successful" },
+        { doctorId: "dr-005", timeSlot: "14:00", session: "PM", visitType: "SINGLE", checkInTime: "14:00", checkOutTime: "14:22", category: "planned", outcome: "successful" },
+        { doctorId: "dr-004", timeSlot: "15:30", session: "PM", visitType: "SINGLE", checkInTime: "15:28", checkOutTime: "15:55", category: "unplanned", outcome: "successful" },
       ]},
       { date: daysAgo(5), startingPointAM: "sp-001", startingPointPM: "sp-002", visits: [
-        { amAccountId: "am-hosp-002", timeSlot: "09:00", session: "AM", visitType: "DOUBLE", partnerId: "u-dm-1" },
-        { doctorId: "dr-002", timeSlot: "14:00", session: "PM", visitType: "DOUBLE", partnerId: "u-dm-1" },
+        { amAccountId: "am-hosp-002", timeSlot: "09:00", session: "AM", visitType: "DOUBLE", partnerId: "u-dm-1", checkInTime: "09:00", checkOutTime: "09:48", category: "planned", outcome: "successful" },
+        { doctorId: "dr-002", timeSlot: "14:00", session: "PM", visitType: "DOUBLE", partnerId: "u-dm-1", checkInTime: "14:05", checkOutTime: "14:42", category: "planned", outcome: "follow-up needed" },
+      ]},
+      { date: daysAgo(4), startingPointAM: "sp-001", startingPointPM: "sp-002", visits: [
+        { amAccountId: "am-hosp-001", timeSlot: "09:30", session: "AM", visitType: "SINGLE", checkInTime: "09:32", checkOutTime: "10:05", category: "follow-up", outcome: "successful" },
+        { doctorId: "dr-001", timeSlot: "14:00", session: "PM", visitType: "SINGLE", category: "planned", outcome: "no show" },
+        { doctorId: "dr-005", timeSlot: "15:00", session: "PM", visitType: "SINGLE", checkInTime: "15:05", checkOutTime: "15:12", category: "unplanned", outcome: "follow-up needed" },
+      ]},
+      { date: daysAgo(3), startingPointAM: "sp-001", startingPointPM: "sp-002", visits: [
+        { amAccountId: "am-poly-001", timeSlot: "09:00", session: "AM", visitType: "SINGLE", checkInTime: "09:05", checkOutTime: "09:35", category: "planned", outcome: "successful" },
+        { doctorId: "dr-003", timeSlot: "14:00", session: "PM", visitType: "SINGLE", checkInTime: "14:02", checkOutTime: "14:28", category: "planned", outcome: "successful" },
+        { doctorId: "dr-004", timeSlot: "15:30", session: "PM", visitType: "SINGLE", checkInTime: "15:35", checkOutTime: "16:00", category: "follow-up", outcome: "successful" },
       ]},
     ],
     status: "APPROVED", submittedAt: daysAgo(10), approvedById: "u-dm-1", approvedAt: daysAgo(9), createdAt: daysAgo(10),
