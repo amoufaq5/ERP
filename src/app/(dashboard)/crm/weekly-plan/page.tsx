@@ -834,7 +834,7 @@ function PlanCard({
   onEscalate,
 }: {
   plan: WeeklyPlan;
-  store: ReturnType<typeof useDataStore>;
+  store: ReturnType<typeof useApiDataStore>;
   allUsers: ReturnType<typeof useCurrentUser>["allUsers"];
   isRep: boolean;
   isManager: boolean;
@@ -1151,7 +1151,7 @@ function PlanEditor({
   onSave,
 }: {
   plan: WeeklyPlan | null;
-  store: ReturnType<typeof useDataStore>;
+  store: ReturnType<typeof useApiDataStore>;
   onClose: () => void;
   onSave: (days: DailyPlan[]) => void;
 }) {

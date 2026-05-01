@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import PageHeader from "@/components/shared/page-header"
 import { useTranslation } from "@/lib/i18n/i18n-context"
-import { useDataStore } from "@/lib/data-store"
+import { useApiDataStore } from "@/lib/api/use-api-store"
 
 interface ChatMessage {
   id: string
@@ -81,7 +81,7 @@ function formatSize(bytes: number): string {
 
 export default function AIHubPage() {
   const { t } = useTranslation()
-  const store = useDataStore()
+  const store = useApiDataStore()
 
   const [activeTab, setActiveTab] = useState<"chat" | "features" | "settings">("chat")
   const [messages, setMessages] = useState<ChatMessage[]>([])

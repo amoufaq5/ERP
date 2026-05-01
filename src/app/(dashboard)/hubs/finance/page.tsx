@@ -23,7 +23,7 @@ import {
   Cell,
 } from "recharts";
 
-import { useDataStore } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StatsCard from "@/components/shared/stats-card";
@@ -116,7 +116,7 @@ const QUICK_LINKS: {
 // ---------------------------------------------------------------------------
 
 export default function FinanceHubPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
 
   // ---- KPI calculations ---------------------------------------------------
 

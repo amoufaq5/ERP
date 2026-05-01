@@ -13,7 +13,7 @@ import {
   ArrowRight, Settings, Eye, Trash2, RefreshCw, FileJson, FileCode,
   HardDrive, Link2, Key, Zap, Filter, MapPin, PackagePlus, Archive,
 } from "lucide-react";
-import { useDataStore } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -396,7 +396,7 @@ const apiSources = [
 // ─── Page Component ────────────────────────────────────────────────────────
 
 export default function DataUploadPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const [dragOver, setDragOver] = useState(false);
   const [parsedData, setParsedData] = useState<ParsedData | null>(null);
   const [fileName, setFileName] = useState("");

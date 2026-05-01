@@ -32,7 +32,7 @@ import {
   RefreshCw,
 } from "lucide-react"
 import { useCrossModuleActions } from "@/lib/cross-module-actions"
-import { useDataStore } from "@/lib/data-store"
+import { useApiDataStore } from "@/lib/api/use-api-store"
 
 // ─── Integration Flow Definitions ───────────────────────────────────────────
 
@@ -246,7 +246,7 @@ export default function IntegrationHubPage() {
     status: "success" | "error"
   } | null>(null)
 
-  const store = useDataStore()
+  const store = useApiDataStore()
   const actions = useCrossModuleActions()
 
   // ── Computed stats ──

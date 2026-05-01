@@ -176,7 +176,7 @@ export default function HRPage() {
     `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   // Data store
-  const store = useDataStore();
+  const store = useApiDataStore();
   const employees = store.employees;
 
   // State (leave & payroll stay local for now)

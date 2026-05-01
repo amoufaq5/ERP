@@ -1023,7 +1023,7 @@ function MyDoctorList({
   onAddDoctor,
   onViewDoctor,
 }: {
-  store: ReturnType<typeof useDataStore>;
+  store: ReturnType<typeof useApiDataStore>;
   user: { id: string; role: string };
   allDoctors: Doctor[];
   onAddDoctor: () => void;
@@ -1300,7 +1300,7 @@ function AMAccountsTab({
   userId,
   userRole,
 }: {
-  store: ReturnType<typeof useDataStore>;
+  store: ReturnType<typeof useApiDataStore>;
   userId: string;
   userRole: string;
 }) {
@@ -1579,7 +1579,7 @@ function KPIDashboard({
   allDoctors,
   allVisits,
 }: {
-  store: ReturnType<typeof useDataStore>;
+  store: ReturnType<typeof useApiDataStore>;
   userId: string;
   allDoctors: Doctor[];
   allVisits: Visit[];

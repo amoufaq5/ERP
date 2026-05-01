@@ -14,7 +14,8 @@ import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import StatusBadge from "@/components/shared/status-badge";
-import { useDataStore, type DataStoreState } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { type DataStoreState } from "@/lib/data-store";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -82,7 +83,7 @@ interface IntegrityIssue {
 
 export default function DatabaseAdminPage() {
   const { t } = useTranslation();
-  const store = useDataStore();
+  const store = useApiDataStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [browseTable, setBrowseTable] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
