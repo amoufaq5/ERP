@@ -937,13 +937,31 @@ function AdminDashboard() {
         subtitle="Full pharmaceutical enterprise overview — all modules, all users"
         badge="ADMINISTRATOR"
       />
+
+      {/* Operational Alerts Banner */}
+      <OperationalAlertsBanner />
+
+      {/* Module Quick Stats Row */}
+      <ModuleQuickStatsRow />
+
+      {/* Approval Queue Widget */}
+      <ApprovalQueueWidget />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Total Revenue (YTD)" value={fmtM(totalRevenue)} delta="+14.2%" trend="up" icon={DollarSign} color="bg-green-100 text-green-600" />
         <KpiCard label="Customers" value={totalCustomers} delta="+8.3%" trend="up" icon={Users} color="bg-blue-100 text-blue-600" />
         <KpiCard label="Employees" value={store.employees.length} icon={Users} color="bg-purple-100 text-purple-600" />
         <KpiCard label="Open Positions" value={store.jobs.filter(j => j.status === "OPEN").length} delta={`${store.candidates.length} applicants`} trend="up" icon={Briefcase} color="bg-orange-100 text-orange-600" />
       </div>
+
+      {/* Revenue & Sales Chart Area */}
+      <RevenueAndSalesCharts />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Activity Feed */}
+        <div className="lg:col-span-2">
+          <ActivityFeedWidget />
+        </div>
         <Card>
           <CardHeader><CardTitle className="text-base">Module Health</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
@@ -965,6 +983,8 @@ function AdminDashboard() {
             ))}
           </CardContent>
         </Card>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader><CardTitle className="text-base">Critical Alerts</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
@@ -997,6 +1017,10 @@ function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Enhanced Quick Actions Panel */}
+      <EnhancedQuickActionsPanel />
+
       <QuickActions items={[
         { label: "Settings", icon: ShieldCheck, href: "/settings" },
         { label: "Industry", icon: Pill, href: "/industry" },
