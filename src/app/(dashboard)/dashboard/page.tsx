@@ -63,6 +63,11 @@ import {
   Printer,
   StickyNote,
   Route,
+  Bell,
+  XCircle,
+  Eye,
+  Zap,
+  BarChart3,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -158,6 +163,599 @@ function RoleHeader({ title, subtitle, badge }: { title: string; subtitle: strin
       </div>
       <p className="text-sm text-muted-foreground">{subtitle}</p>
     </div>
+  );
+}
+
+// ─── Command Center Widgets ─────────────────────────────────────────────────
+
+const LEAD_STORAGE_KEY = "pharma.leads";
+
+interface StoredLead {
+  id: string;
+  firstName: string;
+  lastName: string;
+  company: string;
+  value: number;
+  status: string;
+  score: number;
+}
+
+const EXPENSE_STORAGE_KEY = "pharma.expenses";
+
+interface StoredExpense {
+  id: string;
+  description: string;
+  amount: number;
+  status: string;
+  submittedAt: string;
+}
+
+function useLocalStorageData<T>(key: string): T[] {
+  const [data, setData] = useState<T[]>([]);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) setData(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, [key]);
+  return data;
+}
+
+function ModuleQuickStatsRow() {
+  const store = useDataStore();
+  const leads = useLocalStorageData<StoredLead>(LEAD_STORAGE_KEY);
+
+  // Finance stats
+  const totalRevenue = store.invoices
+    .filter((i) => i.status === "PAID" || i.status === "PARTIAL")
+    .reduce((s, i) => s + i.total, 0);
+  const arOutstanding = store.customers.reduce((s, c) => s + c.outstanding, 0);
+  const cashBalance = store.bankAccounts
+    .filter((b) => b.currency === "EGP" && b.status === "ACTIVE")
+    .reduce((s, b) => s + b.balance, 0);
+
+  // CRM stats
+  const activeLeads = leads.filter((l) => l.status !== "CLOSED_WON" && l.status !== "CLOSED_LOST").length;
+  const pipelineValue = leads.filter((l) => l.status !== "CLOSED_WON" && l.status !== "CLOSED_LOST").reduce((s, l) => s + (l.value || 0), 0);
+  const wonLeads = leads.filter((l) => l.status === "CLOSED_WON").length;
+  const totalClosedLeads = leads.filter((l) => l.status === "CLOSED_WON" || l.status === "CLOSED_LOST").length;
+  const winRate = totalClosedLeads > 0 ? Math.round((wonLeads / totalClosedLeads) * 100) : 0;
+
+  // Supply Chain stats
+  const lowStockItems = store.products.filter((p) => p.stockQty <= p.reorderLevel).length;
+  const pendingPOs = store.purchaseOrders.filter((po) => po.status === "DRAFT" || po.status === "APPROVED" || po.status === "ORDERED").length;
+  const deliveredShipments = store.shipments.filter((s) => s.status === "DELIVERED").length;
+  const totalShipments = store.shipments.length;
+  const onTimeDelivery = totalShipments > 0 ? Math.round((deliveredShipments / totalShipments) * 100) : 0;
+
+  // HR stats
+  const totalEmployees = store.employees.length;
+  const openPositions = store.jobs.filter((j) => j.status === "OPEN").length;
+  const upcomingLeaves = store.employees.filter((e) => e.status === "ON_LEAVE").length;
+
+  const modules = [
+    {
+      title: "Finance",
+      color: "border-l-green-500",
+      stats: [
+        { label: "Total Revenue", value: fmtM(totalRevenue) },
+        { label: "Outstanding AR", value: fmtM(arOutstanding) },
+        { label: "Cash Balance", value: fmtM(cashBalance) },
+      ],
+    },
+    {
+      title: "CRM",
+      color: "border-l-blue-500",
+      stats: [
+        { label: "Active Leads", value: String(activeLeads) },
+        { label: "Pipeline Value", value: fmtM(pipelineValue) },
+        { label: "Win Rate", value: `${winRate}%` },
+      ],
+    },
+    {
+      title: "Supply Chain",
+      color: "border-l-amber-500",
+      stats: [
+        { label: "Low Stock Items", value: String(lowStockItems) },
+        { label: "Pending POs", value: String(pendingPOs) },
+        { label: "On-time Delivery", value: `${onTimeDelivery}%` },
+      ],
+    },
+    {
+      title: "HR",
+      color: "border-l-purple-500",
+      stats: [
+        { label: "Total Employees", value: String(totalEmployees) },
+        { label: "Open Positions", value: String(openPositions) },
+        { label: "Upcoming Leaves", value: String(upcomingLeaves) },
+      ],
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {modules.map((mod) => (
+        <Card key={mod.title} className={`border-l-4 ${mod.color}`}>
+          <CardContent className="p-4">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">{mod.title}</div>
+            <div className="space-y-2">
+              {mod.stats.map((s) => (
+                <div key={s.label} className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{s.label}</span>
+                  <span className="text-sm font-bold">{s.value}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function OperationalAlertsBanner() {
+  const store = useDataStore();
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+
+  const overdueInvoices = store.invoices.filter((i) => i.status === "OVERDUE").length;
+  const lowStockProducts = store.products.filter((p) => p.stockQty <= p.reorderLevel).length;
+  const pendingEscalations = store.weeklyPlans.filter((wp) => wp.status === "SUBMITTED" && wp.approvalLevel && wp.approvalLevel > 1).length;
+  const slaBreaches = store.visits.filter((v) => {
+    if (v.status !== "LOGGED") return false;
+    const visitDate = new Date(v.dateTime);
+    const daysSince = (Date.now() - visitDate.getTime()) / 86400000;
+    return daysSince > 3;
+  }).length;
+
+  const alerts = [
+    { id: "sla", label: "SLA Breaches", count: slaBreaches, icon: AlertTriangle, color: "text-red-600 bg-red-50 border-red-200", href: "/crm/gps-tracking" },
+    { id: "overdue", label: "Overdue Invoices", count: overdueInvoices, icon: Receipt, color: "text-amber-600 bg-amber-50 border-amber-200", href: "/erp/accounting" },
+    { id: "stock", label: "Low Stock Products", count: lowStockProducts, icon: Package, color: "text-orange-600 bg-orange-50 border-orange-200", href: "/erp/inventory" },
+    { id: "escalation", label: "Pending Escalations", count: pendingEscalations, icon: Bell, color: "text-purple-600 bg-purple-50 border-purple-200", href: "/crm/weekly-plan" },
+  ].filter((a) => a.count > 0 && !dismissed.has(a.id));
+
+  if (alerts.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-3">
+      {alerts.map((alert) => {
+        const Icon = alert.icon;
+        return (
+          <div key={alert.id} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${alert.color}`}>
+            <Icon className="h-4 w-4 shrink-0" />
+            <Link href={alert.href} className="font-medium hover:underline">
+              {alert.count} {alert.label}
+            </Link>
+            <button
+              onClick={() => setDismissed((prev) => new Set(prev).add(alert.id))}
+              className="ml-1 rounded-full p-0.5 hover:bg-black/10 transition"
+              title="Dismiss"
+            >
+              <XCircle className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ApprovalQueueWidget() {
+  const store = useDataStore();
+
+  const pendingExpenses = useLocalStorageData<StoredExpense>(EXPENSE_STORAGE_KEY).filter((e) => e.status === "PENDING");
+  const pendingPlans = store.weeklyPlans.filter((wp) => wp.status === "SUBMITTED");
+  const pendingMarketRequests = store.marketRequests.filter((mr) => mr.status === "PENDING");
+  const pendingVisits = store.visits.filter((v) => v.status === "LOGGED");
+
+  const totalPending = pendingExpenses.length + pendingPlans.length + pendingMarketRequests.length + pendingVisits.length;
+
+  // Identify urgent items (overdue > 3 days)
+  const urgentExpenses = pendingExpenses.filter((e) => {
+    const daysSince = (Date.now() - new Date(e.submittedAt).getTime()) / 86400000;
+    return daysSince > 3;
+  }).length;
+  const urgentPlans = pendingPlans.filter((wp) => {
+    const submitted = wp.submittedAt ? new Date(wp.submittedAt) : new Date(wp.createdAt);
+    return (Date.now() - submitted.getTime()) / 86400000 > 3;
+  }).length;
+  const urgentMRs = pendingMarketRequests.filter((mr) => {
+    return (Date.now() - new Date(mr.createdAt).getTime()) / 86400000 > 5;
+  }).length;
+  const totalUrgent = urgentExpenses + urgentPlans + urgentMRs;
+
+  if (totalPending === 0) return null;
+
+  const items = [
+    { label: "Expenses", count: pendingExpenses.length, urgent: urgentExpenses, href: "/crm/expenses", icon: Receipt },
+    { label: "Weekly Plans", count: pendingPlans.length, urgent: urgentPlans, href: "/crm/weekly-plan", icon: Calendar },
+    { label: "Market Requests", count: pendingMarketRequests.length, urgent: urgentMRs, href: "/crm/market-requests", icon: ClipboardList },
+    { label: "Visit Approvals", count: pendingVisits.length, urgent: 0, href: "/crm/gps-tracking", icon: CheckCircle },
+  ].filter((it) => it.count > 0);
+
+  return (
+    <Card className="border-amber-200 bg-amber-50/30">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Bell className="h-5 w-5 text-amber-600" />
+            Approval Queue
+            <Badge className="bg-amber-100 text-amber-800 ml-1">{totalPending} pending</Badge>
+            {totalUrgent > 0 && (
+              <Badge className="bg-red-100 text-red-700">{totalUrgent} urgent</Badge>
+            )}
+          </CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {items.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link key={item.label} href={item.href}>
+                <div className="flex items-center gap-3 rounded-lg border bg-white p-3 hover:border-amber-400 hover:shadow-sm cursor-pointer transition">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-lg">{item.count}</span>
+                      {item.urgent > 0 && (
+                        <Badge className="bg-red-100 text-red-700 text-[9px]">{item.urgent} overdue</Badge>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground">{item.label}</div>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface ActivityItem {
+  id: string;
+  message: string;
+  module: string;
+  moduleColor: string;
+  timestamp: string;
+}
+
+function ActivityFeedWidget() {
+  const store = useDataStore();
+
+  const activities = useMemo(() => {
+    const items: ActivityItem[] = [];
+
+    // Recent visits (approved)
+    store.visits
+      .filter((v) => v.status === "APPROVED")
+      .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
+      .slice(0, 3)
+      .forEach((v) => {
+        const doc = store.doctors.find((d) => d.id === v.doctorId);
+        items.push({
+          id: `vis-${v.id}`,
+          message: `Visit approved: ${doc?.name ?? "Doctor"} — ${v.productIds.length} products discussed`,
+          module: "CRM",
+          moduleColor: "bg-blue-100 text-blue-700",
+          timestamp: v.dateTime,
+        });
+      });
+
+    // Overdue invoices
+    store.invoices
+      .filter((i) => i.status === "OVERDUE")
+      .slice(0, 2)
+      .forEach((inv) => {
+        const daysDue = Math.round((Date.now() - new Date(inv.dueDate).getTime()) / 86400000);
+        items.push({
+          id: `inv-${inv.id}`,
+          message: `Invoice ${inv.number} overdue by ${daysDue} days`,
+          module: "Finance",
+          moduleColor: "bg-red-100 text-red-700",
+          timestamp: inv.dueDate,
+        });
+      });
+
+    // Low stock alerts
+    store.products
+      .filter((p) => p.stockQty <= p.reorderLevel && p.stockQty > 0)
+      .slice(0, 2)
+      .forEach((p) => {
+        items.push({
+          id: `stock-${p.id}`,
+          message: `Low stock alert: ${p.name} ${p.strength} — ${p.stockQty} remaining`,
+          module: "Supply Chain",
+          moduleColor: "bg-amber-100 text-amber-700",
+          timestamp: new Date().toISOString(),
+        });
+      });
+
+    // Recent market requests approved
+    store.marketRequests
+      .filter((mr) => mr.status === "APPROVED" && mr.approvedAt)
+      .sort((a, b) => new Date(b.approvedAt!).getTime() - new Date(a.approvedAt!).getTime())
+      .slice(0, 2)
+      .forEach((mr) => {
+        items.push({
+          id: `mr-${mr.id}`,
+          message: `Market request approved: ${mr.type} — ${mr.description.slice(0, 50)}`,
+          module: "CRM",
+          moduleColor: "bg-blue-100 text-blue-700",
+          timestamp: mr.approvedAt!,
+        });
+      });
+
+    // Recent POs
+    store.purchaseOrders
+      .filter((po) => po.status === "ORDERED" || po.status === "RECEIVED")
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 2)
+      .forEach((po) => {
+        const vendor = store.vendors.find((v) => v.id === po.vendorId);
+        items.push({
+          id: `po-${po.id}`,
+          message: `PO ${po.number} ${po.status.toLowerCase()}: ${vendor?.name ?? "Vendor"} — ${fmtEGP(po.total)}`,
+          module: "Supply Chain",
+          moduleColor: "bg-amber-100 text-amber-700",
+          timestamp: po.createdAt,
+        });
+      });
+
+    // New candidates
+    store.candidates
+      .filter((c) => c.status === "INTERVIEW" || c.status === "OFFER")
+      .slice(0, 1)
+      .forEach((c) => {
+        items.push({
+          id: `cand-${c.id}`,
+          message: `Candidate ${c.name} moved to ${c.status.toLowerCase()} stage for ${c.appliedFor}`,
+          module: "HR",
+          moduleColor: "bg-purple-100 text-purple-700",
+          timestamp: c.appliedDate,
+        });
+      });
+
+    return items
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 10);
+  }, [store]);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Activity className="h-5 w-5 text-blue-600" />
+            Activity Feed
+          </CardTitle>
+          <Link href="/messages">
+            <Button variant="ghost" size="sm" className="h-7 text-xs">
+              <Eye className="h-3 w-3 mr-1" /> View All
+            </Button>
+          </Link>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {activities.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No recent activity.</p>
+        ) : (
+          <div className="space-y-3">
+            {activities.map((a) => (
+              <div key={a.id} className="flex items-start gap-3">
+                <Badge className={`text-[10px] shrink-0 mt-0.5 ${a.moduleColor}`}>{a.module}</Badge>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground leading-snug">{a.message}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {new Date(a.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })} at{" "}
+                    {new Date(a.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RevenueAndSalesCharts() {
+  const store = useDataStore();
+
+  // Monthly revenue trend (last 6 months)
+  const monthlyRevenue = useMemo(() => {
+    const now = new Date();
+    const months: { label: string; revenue: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthStr = d.toISOString().slice(0, 7);
+      const label = d.toLocaleDateString("en-US", { month: "short" });
+      const revenue = store.invoices
+        .filter((inv) => (inv.status === "PAID" || inv.status === "PARTIAL") && inv.date.startsWith(monthStr))
+        .reduce((s, inv) => s + inv.total, 0);
+      months.push({ label, revenue });
+    }
+    return months;
+  }, [store.invoices]);
+
+  const maxMonthlyRevenue = Math.max(...monthlyRevenue.map((m) => m.revenue), 1);
+
+  // Top 5 products by revenue
+  const topProducts = useMemo(() => {
+    const productMap: Record<string, { name: string; revenue: number }> = {};
+    store.invoices
+      .filter((inv) => inv.status === "PAID" || inv.status === "PARTIAL")
+      .forEach((inv) => {
+        inv.items.forEach((item) => {
+          const prod = store.products.find((p) => p.id === item.productId);
+          const name = prod ? `${prod.name} ${prod.strength}` : item.description;
+          if (!productMap[item.productId]) productMap[item.productId] = { name, revenue: 0 };
+          productMap[item.productId].revenue += item.total;
+        });
+      });
+    return Object.values(productMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+  }, [store.invoices, store.products]);
+
+  const maxProductRevenue = topProducts[0]?.revenue || 1;
+
+  // Pipeline funnel from local leads
+  const leads = useLocalStorageData<StoredLead>(LEAD_STORAGE_KEY);
+  const funnelStages = [
+    { label: "Prospecting", statuses: ["NEW"], color: "bg-blue-400" },
+    { label: "Qualification", statuses: ["CONTACTED", "QUALIFIED"], color: "bg-blue-500" },
+    { label: "Proposal", statuses: ["PROPOSAL"], color: "bg-indigo-500" },
+    { label: "Negotiation", statuses: ["NEGOTIATION"], color: "bg-purple-500" },
+    { label: "Won", statuses: ["CLOSED_WON"], color: "bg-green-500" },
+  ];
+  const funnelData = funnelStages.map((stage) => ({
+    ...stage,
+    count: leads.filter((l) => stage.statuses.includes(l.status)).length,
+  }));
+  const maxFunnelCount = Math.max(...funnelData.map((f) => f.count), 1);
+
+  // Sales by territory from visits
+  const territoryBreakdown = useMemo(() => {
+    const tMap: Record<string, { name: string; visits: number; doctors: number }> = {};
+    store.territories
+      .filter((t) => t.level === "district" || t.level === "region")
+      .forEach((t) => {
+        const tVisits = store.visits.filter((v) => {
+          const doc = store.doctors.find((d) => d.id === v.doctorId);
+          return doc && t.assignedRepIds.some((rid) => rid === v.repId);
+        }).length;
+        const tDocs = store.doctors.filter((d) => d.assignedRepId && t.assignedRepIds.includes(d.assignedRepId)).length;
+        if (tVisits > 0 || tDocs > 0) {
+          tMap[t.id] = { name: t.name, visits: tVisits, doctors: tDocs };
+        }
+      });
+    return Object.values(tMap).sort((a, b) => b.visits - a.visits).slice(0, 5);
+  }, [store.territories, store.visits, store.doctors]);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Monthly Revenue Trend */}
+      <Card>
+        <CardHeader><CardTitle className="text-base flex items-center gap-2"><BarChart3 className="h-5 w-5 text-green-600" /> Monthly Revenue (Last 6 Months)</CardTitle></CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-2 h-40">
+            {monthlyRevenue.map((m) => (
+              <div key={m.label} className="flex-1 flex flex-col items-center gap-1">
+                <span className="text-[10px] font-semibold text-muted-foreground">{m.revenue > 0 ? fmtM(m.revenue) : "—"}</span>
+                <div className="w-full bg-green-100 rounded-t relative" style={{ height: `${Math.max((m.revenue / maxMonthlyRevenue) * 100, 4)}%` }}>
+                  <div className="absolute inset-0 bg-green-500 rounded-t" />
+                </div>
+                <span className="text-[10px] text-muted-foreground font-medium">{m.label}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Top 5 Products */}
+      <Card>
+        <CardHeader><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-5 w-5 text-blue-600" /> Top 5 Products by Revenue</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          {topProducts.length === 0 ? (
+            <p className="text-muted-foreground">No product revenue data yet.</p>
+          ) : topProducts.map((p, i) => (
+            <div key={i} className="space-y-1">
+              <div className="flex justify-between">
+                <span className="truncate mr-2">{p.name}</span>
+                <span className="font-semibold shrink-0">{fmtM(p.revenue)}</span>
+              </div>
+              <div className="h-2 bg-muted rounded-full">
+                <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.round((p.revenue / maxProductRevenue) * 100)}%` }} />
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Pipeline Funnel */}
+      <Card>
+        <CardHeader><CardTitle className="text-base flex items-center gap-2"><Target className="h-5 w-5 text-indigo-600" /> Pipeline Stage Funnel</CardTitle></CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {funnelData.map((stage, i) => {
+              const widthPct = maxFunnelCount > 0 ? Math.max((stage.count / maxFunnelCount) * 100, 8) : 8;
+              return (
+                <div key={stage.label} className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground w-24 text-right shrink-0">{stage.label}</span>
+                  <div className="flex-1 h-7 bg-muted/50 rounded relative">
+                    <div
+                      className={`h-full ${stage.color} rounded flex items-center justify-end pr-2 transition-all`}
+                      style={{ width: `${widthPct}%` }}
+                    >
+                      <span className="text-[11px] font-bold text-white">{stage.count}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Sales by Territory */}
+      <Card>
+        <CardHeader><CardTitle className="text-base flex items-center gap-2"><MapPin className="h-5 w-5 text-purple-600" /> Sales by Territory</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          {territoryBreakdown.length === 0 ? (
+            <p className="text-muted-foreground">No territory data available.</p>
+          ) : territoryBreakdown.map((t) => (
+            <div key={t.name} className="flex items-center justify-between">
+              <div>
+                <span className="font-medium">{t.name}</span>
+                <div className="text-xs text-muted-foreground">{t.doctors} doctors</div>
+              </div>
+              <Badge variant="secondary">{t.visits} visits</Badge>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function EnhancedQuickActionsPanel() {
+  const actionItems: QuickLinkItem[] = [
+    { label: "Create Invoice", icon: Receipt, href: "/erp/accounting" },
+    { label: "New Lead", icon: UserPlus, href: "/crm/leads" },
+    { label: "Submit Expense", icon: DollarSign, href: "/crm/expenses" },
+    { label: "Log Visit", icon: MapPin, href: "/crm/medical-rep" },
+    { label: "New PO", icon: ShoppingCart, href: "/erp/procurement" },
+    { label: "Add Product", icon: Package, href: "/industry" },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <Zap className="h-5 w-5 text-amber-500" />
+          Quick Actions
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {actionItems.map((action, i) => {
+            const Icon = action.icon;
+            return (
+              <Link key={i} href={action.href}>
+                <div className="w-full flex flex-col items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 py-4 text-sm font-medium text-foreground shadow-sm transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 cursor-pointer">
+                  <Icon className="h-5 w-5" />
+                  <span className="text-xs text-center">{action.label}</span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

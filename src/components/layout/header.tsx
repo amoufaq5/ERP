@@ -33,6 +33,7 @@ import { useTranslation } from "@/lib/i18n/i18n-context";
 import type { Locale } from "@/lib/i18n/translations";
 import { useTheme } from "@/lib/theme-context";
 import { useNotifications, type NotificationType } from "@/lib/notifications";
+import { NotificationBell } from "@/components/shared/notification-bell";
 
 interface BreadcrumbSegment {
   label: string;
@@ -405,8 +406,11 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
         {/* Theme toggle */}
         <ThemeToggle />
 
-        {/* Notifications */}
-        <NotificationPanel />
+        {/* Notifications (enhanced) */}
+        <NotificationBell />
+
+        {/* Legacy notification panel (hidden, kept for backward compat) */}
+        {/* <NotificationPanel /> */}
 
         {/* User dropdown */}
         <DropdownMenu>

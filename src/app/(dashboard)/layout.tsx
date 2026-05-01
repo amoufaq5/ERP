@@ -4,6 +4,7 @@ import { ConfigProvider } from "@/lib/config-context";
 import { DataStoreProvider } from "@/lib/data-store";
 import { I18nProvider } from "@/lib/i18n/i18n-context";
 import { NotificationProvider } from "@/lib/notifications";
+import { EnhancedNotificationProvider } from "@/lib/notification-context";
 import { AuditProvider } from "@/lib/audit-trail";
 import { ThemeProvider } from "@/lib/theme-context";
 import { FavoritesProvider } from "@/lib/favorites";
@@ -24,6 +25,7 @@ export default function DashboardLayout({
             <ConfigProvider>
               <DataStoreProvider>
                 <NotificationProvider>
+                  <EnhancedNotificationProvider>
                   <AuditProvider>
                     <ApprovalProvider>
                       <FavoritesProvider>
@@ -34,6 +36,7 @@ export default function DashboardLayout({
                       </FavoritesProvider>
                     </ApprovalProvider>
                   </AuditProvider>
+                  </EnhancedNotificationProvider>
                 </NotificationProvider>
               </DataStoreProvider>
             </ConfigProvider>
