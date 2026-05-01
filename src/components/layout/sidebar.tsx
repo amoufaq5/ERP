@@ -246,7 +246,7 @@ export function Sidebar({
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden lg:flex flex-col h-screen bg-slate-900 text-white shrink-0 sidebar-transition overflow-hidden border-r border-slate-800",
+          "hidden lg:flex flex-col h-screen bg-slate-900 text-white shrink-0 sidebar-transition overflow-hidden border-r rtl:border-r-0 rtl:border-l border-slate-800",
           collapsed ? "w-[68px]" : "w-64"
         )}
       >
@@ -262,8 +262,8 @@ export function Sidebar({
       {/* Mobile sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-30 flex flex-col w-64 bg-slate-900 text-white lg:hidden transition-transform duration-200 ease-in-out",
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed inset-y-0 left-0 rtl:left-auto rtl:right-0 z-30 flex flex-col w-64 bg-slate-900 text-white lg:hidden transition-transform duration-200 ease-in-out",
+          mobileOpen ? "translate-x-0" : "-translate-x-full rtl:translate-x-full"
         )}
       >
         <SidebarContent
@@ -345,7 +345,7 @@ function SidebarContent({
         {isMobile && (
           <button
             onClick={onMobileClose}
-            className="ml-auto p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="ml-auto rtl:mr-auto rtl:ml-0 p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
             aria-label="Close sidebar"
           >
             <X className="h-4 w-4" />
