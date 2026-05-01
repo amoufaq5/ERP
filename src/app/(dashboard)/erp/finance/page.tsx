@@ -16,6 +16,7 @@ import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDataStore, type Invoice, type Payment, type Budget, type GLAccount, type SalesOrder, type BankAccount } from "@/lib/data-store";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useApprovals } from "@/lib/approval-workflow";
 import { openInvoicePDF } from "@/lib/invoice-pdf";
 import {
@@ -24,13 +25,51 @@ import {
   BarChart3, Calculator, Activity, Target,
   ShoppingBag, CheckCircle, XCircle, AlertTriangle,
   ArrowUpDown, RefreshCw, Eye, Link2, Unlink, ArrowDownLeft, ArrowUpRight,
+  Wallet, QrCode, FileSpreadsheet,
 } from "lucide-react";
 import { downloadCSV } from "@/lib/download";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
 const egp = (n: number) => `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-type Tab = "overview" | "invoices" | "payments" | "bank" | "vendors" | "budgets" | "trial" | "ratios" | "cashflow" | "sales-orders";
+type Tab = "overview" | "invoices" | "payments" | "bank" | "vendors" | "budgets" | "trial" | "ratios" | "cashflow" | "sales-orders" | "banking" | "transactions" | "reconciliation" | "payment-gateway";
+
+// ─── Banking interfaces & sample data ──────────────────────────
+interface BankingTransaction {
+  id: string; accountId: string; date: string; description: string; reference: string; amount: number; type: "credit" | "debit"; balance: number; matchStatus: "unmatched" | "matched" | "partial" | "excluded"; matchedRef?: string
+}
+
+interface ReconSession {
+  id: string; accountId: string; periodStart: string; periodEnd: string; bankBalance: number; bookBalance: number; difference: number; status: "in_progress" | "completed" | "discrepancy"; matchedCount: number; unmatchedCount: number
+}
+
+interface BankingAccount {
+  id: string; bankName: string; accountNumber: string; iban: string; currency: string; balance: number; lastSynced: string; isActive: boolean
+}
+
+const bankingSampleAccounts: BankingAccount[] = [
+  { id: "1", bankName: "National Bank of Egypt", accountNumber: "1234-5678-9012", iban: "EG380019000500000000263180002", currency: "EGP", balance: 2450000, lastSynced: "2024-03-25", isActive: true },
+  { id: "2", bankName: "CIB Egypt", accountNumber: "9876-5432-1098", iban: "EG210037000400000000123456789", currency: "EGP", balance: 875000, lastSynced: "2024-03-24", isActive: true },
+  { id: "3", bankName: "Banque Misr", accountNumber: "5555-1234-9876", iban: "EG300002000300000000789012345", currency: "USD", balance: 125000, lastSynced: "2024-03-20", isActive: false },
+];
+
+const bankingSampleTransactions: BankingTransaction[] = [
+  { id: "t1", accountId: "1", date: "2024-03-25", description: "Payment from Acme Pharma", reference: "TRF-001", amount: 51300, type: "credit", balance: 2450000, matchStatus: "matched", matchedRef: "INV-2024-089" },
+  { id: "t2", accountId: "1", date: "2024-03-24", description: "Supplier payment - MedSupply Co", reference: "TRF-002", amount: 35000, type: "debit", balance: 2398700, matchStatus: "matched", matchedRef: "PO-2024-045" },
+  { id: "t3", accountId: "1", date: "2024-03-23", description: "Salary payment March", reference: "SAL-MAR", amount: 180000, type: "debit", balance: 2433700, matchStatus: "matched", matchedRef: "PAY-2024-03" },
+  { id: "t4", accountId: "1", date: "2024-03-22", description: "Payment received - Delta Medical", reference: "TRF-003", amount: 22800, type: "credit", balance: 2613700, matchStatus: "unmatched" },
+  { id: "t5", accountId: "1", date: "2024-03-21", description: "Bank charges", reference: "CHG-001", amount: 500, type: "debit", balance: 2590900, matchStatus: "excluded" },
+  { id: "t6", accountId: "2", date: "2024-03-25", description: "Customer payment - Nile Health", reference: "TRF-004", amount: 15000, type: "credit", balance: 875000, matchStatus: "unmatched" },
+  { id: "t7", accountId: "2", date: "2024-03-24", description: "Office rent payment", reference: "RENT-03", amount: 45000, type: "debit", balance: 860000, matchStatus: "matched", matchedRef: "JE-2024-088" },
+  { id: "t8", accountId: "1", date: "2024-03-20", description: "Insurance premium", reference: "INS-Q1", amount: 12000, type: "debit", balance: 2591400, matchStatus: "partial" },
+];
+
+const bankingSampleRecon: ReconSession[] = [
+  { id: "r1", accountId: "1", periodStart: "2024-03-01", periodEnd: "2024-03-31", bankBalance: 2450000, bookBalance: 2448500, difference: 1500, status: "discrepancy", matchedCount: 45, unmatchedCount: 3 },
+  { id: "r2", accountId: "2", periodStart: "2024-02-01", periodEnd: "2024-02-29", bankBalance: 905000, bookBalance: 905000, difference: 0, status: "completed", matchedCount: 32, unmatchedCount: 0 },
+];
+
+const matchColors: Record<string, string> = { matched: "bg-green-100 text-green-800", unmatched: "bg-red-100 text-red-800", partial: "bg-yellow-100 text-yellow-800", excluded: "bg-gray-100 text-gray-600" };
 
 export default function FinancePage() {
   const store = useDataStore();
@@ -56,6 +95,54 @@ export default function FinancePage() {
   const [bankDetailId, setBankDetailId] = useState<string | null>(null);
   const [bankTxFilter, setBankTxFilter] = useState<"all" | "credit" | "debit">("all");
   const [bankTxSearch, setBankTxSearch] = useState("");
+
+  // ─── Banking (merged from banking page) ────────────────────────
+  const [bankingAccounts, setBankingAccounts] = useState(bankingSampleAccounts);
+  const [bankingTransactions] = useState(bankingSampleTransactions);
+  const [bankingRecons] = useState(bankingSampleRecon);
+  const [showAddBankingAccount, setShowAddBankingAccount] = useState(false);
+  const [newBankingAccount, setNewBankingAccount] = useState({ bankName: "", accountNumber: "", iban: "", currency: "EGP" });
+  const [bankingFilterAccount, setBankingFilterAccount] = useState("");
+  const [bankingFilterMatch, setBankingFilterMatch] = useState("");
+  const [bankingPaymentAmount, setBankingPaymentAmount] = useState("");
+
+  const bankingTotalBalance = bankingAccounts.filter(a => a.isActive).reduce((s, a) => s + a.balance, 0);
+  const bankingUnreconciled = bankingTransactions.filter(tx => tx.matchStatus === "unmatched").length;
+
+  const bankingFilteredTx = bankingTransactions.filter(tx => {
+    if (bankingFilterAccount && tx.accountId !== bankingFilterAccount) return false;
+    if (bankingFilterMatch && tx.matchStatus !== bankingFilterMatch) return false;
+    return true;
+  });
+
+  function addBankingAccount() {
+    if (!newBankingAccount.bankName || !newBankingAccount.accountNumber) return;
+    setBankingAccounts(prev => [...prev, { id: Date.now().toString(36), ...newBankingAccount, balance: 0, lastSynced: "Never", isActive: true }]);
+    setNewBankingAccount({ bankName: "", accountNumber: "", iban: "", currency: "EGP" });
+    setShowAddBankingAccount(false);
+  }
+
+  const bankingTxColumns: Column<Record<string, unknown>>[] = [
+    { key: "date", label: "Date" },
+    { key: "description", label: "Description", render: (v) => <span className="font-medium text-sm">{String(v)}</span> },
+    { key: "reference", label: "Reference", render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
+    { key: "type", label: "Type", render: (v) => (
+      <span className={`flex items-center gap-1 text-xs ${String(v) === "credit" ? "text-green-700" : "text-red-700"}`}>
+        {String(v) === "credit" ? <ArrowDownLeft className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}{String(v)}
+      </span>
+    )},
+    { key: "amount", label: "Amount (EGP)", render: (v, row) => (
+      <span className={`font-medium ${String((row as unknown as BankingTransaction).type) === "credit" ? "text-green-700" : "text-red-700"}`}>
+        {String((row as unknown as BankingTransaction).type) === "credit" ? "+" : "-"}{Number(v).toLocaleString()}
+      </span>
+    )},
+    { key: "matchStatus", label: "Match", render: (v, row) => (
+      <div>
+        <span className={`px-2 py-0.5 rounded-full text-xs capitalize ${matchColors[String(v)] || ""}`}>{String(v)}</span>
+        {(row as unknown as BankingTransaction).matchedRef && <span className="block text-[10px] text-muted-foreground mt-0.5">{(row as unknown as BankingTransaction).matchedRef}</span>}
+      </div>
+    )},
+  ];
 
   const customerName = (id: string) => store.customers.find((c) => c.id === id)?.name ?? id;
   const vendorName = (id: string) => store.vendors.find((v) => v.id === id)?.name ?? id;
@@ -325,6 +412,10 @@ export default function FinancePage() {
     { key: "ratios", label: "Financial Ratios" },
     { key: "cashflow", label: "Cash Flow" },
     { key: "sales-orders", label: `${t("fin.salesOrders")} (${store.salesOrders.length})` },
+    { key: "banking", label: "Banking" },
+    { key: "transactions", label: "Transactions" },
+    { key: "reconciliation", label: "Reconciliation" },
+    { key: "payment-gateway", label: "Payment Gateway" },
   ];
 
   // ─── Budget CRUD ──────────────────────────────────────────────
