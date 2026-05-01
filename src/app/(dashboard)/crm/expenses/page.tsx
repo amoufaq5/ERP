@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
-import { Receipt, Upload, Plus, Check, X, Download, Eye, Camera, DollarSign, Clock, BookOpen } from "lucide-react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { Receipt, Upload, Plus, Check, X, Download, Eye, Camera, DollarSign, Clock, BookOpen, ScanLine, Loader2, FileImage, Percent } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,37 @@ import { downloadCSV } from "@/lib/download";
 
 type ExpenseType = "Transport" | "Meals" | "Accommodation" | "Hotel" | "Office Supplies" | "Other";
 type ExpenseStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+// ─── OCR Types ──────────────────────────────────────────────────────────────
+
+interface OCRResult {
+  id: string;
+  fileName: string;
+  imageBase64: string;
+  vendor: string;
+  amount: number;
+  date: string;
+  category: ExpenseType;
+  confidence: number;
+  scannedAt: string;
+}
+
+const OCR_VENDORS = [
+  "Cairo Pharmacy", "Nile Medical Supplies", "El-Salam Hospital Cafeteria",
+  "Uber Egypt", "Careem", "Marriott Cairo", "Hilton Alexandria",
+  "Office Depot Egypt", "Metro Supermarket", "Vodafone Egypt",
+  "EgyptAir", "Stationery House", "El-Ezaby Pharmacy", "Sekem Organics",
+  "Al-Ahram Printing", "Delta Transport Co.",
+];
+
+const OCR_DESCRIPTIONS: Record<ExpenseType, string[]> = {
+  Transport: ["Taxi fare to hospital", "Uber ride for field visits", "Fuel for company car", "Toll fees - Ring Road"],
+  Meals: ["Lunch with doctor", "Team working lunch", "Client dinner meeting", "Coffee during hospital visit"],
+  Accommodation: ["Hotel stay for field trip", "Overnight accommodation", "Extended stay booking"],
+  Hotel: ["Conference hotel booking", "Regional meeting stay", "Training overnight"],
+  "Office Supplies": ["Printer cartridges", "Presentation folders", "Business cards printing", "Promotional brochures"],
+  Other: ["Conference registration", "Medical samples packaging", "Courier service", "Phone recharge for work"],
+};
 
 interface Expense {
   id: string;
@@ -123,6 +154,14 @@ export default function ExpensesPage() {
   const [formDescription, setFormDescription] = useState("");
   const [formPhoto, setFormPhoto] = useState<string | undefined>(undefined);
   const [formPhotoName, setFormPhotoName] = useState("");
+
+  // OCR state
+  const [ocrDialogOpen, setOcrDialogOpen] = useState(false);
+  const [ocrScanning, setOcrScanning] = useState(false);
+  const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
+  const [ocrHistory, setOcrHistory] = useState<OCRResult[]>([]);
+  const [ocrImagePreview, setOcrImagePreview] = useState<string | null>(null);
+  const ocrFileRef = useRef<HTMLInputElement>(null);
 
   // Load from localStorage
   useEffect(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback, useRef } from "react";
+import { useMemo, useState, useCallback, useRef, Fragment } from "react";
 import {
   Package, Upload, Download, FileSpreadsheet,
   Plus, Pill, AlertTriangle, DollarSign,
@@ -730,6 +730,12 @@ export default function ProductsPage() {
           <TabsTrigger value="api-upload" className="gap-2">
             <FileSpreadsheet className="h-4 w-4" /> API Upload Template
           </TabsTrigger>
+          <TabsTrigger value="bom-overview" className="gap-2">
+            <Layers className="h-4 w-4" /> BOM
+          </TabsTrigger>
+          <TabsTrigger value="lifecycle" className="gap-2">
+            <Activity className="h-4 w-4" /> Lifecycle
+          </TabsTrigger>
         </TabsList>
 
         {/* ── Tab 1: Products List ── */}
@@ -1077,6 +1083,261 @@ export default function ProductsPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* ── Tab 4: BOM Overview ── */}
+        <TabsContent value="bom-overview" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Layers className="h-5 w-5" /> Bill of Materials Overview
+              </CardTitle>
+              <CardDescription>
+                All products with their BOM status and total component cost
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="px-4 py-2.5 text-left font-medium">Product</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Code</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Form</th>
+                    <th className="px-4 py-2.5 text-center font-medium">Components</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Total BOM Cost</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Unit Price</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Margin</th>
+                    <th className="px-4 py-2.5 text-center font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {products.map((prod) => {
+                    const pBom = getBomLinesForProduct(prod.id);
+                    const bomCost = getBomTotalCost(prod.id);
+                    const margin = prod.pricePerUnit > 0 && bomCost > 0
+                      ? ((prod.pricePerUnit - bomCost) / prod.pricePerUnit * 100)
+                      : null;
+                    return (
+                      <tr key={prod.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => { setDetailProduct(prod); setDetailTab("bom"); }}>
+                        <td className="px-4 py-2.5 font-medium">{prod.name}</td>
+                        <td className="px-4 py-2.5 font-mono text-xs">{prod.code}</td>
+                        <td className="px-4 py-2.5"><Badge variant="secondary">{prod.form}</Badge></td>
+                        <td className="px-4 py-2.5 text-center">
+                          {pBom.length > 0 ? (
+                            <Badge variant="outline">{pBom.length} components</Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">No BOM</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-medium">
+                          {pBom.length > 0 ? fmt(bomCost) : <span className="text-muted-foreground">--</span>}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">{fmt(prod.pricePerUnit)}</td>
+                        <td className="px-4 py-2.5 text-right">
+                          {margin !== null ? (
+                            <span className={margin >= 0 ? "text-emerald-600 font-medium" : "text-red-600 font-medium"}>
+                              {margin.toFixed(1)}%
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">--</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-center">
+                          {pBom.length > 0 ? (
+                            <Badge className="bg-emerald-100 text-emerald-700">Defined</Badge>
+                          ) : (
+                            <Badge className="bg-gray-100 text-gray-600">Not Set</Badge>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+
+          {/* BOM Comparison */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" /> BOM Comparison
+              </CardTitle>
+              <CardDescription>Compare BOM cost structure between two products</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs">Product A</Label>
+                  <select className="w-full rounded-md border px-2 py-1.5 text-sm mt-1" value={bomCompareIds[0]} onChange={(e) => setBomCompareIds([e.target.value, bomCompareIds[1]])}>
+                    <option value="">Select product...</option>
+                    {products.filter((p) => getBomLinesForProduct(p.id).length > 0).map((p) => (
+                      <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-xs">Product B</Label>
+                  <select className="w-full rounded-md border px-2 py-1.5 text-sm mt-1" value={bomCompareIds[1]} onChange={(e) => setBomCompareIds([bomCompareIds[0], e.target.value])}>
+                    <option value="">Select product...</option>
+                    {products.filter((p) => getBomLinesForProduct(p.id).length > 0).map((p) => (
+                      <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {bomCompareIds[0] && bomCompareIds[1] && (() => {
+                const prodA = products.find((p) => p.id === bomCompareIds[0]);
+                const prodB = products.find((p) => p.id === bomCompareIds[1]);
+                const bomA = getBomLinesForProduct(bomCompareIds[0]);
+                const bomB = getBomLinesForProduct(bomCompareIds[1]);
+                const costA = getBomTotalCost(bomCompareIds[0]);
+                const costB = getBomTotalCost(bomCompareIds[1]);
+                if (!prodA || !prodB) return null;
+                return (
+                  <div className="grid grid-cols-2 gap-4">
+                    {[{ prod: prodA, bom: bomA, cost: costA }, { prod: prodB, bom: bomB, cost: costB }].map(({ prod, bom, cost }, i) => (
+                      <Card key={i} className="border">
+                        <CardContent className="p-3 space-y-2">
+                          <p className="font-medium text-sm">{prod.name} ({prod.code})</p>
+                          <div className="text-xs space-y-1">
+                            <div className="flex justify-between"><span className="text-muted-foreground">Components:</span><span>{bom.length}</span></div>
+                            <div className="flex justify-between"><span className="text-muted-foreground">Total BOM Cost:</span><span className="font-medium">{fmt(cost)}</span></div>
+                            <div className="flex justify-between"><span className="text-muted-foreground">Unit Price:</span><span>{fmt(prod.pricePerUnit)}</span></div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Margin:</span>
+                              <span className={cost > 0 && prod.pricePerUnit > cost ? "text-emerald-600 font-medium" : "text-red-600 font-medium"}>
+                                {cost > 0 ? ((prod.pricePerUnit - cost) / prod.pricePerUnit * 100).toFixed(1) : "0.0"}%
+                              </span>
+                            </div>
+                          </div>
+                          <div className="border-t pt-2 mt-2 space-y-1">
+                            {bom.map((line) => {
+                              const comp = products.find((pr) => pr.id === line.componentProductId);
+                              return (
+                                <div key={line.id} className="flex justify-between text-xs">
+                                  <span className="text-muted-foreground truncate max-w-[150px]">{comp?.name || "?"}</span>
+                                  <span>{line.quantityRequired} {line.unit} = {comp ? fmt(line.quantityRequired * comp.pricePerUnit) : "N/A"}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Tab 5: Lifecycle ── */}
+        <TabsContent value="lifecycle" className="space-y-4">
+          {/* Lifecycle Analytics */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {LIFECYCLE_STAGES.map((stage) => {
+              const count = productLifecycles.filter((lc) => lc.stage === stage).length;
+              const avgDays = (() => {
+                const relevant = productLifecycles.flatMap((lc) =>
+                  lc.history.filter((h) => h.stage === stage && h.exitedAt).map((h) => {
+                    const entered = new Date(h.enteredAt).getTime();
+                    const exited = new Date(h.exitedAt!).getTime();
+                    return Math.round((exited - entered) / 86400000);
+                  })
+                );
+                return relevant.length > 0 ? Math.round(relevant.reduce((a, b) => a + b, 0) / relevant.length) : null;
+              })();
+              return (
+                <Card key={stage}>
+                  <CardContent className="p-3 text-center">
+                    <div className={`inline-block w-3 h-3 rounded-full mb-1 ${lifecycleStageDotColors[stage]}`} />
+                    <p className="text-xs font-medium text-muted-foreground">{stage}</p>
+                    <p className="text-2xl font-bold">{count}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {avgDays !== null ? `Avg: ${avgDays}d` : "No data"}
+                    </p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Product Lifecycle Cards */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Activity className="h-5 w-5" /> Product Lifecycle Status
+              </CardTitle>
+              <CardDescription>Track each product through its lifecycle stages</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {products.map((prod) => {
+                const lc = getLifecycle(prod.id);
+                const currentStage = lc?.stage || null;
+                const currentIdx = currentStage ? LIFECYCLE_STAGES.indexOf(currentStage) : -1;
+                return (
+                  <Card key={prod.id} className="border">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className="font-medium">{prod.name} <span className="text-xs text-muted-foreground font-mono">({prod.code})</span></p>
+                          <p className="text-xs text-muted-foreground">{prod.form} - {prod.therapeuticArea}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {currentStage && (
+                            <Badge className={lifecycleStageColors[currentStage]}>{currentStage}</Badge>
+                          )}
+                          {!lc && (
+                            <Button size="sm" variant="outline" onClick={() => advanceLifecycleStage(prod.id)}>
+                              <Plus className="h-3 w-3 mr-1" /> Start Lifecycle
+                            </Button>
+                          )}
+                          {lc && currentIdx < LIFECYCLE_STAGES.length - 1 && (
+                            <Button size="sm" onClick={() => advanceLifecycleStage(prod.id)}>
+                              <ArrowRight className="h-3 w-3 mr-1" /> Advance to {LIFECYCLE_STAGES[currentIdx + 1]}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Stage flow visualization */}
+                      <div className="flex items-center gap-0 overflow-x-auto pb-1">
+                        {LIFECYCLE_STAGES.map((stage, idx) => {
+                          const isActive = currentIdx >= idx;
+                          const isCurrent = currentStage === stage;
+                          const historyEntry = lc?.history.find((h) => h.stage === stage);
+                          return (
+                            <Fragment key={stage}>
+                              {idx > 0 && (
+                                <div className={`h-0.5 w-4 sm:w-6 flex-shrink-0 ${isActive ? "bg-primary" : "bg-muted"}`} />
+                              )}
+                              <div className="flex flex-col items-center flex-shrink-0 relative group" title={historyEntry ? `Entered: ${new Date(historyEntry.enteredAt).toLocaleDateString()}${historyEntry.exitedAt ? `\nExited: ${new Date(historyEntry.exitedAt).toLocaleDateString()}` : ""}` : ""}>
+                                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-all
+                                  ${isCurrent ? "border-primary bg-primary text-primary-foreground scale-110 ring-2 ring-primary/30" :
+                                    isActive ? "border-primary bg-primary/10 text-primary" :
+                                    "border-muted bg-background text-muted-foreground"}`}>
+                                  {idx + 1}
+                                </div>
+                                <span className={`text-[9px] mt-0.5 whitespace-nowrap ${isCurrent ? "font-bold text-primary" : isActive ? "text-foreground" : "text-muted-foreground"}`}>
+                                  {stage}
+                                </span>
+                                {historyEntry && (
+                                  <span className="text-[8px] text-muted-foreground whitespace-nowrap">
+                                    {new Date(historyEntry.enteredAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                  </span>
+                                )}
+                              </div>
+                            </Fragment>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
@@ -1426,6 +1687,164 @@ export default function ProductsPage() {
                         </CardContent>
                       </Card>
                     ))}
+                  </div>
+                )}
+
+                {/* BOM Tab */}
+                {detailTab === "bom" && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">Bill of Materials ({productBomLines.length} components)</p>
+                      <Button size="sm" onClick={openNewBomLine}>
+                        <Plus className="h-3 w-3 mr-1" /> Add Component
+                      </Button>
+                    </div>
+
+                    {/* Add BOM Line Form */}
+                    {bomFormOpen && (
+                      <Card className="border-primary/30">
+                        <CardContent className="p-4 space-y-3">
+                          <p className="text-sm font-semibold">Add BOM Component</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2">
+                              <Label className="text-xs">Component</Label>
+                              <select className="w-full rounded-md border px-2 py-1.5 text-xs mt-0.5" value={bomComponentId} onChange={(e) => setBomComponentId(e.target.value)}>
+                                <option value="">Select component...</option>
+                                {products.filter((pr) => pr.id !== p.id).map((pr) => (
+                                  <option key={pr.id} value={pr.id}>{pr.code} - {pr.name} {pr.strength}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <Label className="text-xs">Quantity Required</Label>
+                              <Input className="h-8 text-sm mt-0.5" type="number" step="0.01" value={bomQty} onChange={(e) => setBomQty(Number(e.target.value))} />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Unit</Label>
+                              <select className="w-full rounded-md border px-2 py-1.5 text-xs mt-0.5" value={bomUnit} onChange={(e) => setBomUnit(e.target.value)}>
+                                {["kg", "g", "mg", "L", "ml", "units", "pcs"].map((u) => (
+                                  <option key={u} value={u}>{u}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <Label className="text-xs">BOM Level</Label>
+                              <select className="w-full rounded-md border px-2 py-1.5 text-xs mt-0.5" value={bomLevel} onChange={(e) => setBomLevel(Number(e.target.value))}>
+                                <option value={0}>Level 0 (Direct)</option>
+                                <option value={1}>Level 1 (Sub-assembly)</option>
+                                <option value={2}>Level 2 (Raw material)</option>
+                              </select>
+                            </div>
+                            <div>
+                              <Label className="text-xs">Notes (optional)</Label>
+                              <Input className="h-8 text-sm mt-0.5" value={bomNotes} onChange={(e) => setBomNotes(e.target.value)} placeholder="Usage notes..." />
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={submitBomLine} disabled={!bomComponentId || bomQty <= 0}>
+                              <Plus className="h-3 w-3 mr-1" /> Add to BOM
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setBomFormOpen(false)}>Cancel</Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* BOM Tree View */}
+                    {productBomLines.length === 0 && !bomFormOpen ? (
+                      <p className="text-sm text-muted-foreground text-center py-4 border rounded-lg">No BOM components defined for this product.</p>
+                    ) : productBomLines.length > 0 && (
+                      <Card>
+                        <CardContent className="p-0">
+                          <table className="w-full text-xs">
+                            <thead className="bg-muted/50">
+                              <tr>
+                                <th className="px-3 py-2 text-left">Component</th>
+                                <th className="px-3 py-2 text-right">Qty Required</th>
+                                <th className="px-3 py-2 text-left">Unit</th>
+                                <th className="px-3 py-2 text-right">Cost/Unit</th>
+                                <th className="px-3 py-2 text-right">Total Cost</th>
+                                <th className="px-3 py-2 text-center">Level</th>
+                                <th className="px-3 py-2 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {productBomLines.map((line) => {
+                                const comp = products.find((pr) => pr.id === line.componentProductId);
+                                const subBom = getBomLinesForProduct(line.componentProductId);
+                                const hasChildren = subBom.length > 0;
+                                const isExpanded = expandedBomRows.has(line.id);
+                                return (
+                                  <Fragment key={line.id}>
+                                    <tr className="hover:bg-muted/30">
+                                      <td className="px-3 py-2">
+                                        <div className="flex items-center gap-1" style={{ paddingLeft: `${line.level * 16}px` }}>
+                                          {hasChildren ? (
+                                            <button onClick={() => toggleBomExpand(line.id)} className="p-0.5 hover:bg-muted rounded">
+                                              {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                            </button>
+                                          ) : (
+                                            <span className="w-4" />
+                                          )}
+                                          <span className="font-medium">{comp ? `${comp.name} (${comp.code})` : line.componentProductId}</span>
+                                        </div>
+                                        {line.notes && <p className="text-[10px] text-muted-foreground ml-5" style={{ paddingLeft: `${line.level * 16}px` }}>{line.notes}</p>}
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-mono">{line.quantityRequired}</td>
+                                      <td className="px-3 py-2">{line.unit}</td>
+                                      <td className="px-3 py-2 text-right">{comp ? fmt(comp.pricePerUnit) : "N/A"}</td>
+                                      <td className="px-3 py-2 text-right font-medium">{comp ? fmt(line.quantityRequired * comp.pricePerUnit) : "N/A"}</td>
+                                      <td className="px-3 py-2 text-center">
+                                        <Badge variant="outline" className="text-[10px]">L{line.level}</Badge>
+                                      </td>
+                                      <td className="px-3 py-2 text-right">
+                                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500" onClick={() => removeBomLine(line.id)}>
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </td>
+                                    </tr>
+                                    {/* Expanded sub-BOM children */}
+                                    {isExpanded && subBom.map((subLine) => {
+                                      const subComp = products.find((pr) => pr.id === subLine.componentProductId);
+                                      return (
+                                        <tr key={subLine.id} className="bg-muted/10 hover:bg-muted/20">
+                                          <td className="px-3 py-1.5">
+                                            <div className="flex items-center gap-1" style={{ paddingLeft: `${(line.level + 1) * 16 + 4}px` }}>
+                                              <GitBranch className="h-3 w-3 text-muted-foreground" />
+                                              <span className="text-muted-foreground">{subComp ? `${subComp.name} (${subComp.code})` : subLine.componentProductId}</span>
+                                            </div>
+                                          </td>
+                                          <td className="px-3 py-1.5 text-right font-mono text-muted-foreground">{subLine.quantityRequired}</td>
+                                          <td className="px-3 py-1.5 text-muted-foreground">{subLine.unit}</td>
+                                          <td className="px-3 py-1.5 text-right text-muted-foreground">{subComp ? fmt(subComp.pricePerUnit) : "N/A"}</td>
+                                          <td className="px-3 py-1.5 text-right text-muted-foreground">{subComp ? fmt(subLine.quantityRequired * subComp.pricePerUnit) : "N/A"}</td>
+                                          <td className="px-3 py-1.5 text-center">
+                                            <Badge variant="outline" className="text-[10px] opacity-60">sub</Badge>
+                                          </td>
+                                          <td className="px-3 py-1.5" />
+                                        </tr>
+                                      );
+                                    })}
+                                  </Fragment>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot className="bg-muted/30 border-t">
+                              <tr>
+                                <td colSpan={4} className="px-3 py-2 font-semibold text-sm">Total BOM Cost</td>
+                                <td className="px-3 py-2 text-right font-bold text-sm">
+                                  {fmt(productBomLines.reduce((s, line) => {
+                                    const comp = products.find((pr) => pr.id === line.componentProductId);
+                                    return s + (comp ? line.quantityRequired * comp.pricePerUnit : 0);
+                                  }, 0))}
+                                </td>
+                                <td colSpan={2} />
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </CardContent>
+                      </Card>
+                    )}
                   </div>
                 )}
               </div>

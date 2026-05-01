@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import {
   MapPin,
@@ -10,6 +10,12 @@ import {
   Users,
   CheckSquare,
   Activity,
+  Clock,
+  ArrowRight,
+  Shield,
+  AlertTriangle,
+  Target,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -90,6 +96,149 @@ const TERRITORIES: Territory[] = [
   { id: "T-002", name: "Giza & 6th October", rep: "Tarek Samir (DM)", description: "Mohandessin, Dokki, 6th of October City. Includes Dar Al Fouad and private specialty clinics.", color: "bg-purple-500", accounts: 67 },
   { id: "T-003", name: "Maadi & New Cairo", rep: "Mariam Fouad (DM)", description: "Maadi, Tagammu, New Cairo. Strong pharmacy chain presence — El-Ezaby and Seif branches.", color: "bg-emerald-500", accounts: 52 },
 ];
+
+/* ---------- Route Planner types & seed data ---------- */
+
+interface RouteStop {
+  id: string;
+  order: number;
+  account: string;
+  address: string;
+  lat: number;
+  lng: number;
+  estimatedArrival: string;
+  estimatedDuration: number; // minutes on-site
+  type: "Hospital" | "Clinic" | "Pharmacy";
+}
+
+const ROUTE_STOPS: RouteStop[] = [
+  { id: "RS-001", order: 1, account: "Qasr El Ainy Hospital", address: "Qasr Al Ainy St, Old Cairo", lat: 30.0282, lng: 31.2275, estimatedArrival: "09:00 AM", estimatedDuration: 45, type: "Hospital" },
+  { id: "RS-002", order: 2, account: "Dr. Hany Morcos — Neurology Clinic", address: "26th of July St, Zamalek", lat: 30.0609, lng: 31.2194, estimatedArrival: "10:15 AM", estimatedDuration: 30, type: "Clinic" },
+  { id: "RS-003", order: 3, account: "Seif Pharmacy — Dokki", address: "Mesaha Square, Dokki, Giza", lat: 30.0380, lng: 31.2010, estimatedArrival: "11:15 AM", estimatedDuration: 20, type: "Pharmacy" },
+  { id: "RS-004", order: 4, account: "Al Salam International Hospital", address: "Corniche El Nil, Maadi", lat: 29.9600, lng: 31.2320, estimatedArrival: "12:15 PM", estimatedDuration: 50, type: "Hospital" },
+  { id: "RS-005", order: 5, account: "Dr. Laila Farouk — Cardiology", address: "El Nasr Rd, Nasr City", lat: 30.0511, lng: 31.3456, estimatedArrival: "02:00 PM", estimatedDuration: 35, type: "Clinic" },
+  { id: "RS-006", order: 6, account: "El-Ezaby Pharmacy — Heliopolis", address: "El Merghany St, Heliopolis", lat: 30.0870, lng: 31.3300, estimatedArrival: "03:15 PM", estimatedDuration: 20, type: "Pharmacy" },
+];
+
+/** Haversine distance in km between two lat/lng points */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Estimate driving time in minutes (~30 km/h average in Cairo) */
+function estimateDriveMin(km: number): number {
+  return Math.round((km / 30) * 60);
+}
+
+function totalRouteDistance(stops: RouteStop[]): number {
+  let d = 0;
+  for (let i = 1; i < stops.length; i++) {
+    d += haversineKm(stops[i - 1].lat, stops[i - 1].lng, stops[i].lat, stops[i].lng);
+  }
+  return d;
+}
+
+function totalRouteTime(stops: RouteStop[]): number {
+  let t = 0;
+  for (let i = 1; i < stops.length; i++) {
+    t += estimateDriveMin(haversineKm(stops[i - 1].lat, stops[i - 1].lng, stops[i].lat, stops[i].lng));
+  }
+  // Add on-site time
+  for (const s of stops) t += s.estimatedDuration;
+  return t;
+}
+
+/** Nearest-neighbor route optimizer starting from the first stop */
+function optimizeRoute(stops: RouteStop[]): RouteStop[] {
+  if (stops.length <= 2) return stops.map((s, i) => ({ ...s, order: i + 1 }));
+  const remaining = [...stops];
+  const result: RouteStop[] = [remaining.shift()!];
+  while (remaining.length > 0) {
+    const last = result[result.length - 1];
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const d = haversineKm(last.lat, last.lng, remaining[i].lat, remaining[i].lng);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+    result.push(remaining.splice(bestIdx, 1)[0]);
+  }
+  // Recalculate arrivals
+  let currentTime = 9 * 60; // 09:00 in minutes
+  return result.map((s, i) => {
+    if (i > 0) {
+      const driveMin = estimateDriveMin(haversineKm(result[i - 1].lat, result[i - 1].lng, s.lat, s.lng));
+      currentTime += result[i - 1].estimatedDuration + driveMin;
+    }
+    const hours = Math.floor(currentTime / 60);
+    const mins = currentTime % 60;
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const h12 = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+    return {
+      ...s,
+      order: i + 1,
+      estimatedArrival: `${h12.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")} ${ampm}`,
+    };
+  });
+}
+
+/* ---------- Geofencing types & seed data ---------- */
+
+type GeofenceEventType = "ENTERED" | "EXITED";
+
+interface GeofenceZone {
+  id: string;
+  name: string;
+  type: "Hospital" | "Pharmacy" | "Clinic" | "Distributor";
+  centerLat: number;
+  centerLng: number;
+  radius: number; // meters
+  totalVisits: number;
+  compliantVisits: number;
+}
+
+interface GeofenceAlert {
+  id: string;
+  rep: string;
+  zone: string;
+  event: GeofenceEventType;
+  timestamp: string;
+  duration: string;
+  compliant: boolean;
+}
+
+const GEOFENCE_ZONES: GeofenceZone[] = [
+  { id: "GZ-001", name: "Qasr El Ainy Hospital", type: "Hospital", centerLat: 30.0282, centerLng: 31.2275, radius: 150, totalVisits: 42, compliantVisits: 39 },
+  { id: "GZ-002", name: "Cleopatra Hospital — Heliopolis", type: "Hospital", centerLat: 30.0988, centerLng: 31.3413, radius: 200, totalVisits: 35, compliantVisits: 34 },
+  { id: "GZ-003", name: "Seif Pharmacy — Dokki", type: "Pharmacy", centerLat: 30.0380, centerLng: 31.2010, radius: 80, totalVisits: 28, compliantVisits: 24 },
+  { id: "GZ-004", name: "Dr. Hany Morcos — Neurology", type: "Clinic", centerLat: 30.0609, centerLng: 31.2194, radius: 100, totalVisits: 19, compliantVisits: 18 },
+  { id: "GZ-005", name: "Al Salam International Hospital", type: "Hospital", centerLat: 29.9600, centerLng: 31.2320, radius: 250, totalVisits: 31, compliantVisits: 29 },
+];
+
+const GEOFENCE_ALERTS: GeofenceAlert[] = [
+  { id: "GA-001", rep: "Mohamed El-Sayed", zone: "Qasr El Ainy Hospital", event: "ENTERED", timestamp: "2026-05-01 09:12 AM", duration: "47 min", compliant: true },
+  { id: "GA-002", rep: "Mohamed El-Sayed", zone: "Qasr El Ainy Hospital", event: "EXITED", timestamp: "2026-05-01 09:59 AM", duration: "—", compliant: true },
+  { id: "GA-003", rep: "Nadia Hamdy", zone: "Cleopatra Hospital — Heliopolis", event: "ENTERED", timestamp: "2026-05-01 10:05 AM", duration: "1h 22min", compliant: true },
+  { id: "GA-004", rep: "Nadia Hamdy", zone: "Cleopatra Hospital — Heliopolis", event: "EXITED", timestamp: "2026-05-01 11:27 AM", duration: "—", compliant: true },
+  { id: "GA-005", rep: "Youssef Rashad", zone: "Al Salam International Hospital", event: "ENTERED", timestamp: "2026-05-01 11:48 AM", duration: "Ongoing", compliant: true },
+  { id: "GA-006", rep: "Heba El-Gendy", zone: "Seif Pharmacy — Dokki", event: "ENTERED", timestamp: "2026-05-01 02:33 PM", duration: "18 min", compliant: false },
+  { id: "GA-007", rep: "Heba El-Gendy", zone: "Seif Pharmacy — Dokki", event: "EXITED", timestamp: "2026-05-01 02:51 PM", duration: "—", compliant: false },
+  { id: "GA-008", rep: "Mostafa Kamal", zone: "Dr. Hany Morcos — Neurology", event: "ENTERED", timestamp: "2026-05-01 01:15 PM", duration: "32 min", compliant: true },
+];
+
+const GEOFENCE_EVENT_STYLES: Record<GeofenceEventType, string> = {
+  ENTERED: "bg-green-100 text-green-800",
+  EXITED: "bg-slate-100 text-slate-800",
+};
 
 const VISIT_STATUS_STYLES: Record<VisitStatus, string> = {
   PLANNED: "bg-blue-100 text-blue-800",

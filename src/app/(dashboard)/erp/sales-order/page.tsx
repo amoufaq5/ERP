@@ -247,15 +247,19 @@ export default function SalesOrderPage() {
 
   // Auto-expire check: mark quotations past validUntil as Expired
   const today = new Date().toISOString().slice(0, 10);
-  const expireQuotations = () => {
-    setQuotations(prev => prev.map(q =>
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per day-change to expire old quotes
+  useMemo(() => {
+    const needsExpiry = quotations.some(q =>
       (q.status === "Draft" || q.status === "Sent") && q.validUntil < today
-        ? { ...q, status: "Expired" as QuotationStatus }
-        : q
-    ));
-  };
-  // Run auto-expire on each render cycle (lightweight check)
-  useMemo(() => { expireQuotations(); }, [today]);
+    );
+    if (needsExpiry) {
+      setQuotations(prev => prev.map(q =>
+        (q.status === "Draft" || q.status === "Sent") && q.validUntil < today
+          ? { ...q, status: "Expired" as QuotationStatus }
+          : q
+      ));
+    }
+  }, [today]);
 
   const filteredQuotations = useMemo(() => {
     return quotations.filter((q) => {

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useRef, useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -9,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Diamond, ArrowRight } from "lucide-react";
+import { Diamond } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

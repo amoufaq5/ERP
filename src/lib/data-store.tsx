@@ -232,6 +232,9 @@ export interface Visit {
 // ─── Weekly Plan & Daily Plan ───────────────────────────────────────────────
 export type PlanStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
 
+export type PlannedVisitCategory = "planned" | "unplanned" | "follow-up";
+export type PlannedVisitOutcome = "successful" | "follow-up needed" | "no show" | "pending";
+
 export interface PlannedVisit {
   doctorId?: string;
   amAccountId?: string;
@@ -240,6 +243,10 @@ export interface PlannedVisit {
   visitType: VisitType;
   partnerId?: string;
   notes?: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  category?: PlannedVisitCategory;
+  outcome?: PlannedVisitOutcome;
 }
 
 export interface DailyPlan {
