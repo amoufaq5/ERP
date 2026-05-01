@@ -14,7 +14,7 @@ import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { useCurrentUser } from "@/lib/user-context";
-import { useDataStore } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import { downloadCSV } from "@/lib/download";
 import { useNotificationCenter } from "@/lib/notification-context";
 import { useAuditLogger } from "@/lib/audit-logger";
@@ -189,7 +189,7 @@ function seedExpenses(): Expense[] {
 
 export default function ExpensesPage() {
   const { user, allUsers } = useCurrentUser();
-  const store = useDataStore();
+  const store = useApiDataStore();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loaded, setLoaded] = useState(false);
 

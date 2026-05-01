@@ -44,8 +44,8 @@ import {
   type EntityField,
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import {
-  useDataStore,
   scopeMarketRequests,
   type MarketRequest,
   type PurchaseOrder,
@@ -246,7 +246,7 @@ import { useNotificationCenter } from "@/lib/notification-context";
 import { useAuditLogger } from "@/lib/audit-logger";
 
 export default function MarketRequestsPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const { user, allUsers, getReportsOf } = useCurrentUser();
 
   // ─── Notification & Audit hooks ──────────────────────────────────────────

@@ -27,7 +27,8 @@ import {
 } from "@/components/shared/entity-form-modal";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
-import { useDataStore, type Product, type ProductDocument, type ConversionFormula, type BOMLine, type ProductLifecycle, LIFECYCLE_STAGES, type LifecycleStage } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { type Product, type ProductDocument, type ConversionFormula, type BOMLine, type ProductLifecycle, LIFECYCLE_STAGES, type LifecycleStage } from "@/lib/data-store";
 import { downloadCSV } from "@/lib/download";
 
 /* ─── Constants ──────────────────────────────────────────────────── */
@@ -118,7 +119,7 @@ function validateAPIRow(row: Record<string, string>, idx: number): ValidationErr
 /* ─── Component ──────────────────────────────────────────────────── */
 
 export default function ProductsPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const products = store.products;
   const businessUnits = store.businessUnits;
 

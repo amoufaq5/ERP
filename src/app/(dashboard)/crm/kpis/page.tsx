@@ -16,7 +16,7 @@ import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { EntityFormModal, type EntityField, type EntityFormData } from "@/components/shared/entity-form-modal";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
-import { useDataStore } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import { useCurrentUser } from "@/lib/user-context";
 import { downloadCSV } from "@/lib/download";
 
@@ -133,7 +133,7 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
 
 function KPIDashboardTab() {
   const { user, allUsers, getReportsOf } = useCurrentUser();
-  const store = useDataStore();
+  const store = useApiDataStore();
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
   const [timePeriod, setTimePeriod] = useState<string>("month");
@@ -512,7 +512,7 @@ function KPIDashboardTab() {
 
 function SetTargetsTab() {
   const { user, allUsers, getReportsOf } = useCurrentUser();
-  const store = useDataStore();
+  const store = useApiDataStore();
   const [showModal, setShowModal] = useState(false);
 
   // Can this user set targets?
@@ -671,7 +671,7 @@ function SetTargetsTab() {
 
 function ReportsTab() {
   const { user, allUsers, getReportsOf } = useCurrentUser();
-  const store = useDataStore();
+  const store = useApiDataStore();
 
   // Determine visible users
   const visibleUsers = useMemo(() => {
@@ -850,7 +850,7 @@ function ReportsTab() {
 
 function RankingsTab() {
   const { user, allUsers, getReportsOf } = useCurrentUser();
-  const store = useDataStore();
+  const store = useApiDataStore();
   const [selectedMetric, setSelectedMetric] = useState<string>("ALL");
 
   // Determine visible users

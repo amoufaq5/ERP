@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import PageHeader from "@/components/shared/page-header"
 import { useTranslation } from "@/lib/i18n/i18n-context"
-import { useDataStore } from "@/lib/data-store"
+import { useApiDataStore } from "@/lib/api/use-api-store"
 
 const PERIODS = ["This Month", "Last Month", "This Quarter", "Last Quarter", "This Year"] as const
 
@@ -103,7 +103,7 @@ const severityColors: Record<string, string> = { low: "bg-blue-100 text-blue-800
 
 export default function AnalyticsPage() {
   const { t } = useTranslation()
-  const store = useDataStore()
+  const store = useApiDataStore()
 
   /* top-level tab */
   const [mainTab, setMainTab] = useState<MainTab>("bi")

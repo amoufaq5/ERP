@@ -74,7 +74,8 @@ import Link from "next/link";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 import { useAppConfig } from "@/lib/config-context";
-import { useDataStore, BUYING_LADDER_STAGES, type BuyingLadderStage, type SampleGiven } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { BUYING_LADDER_STAGES, type BuyingLadderStage, type SampleGiven } from "@/lib/data-store";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
 const fmtEGP = (n: number) => `EGP ${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
@@ -202,7 +203,7 @@ function useLocalStorageData<T>(key: string): T[] {
 }
 
 function ModuleQuickStatsRow() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const leads = useLocalStorageData<StoredLead>(LEAD_STORAGE_KEY);
 
   // Finance stats
@@ -294,7 +295,7 @@ function ModuleQuickStatsRow() {
 }
 
 function OperationalAlertsBanner() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
   const overdueInvoices = store.invoices.filter((i) => i.status === "OVERDUE").length;
@@ -341,7 +342,7 @@ function OperationalAlertsBanner() {
 }
 
 function ApprovalQueueWidget() {
-  const store = useDataStore();
+  const store = useApiDataStore();
 
   const pendingExpenses = useLocalStorageData<StoredExpense>(EXPENSE_STORAGE_KEY).filter((e) => e.status === "PENDING");
   const pendingPlans = store.weeklyPlans.filter((wp) => wp.status === "SUBMITTED");
@@ -425,7 +426,7 @@ interface ActivityItem {
 }
 
 function ActivityFeedWidget() {
-  const store = useDataStore();
+  const store = useApiDataStore();
 
   const activities = useMemo(() => {
     const items: ActivityItem[] = [];
@@ -565,7 +566,7 @@ function ActivityFeedWidget() {
 }
 
 function RevenueAndSalesCharts() {
-  const store = useDataStore();
+  const store = useApiDataStore();
 
   // Monthly revenue trend (last 6 months)
   const monthlyRevenue = useMemo(() => {
@@ -925,7 +926,7 @@ function TeamQuizResultsCard({ getReportsOf, userId }: { getReportsOf: (id: stri
 
 function AdminDashboard() {
   const { user } = useCurrentUser();
-  const store = useDataStore();
+  const store = useApiDataStore();
   const totalRevenue = store.invoices
     .filter((i) => i.status === "PAID" || i.status === "PARTIAL")
     .reduce((s, i) => s + i.total, 0);
@@ -1035,7 +1036,7 @@ function AdminDashboard() {
 
 function BUMDashboard() {
   const { user, allUsers, getReportsOf } = useCurrentUser();
-  const store = useDataStore();
+  const store = useApiDataStore();
 
   // All people under BUM
   const allSubordinates = getReportsOf(user.id);
@@ -1319,7 +1320,7 @@ function BUMDashboard() {
 
 function MarketeerDashboard() {
   const { user, getReportsOf } = useCurrentUser();
-  const store = useDataStore();
+  const store = useApiDataStore();
 
   // My DMs and their reps
   const myReports = getReportsOf(user.id);
@@ -1474,7 +1475,7 @@ function MarketeerDashboard() {
 
 function DistrictManagerDashboard() {
   const { user, getReportsOf } = useCurrentUser();
-  const store = useDataStore();
+  const store = useApiDataStore();
 
   // My reps
   const myReps = getReportsOf(user.id);
@@ -1712,7 +1713,7 @@ function DistrictManagerDashboard() {
 
 function MedicalRepDashboard() {
   const { user } = useCurrentUser();
-  const store = useDataStore();
+  const store = useApiDataStore();
 
   const myVisits = store.visits.filter((v) => v.repId === user.id);
   const myDoctors = store.doctors.filter((d) => d.assignedRepId === user.id);
@@ -2048,7 +2049,7 @@ function MedicalRepDashboard() {
 function AccountantDashboard() {
   const { user } = useCurrentUser();
   const { config } = useAppConfig();
-  const store = useDataStore();
+  const store = useApiDataStore();
   const arOutstanding = store.customers.reduce((s, c) => s + c.outstanding, 0);
   const apOutstanding = store.vendors.reduce((s, v) => s + v.outstanding, 0);
   const bankBalance = store.bankAccounts
@@ -2197,7 +2198,7 @@ function WarehouseDashboard() {
 
 function HRDashboard() {
   const { user } = useCurrentUser();
-  const store = useDataStore();
+  const store = useApiDataStore();
   const openTasks = store.tasks.filter((t) => t.status === "TODO" || t.status === "IN_PROGRESS").length;
   return (
     <div className="p-6 space-y-6">

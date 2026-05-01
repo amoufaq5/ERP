@@ -16,8 +16,8 @@ import {
   type EntityField,
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import {
-  useDataStore,
   scopeDoctors,
   type Doctor,
 } from "@/lib/data-store";
@@ -43,7 +43,7 @@ function getSuggestedProductNames(specialty: string): string[] | "ALL" {
 }
 
 export default function DoctorsPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const { user, allUsers, getReportsOf } = useCurrentUser();
 
   const [search, setSearch] = useState("");

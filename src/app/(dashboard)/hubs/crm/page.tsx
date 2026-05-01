@@ -11,7 +11,7 @@ import {
   Clock,
 } from "lucide-react";
 
-import { useDataStore } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StatsCard from "@/components/shared/stats-card";
@@ -92,7 +92,7 @@ const RECENT_ACTIVITIES: {
 // ---------------------------------------------------------------------------
 
 export default function CRMSalesHubPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
 
   // ---- KPIs ---------------------------------------------------------------
 

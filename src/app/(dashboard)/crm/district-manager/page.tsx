@@ -28,8 +28,8 @@ import {
   type EntityField,
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import {
-  useDataStore,
   scopeDoctors,
   scopeVisits,
   scopeMarketRequests,
@@ -39,7 +39,7 @@ import {
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 
 export default function DistrictManagerPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const { user, allUsers, getReportsOf } = useCurrentUser();
 
   const [search, setSearch] = useState("");

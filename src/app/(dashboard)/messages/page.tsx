@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useDataStore, type Message } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { type Message } from "@/lib/data-store";
 import { useCurrentUser, DEMO_USERS } from "@/lib/user-context";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { DataTable, type Column } from "@/components/shared/data-table";
@@ -66,7 +67,7 @@ type Folder = "inbox" | "sent" | "starred";
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function MessagesPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const { user, allUsers } = useCurrentUser();
   const { t } = useTranslation();
   const currentUserId = user.id;

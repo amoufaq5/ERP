@@ -21,8 +21,8 @@ import {
   type EntityField,
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import {
-  useDataStore,
   type Territory,
 } from "@/lib/data-store";
 import { useCurrentUser } from "@/lib/user-context";
@@ -49,7 +49,7 @@ const LEVEL_ICONS: Record<Territory["level"], typeof Globe> = {
 };
 
 export default function TerritoriesPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const { user, allUsers } = useCurrentUser();
   const canEdit = user.role === "ADMIN" || user.role === "BUM" || user.role === "MARKETEER";
 

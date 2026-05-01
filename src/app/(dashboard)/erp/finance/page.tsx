@@ -14,7 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useDataStore, type Invoice, type Payment, type Budget, type GLAccount, type SalesOrder, type BankAccount } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { type Invoice, type Payment, type Budget, type GLAccount, type SalesOrder, type BankAccount } from "@/lib/data-store";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useApprovals } from "@/lib/approval-workflow";
@@ -72,7 +73,7 @@ const bankingSampleRecon: ReconSession[] = [
 const matchColors: Record<string, string> = { matched: "bg-green-100 text-green-800", unmatched: "bg-red-100 text-red-800", partial: "bg-yellow-100 text-yellow-800", excluded: "bg-gray-100 text-gray-600" };
 
 export default function FinancePage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const approvals = useApprovals();
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>("overview");

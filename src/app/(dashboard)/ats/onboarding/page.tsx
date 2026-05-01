@@ -105,7 +105,7 @@ const FILTER_FIELDS = [
 const taskStatusFlow: Record<string, OnboardingTask["status"]> = { PENDING: "IN_PROGRESS", IN_PROGRESS: "COMPLETED" };
 
 export default function OnboardingPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const [employees] = useState<OnboardingEmployee[]>(INITIAL_EMPLOYEES);
   const [tasks, setTasks] = useState<OnboardingTask[]>(INITIAL_TASKS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", category: "" });

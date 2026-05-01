@@ -87,7 +87,7 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 const WEEK_DATES = ["2026-04-13", "2026-04-14", "2026-04-15", "2026-04-16", "2026-04-17"];
 
 export default function InterviewsPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const [interviews, setInterviews] = useState<Interview[]>(INITIAL_INTERVIEWS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", type: "" });
   const [view, setView] = useState<"table" | "calendar">("table");

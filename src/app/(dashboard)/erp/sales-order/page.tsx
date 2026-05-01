@@ -19,7 +19,8 @@ import StatusBadge from "@/components/shared/status-badge";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
-import { useDataStore, type SalesOrder, type DeliveryNote } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { type SalesOrder, type DeliveryNote } from "@/lib/data-store";
 import { CustomerLink } from "@/components/shared/entity-detail-dialog";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
@@ -181,7 +182,7 @@ const destructionFields: EntityField[] = [
 type ReturnModalType = { kind: "return"; editing: typeof RETURNS[0] | null } | { kind: "credit"; editing: typeof CREDIT_NOTES[0] | null } | { kind: "destruction"; editing: typeof DESTRUCTION[0] | null } | null;
 
 export default function SalesOrderPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const [showSOModal, setShowSOModal] = useState(false);
   const [activeTab, setActiveTab] = useState("orders");
   const { t } = useTranslation();

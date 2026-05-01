@@ -35,7 +35,8 @@ import {
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { downloadCSV } from "@/lib/download";
-import { useDataStore, type Employee } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { type Employee } from "@/lib/data-store";
 
 interface LeaveRequest {
   id: string;

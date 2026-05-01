@@ -30,7 +30,8 @@ import {
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useDataStore, type Cheque, type Invoice } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { type Cheque, type Invoice } from "@/lib/data-store";
 import { CustomerLink } from "@/components/shared/entity-detail-dialog";
 
 /* ─── Payment type ─── */
@@ -74,7 +75,7 @@ const COLLECTORS = ["Ahmed Hassan", "Mahmoud Ali", "Karim Saeed", "System"];
 
 export default function CollectionsPage() {
   const { t } = useTranslation();
-  const store = useDataStore();
+  const store = useApiDataStore();
 
   const [payments, setPayments] = useState<Payment[]>(SEED_PAYMENTS);
   const [routes, setRoutes] = useState<CollectionRoute[]>(SEED_ROUTES);

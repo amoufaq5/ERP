@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
-import { useDataStore } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
@@ -224,7 +224,7 @@ type ModalMode =
   | null;
 
 export default function SupplyChainPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [modal, setModal] = useState<ModalMode>(null);
   const [pos, setPos] = useState(INITIAL_PURCHASE_ORDERS);

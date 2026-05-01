@@ -36,8 +36,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import {
-  useDataStore,
   type WeeklyPlan,
   type DailyPlan,
   type PlannedVisit,
@@ -208,7 +208,7 @@ function isPendingEscalation(plan: WeeklyPlan): boolean {
 }
 
 export default function WeeklyPlanPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const { user, allUsers, getReportsOf } = useCurrentUser();
 
   const [activeWeek, setActiveWeek] = useState<Date>(startOfWeek(new Date()));

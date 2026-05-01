@@ -16,8 +16,8 @@ import {
 } from "@/components/shared/entity-form-modal";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import {
-  useDataStore,
   type Customer,
   type CustomerDocument,
   type Vendor,
@@ -157,7 +157,7 @@ const assetMaintenanceRecords = [
 ]
 
 export default function AccountingPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const approvals = useApprovals();
   const { t } = useTranslation();
 

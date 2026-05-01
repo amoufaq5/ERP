@@ -12,7 +12,7 @@ import type { Column } from "@/components/shared/data-table";
 import { downloadCSV } from "@/lib/download";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
-import { useDataStore } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
 // ── Lead types & data ──────────────────────────────────────────────────────────
@@ -184,7 +184,7 @@ type ActiveTab = "leads" | "opportunities" | "pipeline";
 // ── Main Page Component ─────────────────────────────────────────────────────────
 
 export default function LeadsPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const { t } = useTranslation();
 
   // Tab state

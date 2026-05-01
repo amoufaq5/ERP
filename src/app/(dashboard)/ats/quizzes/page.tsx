@@ -129,7 +129,7 @@ const STORAGE_ATTEMPTS = "pharma.quizAttempts";
 
 export default function QuizzesPage() {
   const { user, allUsers, getReportsOf } = useCurrentUser();
-  const store = useDataStore();
+  const store = useApiDataStore();
   const isManager = ["ADMIN", "BUM", "MARKETEER"].includes(user.role);
   const canCreate = isManager;
 

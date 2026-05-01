@@ -17,7 +17,7 @@ import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
 import StatusBadge from "@/components/shared/status-badge";
 import type { Column } from "@/components/shared/data-table";
-import { useDataStore } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
 // ─── Tab type ─────────────────────────────────────────────────────────────────
@@ -209,7 +209,7 @@ function PriorityBadge({ priority }: { priority: Priority }) {
 
 // ─── Main Page Component ──────────────────────────────────────────────────────
 export default function AccountsPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const router = useRouter();
   const { t } = useTranslation();
 

@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Column } from "@/components/shared/data-table";
-import { useDataStore, type Project, type ProjectTask } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { type Project, type ProjectTask } from "@/lib/data-store";
 import GanttChart, { type GanttTask, type GanttProject } from "@/components/shared/gantt-chart";
 import {
   FolderKanban,
@@ -86,7 +87,7 @@ const GANTT_TASKS: GanttTask[] = [
 ];
 
 export default function ProjectsPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const projects = store.projects;
   const tasks = store.projectTasks;
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", priority: "" });

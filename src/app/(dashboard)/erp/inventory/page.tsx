@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppConfig } from "@/lib/config-context";
-import { useDataStore } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import { downloadCSV } from "@/lib/download";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -175,7 +175,7 @@ type Tab = "raw" | "finished" | "warehouses" | "catalog" | "batches" | "forecast
 
 export default function InventoryPage() {
   const { config } = useAppConfig();
-  const store = useDataStore();
+  const store = useApiDataStore();
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("raw");
 

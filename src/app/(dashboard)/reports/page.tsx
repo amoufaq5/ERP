@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import StatsCard from "@/components/shared/stats-card"
-import { useDataStore } from "@/lib/data-store"
+import { useApiDataStore } from "@/lib/api/use-api-store"
 import { downloadCSV, downloadHTML, buildPrintableReport } from "@/lib/download"
 
 // ─── Revenue Trend Chart (demo data — kept as-is) ──────────────────────────
@@ -83,7 +83,7 @@ function daysBetween(a: Date, b: Date): number {
 
 export default function ReportsPage() {
   const { t } = useTranslation()
-  const store = useDataStore()
+  const store = useApiDataStore()
   const [lastGenerated, setLastGenerated] = useState<Record<string, Date>>({})
 
   const markGenerated = (key: string) => {
@@ -552,7 +552,7 @@ export default function ReportsPage() {
 // ─── Pivot Table Section ──────────────────────────────────────────────────────
 
 function PivotTableSection() {
-  const store = useDataStore()
+  const store = useApiDataStore()
   const [groupBy, setGroupBy] = useState<"bu" | "product" | "customer">("bu")
   const [period, setPeriod] = useState<"all" | "q1" | "q2" | "q3" | "q4">("all")
 
@@ -739,7 +739,7 @@ function PivotTableSection() {
 // ─── BU Analysis Section ──────────────────────────────────────────────────────
 
 function BUAnalysisSection() {
-  const store = useDataStore()
+  const store = useApiDataStore()
 
   const buAnalysis = useMemo(() => {
     return store.businessUnits.map(bu => {

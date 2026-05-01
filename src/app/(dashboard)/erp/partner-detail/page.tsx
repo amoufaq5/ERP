@@ -29,8 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import {
-  useDataStore,
   type Customer,
   type CustomerDocument,
   type Vendor,
@@ -121,7 +121,7 @@ const egp = (n: number) => `EGP ${n.toLocaleString()}`;
 
 export default function PartnerDetailPage() {
   const searchParams = useSearchParams();
-  const store = useDataStore();
+  const store = useApiDataStore();
 
   const partnerType = searchParams.get("type") as "customer" | "vendor" | null;
   const partnerId = searchParams.get("id");
@@ -142,7 +142,7 @@ export default function PartnerDetailPage() {
    (Merged from partner-ledger page: unified partner list with stats, filters, CRUD)
    ===================================================================================== */
 function PartnerListView() {
-  const store = useDataStore();
+  const store = useApiDataStore();
 
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>(SEED_LEDGER_ENTRIES);
   const [filters, setFilters] = useState<FilterState>({});
@@ -948,7 +948,7 @@ function PartnerDialogContent({
    (Original partner-detail: full detail page for a single partner accessed via query params)
    ===================================================================================== */
 function PartnerIndividualDetail({ partnerType, partnerId }: { partnerType: "customer" | "vendor"; partnerId: string }) {
-  const store = useDataStore();
+  const store = useApiDataStore();
 
   const [docType, setDocType] = useState("Registration Certificate");
   const docInputRef = useRef<HTMLInputElement>(null);

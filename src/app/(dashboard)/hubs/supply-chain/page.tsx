@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useDataStore } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import StatsCard from "@/components/shared/stats-card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -47,7 +47,7 @@ const SIMULATED_STOCK = [
 ] as const;
 
 export default function SupplyChainHub() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const vendors = store.vendors;
   const products = store.products;
 

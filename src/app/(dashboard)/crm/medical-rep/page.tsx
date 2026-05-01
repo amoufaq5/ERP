@@ -28,8 +28,8 @@ import {
   type EntityField,
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import {
-  useDataStore,
   scopeDoctors,
   scopeVisits,
   scopeTasks,
@@ -46,7 +46,7 @@ import {
 import { useCurrentUser } from "@/lib/user-context";
 
 export default function MedicalRepPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const { user, allUsers, getReportsOf } = useCurrentUser();
 
   const [search, setSearch] = useState("");

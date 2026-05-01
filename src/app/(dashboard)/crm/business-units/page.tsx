@@ -27,7 +27,7 @@ import {
   type EntityField,
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
-import { useDataStore } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import { useCurrentUser } from "@/lib/user-context";
 import { useNotificationCenter } from "@/lib/notification-context";
 import { useAuditLogger } from "@/lib/audit-logger";
@@ -180,7 +180,7 @@ const BU_REVENUE: Record<string, number> = {
 // ═════════════════════════════════════════════════════════════════════════════
 
 export default function BusinessUnitsPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const { user, allUsers } = useCurrentUser();
   const canEdit = user.role === "ADMIN" || user.role === "BUM" || user.role === "MARKETEER";
   const { addNotification } = useNotificationCenter();

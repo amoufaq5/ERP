@@ -25,7 +25,7 @@ import {
 } from "@/components/shared/entity-form-modal";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
-import { useDataStore } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 
 /* ─── Types ─── */
 
@@ -107,7 +107,7 @@ const statusColor: Record<string, string> = {
 const priorityColor: Record<string, string> = { LOW: "bg-gray-100 text-gray-800", MEDIUM: "bg-blue-100 text-blue-800", HIGH: "bg-orange-100 text-orange-800", URGENT: "bg-red-100 text-red-800" };
 
 export default function ManufacturingPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const [boms, setBoms] = useState<BOM[]>(SEED_BOMS);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>(SEED_WO);
   const [filters, setFilters] = useState<FilterState>({});

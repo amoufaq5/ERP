@@ -25,8 +25,8 @@ import {
   type EntityField,
   type EntityFormData,
 } from "@/components/shared/entity-form-modal";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import {
-  useDataStore,
   scopeTasks,
   type Task,
 } from "@/lib/data-store";
@@ -36,7 +36,7 @@ import type { Column } from "@/components/shared/data-table";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
 export default function TasksPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const { user, allUsers } = useCurrentUser();
   const { t } = useTranslation();
 

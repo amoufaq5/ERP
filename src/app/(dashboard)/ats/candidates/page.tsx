@@ -57,7 +57,7 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 export default function CandidatesPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const candidates = store.candidates;
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", source: "" });
   const [showModal, setShowModal] = useState(false);

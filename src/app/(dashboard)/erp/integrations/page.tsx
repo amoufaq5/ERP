@@ -48,7 +48,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
-import { useDataStore } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import { downloadCSV } from "@/lib/download";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -204,7 +204,7 @@ function saveState(state: IntegrationsState) {
 // ════════════════════════════════════════════════════════════════════════════
 
 export default function IntegrationsPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const [state, setState] = useState<IntegrationsState>(loadState);
   const [tab, setTab] = useState("active");
 
