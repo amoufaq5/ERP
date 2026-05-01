@@ -25,6 +25,11 @@ const API_ROUTES: Partial<Record<EntityKey, string>> = {
   businessUnits: "/business-units",
   vendors: "/suppliers",
   customers: "/customers",
+  doctors: "/doctors",
+  visits: "/visits",
+  weeklyPlans: "/weekly-plans",
+  marketRequests: "/market-requests",
+  kpis: "/kpis",
 };
 
 const SHAPE_MAPPERS: Partial<Record<EntityKey, (item: Record<string, unknown>) => Record<string, unknown>>> = {
