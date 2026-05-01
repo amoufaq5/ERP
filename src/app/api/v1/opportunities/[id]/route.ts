@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { apiResponse, apiError, corsOptions } from "@/lib/api/api-helpers";
+import { validate, updateOpportunitySchema } from "@/lib/api/validations";
 
 let prisma: any = null;
 try {
@@ -62,9 +63,8 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    if (!body || Object.keys(body).length === 0) {
-      return apiError("Request body cannot be empty", 400);
-    }
+    const validation = validate(updateOpportunitySchema, body);
+    if (!validation.success) return apiError(validation.error, 400);
 
     delete body.id;
     delete body.createdAt;

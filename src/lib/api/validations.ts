@@ -8,8 +8,8 @@ export function validate<T>(
 ): { success: true; data: T } | { success: false; error: string } {
   const result = schema.safeParse(data);
   if (result.success) return { success: true, data: result.data };
-  const messages = result.error.errors
-    .map((e) => `${e.path.join(".")}: ${e.message}`)
+  const messages = result.error.issues
+    .map((e: z.ZodIssue) => `${e.path.join(".")}: ${e.message}`)
     .join(", ");
   return { success: false, error: messages };
 }
