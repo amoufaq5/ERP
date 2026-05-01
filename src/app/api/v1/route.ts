@@ -73,6 +73,10 @@ export async function GET() {
         { path: "/api/v1/training", methods: ["GET", "POST"], description: "Training courses" },
         { path: "/api/v1/training/:id", methods: ["GET", "PATCH", "DELETE"], description: "Single course" },
       ],
+      system: [
+        { path: "/api/v1/health", methods: ["GET"], description: "Health check & system status" },
+        { path: "/api/v1/logs", methods: ["GET"], description: "API request logs (admin)" },
+      ],
     },
     pagination: {
       defaultPage: 1,
