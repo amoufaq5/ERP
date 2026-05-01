@@ -101,7 +101,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Finance & Banking", labelKey: "sidebar.finance", href: "/erp/finance", icon: DollarSign },
       { label: "Accounting", labelKey: "nav.accounting", href: "/erp/accounting", icon: Calculator },
       { label: "Collections", labelKey: "nav.collections", href: "/erp/collections", icon: Banknote },
-      { label: "Partners", labelKey: "nav.partnerDetail", href: "/erp/partner-detail", icon: Contact },
+      { label: "Partner Ledger", labelKey: "nav.partnerLedger", href: "/erp/partner-detail", icon: Scale },
     ],
   },
   {
