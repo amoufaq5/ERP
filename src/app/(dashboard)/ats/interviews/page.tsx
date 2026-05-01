@@ -11,7 +11,7 @@ import { EntityFormModal, type EntityField } from "@/components/shared/entity-fo
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
-import { useDataStore } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 
 interface Interview {
   id: number;

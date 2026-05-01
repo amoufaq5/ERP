@@ -23,7 +23,7 @@ import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { useCurrentUser } from "@/lib/user-context";
-import { useDataStore } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 
 /* ─── Types ─── */
 

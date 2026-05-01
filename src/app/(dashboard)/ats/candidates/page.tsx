@@ -11,7 +11,8 @@ import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
-import { useDataStore, type Candidate } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { type Candidate } from "@/lib/data-store";
 
 const statusColors: Record<string, string> = {
   APPLIED: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",

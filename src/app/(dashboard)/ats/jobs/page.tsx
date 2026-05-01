@@ -11,7 +11,8 @@ import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
-import { useDataStore, type Job } from "@/lib/data-store";
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { type Job } from "@/lib/data-store";
 
 const statusColors: Record<string, string> = {
   OPEN: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
@@ -55,7 +56,7 @@ const FILTER_FIELDS = [
 ];
 
 export default function JobsPage() {
-  const store = useDataStore();
+  const store = useApiDataStore();
   const jobs = store.jobs;
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", department: "" });
   const [showModal, setShowModal] = useState(false);

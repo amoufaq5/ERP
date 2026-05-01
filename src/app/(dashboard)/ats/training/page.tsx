@@ -24,7 +24,7 @@ import type { Column } from "@/components/shared/data-table"
 import PageHeader from "@/components/shared/page-header"
 import StatsCard from "@/components/shared/stats-card"
 import { useCurrentUser } from "@/lib/user-context"
-import { useDataStore } from "@/lib/data-store"
+import { useApiDataStore } from "@/lib/api/use-api-store"
 
 /* ─── Training Types ─── */
 
@@ -214,7 +214,7 @@ const FILTER_FIELDS = [
 
 export default function TrainingPage() {
   const { user, allUsers } = useCurrentUser();
-  const store = useDataStore();
+  const store = useApiDataStore();
   const isManager = ["ADMIN", "BUM", "MARKETEER"].includes(user.role);
   const canCreate = isManager;
 
