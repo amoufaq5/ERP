@@ -1,11 +1,16 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import {
   Play, GitBranch, Zap, UserCheck, Bell, Clock, Square, Plus, Trash2,
   ArrowDown, Settings, Workflow, BarChart3, CheckCircle, ChevronRight,
-  GripVertical, Copy, Save,
+  GripVertical, Copy, Save, History, AlertTriangle, FileText, TestTube,
+  Activity, XCircle, Timer, TrendingUp,
 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -89,6 +94,105 @@ const TEMPLATES: { name: string; description: string; nodes: WorkflowNode[] }[] 
   },
 ]
 
+/* ─── Pharma-specific templates ─── */
+const PHARMA_TEMPLATES: { name: string; description: string; module: string; trigger: string; nodes: WorkflowNode[] }[] = [
+  {
+    name: "Expense Auto-Approval",
+    description: "Auto-approve expenses under EGP 500 within budget",
+    module: "CRM", trigger: "record_created",
+    nodes: [
+      { id: "p1", type: "trigger", label: "Expense Submitted", config: { triggerType: "record_created", module: "CRM" } },
+      { id: "p2", type: "condition", label: "Amount < 500 EGP", config: { field: "amount", operator: "less", value: "500" } },
+      { id: "p3", type: "condition", label: "Within Budget?", config: { field: "monthlySpent", operator: "less", value: "budgetLimit" } },
+      { id: "p4", type: "action", label: "Auto-Approve", config: { actionType: "change_status", target: "status", value: "APPROVED" } },
+      { id: "p5", type: "action", label: "Create GL Entry", config: { actionType: "create_record", target: "journalEntry", value: "Debit 6500, Credit 1000" } },
+      { id: "p6", type: "notification", label: "Notify Submitter", config: { channel: "in_app", template: "Your expense {{ref}} has been auto-approved" } },
+    ],
+  },
+  {
+    name: "Low Stock Reorder",
+    description: "Auto-generate PO when stock below reorder level",
+    module: "Procurement", trigger: "field_changed",
+    nodes: [
+      { id: "p1", type: "trigger", label: "Stock Level Changed", config: { triggerType: "field_changed", module: "Procurement" } },
+      { id: "p2", type: "condition", label: "Below Reorder?", config: { field: "quantity", operator: "less", value: "reorderLevel" } },
+      { id: "p3", type: "action", label: "Create Draft PO", config: { actionType: "create_record", target: "purchaseOrder", value: "qty = reorderLevel * 2" } },
+      { id: "p4", type: "notification", label: "Alert Supply Chain", config: { channel: "email", template: "Low stock: {{product}} - PO {{poNumber}} created" } },
+    ],
+  },
+  {
+    name: "Visit Completion Reminder",
+    description: "Notify rep if planned visit not checked in by 4pm",
+    module: "CRM", trigger: "schedule",
+    nodes: [
+      { id: "p1", type: "trigger", label: "Daily 4pm Check", config: { triggerType: "schedule", module: "CRM" } },
+      { id: "p2", type: "condition", label: "Unchecked Visits?", config: { field: "visitStatus", operator: "equals", value: "PLANNED" } },
+      { id: "p3", type: "notification", label: "Remind Rep", config: { channel: "in_app", template: "Reminder: {{count}} planned visits not yet completed" } },
+      { id: "p4", type: "delay", label: "Wait 2 hours", config: { duration: "2", unit: "hours" } },
+      { id: "p5", type: "notification", label: "Alert DM", config: { channel: "email", template: "{{rep}} has {{count}} incomplete visits today" } },
+    ],
+  },
+  {
+    name: "Expiry Date Warning",
+    description: "Weekly alert for products expiring within 90 days",
+    module: "Quality", trigger: "schedule",
+    nodes: [
+      { id: "p1", type: "trigger", label: "Weekly Monday Check", config: { triggerType: "schedule", module: "Quality" } },
+      { id: "p2", type: "condition", label: "Expires < 90 Days?", config: { field: "daysToExpiry", operator: "less", value: "90" } },
+      { id: "p3", type: "notification", label: "Alert QA Team", config: { channel: "email", template: "EXPIRY WARNING: {{product}} batch {{batch}} expires {{date}}" } },
+      { id: "p4", type: "action", label: "Create QA Task", config: { actionType: "create_record", target: "task", value: "Review batch disposition" } },
+    ],
+  },
+  {
+    name: "SLA Breach Escalation",
+    description: "Auto-escalate market requests breaching SLA",
+    module: "CRM", trigger: "schedule",
+    nodes: [
+      { id: "p1", type: "trigger", label: "Hourly SLA Check", config: { triggerType: "schedule", module: "CRM" } },
+      { id: "p2", type: "condition", label: "SLA Breached?", config: { field: "slaDays", operator: "greater", value: "slaLimit" } },
+      { id: "p3", type: "action", label: "Auto-Escalate", config: { actionType: "change_status", target: "approvalLevel", value: "next_level" } },
+      { id: "p4", type: "notification", label: "Notify Manager", config: { channel: "in_app", template: "ESCALATED: {{request}} SLA breached ({{days}}d overdue)" } },
+    ],
+  },
+  {
+    name: "New Candidate Notification",
+    description: "Notify hiring manager on new application",
+    module: "HR", trigger: "record_created",
+    nodes: [
+      { id: "p1", type: "trigger", label: "Application Received", config: { triggerType: "record_created", module: "HR" } },
+      { id: "p2", type: "action", label: "Score Candidate", config: { actionType: "update_field", target: "score", value: "auto_calculate" } },
+      { id: "p3", type: "notification", label: "Notify Hiring Mgr", config: { channel: "email", template: "New application: {{candidate}} for {{job}} (Score: {{score}})" } },
+    ],
+  },
+]
+
+/* ─── Execution Log ─── */
+interface ExecutionLog {
+  id: string
+  workflowId: string
+  workflowName: string
+  status: "SUCCESS" | "FAILURE" | "SKIPPED"
+  triggeredAt: string
+  duration: string
+  trigger: string
+  details: string
+}
+
+const SEED_LOGS: ExecutionLog[] = [
+  { id: "log-1", workflowId: "wf-1", workflowName: "Auto-assign new leads", status: "SUCCESS", triggeredAt: "2025-04-30 14:32", duration: "0.3s", trigger: "New lead: Dr. Sameh Barakat", details: "Assigned to Mona Abdel-Nour (Greater Cairo territory)" },
+  { id: "log-2", workflowId: "wf-2", workflowName: "Invoice overdue reminder", status: "SUCCESS", triggeredAt: "2025-04-30 09:00", duration: "1.2s", trigger: "Scheduled daily check", details: "3 overdue invoices found. Emails sent to: El Ezaby, Kasr El Aini, Seif" },
+  { id: "log-3", workflowId: "wf-5", workflowName: "Low stock alert", status: "SUCCESS", triggeredAt: "2025-04-29 16:45", duration: "0.5s", trigger: "Augmentin 1g qty changed to 850", details: "Below reorder level (1000). Notification sent to Supply Chain team" },
+  { id: "log-4", workflowId: "wf-1", workflowName: "Auto-assign new leads", status: "SUCCESS", triggeredAt: "2025-04-29 11:20", duration: "0.2s", trigger: "New lead: Eng. Hany Shaker", details: "Assigned to Khaled Mansour (round-robin)" },
+  { id: "log-5", workflowId: "wf-6", workflowName: "Interview reminder", status: "SUCCESS", triggeredAt: "2025-04-29 09:00", duration: "0.8s", trigger: "Scheduled daily check", details: "Reminder sent for Yasser Mahmoud interview (Medical Rep position)" },
+  { id: "log-6", workflowId: "wf-3", workflowName: "Ticket SLA escalation", status: "SUCCESS", triggeredAt: "2025-04-28 15:30", duration: "0.4s", trigger: "TK-001 approaching SLA", details: "Escalated to Ahmed Hassan. Augmentin batch recall - 2h remaining" },
+  { id: "log-7", workflowId: "wf-2", workflowName: "Invoice overdue reminder", status: "FAILURE", triggeredAt: "2025-04-28 09:00", duration: "3.1s", trigger: "Scheduled daily check", details: "Email service timeout. Retry scheduled." },
+  { id: "log-8", workflowId: "wf-4", workflowName: "New hire onboarding", status: "SUCCESS", triggeredAt: "2025-04-27 10:15", duration: "1.5s", trigger: "Candidate Yasser Mahmoud status → HIRED", details: "Created 5 onboarding tasks, IT setup request, badge request" },
+  { id: "log-9", workflowId: "wf-1", workflowName: "Auto-assign new leads", status: "SKIPPED", triggeredAt: "2025-04-27 08:45", duration: "0.1s", trigger: "New lead: Test Entry", details: "Skipped: lead source = 'TEST', excluded by condition" },
+  { id: "log-10", workflowId: "wf-5", workflowName: "Low stock alert", status: "SUCCESS", triggeredAt: "2025-04-26 14:20", duration: "0.6s", trigger: "Cardioprex 10mg qty changed to 700", details: "Below reorder (800). Draft PO-2025-004 created for EIPICO" },
+  { id: "log-11", workflowId: "wf-3", workflowName: "Ticket SLA escalation", status: "SUCCESS", triggeredAt: "2025-04-26 12:00", duration: "0.3s", trigger: "TK-005 cold chain excursion", details: "CRITICAL ticket auto-escalated to Admin. SLA: 4h response" },
+  { id: "log-12", workflowId: "wf-2", workflowName: "Invoice overdue reminder", status: "SUCCESS", triggeredAt: "2025-04-26 09:00", duration: "0.9s", trigger: "Scheduled daily check", details: "2 overdue invoices. Reminders sent." },
+]
+
 /* ─── Seed workflows ─── */
 const SEED_WORKFLOWS: WorkflowDef[] = [
   { id: "wf-1", name: "Auto-assign new leads", description: "Route incoming leads to available sales reps", trigger: "record_created", module: "CRM", status: "Active", lastRun: "5 min ago", runs: 342, nodes: TEMPLATES[1].nodes },
@@ -128,9 +232,19 @@ export default function AutomationPage() {
   const [activeWf, setActiveWf] = useState<WorkflowDef | null>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [listTab, setListTab] = useState<"workflows" | "logs" | "templates">("workflows")
+  const [logs, setLogs] = useState<ExecutionLog[]>(SEED_LOGS)
+  const [detailWf, setDetailWf] = useState<WorkflowDef | null>(null)
+  const [logFilter, setLogFilter] = useState<"ALL" | "SUCCESS" | "FAILURE" | "SKIPPED">("ALL")
 
   const activeCount = workflows.filter((w) => w.status === "Active").length
   const totalRuns = workflows.reduce((s, w) => s + w.runs, 0)
+  const successRate = useMemo(() => {
+    const s = logs.filter((l) => l.status === "SUCCESS").length
+    return logs.length > 0 ? ((s / logs.length) * 100).toFixed(1) : "0"
+  }, [logs])
+  const failedCount = logs.filter((l) => l.status === "FAILURE").length
+  const filteredLogs = logFilter === "ALL" ? logs : logs.filter((l) => l.status === logFilter)
 
   /* ─── Workflow CRUD ─── */
   function openBuilder(wf: WorkflowDef) {
@@ -232,14 +346,143 @@ export default function AutomationPage() {
           }
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><Workflow className="h-5 w-5 text-green-600" /></div><div><p className="text-sm text-muted-foreground">Total Workflows</p><p className="text-2xl font-bold">{workflows.length}</p></div></div></CardContent></Card>
           <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><CheckCircle className="h-5 w-5 text-blue-600" /></div><div><p className="text-sm text-muted-foreground">Active</p><p className="text-2xl font-bold">{activeCount}</p></div></div></CardContent></Card>
           <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><BarChart3 className="h-5 w-5 text-purple-600" /></div><div><p className="text-sm text-muted-foreground">Total Runs</p><p className="text-2xl font-bold">{totalRuns.toLocaleString()}</p></div></div></CardContent></Card>
-          <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-orange-100 rounded-lg"><Zap className="h-5 w-5 text-orange-600" /></div><div><p className="text-sm text-muted-foreground">Success Rate</p><p className="text-2xl font-bold">96.5%</p></div></div></CardContent></Card>
+          <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-emerald-100 rounded-lg"><TrendingUp className="h-5 w-5 text-emerald-600" /></div><div><p className="text-sm text-muted-foreground">Success Rate</p><p className="text-2xl font-bold">{successRate}%</p></div></div></CardContent></Card>
+          <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-red-100 rounded-lg"><XCircle className="h-5 w-5 text-red-600" /></div><div><p className="text-sm text-muted-foreground">Failed</p><p className="text-2xl font-bold">{failedCount}</p></div></div></CardContent></Card>
         </div>
 
-        <Card>
+        {/* Tabs */}
+        <div className="flex gap-2">
+          {(["workflows", "logs", "templates"] as const).map((t) => (
+            <Button key={t} variant={listTab === t ? "default" : "ghost"} size="sm" onClick={() => setListTab(t)}>
+              {t === "workflows" && <Workflow className="h-4 w-4 mr-1" />}
+              {t === "logs" && <History className="h-4 w-4 mr-1" />}
+              {t === "templates" && <FileText className="h-4 w-4 mr-1" />}
+              {t === "workflows" ? "Workflows" : t === "logs" ? "Execution Logs" : "Pharma Templates"}
+              {t === "logs" && failedCount > 0 && (
+                <Badge className="ml-2 bg-red-100 text-red-700 text-xs">{failedCount}</Badge>
+              )}
+            </Button>
+          ))}
+        </div>
+
+        {/* Execution Logs Tab */}
+        {listTab === "logs" && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Execution History</CardTitle>
+                <div className="flex gap-1">
+                  {(["ALL", "SUCCESS", "FAILURE", "SKIPPED"] as const).map((f) => (
+                    <Button key={f} size="sm" variant={logFilter === f ? "default" : "outline"} className="text-xs h-7" onClick={() => setLogFilter(f)}>
+                      {f === "ALL" ? "All" : f === "SUCCESS" ? "Success" : f === "FAILURE" ? "Failed" : "Skipped"}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b bg-muted/50">
+                  <th className="text-left p-3 font-medium">Status</th>
+                  <th className="text-left p-3 font-medium">Workflow</th>
+                  <th className="text-left p-3 font-medium">Trigger</th>
+                  <th className="text-left p-3 font-medium">Details</th>
+                  <th className="text-left p-3 font-medium">Duration</th>
+                  <th className="text-left p-3 font-medium">Time</th>
+                </tr></thead>
+                <tbody>
+                  {filteredLogs.map((log) => (
+                    <tr key={log.id} className="border-b hover:bg-muted/30">
+                      <td className="p-3">
+                        <Badge className={
+                          log.status === "SUCCESS" ? "bg-green-100 text-green-800" :
+                          log.status === "FAILURE" ? "bg-red-100 text-red-800" :
+                          "bg-gray-100 text-gray-800"
+                        }>
+                          {log.status === "SUCCESS" ? <CheckCircle className="h-3 w-3 mr-1" /> :
+                           log.status === "FAILURE" ? <XCircle className="h-3 w-3 mr-1" /> :
+                           <AlertTriangle className="h-3 w-3 mr-1" />}
+                          {log.status}
+                        </Badge>
+                      </td>
+                      <td className="p-3 font-medium">{log.workflowName}</td>
+                      <td className="p-3 text-xs text-muted-foreground">{log.trigger}</td>
+                      <td className="p-3 text-xs max-w-xs truncate">{log.details}</td>
+                      <td className="p-3 text-xs"><Badge className="bg-gray-100 text-gray-700"><Timer className="h-3 w-3 mr-1" />{log.duration}</Badge></td>
+                      <td className="p-3 text-xs text-muted-foreground">{log.triggeredAt}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filteredLogs.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground text-sm">No logs matching filter</div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Pharma Templates Tab */}
+        {listTab === "templates" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {PHARMA_TEMPLATES.map((tpl, idx) => (
+              <Card key={idx} className="hover:shadow-md transition-shadow">
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h3 className="font-semibold">{tpl.name}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">{tpl.description}</p>
+                    </div>
+                    <Badge className="bg-blue-100 text-blue-700">{tpl.module}</Badge>
+                  </div>
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    {tpl.nodes.map((n, ni) => {
+                      const m = nodeMeta(n.type)
+                      const Icon = m.icon
+                      return (
+                        <div key={ni} className="flex items-center gap-1">
+                          <div className={`p-1 rounded ${m.bg}`}><Icon className={`h-3 w-3 ${m.text}`} /></div>
+                          <span className="text-xs">{n.label}</span>
+                          {ni < tpl.nodes.length - 1 && <ArrowDown className="h-3 w-3 text-muted-foreground/50 rotate-[-90deg]" />}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => {
+                      const wf: WorkflowDef = {
+                        id: `wf-${Date.now()}`, name: tpl.name, description: tpl.description,
+                        trigger: tpl.trigger, module: tpl.module, status: "Draft",
+                        lastRun: "Never", runs: 0,
+                        nodes: tpl.nodes.map((n) => ({ ...n, id: genNodeId(), config: { ...n.config } })),
+                      }
+                      setWorkflows((prev) => [...prev, wf])
+                      openBuilder(wf)
+                    }}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Use Template
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => {
+                      const wf: WorkflowDef = {
+                        id: `preview-${idx}`, name: tpl.name, description: tpl.description,
+                        trigger: tpl.trigger, module: tpl.module, status: "Draft",
+                        lastRun: "N/A", runs: 0, nodes: tpl.nodes,
+                      }
+                      setDetailWf(wf)
+                    }}>
+                      <Activity className="h-3.5 w-3.5 mr-1" /> Preview
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Workflows Tab */}
+        {listTab === "workflows" && <Card>
           <CardContent className="p-0">
             <table className="w-full text-sm">
               <thead><tr className="border-b bg-muted/50">
@@ -283,7 +526,86 @@ export default function AutomationPage() {
               </tbody>
             </table>
           </CardContent>
-        </Card>
+        </Card>}
+
+        {/* Workflow Detail Dialog */}
+        <Dialog open={!!detailWf} onOpenChange={(open) => { if (!open) setDetailWf(null) }}>
+          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{detailWf?.name}</DialogTitle>
+              <DialogDescription>{detailWf?.description}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs text-muted-foreground">Status</p>
+                  <StatusBadge status={detailWf?.status ?? "Draft"} />
+                </div>
+                <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs text-muted-foreground">Total Runs</p>
+                  <p className="font-bold">{detailWf?.runs.toLocaleString()}</p>
+                </div>
+                <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs text-muted-foreground">Last Run</p>
+                  <p className="text-sm">{detailWf?.lastRun}</p>
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Workflow Steps ({detailWf?.nodes.length})</h4>
+                <div className="space-y-2">
+                  {detailWf?.nodes.map((node, idx) => {
+                    const meta = nodeMeta(node.type)
+                    const Icon = meta.icon
+                    return (
+                      <div key={idx} className="flex items-center gap-3">
+                        <div className="flex flex-col items-center">
+                          <div className={`p-1.5 rounded-lg ${meta.bg}`}><Icon className={`h-4 w-4 ${meta.text}`} /></div>
+                          {idx < (detailWf?.nodes.length ?? 0) - 1 && <div className="w-0.5 h-4 bg-border mt-1" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{node.label}</p>
+                          <p className="text-xs text-muted-foreground capitalize">{node.type}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+              {detailWf && detailWf.id.startsWith("wf-") && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">Recent Executions</h4>
+                  {logs.filter((l) => l.workflowId === detailWf.id).slice(0, 5).map((log) => (
+                    <div key={log.id} className="flex items-center gap-2 py-2 border-b last:border-0">
+                      <Badge className={log.status === "SUCCESS" ? "bg-green-100 text-green-800" : log.status === "FAILURE" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"}>{log.status}</Badge>
+                      <span className="text-xs flex-1 truncate">{log.details}</span>
+                      <span className="text-xs text-muted-foreground">{log.triggeredAt}</span>
+                    </div>
+                  ))}
+                  {logs.filter((l) => l.workflowId === detailWf.id).length === 0 && (
+                    <p className="text-sm text-muted-foreground">No executions yet</p>
+                  )}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => { if (detailWf) { openBuilder(detailWf); setDetailWf(null) } }}>
+                  <Settings className="h-3.5 w-3.5 mr-1" /> Edit in Builder
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => {
+                  if (detailWf) {
+                    const newLog: ExecutionLog = {
+                      id: `log-${Date.now()}`, workflowId: detailWf.id, workflowName: detailWf.name,
+                      status: "SUCCESS", triggeredAt: new Date().toLocaleString(), duration: "0.5s",
+                      trigger: "Manual test run", details: "Test execution completed successfully",
+                    }
+                    setLogs((prev) => [newLog, ...prev])
+                  }
+                }}>
+                  <TestTube className="h-3.5 w-3.5 mr-1" /> Test Run
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <EntityFormModal
           open={showCreateModal}

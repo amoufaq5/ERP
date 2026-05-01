@@ -2206,6 +2206,10 @@ function HRDashboard() {
         subtitle="People operations, recruitment, and GMP training"
         badge="HR MANAGER"
       />
+
+      {/* Operational Alerts */}
+      <OperationalAlertsBanner />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Headcount" value={store.employees.length} delta={`${store.employees.filter(e => e.status === "ACTIVE").length} active`} trend="up" icon={Users} color="bg-blue-100 text-blue-600" />
         <KpiCard label="Open Positions" value={store.jobs.filter(j => j.status === "OPEN").length} icon={Briefcase} color="bg-purple-100 text-purple-600" />
