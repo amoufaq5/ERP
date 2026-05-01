@@ -119,18 +119,17 @@ export default function AnalyticsPage() {
   const [eoqInputs, setEoqInputs] = useState({ annualDemand: "12000", orderCost: "500", holdingCost: "50" })
 
   /* ─── shared data ─── */
-  const invoices = (store.invoices || []) as Record<string, unknown>[]
-  const employees = (store.employees || []) as Record<string, unknown>[]
-  const products = (store.products || []) as Record<string, unknown>[]
-  const salesOrders = (store.salesOrders || []) as Record<string, unknown>[]
-  const customers = (store.customers || []) as Record<string, unknown>[]
-  const payments = (store.payments || []) as Record<string, unknown>[]
-  const purchaseOrders = (store.purchaseOrders || []) as Record<string, unknown>[]
-  const doctors = (store.doctors || []) as Record<string, unknown>[]
-  const visits = (store.visits || []) as Record<string, unknown>[]
-  const marketRequests = (store.marketRequests || []) as Record<string, unknown>[]
-  const glAccounts = (store.glAccounts || []) as Record<string, unknown>[]
-  const businessUnits = (store.businessUnits || []) as Record<string, unknown>[]
+  const invoices = (store.invoices || []) as unknown as Record<string, unknown>[]
+  const employees = (store.employees || []) as unknown as Record<string, unknown>[]
+  const products = (store.products || []) as unknown as Record<string, unknown>[]
+  const salesOrders = (store.salesOrders || []) as unknown as Record<string, unknown>[]
+  const customers = (store.customers || []) as unknown as Record<string, unknown>[]
+  const payments = (store.payments || []) as unknown as Record<string, unknown>[]
+  const purchaseOrders = (store.purchaseOrders || []) as unknown as Record<string, unknown>[]
+  const doctors = (store.doctors || []) as unknown as Record<string, unknown>[]
+  const visits = (store.visits || []) as unknown as Record<string, unknown>[]
+  const marketRequests = (store.marketRequests || []) as unknown as Record<string, unknown>[]
+  const glAccounts = (store.glAccounts || []) as unknown as Record<string, unknown>[]
 
   /* ─── date helpers ─── */
   const now = useMemo(() => new Date(), [])
@@ -452,12 +451,13 @@ export default function AnalyticsPage() {
       { dept: "Finance", metric1: "Collections", val1: `EGP ${totalCollections.toLocaleString()}`, metric2: "Invoices", val2: String(invoices.length), trend: invoices.length > 0 ? 0 : 0 },
       { dept: "HR", metric1: "Headcount", val1: String(headcount), metric2: "New Hires (Q)", val2: String(newHiresThisQuarter), trend: newHiresThisQuarter > 0 ? newHiresThisQuarter : 0 },
       { dept: "Supply Chain", metric1: "SKUs", val1: String(products.length), metric2: "Low Stock", val2: String(lowStockCount), trend: lowStockCount > 0 ? -lowStockCount : 0 },
+      { dept: "CRM / Pharma", metric1: "Dr. Coverage", val1: `${doctorCoverage}%`, metric2: "Calls/Day", val2: avgCallsPerDay, trend: samplesFulfilled > 0 ? samplesFulfilled : 0 },
     ]
-  }, [salesOrders, totalCollections, invoices, headcount, newHiresThisQuarter, products, lowStockCount])
+  }, [salesOrders, totalCollections, invoices, headcount, newHiresThisQuarter, products, lowStockCount, doctorCoverage, avgCallsPerDay, samplesFulfilled])
 
   /* ─── Forecasting computations ─── */
   const forecastProducts = useMemo(() => {
-    const storeProducts = (store.products || []) as Record<string, unknown>[]
+    const storeProducts = (store.products || []) as unknown as Record<string, unknown>[]
     if (storeProducts.length > 0) {
       return storeProducts.slice(0, 10).map((p, i) => ({
         id: String(p.id || i),
