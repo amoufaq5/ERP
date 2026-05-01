@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,14 @@ import {
   Trash2,
   Eye,
   Paperclip,
+  FileCheck,
+  Send,
+  Clock,
+  Settings,
+  Hash,
+  Monitor,
+  Wrench,
+  DollarSign,
 } from "lucide-react";
 import { downloadCSV, downloadHTML, buildPrintableReport } from "@/lib/download";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -62,6 +70,89 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 import { PartnerLink } from "@/components/shared/partner-link";
+
+// ─── E-Invoicing types & data ─────────────────────────────────────────
+interface EInvoice {
+  id: string
+  internalId: string
+  receiverName: string
+  receiverTaxId: string
+  dateIssued: string
+  totalAmount: number
+  vatAmount: number
+  netAmount: number
+  status: "draft" | "submitted" | "accepted" | "rejected" | "cancelled"
+  uuid?: string
+  submissionId?: string
+  items: { description: string; quantity: number; unitPrice: number; total: number }[]
+}
+
+const TAX_CODES = [
+  { code: "T1", name: "Value Added Tax", subtype: "V001", rate: 14, description: "Standard VAT rate" },
+  { code: "T2", name: "Table Tax (Fixed)", subtype: "Tbl01", rate: 0, description: "Fixed amount per unit" },
+  { code: "T3", name: "Table Tax (%)", subtype: "Tbl02", rate: 0, description: "Percentage table tax" },
+  { code: "T4", name: "Withholding Tax", subtype: "W001", rate: 1, description: "WHT on services" },
+  { code: "T5", name: "Stamp Tax", subtype: "ST01", rate: 0.5, description: "Stamp duty" },
+  { code: "T6", name: "Entertainment Tax", subtype: "Ent01", rate: 0, description: "Entertainment services" },
+  { code: "T7", name: "Resource Development", subtype: "RD01", rate: 0, description: "Resource dev fee" },
+  { code: "T8", name: "Municipal Service", subtype: "Mn01", rate: 0, description: "Local municipality" },
+  { code: "T9", name: "Medical Insurance", subtype: "MI01", rate: 0, description: "Health insurance levy" },
+]
+
+const sampleEInvoices: EInvoice[] = [
+  { id: "1", internalId: "INV-2024-089", receiverName: "Acme Pharma Corp", receiverTaxId: "123-456-789", dateIssued: "2024-03-25", totalAmount: 51300, vatAmount: 6300, netAmount: 45000, status: "accepted", uuid: "ETA-UUID-001", submissionId: "SUB-001",
+    items: [{ description: "Amoxicillin 500mg x100", quantity: 50, unitPrice: 500, total: 25000 }, { description: "Omeprazole 20mg x50", quantity: 40, unitPrice: 500, total: 20000 }]},
+  { id: "2", internalId: "INV-2024-090", receiverName: "Delta Medical Supplies", receiverTaxId: "987-654-321", dateIssued: "2024-03-26", totalAmount: 22800, vatAmount: 2800, netAmount: 20000, status: "submitted", uuid: "ETA-UUID-002", submissionId: "SUB-002",
+    items: [{ description: "Paracetamol 500mg x200", quantity: 100, unitPrice: 200, total: 20000 }]},
+  { id: "3", internalId: "INV-2024-091", receiverName: "Nile Health Group", receiverTaxId: "456-789-123", dateIssued: "2024-03-27", totalAmount: 11400, vatAmount: 1400, netAmount: 10000, status: "rejected", uuid: "ETA-UUID-003",
+    items: [{ description: "Metformin 850mg x100", quantity: 20, unitPrice: 500, total: 10000 }]},
+  { id: "4", internalId: "INV-2024-092", receiverName: "Cairo Pharma Dist.", receiverTaxId: "789-123-456", dateIssued: "2024-03-28", totalAmount: 0, vatAmount: 0, netAmount: 0, status: "draft",
+    items: []},
+]
+
+const einvoiceStatusColors: Record<string, string> = {
+  draft: "bg-gray-100 text-gray-800",
+  submitted: "bg-blue-100 text-blue-800",
+  accepted: "bg-green-100 text-green-800",
+  rejected: "bg-red-100 text-red-800",
+  cancelled: "bg-yellow-100 text-yellow-800",
+}
+
+// ─── Assets types & data ──────────────────────────────────────────────
+const assetFields: EntityField[] = [
+  { name: "name", label: "Asset Name", type: "text", required: true },
+  { name: "category", label: "Category", type: "select", options: [
+    { label: "Laptop", value: "Laptop" }, { label: "Monitor", value: "Monitor" },
+    { label: "Printer", value: "Printer" }, { label: "Network", value: "Network" },
+    { label: "Furniture", value: "Furniture" }, { label: "Other", value: "Other" },
+  ]},
+  { name: "purchasePrice", label: "Purchase Price", type: "number", required: true },
+  { name: "location", label: "Location", type: "text" },
+  { name: "assignedTo", label: "Assigned To", type: "text" },
+];
+
+const assetStatusColor: Record<string, string> = {
+  ACTIVE: "bg-green-100 text-green-800", MAINTENANCE: "bg-yellow-100 text-yellow-800",
+  RETIRED: "bg-gray-100 text-gray-800", DISPOSED: "bg-red-100 text-red-800",
+  SCHEDULED: "bg-blue-100 text-blue-800", IN_PROGRESS: "bg-purple-100 text-purple-800",
+  COMPLETED: "bg-green-100 text-green-800", CANCELLED: "bg-red-100 text-red-800",
+}
+
+const initialAssets = [
+  { id: "1", name: "MacBook Pro 16\"", assetTag: "AST-001", category: "Laptop", status: "ACTIVE", purchaseDate: "2023-06-15", purchasePrice: 2499, currentValue: 1999, location: "Office A", assignedTo: "John Smith", warrantyExpiry: "2026-06-15" },
+  { id: "2", name: "Dell Monitor 27\"", assetTag: "AST-002", category: "Monitor", status: "ACTIVE", purchaseDate: "2023-03-10", purchasePrice: 450, currentValue: 350, location: "Office A", assignedTo: "Sarah Johnson", warrantyExpiry: "2026-03-10" },
+  { id: "3", name: "HP LaserJet Pro", assetTag: "AST-003", category: "Printer", status: "MAINTENANCE", purchaseDate: "2022-01-20", purchasePrice: 800, currentValue: 400, location: "Floor 2", assignedTo: "Shared", warrantyExpiry: "2025-01-20" },
+  { id: "4", name: "Cisco Router 4000", assetTag: "AST-004", category: "Network", status: "ACTIVE", purchaseDate: "2023-09-05", purchasePrice: 1200, currentValue: 1000, location: "Server Room", assignedTo: "IT Dept", warrantyExpiry: "2026-09-05" },
+  { id: "5", name: "Standing Desk", assetTag: "AST-005", category: "Furniture", status: "ACTIVE", purchaseDate: "2023-11-01", purchasePrice: 650, currentValue: 550, location: "Office B", assignedTo: "Michael Chen", warrantyExpiry: "2028-11-01" },
+  { id: "6", name: "ThinkPad T14", assetTag: "AST-006", category: "Laptop", status: "RETIRED", purchaseDate: "2020-04-15", purchasePrice: 1800, currentValue: 200, location: "Storage", assignedTo: "Unassigned", warrantyExpiry: "2023-04-15" },
+]
+
+const assetMaintenanceRecords = [
+  { id: "1", asset: "HP LaserJet Pro", type: "CORRECTIVE", description: "Paper jam fix and roller replacement", scheduledDate: "2024-03-25", completedDate: null as string | null, cost: 150, status: "SCHEDULED" },
+  { id: "2", asset: "Cisco Router 4000", type: "PREVENTIVE", description: "Firmware update and config backup", scheduledDate: "2024-04-01", completedDate: null as string | null, cost: 0, status: "SCHEDULED" },
+  { id: "3", asset: "MacBook Pro 16\"", type: "PREVENTIVE", description: "Battery health check", scheduledDate: "2024-02-15", completedDate: "2024-02-15", cost: 0, status: "COMPLETED" },
+  { id: "4", asset: "Dell Monitor 27\"", type: "CORRECTIVE", description: "Dead pixel inspection", scheduledDate: "2024-01-20", completedDate: "2024-01-22", cost: 0, status: "COMPLETED" },
+]
 
 export default function AccountingPage() {
   const store = useDataStore();
@@ -97,6 +188,21 @@ export default function AccountingPage() {
   const [glFilters, setGlFilters] = useState<FilterState>({});
   const [glFormOpen, setGlFormOpen] = useState(false);
   const [editingGL, setEditingGL] = useState<GLAccount | null>(null);
+
+  // E-Invoicing state
+  const [einvoices, setEinvoices] = useState<EInvoice[]>(sampleEInvoices);
+  const [einvSubTab, setEinvSubTab] = useState<"invoices" | "submit" | "settings" | "taxcodes">("invoices");
+  const [viewEInvoice, setViewEInvoice] = useState<EInvoice | null>(null);
+  const [etaConfig, setEtaConfig] = useState({ clientId: "", clientSecret: "", environment: "sandbox", taxId: "", companyName: "Enterprise Suite LLC", activityCode: "4644" });
+  const [einvSubmitForm, setEinvSubmitForm] = useState({ selectedInvoiceId: "", receiverTaxId: "" });
+
+  // Assets state
+  const [assets, setAssets] = useState(initialAssets);
+  const [assetEditing, setAssetEditing] = useState<typeof initialAssets[0] | null>(null);
+  const [assetModalOpen, setAssetModalOpen] = useState(false);
+  const [assetFilters, setAssetFilters] = useState<FilterState>({ _search: "", status: "" });
+  const [assetDetailItem, setAssetDetailItem] = useState<typeof initialAssets[0] | null>(null);
+  const [assetSubTab, setAssetSubTab] = useState("registry");
 
   // Journal Entry state
   const [jeSearch, setJeSearch] = useState("");
