@@ -219,6 +219,81 @@ export default function AccountingPage() {
   const [budgetFormOpen, setBudgetFormOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
 
+  // ─── E-Invoicing helpers ────────────────────────────────────────────
+  useEffect(() => {
+    try { const saved = localStorage.getItem("eta-config"); if (saved) setEtaConfig(JSON.parse(saved)) } catch {}
+    try { const saved = localStorage.getItem("einvoices"); if (saved) setEinvoices(JSON.parse(saved)) } catch {}
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem("einvoices", JSON.stringify(einvoices)) } catch {}
+  }, [einvoices]);
+
+  function submitToETA(inv: EInvoice) {
+    setEinvoices(prev => prev.map(ei => ei.id === inv.id ? { ...ei, status: "submitted" as const, uuid: "ETA-" + Date.now().toString(36), submissionId: "SUB-" + Date.now().toString(36) } : ei));
+  }
+
+  function convertInvoiceToEInvoice(invoiceId: string) {
+    const invoice = store.invoices?.find((inv: Record<string, unknown>) => inv.id === invoiceId);
+    if (!invoice) return;
+    const newEInv: EInvoice = {
+      id: Date.now().toString(36),
+      internalId: String((invoice as Record<string, unknown>).invoiceNumber || invoice.id),
+      receiverName: String((invoice as Record<string, unknown>).customerName || "—"),
+      receiverTaxId: einvSubmitForm.receiverTaxId || "000-000-000",
+      dateIssued: String((invoice as Record<string, unknown>).date || new Date().toISOString().split("T")[0]),
+      totalAmount: Number((invoice as Record<string, unknown>).total) || 0,
+      vatAmount: (Number((invoice as Record<string, unknown>).total) || 0) * 0.14,
+      netAmount: Number((invoice as Record<string, unknown>).total) || 0,
+      status: "draft",
+      items: [{ description: "Items from " + String((invoice as Record<string, unknown>).invoiceNumber || "invoice"), quantity: 1, unitPrice: Number((invoice as Record<string, unknown>).total) || 0, total: Number((invoice as Record<string, unknown>).total) || 0 }],
+    };
+    setEinvoices(prev => [newEInv, ...prev]);
+    setEinvSubmitForm({ selectedInvoiceId: "", receiverTaxId: "" });
+    setEinvSubTab("invoices");
+  }
+
+  function saveETAConfig() {
+    try { localStorage.setItem("eta-config", JSON.stringify(etaConfig)) } catch {}
+  }
+
+  const einvAccepted = einvoices.filter(e => e.status === "accepted").length;
+  const einvSubmitted = einvoices.filter(e => e.status === "submitted").length;
+  const einvRejected = einvoices.filter(e => e.status === "rejected").length;
+  const einvDraft = einvoices.filter(e => e.status === "draft").length;
+
+  const einvoiceColumns: Column<Record<string, unknown>>[] = [
+    { key: "internalId", label: "Invoice #", render: (v) => <span className="font-mono font-medium text-sm">{String(v)}</span> },
+    { key: "receiverName", label: "Receiver" },
+    { key: "receiverTaxId", label: "Tax ID", render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
+    { key: "dateIssued", label: "Date" },
+    { key: "totalAmount", label: "Total (EGP)", render: (v) => <span className="font-medium">{Number(v).toLocaleString()}</span> },
+    { key: "status", label: "Status", render: (v) => <span className={`px-2 py-0.5 rounded-full text-xs capitalize ${einvoiceStatusColors[String(v)] || ""}`}>{String(v)}</span> },
+    { key: "uuid", label: "ETA UUID", render: (v) => v ? <span className="font-mono text-xs">{String(v)}</span> : <span className="text-muted-foreground text-xs">—</span> },
+    { key: "actions", label: "", render: (_v, row) => {
+      const inv = row as unknown as EInvoice;
+      return (
+        <div className="flex gap-1">
+          <Button size="sm" variant="ghost" onClick={() => setViewEInvoice(inv)}><Eye className="h-4 w-4" /></Button>
+          {inv.status === "draft" && <Button size="sm" variant="ghost" onClick={() => submitToETA(inv)}><Send className="h-4 w-4 text-blue-600" /></Button>}
+        </div>
+      );
+    }},
+  ];
+
+  // ─── Assets helpers ────────────────────────────────────────────────
+  const assetFmt = (n: number) => `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const assetTotalValue = assets.reduce((s, a) => s + a.currentValue, 0);
+
+  const filteredAssets = assets.filter((a) => {
+    if (assetFilters.status && a.status !== assetFilters.status) return false;
+    if (assetFilters._search) {
+      const q = assetFilters._search.toLowerCase();
+      return a.name.toLowerCase().includes(q) || a.assetTag.toLowerCase().includes(q) || a.category.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
   // ─── Computed ──────────────────────────────────────────────────────────
   const totalAR = store.customers.reduce((s, c) => s + c.outstanding, 0);
   const totalAP = store.vendors.reduce((s, v) => s + v.outstanding, 0);
@@ -799,6 +874,8 @@ export default function AccountingPage() {
           <TabsTrigger value="cost">{t("acct.costCenters")}</TabsTrigger>
           <TabsTrigger value="sales-orders">{t("acct.salesOrders")} ({store.salesOrders.length})</TabsTrigger>
           <TabsTrigger value="collections">Collections</TabsTrigger>
+          <TabsTrigger value="einvoicing">E-Invoicing</TabsTrigger>
+          <TabsTrigger value="assets">Assets</TabsTrigger>
         </TabsList>
 
         {/* Customers */}
@@ -1786,6 +1863,223 @@ export default function AccountingPage() {
               </>
             );
           })()}
+        </TabsContent>
+
+        {/* ═══ E-Invoicing ═══ */}
+        <TabsContent value="einvoicing" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><Send className="h-5 w-5 text-blue-600" /></div><div><p className="text-sm text-muted-foreground">Submitted</p><p className="text-2xl font-bold">{einvSubmitted}</p></div></div></CardContent></Card>
+            <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><CheckCircle className="h-5 w-5 text-green-600" /></div><div><p className="text-sm text-muted-foreground">Accepted</p><p className="text-2xl font-bold">{einvAccepted}</p></div></div></CardContent></Card>
+            <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-red-100 rounded-lg"><XCircle className="h-5 w-5 text-red-600" /></div><div><p className="text-sm text-muted-foreground">Rejected</p><p className="text-2xl font-bold">{einvRejected}</p></div></div></CardContent></Card>
+            <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-gray-100 rounded-lg"><Clock className="h-5 w-5 text-gray-600" /></div><div><p className="text-sm text-muted-foreground">Drafts</p><p className="text-2xl font-bold">{einvDraft}</p></div></div></CardContent></Card>
+          </div>
+
+          <div className="flex gap-2 border-b pb-2">
+            <Button variant={einvSubTab === "invoices" ? "default" : "ghost"} size="sm" onClick={() => setEinvSubTab("invoices")}><FileCheck className="h-4 w-4 mr-2" />E-Invoices</Button>
+            <Button variant={einvSubTab === "submit" ? "default" : "ghost"} size="sm" onClick={() => setEinvSubTab("submit")}><Send className="h-4 w-4 mr-2" />Submit New</Button>
+            <Button variant={einvSubTab === "settings" ? "default" : "ghost"} size="sm" onClick={() => setEinvSubTab("settings")}><Settings className="h-4 w-4 mr-2" />Settings</Button>
+            <Button variant={einvSubTab === "taxcodes" ? "default" : "ghost"} size="sm" onClick={() => setEinvSubTab("taxcodes")}><Hash className="h-4 w-4 mr-2" />Tax Codes</Button>
+          </div>
+
+          {einvSubTab === "invoices" && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">E-Invoice Submissions</CardTitle></CardHeader>
+              <CardContent>
+                <DataTable columns={einvoiceColumns} data={einvoices as unknown as Record<string, unknown>[]} exportable exportFilename="e-invoices" emptyMessage="No e-invoices yet." />
+              </CardContent>
+            </Card>
+          )}
+
+          {einvSubTab === "submit" && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Convert Invoice to E-Invoice</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Select Existing Invoice</Label>
+                    <select className="w-full rounded-md border px-3 py-2 text-sm mt-1" value={einvSubmitForm.selectedInvoiceId} onChange={e => setEinvSubmitForm(p => ({ ...p, selectedInvoiceId: e.target.value }))}>
+                      <option value="">Choose invoice...</option>
+                      {(store.invoices || []).map((inv: Record<string, unknown>) => (
+                        <option key={String(inv.id)} value={String(inv.id)}>{String((inv as Record<string, unknown>).invoiceNumber || inv.id)} — {String((inv as Record<string, unknown>).customerName || "N/A")} — EGP {Number((inv as Record<string, unknown>).total || 0).toLocaleString()}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label>Receiver Tax ID</Label>
+                    <Input placeholder="XXX-XXX-XXX" value={einvSubmitForm.receiverTaxId} onChange={e => setEinvSubmitForm(p => ({ ...p, receiverTaxId: e.target.value }))} className="mt-1" />
+                  </div>
+                </div>
+
+                {einvSubmitForm.selectedInvoiceId && (
+                  <div className="bg-muted p-4 rounded-lg">
+                    <h4 className="text-sm font-medium mb-2">ETA Format Preview</h4>
+                    <pre className="bg-gray-900 text-gray-100 p-3 rounded text-xs overflow-x-auto">
+{JSON.stringify({
+  issuer: { name: etaConfig.companyName, taxId: etaConfig.taxId || "XXX-XXX-XXX", activityCode: etaConfig.activityCode },
+  receiver: { name: "From selected invoice", taxId: einvSubmitForm.receiverTaxId || "XXX-XXX-XXX" },
+  documentType: "I",
+  documentTypeVersion: "1.0",
+  dateTimeIssued: new Date().toISOString(),
+  taxpayerActivityCode: etaConfig.activityCode,
+}, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                <Button onClick={() => convertInvoiceToEInvoice(einvSubmitForm.selectedInvoiceId)} disabled={!einvSubmitForm.selectedInvoiceId}>
+                  <FileCheck className="h-4 w-4 mr-2" />Create E-Invoice Draft
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {einvSubTab === "settings" && (
+            <Card>
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Settings className="h-5 w-5" />ETA Configuration</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><Label>Client ID</Label><Input placeholder="ETA Client ID" value={etaConfig.clientId} onChange={e => setEtaConfig(p => ({ ...p, clientId: e.target.value }))} className="mt-1" /></div>
+                  <div><Label>Client Secret</Label><Input type="password" placeholder="ETA Client Secret" value={etaConfig.clientSecret} onChange={e => setEtaConfig(p => ({ ...p, clientSecret: e.target.value }))} className="mt-1" /></div>
+                  <div><Label>Environment</Label>
+                    <select className="w-full rounded-md border px-3 py-2 text-sm mt-1" value={etaConfig.environment} onChange={e => setEtaConfig(p => ({ ...p, environment: e.target.value }))}>
+                      <option value="sandbox">Sandbox (Pre-production)</option>
+                      <option value="production">Production</option>
+                    </select>
+                  </div>
+                  <div><Label>Company Tax ID</Label><Input placeholder="XXX-XXX-XXX" value={etaConfig.taxId} onChange={e => setEtaConfig(p => ({ ...p, taxId: e.target.value }))} className="mt-1" /></div>
+                  <div><Label>Company Name</Label><Input value={etaConfig.companyName} onChange={e => setEtaConfig(p => ({ ...p, companyName: e.target.value }))} className="mt-1" /></div>
+                  <div><Label>Activity Code (ISIC4)</Label><Input value={etaConfig.activityCode} onChange={e => setEtaConfig(p => ({ ...p, activityCode: e.target.value }))} className="mt-1" /></div>
+                </div>
+                <Button size="sm" onClick={saveETAConfig}>Save Configuration</Button>
+
+                <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg text-sm">
+                  <p className="font-medium text-blue-800 mb-2">ETA Integration Setup</p>
+                  <ol className="list-decimal ml-5 space-y-1 text-blue-700">
+                    <li>Register at the ETA portal (invoicing.eta.gov.eg)</li>
+                    <li>Obtain Client ID and Client Secret credentials</li>
+                    <li>Configure your Tax ID and company information above</li>
+                    <li>Test in Sandbox mode before switching to Production</li>
+                    <li>Ensure your ERP code (ISIC4 activity code) is correct</li>
+                  </ol>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {einvSubTab === "taxcodes" && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">ETA Tax Type Reference</CardTitle></CardHeader>
+              <CardContent>
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b bg-muted/50">
+                    <th className="text-left p-3 font-medium">Code</th>
+                    <th className="text-left p-3 font-medium">Tax Type</th>
+                    <th className="text-left p-3 font-medium">Sub-Type</th>
+                    <th className="text-right p-3 font-medium">Rate %</th>
+                    <th className="text-left p-3 font-medium">Description</th>
+                  </tr></thead>
+                  <tbody>
+                    {TAX_CODES.map(tc => (
+                      <tr key={tc.code} className="border-b hover:bg-muted/50">
+                        <td className="p-3"><span className="px-2 py-0.5 rounded text-xs font-mono bg-purple-100 text-purple-800">{tc.code}</span></td>
+                        <td className="p-3 font-medium">{tc.name}</td>
+                        <td className="p-3 font-mono text-xs">{tc.subtype}</td>
+                        <td className="p-3 text-right">{tc.rate}%</td>
+                        <td className="p-3 text-muted-foreground">{tc.description}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ═══ Assets ═══ */}
+        <TabsContent value="assets" className="space-y-4">
+          <div className="flex items-center justify-end">
+            <Button onClick={() => { setAssetEditing(null); setAssetModalOpen(true); }}><Plus className="h-4 w-4 mr-2" />Add Asset</Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><Monitor className="h-5 w-5 text-blue-600" /></div><div><p className="text-sm text-muted-foreground">Total Assets</p><p className="text-2xl font-bold">{assets.length}</p></div></div></CardContent></Card>
+            <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><Monitor className="h-5 w-5 text-green-600" /></div><div><p className="text-sm text-muted-foreground">Active</p><p className="text-2xl font-bold">{assets.filter(a => a.status === "ACTIVE").length}</p></div></div></CardContent></Card>
+            <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-yellow-100 rounded-lg"><Wrench className="h-5 w-5 text-yellow-600" /></div><div><p className="text-sm text-muted-foreground">In Maintenance</p><p className="text-2xl font-bold">{assets.filter(a => a.status === "MAINTENANCE").length}</p></div></div></CardContent></Card>
+            <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><DollarSign className="h-5 w-5 text-purple-600" /></div><div><p className="text-sm text-muted-foreground">Total Value</p><p className="text-2xl font-bold">{assetFmt(assetTotalValue)}</p></div></div></CardContent></Card>
+          </div>
+
+          <div className="flex gap-2 border-b pb-2">
+            {["registry", "maintenance"].map(t => (
+              <Button key={t} variant={assetSubTab === t ? "default" : "ghost"} size="sm" onClick={() => setAssetSubTab(t)}>
+                {t === "registry" ? "Asset Registry" : "Maintenance Schedule"}
+              </Button>
+            ))}
+          </div>
+
+          {assetSubTab === "registry" && (
+            <Card><CardContent className="pt-6 space-y-4">
+              <FilterBar
+                searchValue={assetFilters._search}
+                onSearchChange={(v) => setAssetFilters((f) => ({ ...f, _search: v }))}
+                fields={[{ key: "status", label: "Status", type: "select", options: [
+                  { label: "Active", value: "ACTIVE" }, { label: "Maintenance", value: "MAINTENANCE" },
+                  { label: "Retired", value: "RETIRED" }, { label: "Disposed", value: "DISPOSED" },
+                ]}]}
+                values={assetFilters}
+                onChange={(k, v) => setAssetFilters((f) => ({ ...f, [k]: v }))}
+              />
+              <DataTable
+                columns={[
+                  { key: "name", label: "Asset", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "assetTag", label: "Tag", className: "text-gray-500" },
+                  { key: "category", label: "Category" },
+                  { key: "location", label: "Location" },
+                  { key: "assignedTo", label: "Assigned To" },
+                  { key: "currentValue", label: "Value", className: "text-right", render: (v) => assetFmt(v as number) },
+                  { key: "warrantyExpiry", label: "Warranty" },
+                  { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${assetStatusColor[v as string]}`}>{v as string}</span> },
+                  { key: "id", label: "", render: (_v, row) => {
+                    const a = row as unknown as typeof initialAssets[0];
+                    return (
+                      <EditDeleteMenu
+                        onEdit={() => { setAssetEditing(a); setAssetModalOpen(true); }}
+                        onDelete={() => setAssets(prev => prev.filter(x => x.id !== a.id))}
+                        onView={() => setAssetDetailItem(a)}
+                        canView
+                        itemLabel={a.name}
+                        extraItems={(() => {
+                          const flow: Record<string, string> = { ACTIVE: "MAINTENANCE", MAINTENANCE: "ACTIVE", RETIRED: "DISPOSED" };
+                          const next = flow[a.status];
+                          if (!next) return [];
+                          return [{ label: `Set ${next}`, onClick: () => setAssets(prev => prev.map(x => x.id === a.id ? { ...x, status: next } : x)) }];
+                        })()}
+                      />
+                    );
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={filteredAssets as unknown as Record<string, unknown>[]}
+                exportable exportFilename="erp-assets.csv" emptyMessage="No assets match your filters."
+              />
+            </CardContent></Card>
+          )}
+
+          {assetSubTab === "maintenance" && (
+            <Card><CardContent className="pt-6">
+              <DataTable
+                columns={[
+                  { key: "asset", label: "Asset", render: (v) => <span className="font-medium">{v as string}</span> },
+                  { key: "type", label: "Type", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${(v as string) === "PREVENTIVE" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800"}`}>{v as string}</span> },
+                  { key: "description", label: "Description" },
+                  { key: "scheduledDate", label: "Scheduled" },
+                  { key: "completedDate", label: "Completed", render: (v) => <>{(v as string | null) || "—"}</> },
+                  { key: "cost", label: "Cost", className: "text-right", render: (v) => <>{(v as number) > 0 ? assetFmt(v as number) : "—"}</> },
+                  { key: "status", label: "Status", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${assetStatusColor[v as string]}`}>{v as string}</span> },
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={assetMaintenanceRecords as unknown as Record<string, unknown>[]}
+                exportable exportFilename="erp-maintenance.csv" emptyMessage="No maintenance records found."
+              />
+            </CardContent></Card>
+          )}
         </TabsContent>
       </Tabs>
 
