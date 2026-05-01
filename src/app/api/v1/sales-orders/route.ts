@@ -5,9 +5,9 @@ import {
   corsOptions,
   paginate,
   filterBySearch,
-  validateRequiredFields,
   parseQueryParams,
 } from "@/lib/api/api-helpers";
+import { validate, createSalesOrderSchema } from "@/lib/api/validations";
 
 let prisma: any = null;
 try {
@@ -75,15 +75,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const missing = validateRequiredFields(body, [
-      "orderNumber",
-      "customerId",
-      "date",
-      "total",
-    ]);
-    if (missing.length > 0) {
-      return apiError(`Missing required fields: ${missing.join(", ")}`, 400);
-    }
+    const validation = validate(createSalesOrderSchema, body);
+    if (!validation.success) return apiError(validation.error, 400);
+    const data = validation.data;
 
     if (prisma) {
       try {
