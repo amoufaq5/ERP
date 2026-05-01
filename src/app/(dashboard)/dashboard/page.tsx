@@ -1128,6 +1128,12 @@ function BUMDashboard() {
         badge="BUSINESS UNIT MANAGER"
       />
 
+      {/* Operational Alerts Banner */}
+      <OperationalAlertsBanner />
+
+      {/* Approval Queue Widget */}
+      <ApprovalQueueWidget />
+
       {/* Top KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="BU Revenue (YTD)" value={fmtM(buRevenue)} icon={DollarSign} color="bg-green-100 text-green-600" />
@@ -1290,6 +1296,9 @@ function BUMDashboard() {
         </Card>
       </div>
 
+      {/* Activity Feed */}
+      <ActivityFeedWidget />
+
       {/* Quiz Results */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <MyQuizResultsCard userId={user.id} />
@@ -1380,6 +1389,10 @@ function MarketeerDashboard() {
         subtitle={`Regional marketing performance — ${user.territory ?? "All Territories"}`}
         badge="MARKETEER"
       />
+
+      {/* Operational Alerts */}
+      <OperationalAlertsBanner />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Region Revenue" value={fmtM(regionRevenue)} icon={DollarSign} color="bg-green-100 text-green-600" />
         <KpiCard label="Coverage" value={`${coveragePct}%`} delta={`${coveredBricks}/${totalBricks} bricks`} icon={MapPin} color="bg-blue-100 text-blue-600" />
@@ -1544,6 +1557,10 @@ function DistrictManagerDashboard() {
         subtitle={`District team performance — ${user.territory ?? "District"}`}
         badge="DISTRICT MANAGER"
       />
+
+      {/* Operational Alerts */}
+      <OperationalAlertsBanner />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="District Revenue (MTD)" value={fmtM(districtRevenue)} icon={DollarSign} color="bg-green-100 text-green-600" />
         <KpiCard label="Team Coverage" value={`${coveragePct}%`} delta={`${coveredBricks}/${totalBricks} bricks`} icon={MapPin} color="bg-blue-100 text-blue-600" />
@@ -2045,6 +2062,10 @@ function AccountantDashboard() {
         subtitle={`Financial operations — ${config.accounting.chartType} Chart of Accounts`}
         badge="ACCOUNTANT"
       />
+
+      {/* Operational Alerts */}
+      <OperationalAlertsBanner />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="AR Outstanding" value={fmtM(arOutstanding)} delta="-5.2%" trend="down" icon={Receipt} color="bg-amber-100 text-amber-600" />
         <KpiCard label="AP Outstanding" value={fmtM(apOutstanding)} icon={FileText} color="bg-blue-100 text-blue-600" />
@@ -2084,6 +2105,9 @@ function AccountantDashboard() {
           </CardContent>
         </Card>
       </div>
+      {/* Activity Feed */}
+      <ActivityFeedWidget />
+
       <QuickActions items={[
         { label: "Accounting", icon: Receipt, href: "/erp/accounting" },
         { label: "Finance", icon: DollarSign, href: "/erp/finance" },
@@ -2106,6 +2130,10 @@ function WarehouseDashboard() {
         subtitle="Warehouse, batch tracking, and cold chain operations"
         badge="WAREHOUSE MANAGER"
       />
+
+      {/* Operational Alerts */}
+      <OperationalAlertsBanner />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Active Batches" value={24} icon={FlaskConical} color="bg-blue-100 text-blue-600" />
         <KpiCard label="Expiring < 90d" value={12} delta="2 new" trend="down" icon={AlertTriangle} color="bg-amber-100 text-amber-600" />

@@ -6,6 +6,7 @@ import { I18nProvider } from "@/lib/i18n/i18n-context";
 import { NotificationProvider } from "@/lib/notifications";
 import { EnhancedNotificationProvider } from "@/lib/notification-context";
 import { AuditProvider } from "@/lib/audit-trail";
+import { AuditLoggerProvider } from "@/lib/audit-logger";
 import { ThemeProvider } from "@/lib/theme-context";
 import { FavoritesProvider } from "@/lib/favorites";
 import { ApprovalProvider } from "@/lib/approval-workflow";
@@ -27,6 +28,7 @@ export default function DashboardLayout({
                 <NotificationProvider>
                   <EnhancedNotificationProvider>
                   <AuditProvider>
+                    <AuditLoggerProvider>
                     <ApprovalProvider>
                       <FavoritesProvider>
                         <DashboardShell>
@@ -35,6 +37,7 @@ export default function DashboardLayout({
                         </DashboardShell>
                       </FavoritesProvider>
                     </ApprovalProvider>
+                    </AuditLoggerProvider>
                   </AuditProvider>
                   </EnhancedNotificationProvider>
                 </NotificationProvider>
