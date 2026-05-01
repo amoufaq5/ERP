@@ -985,6 +985,12 @@ function PlanCard({
                       </p>
                     </>
                   )}
+                  {/* Enhancement 5: Running total per day */}
+                  {d.visits.length > 0 && (
+                    <p className={`text-[9px] font-medium ${d.visits.length >= MAX_VISITS_PER_DAY ? "text-red-600" : "text-muted-foreground"}`}>
+                      {d.visits.length}/{MAX_VISITS_PER_DAY}
+                    </p>
+                  )}
                   {dayConflicts.length > 0 && (
                     <p className="text-[9px] text-yellow-700 font-medium">{dayConflicts.length} issue{dayConflicts.length !== 1 ? "s" : ""}</p>
                   )}
