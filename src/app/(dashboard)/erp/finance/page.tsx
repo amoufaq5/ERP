@@ -957,6 +957,181 @@ export default function FinancePage() {
         );
       })()}
 
+      {/* ─── Banking Tab ─────────────────────────────────────────── */}
+      {activeTab === "banking" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><Landmark className="h-5 w-5 text-blue-600" /></div><div><p className="text-sm text-muted-foreground">Total Balance</p><p className="text-2xl font-bold">EGP {bankingTotalBalance.toLocaleString()}</p></div></div></CardContent></Card>
+            <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-red-100 rounded-lg"><Unlink className="h-5 w-5 text-red-600" /></div><div><p className="text-sm text-muted-foreground">Unreconciled</p><p className="text-2xl font-bold">{bankingUnreconciled}</p></div></div></CardContent></Card>
+            <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><Link2 className="h-5 w-5 text-green-600" /></div><div><p className="text-sm text-muted-foreground">Matched</p><p className="text-2xl font-bold">{bankingTransactions.filter(tx => tx.matchStatus === "matched").length}</p></div></div></CardContent></Card>
+            <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><CreditCard className="h-5 w-5 text-purple-600" /></div><div><p className="text-sm text-muted-foreground">Active Accounts</p><p className="text-2xl font-bold">{bankingAccounts.filter(a => a.isActive).length}</p></div></div></CardContent></Card>
+          </div>
+
+          <div className="flex justify-end"><Button size="sm" onClick={() => setShowAddBankingAccount(true)}><Plus className="h-4 w-4 mr-2" />Add Account</Button></div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {bankingAccounts.map(acc => (
+              <Card key={acc.id} className={!acc.isActive ? "opacity-60" : ""}>
+                <CardContent className="pt-6 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">{acc.bankName}</h3>
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${acc.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>{acc.isActive ? "Active" : "Inactive"}</span>
+                  </div>
+                  <div className="text-sm space-y-1">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Account</span><span className="font-mono">{acc.accountNumber}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">IBAN</span><span className="font-mono text-xs">{acc.iban.substring(0, 12)}...</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Currency</span><span>{acc.currency}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Last Sync</span><span>{acc.lastSynced}</span></div>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <p className="text-sm text-muted-foreground">Balance</p>
+                    <p className="text-2xl font-bold">{acc.currency} {acc.balance.toLocaleString()}</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="w-full"><RefreshCw className="h-4 w-4 mr-2" />Sync Transactions</Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Transactions Tab ─────────────────────────────────────── */}
+      {activeTab === "transactions" && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Bank Transactions</CardTitle>
+              <div className="flex gap-2">
+                <select className="rounded-md border px-2 py-1 text-xs" value={bankingFilterAccount} onChange={e => setBankingFilterAccount(e.target.value)}>
+                  <option value="">All Accounts</option>
+                  {bankingAccounts.map(a => <option key={a.id} value={a.id}>{a.bankName}</option>)}
+                </select>
+                <select className="rounded-md border px-2 py-1 text-xs" value={bankingFilterMatch} onChange={e => setBankingFilterMatch(e.target.value)}>
+                  <option value="">All Status</option>
+                  <option value="matched">Matched</option>
+                  <option value="unmatched">Unmatched</option>
+                  <option value="partial">Partial</option>
+                  <option value="excluded">Excluded</option>
+                </select>
+                <Button size="sm" variant="outline"><FileSpreadsheet className="h-4 w-4 mr-1" />Import Statement</Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <DataTable columns={bankingTxColumns} data={bankingFilteredTx as unknown as Record<string, unknown>[]} exportable exportFilename="bank-transactions" emptyMessage="No transactions." />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ─── Reconciliation Tab ───────────────────────────────────── */}
+      {activeTab === "reconciliation" && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Reconciliation Sessions</CardTitle></CardHeader>
+            <CardContent>
+              <table className="w-full text-sm">
+                <thead><tr className="border-b bg-muted/50">
+                  <th className="text-left p-3 font-medium">Account</th>
+                  <th className="text-left p-3 font-medium">Period</th>
+                  <th className="text-right p-3 font-medium">Bank Balance</th>
+                  <th className="text-right p-3 font-medium">Book Balance</th>
+                  <th className="text-right p-3 font-medium">Difference</th>
+                  <th className="text-center p-3 font-medium">Matched</th>
+                  <th className="text-left p-3 font-medium">Status</th>
+                </tr></thead>
+                <tbody>
+                  {bankingRecons.map(r => {
+                    const acc = bankingAccounts.find(a => a.id === r.accountId);
+                    return (
+                      <tr key={r.id} className="border-b hover:bg-muted/50">
+                        <td className="p-3 font-medium">{acc?.bankName || "—"}</td>
+                        <td className="p-3">{r.periodStart} to {r.periodEnd}</td>
+                        <td className="p-3 text-right font-mono">{r.bankBalance.toLocaleString()}</td>
+                        <td className="p-3 text-right font-mono">{r.bookBalance.toLocaleString()}</td>
+                        <td className={`p-3 text-right font-mono font-medium ${r.difference === 0 ? "text-green-700" : "text-red-700"}`}>{r.difference.toLocaleString()}</td>
+                        <td className="p-3 text-center">{r.matchedCount}/{r.matchedCount + r.unmatchedCount}</td>
+                        <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-xs ${r.status === "completed" ? "bg-green-100 text-green-800" : r.status === "discrepancy" ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"}`}>{r.status}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-base">Auto-Match Engine</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">The auto-match engine compares bank transactions against invoices, payments, and journal entries by amount and reference number.</p>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-muted p-3 rounded-lg text-center"><p className="text-2xl font-bold text-green-600">{bankingTransactions.filter(tx => tx.matchStatus === "matched").length}</p><p className="text-xs text-muted-foreground">Auto-Matched</p></div>
+                <div className="bg-muted p-3 rounded-lg text-center"><p className="text-2xl font-bold text-yellow-600">{bankingTransactions.filter(tx => tx.matchStatus === "partial").length}</p><p className="text-xs text-muted-foreground">Partial Match</p></div>
+                <div className="bg-muted p-3 rounded-lg text-center"><p className="text-2xl font-bold text-red-600">{bankingTransactions.filter(tx => tx.matchStatus === "unmatched").length}</p><p className="text-xs text-muted-foreground">Unmatched</p></div>
+              </div>
+              <Button size="sm"><RefreshCw className="h-4 w-4 mr-2" />Run Auto-Match</Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ─── Payment Gateway Tab ──────────────────────────────────── */}
+      {activeTab === "payment-gateway" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Generate Payment Link</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div><Label>Amount (EGP)</Label><Input type="number" placeholder="0.00" value={bankingPaymentAmount} onChange={e => setBankingPaymentAmount(e.target.value)} className="mt-1" /></div>
+              <div><Label>Description</Label><Input placeholder="Invoice payment..." className="mt-1" /></div>
+              <div><Label>Payment Methods</Label>
+                <div className="flex gap-2 mt-2">
+                  {["Bank Transfer", "Credit Card", "Mobile Wallet"].map(m => (
+                    <span key={m} className="px-3 py-1.5 border rounded-md text-xs cursor-pointer hover:bg-muted">{m}</span>
+                  ))}
+                </div>
+              </div>
+              <Button className="w-full"><QrCode className="h-4 w-4 mr-2" />Generate Payment Link</Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-base">QR Code Payment</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-muted p-8 rounded-lg flex flex-col items-center">
+                <div className="w-48 h-48 bg-white border-2 rounded-lg flex items-center justify-center">
+                  <QrCode className="h-24 w-24 text-gray-300" />
+                </div>
+                <p className="text-sm text-muted-foreground mt-3">
+                  {bankingPaymentAmount ? `EGP ${Number(bankingPaymentAmount).toLocaleString()}` : "Enter amount to generate QR"}
+                </p>
+              </div>
+              <div className="text-sm space-y-2">
+                <p className="font-medium">Supported Payment Methods:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {["InstaPay", "Fawry", "Vodafone Cash", "Orange Money", "Visa/MC", "Meeza"].map(m => (
+                    <div key={m} className="flex items-center gap-2 text-xs"><CheckCircle className="h-3 w-3 text-green-500" />{m}</div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ─── Add Banking Account Dialog ───────────────────────────── */}
+      <Dialog open={showAddBankingAccount} onOpenChange={setShowAddBankingAccount}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Bank Account</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>Bank Name</Label><Input value={newBankingAccount.bankName} onChange={e => setNewBankingAccount(p => ({ ...p, bankName: e.target.value }))} className="mt-1" /></div>
+            <div><Label>Account Number</Label><Input value={newBankingAccount.accountNumber} onChange={e => setNewBankingAccount(p => ({ ...p, accountNumber: e.target.value }))} className="mt-1" /></div>
+            <div><Label>IBAN</Label><Input value={newBankingAccount.iban} onChange={e => setNewBankingAccount(p => ({ ...p, iban: e.target.value }))} className="mt-1" /></div>
+            <div><Label>Currency</Label>
+              <select className="w-full rounded-md border px-3 py-2 text-sm mt-1" value={newBankingAccount.currency} onChange={e => setNewBankingAccount(p => ({ ...p, currency: e.target.value }))}>
+                <option value="EGP">EGP</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="SAR">SAR</option>
+              </select>
+            </div>
+            <Button className="w-full" onClick={addBankingAccount}>Add Account</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <EntityFormModal
         open={showInvoiceModal}
         onOpenChange={(open) => { setShowInvoiceModal(open); if (!open) setEditingInvoice(null); }}
