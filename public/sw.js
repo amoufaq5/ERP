@@ -6,10 +6,7 @@ const SYNC_TAG = 'background-sync-queue';
 
 const STATIC_ASSETS = [
   OFFLINE_URL,
-  '/dashboard',
   '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
 ];
 
 // ─── Install ────────────────────────────────────────────────────────────────────
@@ -100,8 +97,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'Enterprise Suite', {
       body: data.body || '',
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-72.png',
+      icon: '/icons/icon-192.svg',
+      badge: '/icons/icon-192.svg',
       data: data.url ? { url: data.url } : undefined,
     })
   );

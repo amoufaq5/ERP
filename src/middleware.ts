@@ -40,11 +40,16 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Check for NextAuth session token
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET || "pharma-erp-dev-secret-change-in-production",
-  });
+  // Check for NextAuth session token (wrapped in try-catch to prevent middleware crashes)
+  let token: Awaited<ReturnType<typeof getToken>> | null = null;
+  try {
+    token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET || "pharma-erp-dev-secret-change-in-production",
+    });
+  } catch {
+    // next-auth may not be fully configured — continue without token
+  }
 
   // Also check legacy localStorage token via cookie (backwards compat with demo login)
   const hasLegacyToken = request.cookies.get("demo-auth")?.value;
@@ -67,8 +72,8 @@ export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
   if (tenantSlug) response.headers.set("x-tenant-slug", tenantSlug);
   if (token) {
-    response.headers.set("x-user-role", token.role as string || "");
-    response.headers.set("x-user-id", token.id as string || "");
+    response.headers.set("x-user-role", (token.role as string) || "");
+    response.headers.set("x-user-id", (token.id as string) || "");
   }
 
   return response;

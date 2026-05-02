@@ -9,11 +9,15 @@ export default function RootPage() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      router.push("/dashboard");
+      router.replace("/dashboard");
     } else {
-      router.push("/login");
+      router.replace("/login");
     }
   }, [router]);
 
-  return null;
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600" />
+    </div>
+  );
 }
