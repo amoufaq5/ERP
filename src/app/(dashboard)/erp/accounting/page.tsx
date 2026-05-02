@@ -434,7 +434,7 @@ export default function AccountingPage() {
   const ccAllocations = useMemo(() => {
     const map: Record<string, number> = {};
     store.journalEntries.filter((j) => j.status === "POSTED").forEach((j) => {
-      j.lines.forEach((l) => {
+      (j.lines || []).forEach((l) => {
         if (l.costCenterId) {
           map[l.costCenterId] = (map[l.costCenterId] ?? 0) + l.debit;
         }
@@ -861,7 +861,7 @@ export default function AccountingPage() {
       module: "SalesOrder",
       entityId: so.id,
       title: `SO ${so.number} — ${customer?.name ?? "Unknown"}`,
-      description: `Sales order ${so.number} for ${egpFmt(so.total)}. Items: ${so.items.map((i) => i.description).join(", ")}`,
+      description: `Sales order ${so.number} for ${egpFmt(so.total)}. Items: ${(so.items || []).map((i) => i.description).join(", ")}`,
       requestedBy: "u-admin",
       requestedByName: "Admin User",
       assignedTo: "admin-001",
@@ -939,7 +939,7 @@ export default function AccountingPage() {
                       <span className="text-muted-foreground">{customer?.name ?? "Unknown"}</span>
                       <span className="font-semibold">{apr.amount ? egpFmt(apr.amount) : "—"}</span>
                       <span className="text-xs text-muted-foreground">{so?.date?.slice(0, 10)}</span>
-                      {so && <span className="text-xs text-muted-foreground truncate max-w-[200px]">{so.items.map((i) => `${i.description} x${i.quantity}`).join(", ")}</span>}
+                      {so && <span className="text-xs text-muted-foreground truncate max-w-[200px]">{(so.items || []).map((i) => `${i.description} x${i.quantity}`).join(", ")}</span>}
                     </div>
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => rejectSOApproval(apr.id, apr.entityId)}>
@@ -1683,7 +1683,7 @@ export default function AccountingPage() {
                           </div>
                           {so && (
                             <div className="text-xs text-muted-foreground mt-1">
-                              Stock check: {so.items.map((item) => {
+                              Stock check: {(so.items || []).map((item) => {
                                 const prod = store.products.find((p) => p.id === item.productId);
                                 if (!prod) return `${item.description}: N/A`;
                                 const ok = prod.stockQty >= item.quantity;
@@ -2210,7 +2210,7 @@ export default function AccountingPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50"><tr><th className="px-3 py-2 text-left">Account</th><th className="px-3 py-2 text-left">Description</th><th className="px-3 py-2 text-right">Debit</th><th className="px-3 py-2 text-right">Credit</th><th className="px-3 py-2 text-left">Cost Center</th>{jeDetail.status === "DRAFT" && <th className="px-3 py-2 w-8" />}</tr></thead>
                   <tbody className="divide-y">
-                    {jeDetail.lines.map((l, i) => (
+                    {(jeDetail.lines || []).map((l, i) => (
                       <tr key={i} className="hover:bg-muted/30">
                         <td className="px-3 py-2 font-mono text-xs">{glName(l.accountId)}</td>
                         <td className="px-3 py-2 text-xs">{l.description ?? "—"}</td>
@@ -2228,23 +2228,23 @@ export default function AccountingPage() {
                         )}
                       </tr>
                     ))}
-                    {jeDetail.lines.length === 0 && <tr><td colSpan={jeDetail.status === "DRAFT" ? 6 : 5} className="px-3 py-4 text-center text-muted-foreground">No lines yet. Add lines below.</td></tr>}
+                    {(jeDetail.lines || []).length === 0 && <tr><td colSpan={jeDetail.status === "DRAFT" ? 6 : 5} className="px-3 py-4 text-center text-muted-foreground">No lines yet. Add lines below.</td></tr>}
                   </tbody>
                   <tfoot className="bg-muted/30 font-semibold">
                     <tr>
                       <td colSpan={2} className="px-3 py-2">Total</td>
-                      <td className="px-3 py-2 text-right">{jeDetail.lines.reduce((s, l) => s + l.debit, 0).toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right">{jeDetail.lines.reduce((s, l) => s + l.credit, 0).toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">{(jeDetail.lines || []).reduce((s, l) => s + l.debit, 0).toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">{(jeDetail.lines || []).reduce((s, l) => s + l.credit, 0).toLocaleString()}</td>
                       <td colSpan={jeDetail.status === "DRAFT" ? 2 : 1} />
                     </tr>
                   </tfoot>
                 </table>
               </div>
               {(() => {
-                const totalDebit = jeDetail.lines.reduce((s, l) => s + l.debit, 0);
-                const totalCredit = jeDetail.lines.reduce((s, l) => s + l.credit, 0);
+                const totalDebit = (jeDetail.lines || []).reduce((s, l) => s + l.debit, 0);
+                const totalCredit = (jeDetail.lines || []).reduce((s, l) => s + l.credit, 0);
                 const diff = totalDebit - totalCredit;
-                if (jeDetail.lines.length > 0 && diff !== 0) {
+                if ((jeDetail.lines || []).length > 0 && diff !== 0) {
                   return (
                     <div className="flex items-center gap-2 text-xs px-1">
                       <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
@@ -2574,12 +2574,12 @@ export default function AccountingPage() {
                 <div><span className="text-muted-foreground">Total</span><p className="font-bold text-lg">EGP {viewEInvoice.totalAmount.toLocaleString()}</p></div>
                 <div><span className="text-muted-foreground">ETA UUID</span><p className="font-mono text-xs">{viewEInvoice.uuid || "—"}</p></div>
               </div>
-              {viewEInvoice.items.length > 0 && (
+              {(viewEInvoice.items || []).length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium mb-2">Line Items</h4>
                   <table className="w-full text-xs">
                     <thead><tr className="border-b"><th className="text-left p-2">Description</th><th className="text-right p-2">Qty</th><th className="text-right p-2">Unit Price</th><th className="text-right p-2">Total</th></tr></thead>
-                    <tbody>{viewEInvoice.items.map((item, i) => (
+                    <tbody>{(viewEInvoice.items || []).map((item, i) => (
                       <tr key={i} className="border-b"><td className="p-2">{item.description}</td><td className="p-2 text-right">{item.quantity}</td><td className="p-2 text-right">{item.unitPrice.toLocaleString()}</td><td className="p-2 text-right font-medium">{item.total.toLocaleString()}</td></tr>
                     ))}</tbody>
                   </table>

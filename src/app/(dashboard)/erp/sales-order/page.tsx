@@ -277,7 +277,7 @@ export default function SalesOrderPage() {
       setQtCustomerId(q.customerId);
       setQtValidUntil(q.validUntil);
       setQtTerms(q.terms);
-      setQtLines(q.items.map((it) => ({ productId: it.productId, quantity: it.quantity })));
+      setQtLines((q.items || []).map((it) => ({ productId: it.productId, quantity: it.quantity })));
     } else {
       setEditingQuote(null);
       setQtCustomerId("");
@@ -350,7 +350,7 @@ export default function SalesOrderPage() {
   function convertQuoteToSO(q: Quotation) {
     if (q.status !== "Accepted") return;
     // Create a new SO pre-filled from the quotation
-    const soItems = q.items.map((it) => ({
+    const soItems = (q.items || []).map((it) => ({
       productId: it.productId,
       description: it.description,
       quantity: it.quantity,
@@ -390,7 +390,7 @@ export default function SalesOrderPage() {
       setEditingSO(so);
       setSOCustomerId(so.customerId);
       setSOExpectedDate(so.expectedDate?.slice(0, 10) ?? "");
-      setSOLines(so.items.map((it) => ({ productId: it.productId, quantity: it.quantity })));
+      setSOLines((so.items || []).map((it) => ({ productId: it.productId, quantity: it.quantity })));
     } else {
       setEditingSO(null);
       setSOCustomerId("");
@@ -493,7 +493,7 @@ export default function SalesOrderPage() {
       soId: so.id,
       customerId: so.customerId,
       date: new Date().toISOString(),
-      items: so.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity })),
+      items: (so.items || []).map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity })),
       status: "SHIPPED",
       createdAt: new Date().toISOString(),
     });
@@ -534,7 +534,7 @@ export default function SalesOrderPage() {
       dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
       subtotal: so.subtotal, tax: so.tax, total: so.total,
       currency: "EGP", status: "SENT",
-      items: so.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })),
+      items: (so.items || []).map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })),
       notes: `Auto-generated from SO ${so.number} / DN ${dn.number}`,
     });
 
@@ -649,7 +649,7 @@ export default function SalesOrderPage() {
                       { key: "customerId", label: "Customer", render: (v: string) => <CustomerLink customerId={v} /> },
                       { key: "items", label: "Items", render: (_v: unknown, row: Record<string, unknown>) => {
                         const so = row as unknown as SalesOrder;
-                        return <span className="text-sm">{so.items.map((i) => `${i.description} ×${i.quantity}`).join(", ")}</span>;
+                        return <span className="text-sm">{(so.items || []).map((i) => `${i.description} ×${i.quantity}`).join(", ")}</span>;
                       }},
                       { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{egp(v)}</span> },
                       { key: "date", label: "Date", render: (v: string) => v?.slice(0, 10) },
@@ -735,7 +735,7 @@ export default function SalesOrderPage() {
                       { key: "customerId", label: "Customer", render: (v: string) => <CustomerLink customerId={v} /> },
                       { key: "items", label: "Items", render: (_v: unknown, row: Record<string, unknown>) => {
                         const dn = row as unknown as DeliveryNote;
-                        return <span className="text-sm">{dn.items.map((i) => `${i.description} ×${i.quantity}`).join(", ")}</span>;
+                        return <span className="text-sm">{(dn.items || []).map((i) => `${i.description} ×${i.quantity}`).join(", ")}</span>;
                       }},
                       { key: "date", label: "Date", render: (v: string) => v?.slice(0, 10) },
                       { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
@@ -817,7 +817,7 @@ export default function SalesOrderPage() {
                   }},
                   { key: "items", label: "Items", render: (_v: unknown, row: Record<string, unknown>) => {
                     const q = row as unknown as Quotation;
-                    return <span className="text-sm">{q.items.length} item{q.items.length !== 1 ? "s" : ""}</span>;
+                    return <span className="text-sm">{(q.items || []).length} item{(q.items || []).length !== 1 ? "s" : ""}</span>;
                   }},
                   { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{egp(v)}</span> },
                   { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
@@ -1260,7 +1260,7 @@ export default function SalesOrderPage() {
                   <table className="w-full text-xs">
                     <thead><tr className="bg-muted/50"><th className="p-2 text-left">Product</th><th className="p-2 text-right">Qty</th><th className="p-2 text-right">Price</th><th className="p-2 text-right">Total</th><th className="p-2 text-center">Stock</th></tr></thead>
                     <tbody>
-                      {detailSO.items.map((it, i) => {
+                      {(detailSO.items || []).map((it, i) => {
                         const stock = getStockStatus(it.productId, it.quantity);
                         return (
                           <tr key={i} className="border-t">
@@ -1306,7 +1306,7 @@ export default function SalesOrderPage() {
                   <table className="w-full text-xs">
                     <thead><tr className="bg-muted/50"><th className="p-2 text-left">Item</th><th className="p-2 text-right">Qty</th></tr></thead>
                     <tbody>
-                      {detailDN.items.map((it, i) => (
+                      {(detailDN.items || []).map((it, i) => (
                         <tr key={i} className="border-t"><td className="p-2">{it.description}</td><td className="p-2 text-right">{it.quantity}</td></tr>
                       ))}
                     </tbody>
@@ -1581,7 +1581,7 @@ export default function SalesOrderPage() {
                   <table className="w-full text-xs">
                     <thead><tr className="bg-muted/50"><th className="p-2 text-left">Product</th><th className="p-2 text-right">Qty</th><th className="p-2 text-right">Price</th><th className="p-2 text-right">Total</th></tr></thead>
                     <tbody>
-                      {detailQuote.items.map((it, i) => (
+                      {(detailQuote.items || []).map((it, i) => (
                         <tr key={i} className="border-t">
                           <td className="p-2">{it.description}</td>
                           <td className="p-2 text-right">{it.quantity}</td>
@@ -1677,7 +1677,7 @@ export default function SalesOrderPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {previewQuote.items.map((it, i) => (
+                    {(previewQuote.items || []).map((it, i) => (
                       <tr key={i} className="border-b last:border-0">
                         <td className="px-4 py-2 text-gray-500">{i + 1}</td>
                         <td className="px-4 py-2">{it.description}</td>

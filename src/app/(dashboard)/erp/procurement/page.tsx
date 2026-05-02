@@ -295,7 +295,7 @@ export default function ProcurementPage() {
       setEditingPO(po);
       setPOVendorId(po.vendorId);
       setPOExpectedDate(po.expectedDate?.slice(0, 10) ?? "");
-      setPOLines(po.items.map((it) => ({ productId: it.productId, quantity: it.quantity, unitPrice: it.unitPrice })));
+      setPOLines((po.items || []).map((it) => ({ productId: it.productId, quantity: it.quantity, unitPrice: it.unitPrice })));
     } else {
       setEditingPO(null);
       setPOVendorId("");
@@ -414,7 +414,7 @@ export default function ProcurementPage() {
       method: shipMethod,
       cost: Number(shipCost) || 0,
       status: "IN_TRANSIT",
-      items: shipmentPO.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })),
+      items: (shipmentPO.items || []).map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })),
       notes: shipNotes || undefined,
       createdAt: new Date().toISOString(),
     });
@@ -475,7 +475,7 @@ export default function ProcurementPage() {
       poId: po.id,
       vendorId: po.vendorId,
       date: new Date().toISOString(),
-      items: po.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })),
+      items: (po.items || []).map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })),
       status: "PENDING",
       createdAt: new Date().toISOString(),
     });
@@ -511,7 +511,7 @@ export default function ProcurementPage() {
       total: po.total,
       currency: "EGP",
       status: "SENT",
-      items: po.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })),
+      items: (po.items || []).map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })),
       notes: `Auto-generated from PO ${po.number} / GRN ${grn.number}`,
     });
 
@@ -555,7 +555,7 @@ export default function ProcurementPage() {
       vendorId: rfq.vendorId,
       date: new Date().toISOString(),
       expectedDate: new Date(Date.now() + 21 * 86400000).toISOString(),
-      items: rfq.items.map((i) => ({ productId: "", description: i.description, quantity: i.quantity, unitPrice: 0, total: 0 })),
+      items: (rfq.items || []).map((i) => ({ productId: "", description: i.description, quantity: i.quantity, unitPrice: 0, total: 0 })),
       subtotal: 0, tax: 0, total: 0,
       status: "DRAFT",
       createdAt: new Date().toISOString(),
@@ -706,7 +706,7 @@ export default function ProcurementPage() {
                   { key: "vendorId", label: "Vendor", render: (v: string) => <VendorLink vendorId={v} /> },
                   { key: "items", label: "Items", render: (_v: unknown, row: Record<string, unknown>) => {
                     const po = row as unknown as PurchaseOrder;
-                    return <span className="text-sm">{po.items.map((i) => i.description).join(", ")}</span>;
+                    return <span className="text-sm">{(po.items || []).map((i) => i.description).join(", ")}</span>;
                   }},
                   { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{egp(v)}</span> },
                   { key: "date", label: "Date", render: (v: string) => v?.slice(0, 10) },
@@ -851,7 +851,7 @@ export default function ProcurementPage() {
                   { key: "vendorId", label: "Vendor", render: (v: string) => <VendorLink vendorId={v} /> },
                   { key: "items", label: "Items", render: (_v: unknown, row: Record<string, unknown>) => {
                     const rfq = row as unknown as RFQ;
-                    return <span className="text-sm">{rfq.items.map((i) => `${i.description} (${i.quantity} ${i.unit})`).join(", ")}</span>;
+                    return <span className="text-sm">{(rfq.items || []).map((i) => `${i.description} (${i.quantity} ${i.unit})`).join(", ")}</span>;
                   }},
                   { key: "validUntil", label: "Valid Until", render: (v: string) => v?.slice(0, 10) },
                   { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
@@ -904,7 +904,7 @@ export default function ProcurementPage() {
                   { key: "vendorId", label: "Vendor", render: (v: string) => <VendorLink vendorId={v} /> },
                   { key: "items", label: "Items", render: (_v: unknown, row: Record<string, unknown>) => {
                     const g = row as unknown as GoodsReceipt;
-                    return <span className="text-sm">{g.items.map((i) => `${i.description} × ${i.quantity}`).join(", ")}</span>;
+                    return <span className="text-sm">{(g.items || []).map((i) => `${i.description} × ${i.quantity}`).join(", ")}</span>;
                   }},
                   { key: "date", label: "Date", render: (v: string) => v?.slice(0, 10) },
                   { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
@@ -1341,7 +1341,7 @@ export default function ProcurementPage() {
             {shipmentPO && (
               <div className="text-sm bg-muted/30 rounded-lg p-3">
                 <p><span className="text-muted-foreground">Vendor:</span> <span className="font-medium">{vendorName(shipmentPO.vendorId)}</span></p>
-                <p><span className="text-muted-foreground">Items:</span> {shipmentPO.items.map((i) => `${i.description} ×${i.quantity}`).join(", ")}</p>
+                <p><span className="text-muted-foreground">Items:</span> {(shipmentPO.items || []).map((i) => `${i.description} ×${i.quantity}`).join(", ")}</p>
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
@@ -1413,7 +1413,7 @@ export default function ProcurementPage() {
                   <table className="w-full text-xs">
                     <thead><tr className="bg-muted/50"><th className="p-2 text-left">Product</th><th className="p-2 text-right">Qty</th><th className="p-2 text-right">Price</th><th className="p-2 text-right">Total</th></tr></thead>
                     <tbody>
-                      {detailPO.items.map((it, i) => (
+                      {(detailPO.items || []).map((it, i) => (
                         <tr key={i} className="border-t"><td className="p-2">{it.description}</td><td className="p-2 text-right">{it.quantity}</td><td className="p-2 text-right">{egp(it.unitPrice)}</td><td className="p-2 text-right">{egp(it.total)}</td></tr>
                       ))}
                     </tbody>
@@ -1445,7 +1445,7 @@ export default function ProcurementPage() {
                   <table className="w-full text-xs">
                     <thead><tr className="bg-muted/50"><th className="p-2 text-left">Item</th><th className="p-2 text-right">Qty</th><th className="p-2 text-right">Price</th></tr></thead>
                     <tbody>
-                      {detailGRN.items.map((it, i) => (
+                      {(detailGRN.items || []).map((it, i) => (
                         <tr key={i} className="border-t"><td className="p-2">{it.description}</td><td className="p-2 text-right">{it.quantity}</td><td className="p-2 text-right">{egp(it.unitPrice)}</td></tr>
                       ))}
                     </tbody>

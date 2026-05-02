@@ -283,7 +283,7 @@ function buildETADocument(invoice: ETAInvoice, config: ETAConfig) {
     dateTimeIssued: `${invoice.date}T00:00:00Z`,
     taxpayerActivityCode: config.activityCode,
     internalID: invoice.invoiceNumber,
-    invoiceLines: invoice.items.map((item, idx) => ({
+    invoiceLines: (invoice.items || []).map((item, idx) => ({
       description: item.description,
       itemType: item.itemType,
       itemCode: item.itemCode,
@@ -1418,7 +1418,7 @@ export default function EInvoicingPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {detailInvoice.items.map((item, idx) => (
+                      {(detailInvoice.items || []).map((item, idx) => (
                         <tr key={idx} className="border-b border-border/50">
                           <td className="py-2 px-3">
                             {item.description}

@@ -983,9 +983,9 @@ export default function FinancePage() {
             if (product) store.update("products", product.id, { stockQty: product.stockQty - item.quantity });
           }
           const dnId = store.genId("dn");
-          store.add("deliveryNotes", { id: dnId, number: store.generateDNNumber(), soId: so.id, customerId: so.customerId, date: new Date().toISOString(), items: so.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity })), status: "PENDING", createdAt: new Date().toISOString() });
+          store.add("deliveryNotes", { id: dnId, number: store.generateDNNumber(), soId: so.id, customerId: so.customerId, date: new Date().toISOString(), items: (so.items || []).map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity })), status: "PENDING", createdAt: new Date().toISOString() });
           const invId = store.genId("inv");
-          store.add("invoices", { id: invId, number: store.generateInvoiceNumber(), customerId: so.customerId, date: new Date().toISOString().split("T")[0], dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0], subtotal: so.subtotal, tax: so.tax, total: so.total, currency: "EGP", status: "SENT", items: so.items.map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })), notes: `Auto from SO ${so.number}` });
+          store.add("invoices", { id: invId, number: store.generateInvoiceNumber(), customerId: so.customerId, date: new Date().toISOString().split("T")[0], dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0], subtotal: so.subtotal, tax: so.tax, total: so.total, currency: "EGP", status: "SENT", items: (so.items || []).map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })), notes: `Auto from SO ${so.number}` });
           store.add("journalEntries", { id: store.genId("je"), number: store.generateJournalNumber(), date: new Date().toISOString().split("T")[0], description: `Sales — SO ${so.number}`, reference: so.number, type: "GENERAL", lines: [{ accountId: "gl-1100", description: "Accounts Receivable", debit: so.total, credit: 0 }, { accountId: "gl-4000", description: "Revenue", debit: 0, credit: so.subtotal }, { accountId: "gl-2100", description: "VAT Payable", debit: 0, credit: so.tax }], status: "POSTED", createdBy: "u-admin", createdAt: new Date().toISOString() });
           store.update("salesOrders", so.id, { status: "INVOICED", invoiceId: invId, dnId });
           approvals.approve(approvalId, "Approved — stock verified, invoice created");
@@ -1015,7 +1015,7 @@ export default function FinancePage() {
                               <Badge variant="outline">{apr.priority}</Badge>
                               {apr.amount && <span className="font-semibold">{egpF(apr.amount)}</span>}
                             </div>
-                            {so && <p className="text-xs text-muted-foreground">Stock: {so.items.map((item) => { const p = store.products.find((x) => x.id === item.productId); return p ? `${p.name}: ${p.stockQty >= item.quantity ? "OK" : "LOW"}` : "N/A"; }).join(" | ")}</p>}
+                            {so && <p className="text-xs text-muted-foreground">Stock: {(so.items || []).map((item) => { const p = store.products.find((x) => x.id === item.productId); return p ? `${p.name}: ${p.stockQty >= item.quantity ? "OK" : "LOW"}` : "N/A"; }).join(" | ")}</p>}
                           </div>
                           <div className="flex gap-2">
                             <Button size="sm" variant="outline" className="h-8 text-red-600" onClick={() => { store.update("salesOrders", apr.entityId, { status: "CANCELLED" }); approvals.reject(apr.id, "Rejected"); }}>
@@ -1528,7 +1528,7 @@ export default function FinancePage() {
               <div><span className="text-sm text-muted-foreground">Total</span><p className="font-semibold text-lg">{egp(viewInvoice.total)}</p></div>
               <div><span className="text-sm text-muted-foreground">Currency</span><p className="font-medium">{viewInvoice.currency}</p></div>
               <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={viewInvoice.status} /></p></div>
-              <div><span className="text-sm text-muted-foreground">Line Items</span><p className="font-medium">{viewInvoice.items.length} item(s)</p></div>
+              <div><span className="text-sm text-muted-foreground">Line Items</span><p className="font-medium">{(viewInvoice.items || []).length} item(s)</p></div>
               <div className="col-span-2 pt-2">
                 <Button variant="outline" size="sm" onClick={() => { const c = store.customers.find((x) => x.id === viewInvoice.customerId); openInvoicePDF(viewInvoice, c, "customer"); }}>
                   <FileText className="h-4 w-4 mr-2" /> View / Print PDF

@@ -669,10 +669,10 @@ function PartnerDialogContent({
       ...entriesWithBalance.map((e) => [
         e.date, e.reference, e.transactionType, e.description,
         e.debit ? e.debit.toFixed(2) : "", e.credit ? e.credit.toFixed(2) : "",
-        e.runningBalance.toFixed(2),
+        (e.runningBalance ?? 0).toFixed(2),
       ]),
       [""],
-      ["", "", "", "Totals:", totalDebits.toFixed(2), totalCredits.toFixed(2), balance.toFixed(2)],
+      ["", "", "", "Totals:", (totalDebits ?? 0).toFixed(2), (totalCredits ?? 0).toFixed(2), (balance ?? 0).toFixed(2)],
     ];
     const csv = lines.map((r) => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -1238,7 +1238,7 @@ function PartnerIndividualDetail({ partnerType, partnerId }: { partnerType: "cus
             icon={CreditCard}
             title="Credit Limit"
             value={egp(creditLimit)}
-            subtitle={`${((outstanding / Math.max(creditLimit, 1)) * 100).toFixed(0)}% utilized`}
+            subtitle={`${(((outstanding ?? 0) / Math.max(creditLimit ?? 0, 1)) * 100).toFixed(0)}% utilized`}
             iconColor="bg-blue-100 text-blue-600"
           />
         )}
@@ -1460,7 +1460,7 @@ function PartnerIndividualDetail({ partnerType, partnerId }: { partnerType: "cus
                     }},
                     { key: "id", label: "Total Qty", render: (_v: string, row: Record<string, unknown>) => {
                       const grn = row as unknown as GoodsReceipt;
-                      const totalQty = grn.items.reduce((s, item) => s + item.quantity, 0);
+                      const totalQty = (grn.items || []).reduce((s, item) => s + (item.quantity ?? 0), 0);
                       return <span className="text-xs font-medium">{totalQty}</span>;
                     }},
                     { key: "status", label: "Status", render: (v: string) => (
