@@ -83,11 +83,11 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.territory.create({
           data: {
-            name: body.name,
-            description: body.description || null,
-            assignedToId: body.assignedToId || null,
-            boundaries: body.boundaries || null,
-            color: body.color || null,
+            name: data.name,
+            description: data.description || null,
+            assignedToId: data.assignedToId || null,
+            boundaries: data.boundaries || null,
+            color: data.color || null,
           },
         });
         return apiResponse(record, 201);
@@ -96,7 +96,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `terr-${Date.now()}`,
-      ...body,
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

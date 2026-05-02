@@ -87,13 +87,13 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.trainingCourse.create({
           data: {
-            title: body.title,
-            description: body.description || null,
-            category: body.category || null,
-            duration: body.duration || null,
-            format: (body.format || "ONLINE").toUpperCase(),
-            status: (body.status || "DRAFT").toUpperCase(),
-            materials: body.materials || null,
+            title: data.title,
+            description: data.description || null,
+            category: data.category || null,
+            duration: data.duration || null,
+            format: data.format,
+            status: data.status,
+            materials: data.materials || null,
           },
         });
         return apiResponse(record, 201);
@@ -102,9 +102,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `train-${Date.now()}`,
-      ...body,
-      format: (body.format || "ONLINE").toUpperCase(),
-      status: (body.status || "DRAFT").toUpperCase(),
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

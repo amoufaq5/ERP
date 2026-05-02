@@ -89,17 +89,17 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.lead.create({
           data: {
-            firstName: body.firstName,
-            lastName: body.lastName,
-            email: body.email || null,
-            phone: body.phone || null,
-            company: body.company || null,
-            source: (body.source || "WEB").toUpperCase(),
-            status: (body.status || "NEW").toUpperCase(),
-            assignedToId: body.assignedToId || null,
-            score: body.score ? parseInt(body.score) : 0,
-            value: body.value ? parseFloat(body.value) : null,
-            notes: body.notes || null,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            email: data.email || null,
+            phone: data.phone || null,
+            company: data.company || null,
+            source: data.source,
+            status: data.status,
+            assignedToId: data.assignedToId || null,
+            score: data.score,
+            value: data.value || null,
+            notes: data.notes || null,
           },
           include: { assignedTo: { select: { id: true, name: true, email: true } } },
         });
@@ -109,10 +109,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `lead-${Date.now()}`,
-      ...body,
-      source: (body.source || "WEB").toUpperCase(),
-      status: (body.status || "NEW").toUpperCase(),
-      score: parseInt(body.score || "0"),
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

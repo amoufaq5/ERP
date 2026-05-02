@@ -100,19 +100,19 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     if (prisma) {
       try {
-        const data: Record<string, unknown> = {
-          name: body.name,
-          code: body.code,
-          description: body.description || null,
-          managerId: body.managerId,
-          color: body.color || null,
-          status: (body.status || "ACTIVE").toUpperCase(),
+        const createData: Record<string, unknown> = {
+          name: data.name,
+          code: data.code,
+          description: data.description || null,
+          managerId: data.managerId,
+          color: data.color || null,
+          status: data.status,
         };
 
         // Support nested members creation
-        if (body.members && Array.isArray(body.members)) {
-          (data as any).members = {
-            create: body.members.map((m: any) => ({
+        if (data.members && Array.isArray(data.members)) {
+          (createData as any).members = {
+            create: data.members.map((m: any) => ({
               userId: m.userId,
               role: m.role || "MEDICAL_REP",
             })),
@@ -120,16 +120,16 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
         }
 
         // Support nested products creation
-        if (body.products && Array.isArray(body.products)) {
-          (data as any).products = {
-            create: body.products.map((p: any) => ({
+        if (data.products && Array.isArray(data.products)) {
+          (createData as any).products = {
+            create: data.products.map((p: any) => ({
               productId: p.productId,
             })),
           };
         }
 
         const record = await prisma.businessUnit.create({
-          data,
+          data: createData,
           include: {
             manager: { select: { id: true, name: true, email: true } },
             members: {
@@ -155,8 +155,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `bu-${Date.now()}`,
-      ...body,
-      status: (body.status || "ACTIVE").toUpperCase(),
+      ...data,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

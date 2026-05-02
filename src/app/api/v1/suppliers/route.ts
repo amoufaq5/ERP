@@ -84,15 +84,15 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.supplier.create({
           data: {
-            name: body.name,
-            email: body.email || null,
-            phone: body.phone || null,
-            address: body.address || null,
-            city: body.city || null,
-            country: body.country || null,
-            status: (body.status || "ACTIVE").toUpperCase(),
-            rating: body.rating ? parseFloat(body.rating) : null,
-            paymentTerms: body.paymentTerms || null,
+            name: data.name,
+            email: data.email || null,
+            phone: data.phone || null,
+            address: data.address || null,
+            city: data.city || null,
+            country: data.country || null,
+            status: data.status,
+            rating: data.rating || null,
+            paymentTerms: data.paymentTerms || null,
           },
         });
         return apiResponse(record, 201);
@@ -101,9 +101,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `sup-${Date.now()}`,
-      ...body,
-      status: (body.status || "ACTIVE").toUpperCase(),
-      rating: body.rating ? parseFloat(body.rating) : null,
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

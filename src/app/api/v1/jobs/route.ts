@@ -91,19 +91,19 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.job.create({
           data: {
-            title: body.title,
-            departmentId: body.departmentId || null,
-            location: body.location || null,
-            type: (body.type || "FULL_TIME").toUpperCase(),
-            status: (body.status || "DRAFT").toUpperCase(),
-            description: body.description || null,
-            requirements: body.requirements || null,
-            salaryMin: body.salaryMin ? parseFloat(body.salaryMin) : null,
-            salaryMax: body.salaryMax ? parseFloat(body.salaryMax) : null,
-            benefits: body.benefits || null,
-            postedDate: body.postedDate ? new Date(body.postedDate) : null,
-            closingDate: body.closingDate ? new Date(body.closingDate) : null,
-            hiringManagerId: body.hiringManagerId || null,
+            title: data.title,
+            departmentId: data.departmentId || null,
+            location: data.location || null,
+            type: data.type,
+            status: data.status,
+            description: data.description || null,
+            requirements: data.requirements || null,
+            salaryMin: data.salaryMin || null,
+            salaryMax: data.salaryMax || null,
+            benefits: data.benefits || null,
+            postedDate: data.postedDate ? new Date(data.postedDate) : null,
+            closingDate: data.closingDate ? new Date(data.closingDate) : null,
+            hiringManagerId: data.hiringManagerId || null,
           },
         });
         return apiResponse(record, 201);
@@ -112,11 +112,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `job-${Date.now()}`,
-      ...body,
-      type: (body.type || "FULL_TIME").toUpperCase(),
-      status: (body.status || "DRAFT").toUpperCase(),
-      salaryMin: body.salaryMin ? parseFloat(body.salaryMin) : null,
-      salaryMax: body.salaryMax ? parseFloat(body.salaryMax) : null,
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

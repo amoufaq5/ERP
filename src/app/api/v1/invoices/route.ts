@@ -84,23 +84,23 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.invoice.create({
           data: {
-            invoiceNumber: body.invoiceNumber,
-            customerId: body.customerId,
-            date: new Date(body.date),
-            dueDate: new Date(body.dueDate),
-            status: (body.status || "DRAFT").toUpperCase(),
-            subtotal: parseFloat(body.subtotal),
-            tax: body.tax ? parseFloat(body.tax) : 0,
-            total: parseFloat(body.total),
-            notes: body.notes || null,
-            items: body.items
+            invoiceNumber: data.invoiceNumber,
+            customerId: data.customerId,
+            date: new Date(data.date),
+            dueDate: new Date(data.dueDate),
+            status: data.status,
+            subtotal: data.subtotal,
+            tax: data.tax,
+            total: data.total,
+            notes: data.notes || null,
+            items: data.items
               ? {
-                  create: body.items.map((item: any) => ({
+                  create: data.items.map((item: any) => ({
                     description: item.description,
-                    quantity: parseFloat(item.quantity),
-                    unitPrice: parseFloat(item.unitPrice),
-                    tax: item.tax ? parseFloat(item.tax) : 0,
-                    total: parseFloat(item.total),
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    tax: item.tax || 0,
+                    total: item.total,
                   })),
                 }
               : undefined,
@@ -113,11 +113,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `inv-${Date.now()}`,
-      ...body,
-      status: (body.status || "DRAFT").toUpperCase(),
-      subtotal: parseFloat(body.subtotal),
-      tax: parseFloat(body.tax || "0"),
-      total: parseFloat(body.total),
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

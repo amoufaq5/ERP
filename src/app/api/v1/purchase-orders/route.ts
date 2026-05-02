@@ -88,22 +88,22 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.purchaseOrder.create({
           data: {
-            poNumber: body.poNumber,
-            supplierId: body.supplierId,
-            date: new Date(body.date),
-            expectedDate: body.expectedDate ? new Date(body.expectedDate) : null,
-            status: (body.status || "DRAFT").toUpperCase(),
-            total: parseFloat(body.total),
-            notes: body.notes || null,
-            createdById: body.createdById,
-            items: body.items
+            poNumber: data.poNumber,
+            supplierId: data.supplierId,
+            date: new Date(data.date),
+            expectedDate: data.expectedDate ? new Date(data.expectedDate) : null,
+            status: data.status,
+            total: data.total,
+            notes: data.notes || null,
+            createdById: data.createdById,
+            items: data.items
               ? {
-                  create: body.items.map((item: any) => ({
+                  create: data.items.map((item: any) => ({
                     productId: item.productId || null,
                     description: item.description,
-                    quantity: parseFloat(item.quantity),
-                    unitPrice: parseFloat(item.unitPrice),
-                    total: parseFloat(item.total),
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    total: item.total,
                   })),
                 }
               : undefined,
@@ -116,9 +116,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `po-${Date.now()}`,
-      ...body,
-      status: (body.status || "DRAFT").toUpperCase(),
-      total: parseFloat(body.total),
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

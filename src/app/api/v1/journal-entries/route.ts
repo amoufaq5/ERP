@@ -83,29 +83,29 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     if (prisma) {
       try {
-        const data: Record<string, unknown> = {
-          entryNumber: body.entryNumber,
-          date: new Date(body.date),
-          reference: body.reference || null,
-          description: body.description,
-          status: (body.status || "DRAFT").toUpperCase(),
-          createdById: body.createdById,
+        const createData: Record<string, unknown> = {
+          entryNumber: data.entryNumber,
+          date: new Date(data.date),
+          reference: data.reference || null,
+          description: data.description,
+          status: data.status,
+          createdById: data.createdById,
         };
 
         // Create with lines if provided
-        if (body.lines && Array.isArray(body.lines) && body.lines.length > 0) {
-          data.lines = {
-            create: body.lines.map((line: any) => ({
+        if (data.lines && Array.isArray(data.lines) && data.lines.length > 0) {
+          createData.lines = {
+            create: data.lines.map((line: any) => ({
               accountId: line.accountId,
-              debit: parseFloat(line.debit || "0"),
-              credit: parseFloat(line.credit || "0"),
+              debit: line.debit || 0,
+              credit: line.credit || 0,
               description: line.description || null,
             })),
           };
         }
 
         const record = await prisma.journalEntry.create({
-          data,
+          data: createData,
           include: {
             lines: { include: { account: true } },
             createdBy: { select: { id: true, name: true, email: true } },
@@ -117,10 +117,9 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `je-${Date.now()}`,
-      ...body,
-      date: body.date,
-      status: (body.status || "DRAFT").toUpperCase(),
-      lines: body.lines || [],
+      ...data,
+      date: data.date,
+      lines: data.lines || [],
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

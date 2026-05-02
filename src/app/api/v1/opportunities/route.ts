@@ -91,16 +91,16 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.opportunity.create({
           data: {
-            title: body.title,
-            accountId: body.accountId || null,
-            contactId: body.contactId || null,
-            leadId: body.leadId || null,
-            stage: (body.stage || "PROSPECTING").toUpperCase(),
-            value: body.value ? parseFloat(body.value) : 0,
-            probability: body.probability ? parseInt(body.probability) : 50,
-            expectedCloseDate: body.expectedCloseDate ? new Date(body.expectedCloseDate) : null,
-            assignedToId: body.assignedToId || null,
-            notes: body.notes || null,
+            title: data.title,
+            accountId: data.accountId || null,
+            contactId: data.contactId || null,
+            leadId: data.leadId || null,
+            stage: data.stage,
+            value: data.value,
+            probability: data.probability,
+            expectedCloseDate: data.expectedCloseDate ? new Date(data.expectedCloseDate) : null,
+            assignedToId: data.assignedToId || null,
+            notes: data.notes || null,
           },
         });
         return apiResponse(record, 201);
@@ -109,10 +109,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `opp-${Date.now()}`,
-      ...body,
-      stage: (body.stage || "PROSPECTING").toUpperCase(),
-      value: body.value ? parseFloat(body.value) : 0,
-      probability: body.probability ? parseInt(body.probability) : 50,
+      ...data,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

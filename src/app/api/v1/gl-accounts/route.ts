@@ -84,12 +84,12 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.chartOfAccount.create({
           data: {
-            code: body.code,
-            name: body.name,
-            type: body.type.toUpperCase(),
-            balance: body.balance ? parseFloat(body.balance) : 0,
-            parentId: body.parentId || null,
-            isActive: body.isActive !== undefined ? body.isActive : true,
+            code: data.code,
+            name: data.name,
+            type: data.type,
+            balance: data.balance,
+            parentId: data.parentId || null,
+            isActive: data.isActive,
           },
         });
         return apiResponse(record, 201);
@@ -98,10 +98,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `coa-${Date.now()}`,
-      ...body,
-      type: body.type.toUpperCase(),
-      balance: parseFloat(body.balance || "0"),
-      isActive: body.isActive !== undefined ? body.isActive : true,
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

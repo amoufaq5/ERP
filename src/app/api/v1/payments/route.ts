@@ -83,13 +83,13 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.payment.create({
           data: {
-            type: body.type.toUpperCase(),
-            amount: parseFloat(body.amount),
-            date: new Date(body.date),
-            method: body.method ? body.method.toUpperCase() : null,
-            reference: body.reference || null,
-            invoiceId: body.invoiceId || null,
-            billId: body.billId || null,
+            type: data.type,
+            amount: data.amount,
+            date: new Date(data.date),
+            method: data.method || null,
+            reference: data.reference || null,
+            invoiceId: data.invoiceId || null,
+            billId: data.billId || null,
           },
           include: { invoice: true, bill: true },
         });
@@ -99,10 +99,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `pay-${Date.now()}`,
-      ...body,
-      type: body.type.toUpperCase(),
-      amount: parseFloat(body.amount),
-      method: body.method ? body.method.toUpperCase() : null,
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

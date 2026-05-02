@@ -90,17 +90,17 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.employee.create({
           data: {
-            employeeNumber: body.employeeNumber,
-            firstName: body.firstName,
-            lastName: body.lastName,
-            email: body.email,
-            phone: body.phone || null,
-            departmentId: body.departmentId || null,
-            position: body.position || null,
-            hireDate: new Date(body.hireDate),
-            salary: body.salary ? parseFloat(body.salary) : null,
-            status: (body.status || "ACTIVE").toUpperCase(),
-            managerId: body.managerId || null,
+            employeeNumber: data.employeeNumber,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            email: data.email,
+            phone: data.phone || null,
+            departmentId: data.departmentId || null,
+            position: data.position || null,
+            hireDate: new Date(data.hireDate),
+            salary: data.salary || null,
+            status: data.status,
+            managerId: data.managerId || null,
           },
           include: { department: true },
         });
@@ -110,8 +110,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `emp-${Date.now()}`,
-      ...body,
-      status: (body.status || "ACTIVE").toUpperCase(),
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

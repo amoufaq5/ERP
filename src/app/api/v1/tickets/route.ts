@@ -97,20 +97,20 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
     if (prisma) {
       try {
         const count = await prisma.ticket.count();
-        const ticketNumber = body.ticketNumber || `TKT-${String(count + 1).padStart(5, "0")}`;
+        const ticketNumber = data.ticketNumber || `TKT-${String(count + 1).padStart(5, "0")}`;
 
         const record = await prisma.ticket.create({
           data: {
             ticketNumber,
-            subject: body.subject,
-            description: body.description,
-            accountId: body.accountId || null,
-            contactId: body.contactId || null,
-            status: (body.status || "OPEN").toUpperCase(),
-            priority: (body.priority || "MEDIUM").toUpperCase(),
-            assignedToId: body.assignedToId || null,
-            category: body.category || null,
-            slaDeadline: body.slaDeadline ? new Date(body.slaDeadline) : null,
+            subject: data.subject,
+            description: data.description,
+            accountId: data.accountId || null,
+            contactId: data.contactId || null,
+            status: data.status,
+            priority: data.priority,
+            assignedToId: data.assignedToId || null,
+            category: data.category || null,
+            slaDeadline: data.slaDeadline ? new Date(data.slaDeadline) : null,
           },
         });
         return apiResponse(record, 201);
@@ -119,10 +119,8 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `tkt-${Date.now()}`,
-      ticketNumber: body.ticketNumber || `TKT-${String(Date.now()).slice(-5)}`,
-      ...body,
-      status: (body.status || "OPEN").toUpperCase(),
-      priority: (body.priority || "MEDIUM").toUpperCase(),
+      ticketNumber: data.ticketNumber || `TKT-${String(Date.now()).slice(-5)}`,
+      ...data,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

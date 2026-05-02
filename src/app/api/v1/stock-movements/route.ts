@@ -93,14 +93,14 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.stockMovement.create({
           data: {
-            productId: body.productId,
-            warehouseId: body.warehouseId || null,
-            type: body.type.toUpperCase(),
-            quantity: parseInt(body.quantity),
-            date: new Date(body.date),
-            reference: body.reference || null,
-            notes: body.notes || null,
-            createdById: body.createdById,
+            productId: data.productId,
+            warehouseId: data.warehouseId || null,
+            type: data.type,
+            quantity: data.quantity,
+            date: new Date(data.date),
+            reference: data.reference || null,
+            notes: data.notes || null,
+            createdById: data.createdById,
           },
           include: {
             product: { select: { id: true, name: true, sku: true } },
@@ -114,9 +114,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `sm-${Date.now()}`,
-      ...body,
-      type: body.type.toUpperCase(),
-      quantity: parseInt(body.quantity),
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

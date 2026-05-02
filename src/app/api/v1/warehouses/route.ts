@@ -83,10 +83,10 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.warehouse.create({
           data: {
-            name: body.name,
-            location: body.location || null,
-            capacity: body.capacity ? parseInt(body.capacity) : null,
-            managerId: body.managerId || null,
+            name: data.name,
+            location: data.location || null,
+            capacity: data.capacity || null,
+            managerId: data.managerId || null,
           },
         });
         return apiResponse(record, 201);
@@ -95,8 +95,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `wh-${Date.now()}`,
-      ...body,
-      capacity: body.capacity ? parseInt(body.capacity) : null,
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);
