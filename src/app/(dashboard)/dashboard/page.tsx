@@ -1309,8 +1309,8 @@ function BUMDashboard() {
             {(() => {
               const samplesByProduct: Record<string, number> = {};
               myVisits.forEach((v) => {
-                v.samplesGiven.forEach((sg) => {
-                  samplesByProduct[sg.productId] = (samplesByProduct[sg.productId] || 0) + sg.quantity;
+                (v.samplesGiven || []).forEach((sg: any) => {
+                  samplesByProduct[sg.productId] = (samplesByProduct[sg.productId] || 0) + (sg.quantity || 0);
                 });
               });
               const entries = Object.entries(samplesByProduct).sort((a, b) => b[1] - a[1]);
@@ -1780,7 +1780,7 @@ function MedicalRepDashboard() {
   const samplesByProduct = useMemo(() => {
     const map: Record<string, { name: string; given: number }> = {};
     for (const v of mtdVisits) {
-      for (const s of v.samplesGiven) {
+      for (const s of (v.samplesGiven || [])) {
         const prod = safeArr<any>(store.products).find((p) => p.id === s.productId);
         const name = prod ? `${prod.name} ${prod.strength}` : s.productId;
         if (!map[s.productId]) map[s.productId] = { name, given: 0 };
