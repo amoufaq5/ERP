@@ -507,7 +507,7 @@ export default function TenantsPage() {
                   <div>
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-muted-foreground">API Calls (this month)</span>
-                      <span className="font-medium">{detailTenant.apiCallsMonth.toLocaleString()} / {detailTenant.apiCallsMax.toLocaleString()}</span>
+                      <span className="font-medium">{(detailTenant.apiCallsMonth ?? 0).toLocaleString()} / {(detailTenant.apiCallsMax ?? 0).toLocaleString()}</span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div className="h-full bg-purple-500 rounded-full" style={{ width: `${Math.min(100, (detailTenant.apiCallsMonth / detailTenant.apiCallsMax) * 100)}%` }} />

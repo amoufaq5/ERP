@@ -342,7 +342,7 @@ export default function DatabaseAdminPage() {
       sortable: true,
       render: (_val: unknown, row) => (
         <span className={row.count === 0 ? "text-muted-foreground" : "font-semibold"}>
-          {row.count.toLocaleString()}
+          {(row.count ?? 0).toLocaleString()}
         </span>
       ),
     },

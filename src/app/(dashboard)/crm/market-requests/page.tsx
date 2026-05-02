@@ -1938,13 +1938,13 @@ export default function MarketRequestsPage() {
                         </div>
                         <div className="flex items-center gap-3 text-xs">
                           <span className="text-green-700 font-semibold">EGP {(cb.approvedBudget ?? 0).toLocaleString()}</span>
-                          {cb.pendingBudget > 0 && <span className="text-amber-600">+{(cb.pendingBudget ?? 0).toLocaleString()} pending</span>}
+                          {(cb.pendingBudget ?? 0) > 0 && <span className="text-amber-600">+{(cb.pendingBudget ?? 0).toLocaleString()} pending</span>}
                         </div>
                       </div>
                       <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex">
-                        <div className="h-full bg-green-500 transition-all" style={{ width: `${(cb.approvedBudget / maxCategoryBudget) * 100}%` }} title={`Approved: EGP ${(cb.approvedBudget ?? 0).toLocaleString()}`} />
-                        <div className="h-full bg-amber-400 transition-all" style={{ width: `${(cb.pendingBudget / maxCategoryBudget) * 100}%` }} title={`Pending: EGP ${(cb.pendingBudget ?? 0).toLocaleString()}`} />
-                        <div className="h-full bg-red-400 transition-all" style={{ width: `${(cb.rejectedBudget / maxCategoryBudget) * 100}%` }} title={`Rejected: EGP ${(cb.rejectedBudget ?? 0).toLocaleString()}`} />
+                        <div className="h-full bg-green-500 transition-all" style={{ width: `${((cb.approvedBudget ?? 0) / maxCategoryBudget) * 100}%` }} title={`Approved: EGP ${(cb.approvedBudget ?? 0).toLocaleString()}`} />
+                        <div className="h-full bg-amber-400 transition-all" style={{ width: `${((cb.pendingBudget ?? 0) / maxCategoryBudget) * 100}%` }} title={`Pending: EGP ${(cb.pendingBudget ?? 0).toLocaleString()}`} />
+                        <div className="h-full bg-red-400 transition-all" style={{ width: `${((cb.rejectedBudget ?? 0) / maxCategoryBudget) * 100}%` }} title={`Rejected: EGP ${(cb.rejectedBudget ?? 0).toLocaleString()}`} />
                       </div>
                     </div>
                   );
