@@ -72,6 +72,8 @@ import { useTranslation } from "@/lib/i18n/i18n-context";
 import { PartnerLink } from "@/components/shared/partner-link";
 import { useNotificationCenter } from "@/lib/notification-context";
 import { useAuditLogger } from "@/lib/audit-logger";
+import { useCurrentUser } from "@/lib/user-context";
+import { Lock } from "lucide-react";
 
 // ─── E-Invoicing types & data ─────────────────────────────────────────
 interface EInvoice {
@@ -160,6 +162,11 @@ export default function AccountingPage() {
   const store = useApiDataStore();
   const approvals = useApprovals();
   const { t } = useTranslation();
+  const { user } = useCurrentUser();
+
+  // Role-based SO approval: only ADMIN, ACCOUNTANT, and WAREHOUSE (procurement) can approve/reject
+  const SO_APPROVAL_ROLES = ["ADMIN", "ACCOUNTANT", "WAREHOUSE"] as const;
+  const canApproveOrRejectSO = SO_APPROVAL_ROLES.includes(user.role as typeof SO_APPROVAL_ROLES[number]);
 
   /* ─── Notification & Audit Logger ─── */
   let addNotification: any = () => {};
@@ -203,6 +210,8 @@ export default function AccountingPage() {
   const [glFilters, setGlFilters] = useState<FilterState>({});
   const [glFormOpen, setGlFormOpen] = useState(false);
   const [editingGL, setEditingGL] = useState<GLAccount | null>(null);
+  const [glView, setGlView] = useState<"coa" | "ledger" | "trial-balance">("coa");
+  const [selectedGLAccountId, setSelectedGLAccountId] = useState<string>("");
 
   // E-Invoicing state
   const [einvoices, setEinvoices] = useState<EInvoice[]>(sampleEInvoices);
@@ -942,12 +951,20 @@ export default function AccountingPage() {
                       {so && <span className="text-xs text-muted-foreground truncate max-w-[200px]">{(so.items || []).map((i) => `${i.description} x${i.quantity}`).join(", ")}</span>}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => rejectSOApproval(apr.id, apr.entityId)}>
-                        <XCircle className="h-3 w-3 mr-1" /> Reject
-                      </Button>
-                      <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => approveSOFromApproval(apr.id, apr.entityId)}>
-                        <CheckCircle className="h-3 w-3 mr-1" /> Approve
-                      </Button>
+                      {canApproveOrRejectSO ? (
+                        <>
+                          <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => rejectSOApproval(apr.id, apr.entityId)}>
+                            <XCircle className="h-3 w-3 mr-1" /> Reject
+                          </Button>
+                          <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => approveSOFromApproval(apr.id, apr.entityId)}>
+                            <CheckCircle className="h-3 w-3 mr-1" /> Approve
+                          </Button>
+                        </>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500">
+                          <Lock className="h-3 w-3" /> Approval requires Accounting or Procurement role
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -1243,75 +1260,293 @@ export default function AccountingPage() {
 
         {/* ═══ General Ledger ═══ */}
         <TabsContent value="gl" className="space-y-3">
-          <FilterBar
-            searchPlaceholder="Search accounts..."
-            searchValue={glSearch}
-            onSearchChange={setGlSearch}
-            fields={[{ key: "type", label: "Type", type: "select", options: ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"].map((t) => ({ label: t, value: t })) }]}
-            values={glFilters}
-            onChange={(k, v) => setGlFilters((f) => ({ ...f, [k]: v }))}
-            rightSlot={
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => {
-                  const rows = activeGLAccounts.map((a) => ({
-                    Code: a.code, Name: a.name, Type: a.type, SubType: a.subType,
-                    Debit: ["ASSET", "EXPENSE"].includes(a.type) ? a.balance : 0,
-                    Credit: ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type) ? a.balance : 0,
-                  }));
-                  downloadCSV("trial-balance.csv", rows);
-                }}><Download className="h-3 w-3 mr-1" /> Trial Balance</Button>
-                <Button size="sm" onClick={() => { setEditingGL(null); setGlFormOpen(true); }}><Plus className="h-3 w-3 mr-1" /> Add Account</Button>
-              </div>
-            }
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Assets</div><div className="text-lg font-bold text-blue-700">EGP {((totalAssets ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
-            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Liabilities</div><div className="text-lg font-bold text-red-600">EGP {Math.abs((totalLiabilities ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
-            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Equity</div><div className="text-lg font-bold text-purple-700">EGP {((totalEquity ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
-            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Revenue</div><div className="text-lg font-bold text-green-700">EGP {((totalRevenue ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
-            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Expenses</div><div className="text-lg font-bold text-amber-700">EGP {((totalExpenses ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
+          {/* Sub-tab toggle buttons */}
+          <div className="flex gap-1 border-b border-border pb-2 flex-wrap">
+            {([["coa", "Chart of Accounts", BookOpen], ["ledger", "General Ledger", ScrollText], ["trial-balance", "Trial Balance", Calculator]] as const).map(([key, label, Icon]) => (
+              <button key={key} onClick={() => setGlView(key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${glView === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+                <Icon className="h-3.5 w-3.5" />{label}
+              </button>
+            ))}
           </div>
-          <Card>
-            <CardContent className="p-0 overflow-x-auto">
-              <DataTable
-                columns={[
-                  { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs font-semibold">{v as string}</span> },
-                  { key: "name", label: "Account Name", render: (v) => <span className="font-medium">{v as string}</span> },
-                  { key: "type", label: "Type", render: (v) => typeBadge(v as string) },
-                  { key: "subType", label: "Sub-Type", render: (v) => <span className="text-xs text-muted-foreground">{v as string}</span> },
-                  { key: "balance", label: "Balance", className: "text-right", render: (v, row) => {
-                    const type = row.type as string;
-                    const bal = v as number;
-                    const isDebitNormal = type === "ASSET" || type === "EXPENSE";
-                    return <span className={`font-semibold ${bal < 0 ? "text-red-600" : ""}`}>{isDebitNormal ? "" : ""}{Math.abs(bal ?? 0).toLocaleString()}</span>;
-                  }},
-                  { key: "isActive", label: "Status", render: (v) => <Badge variant={(v as boolean) ? "success" : "secondary"}>{(v as boolean) ? "Active" : "Inactive"}</Badge> },
-                  { key: "id", label: "", render: (_v, row) => {
-                    const a = row as unknown as GLAccount;
-                    return <EditDeleteMenu onEdit={() => { setEditingGL(a); setGlFormOpen(true); }} onDelete={() => store.remove("glAccounts", a.id)} itemLabel={a.name} compact />;
-                  }},
-                ] as Column<Record<string, unknown>>[]}
-                data={filteredGL as unknown as Record<string, unknown>[]}
-                
-                exportable exportFilename="erp-accounting.csv" emptyMessage="No accounts found."
+
+          {/* ── Chart of Accounts sub-view ── */}
+          {glView === "coa" && (
+            <div className="space-y-3">
+              <FilterBar
+                searchPlaceholder="Search accounts..."
+                searchValue={glSearch}
+                onSearchChange={setGlSearch}
+                fields={[{ key: "type", label: "Type", type: "select", options: ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"].map((t) => ({ label: t, value: t })) }]}
+                values={glFilters}
+                onChange={(k, v) => setGlFilters((f) => ({ ...f, [k]: v }))}
+                rightSlot={
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => {
+                      const rows = activeGLAccounts.map((a) => ({
+                        Code: a.code, Name: a.name, Type: a.type, SubType: a.subType,
+                        Debit: ["ASSET", "EXPENSE"].includes(a.type) ? a.balance : 0,
+                        Credit: ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type) ? a.balance : 0,
+                      }));
+                      downloadCSV("trial-balance.csv", rows);
+                    }}><Download className="h-3 w-3 mr-1" /> Export</Button>
+                    <Button size="sm" onClick={() => { setEditingGL(null); setGlFormOpen(true); }}><Plus className="h-3 w-3 mr-1" /> Add Account</Button>
+                  </div>
+                }
               />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Calculator className="h-4 w-4" /> Trial Balance Summary</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-3 rounded-lg bg-muted/50">
-                  <div className="text-xs text-muted-foreground">Total Debits</div>
-                  <div className="text-xl font-bold">EGP {(activeGLAccounts.filter((a) => ["ASSET", "EXPENSE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance ?? 0), 0)).toLocaleString()}</div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Assets</div><div className="text-lg font-bold text-blue-700">EGP {((totalAssets ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
+                <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Liabilities</div><div className="text-lg font-bold text-red-600">EGP {Math.abs((totalLiabilities ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
+                <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Equity</div><div className="text-lg font-bold text-purple-700">EGP {((totalEquity ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
+                <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Revenue</div><div className="text-lg font-bold text-green-700">EGP {((totalRevenue ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
+                <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Expenses</div><div className="text-lg font-bold text-amber-700">EGP {((totalExpenses ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
+              </div>
+              <Card>
+                <CardContent className="p-0 overflow-x-auto">
+                  <DataTable
+                    columns={[
+                      { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs font-semibold">{v as string}</span> },
+                      { key: "name", label: "Account Name", render: (v) => <span className="font-medium">{v as string}</span> },
+                      { key: "type", label: "Type", render: (v) => typeBadge(v as string) },
+                      { key: "subType", label: "Sub-Type", render: (v) => <span className="text-xs text-muted-foreground">{v as string}</span> },
+                      { key: "balance", label: "Balance", className: "text-right", render: (v, row) => {
+                        const type = row.type as string;
+                        const bal = v as number;
+                        const isDebitNormal = type === "ASSET" || type === "EXPENSE";
+                        return <span className={`font-semibold ${bal < 0 ? "text-red-600" : ""}`}>{isDebitNormal ? "" : ""}{Math.abs(bal ?? 0).toLocaleString()}</span>;
+                      }},
+                      { key: "isActive", label: "Status", render: (v) => <Badge variant={(v as boolean) ? "success" : "secondary"}>{(v as boolean) ? "Active" : "Inactive"}</Badge> },
+                      { key: "id", label: "", render: (_v, row) => {
+                        const a = row as unknown as GLAccount;
+                        return <EditDeleteMenu onEdit={() => { setEditingGL(a); setGlFormOpen(true); }} onDelete={() => store.remove("glAccounts", a.id)} itemLabel={a.name} compact />;
+                      }},
+                    ] as Column<Record<string, unknown>>[]}
+                    data={filteredGL as unknown as Record<string, unknown>[]}
+
+                    exportable exportFilename="erp-chart-of-accounts.csv" emptyMessage="No accounts found."
+                  />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Calculator className="h-4 w-4" /> Trial Balance Summary</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-3 rounded-lg bg-muted/50">
+                      <div className="text-xs text-muted-foreground">Total Debits</div>
+                      <div className="text-xl font-bold">EGP {(activeGLAccounts.filter((a) => ["ASSET", "EXPENSE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance ?? 0), 0)).toLocaleString()}</div>
+                    </div>
+                    <div className="text-center p-3 rounded-lg bg-muted/50">
+                      <div className="text-xs text-muted-foreground">Total Credits</div>
+                      <div className="text-xl font-bold">EGP {(activeGLAccounts.filter((a) => ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance ?? 0), 0)).toLocaleString()}</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* ── General Ledger sub-view ── */}
+          {glView === "ledger" && (() => {
+            const selectedAccount = store.glAccounts.find((a) => a.id === selectedGLAccountId);
+            const postedJournalEntries = store.journalEntries.filter((j) => j.status === "POSTED");
+            const ledgerLines: { date: string; jeNumber: string; jeDescription: string; lineDescription: string; debit: number; credit: number }[] = [];
+            postedJournalEntries.forEach((je) => {
+              (je.lines || []).forEach((line) => {
+                if (line.accountId === selectedGLAccountId) {
+                  ledgerLines.push({
+                    date: je.date,
+                    jeNumber: je.number,
+                    jeDescription: je.description,
+                    lineDescription: line.description || je.description,
+                    debit: line.debit ?? 0,
+                    credit: line.credit ?? 0,
+                  });
+                }
+              });
+            });
+            ledgerLines.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+            const isDebitNormal = selectedAccount ? ["ASSET", "EXPENSE"].includes(selectedAccount.type) : true;
+            const openingBalance = 0;
+            let runningBalance = openingBalance;
+            const ledgerRows = ledgerLines.map((line) => {
+              if (isDebitNormal) {
+                runningBalance = runningBalance + line.debit - line.credit;
+              } else {
+                runningBalance = runningBalance + line.credit - line.debit;
+              }
+              return { ...line, runningBalance };
+            });
+            const closingBalance = runningBalance;
+
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 min-w-[300px]">
+                    <Label className="text-sm whitespace-nowrap">Account:</Label>
+                    <Select value={selectedGLAccountId} onValueChange={setSelectedGLAccountId}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a GL account..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {store.glAccounts.filter((a) => a.isActive).sort((a, b) => a.code.localeCompare(b.code)).map((a) => (
+                          <SelectItem key={a.id} value={a.id}>{a.code} - {a.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {selectedAccount && (
+                    <div className="flex items-center gap-2">
+                      {typeBadge(selectedAccount.type)}
+                      <span className="text-sm text-muted-foreground">{selectedAccount.subType}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="text-center p-3 rounded-lg bg-muted/50">
-                  <div className="text-xs text-muted-foreground">Total Credits</div>
-                  <div className="text-xl font-bold">EGP {(activeGLAccounts.filter((a) => ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance ?? 0), 0)).toLocaleString()}</div>
+
+                {!selectedGLAccountId ? (
+                  <Card>
+                    <CardContent className="py-12 text-center">
+                      <ScrollText className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                      <p className="text-muted-foreground">Select a GL account above to view its ledger entries.</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center justify-between">
+                        <span className="flex items-center gap-2"><ScrollText className="h-4 w-4" /> General Ledger: {selectedAccount?.code} - {selectedAccount?.name}</span>
+                        <span className="text-xs text-muted-foreground">{ledgerRows.length} entries</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0 overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left p-2 font-medium">Date</th>
+                            <th className="text-left p-2 font-medium">JE Number</th>
+                            <th className="text-left p-2 font-medium">Description</th>
+                            <th className="text-right p-2 font-medium">Debit</th>
+                            <th className="text-right p-2 font-medium">Credit</th>
+                            <th className="text-right p-2 font-medium">Balance</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b bg-blue-50/50">
+                            <td className="p-2 text-xs text-muted-foreground" colSpan={5}>Opening Balance</td>
+                            <td className="p-2 text-right font-semibold">EGP {(openingBalance ?? 0).toLocaleString()}</td>
+                          </tr>
+                          {ledgerRows.length === 0 ? (
+                            <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">No posted journal entries found for this account.</td></tr>
+                          ) : (
+                            ledgerRows.map((row, idx) => (
+                              <tr key={idx} className="border-b hover:bg-muted/30">
+                                <td className="p-2 text-xs">{new Date(row.date).toLocaleDateString()}</td>
+                                <td className="p-2"><span className="font-mono text-xs font-semibold">{row.jeNumber}</span></td>
+                                <td className="p-2 text-xs">{row.lineDescription}</td>
+                                <td className="p-2 text-right font-medium">{row.debit > 0 ? `EGP ${(row.debit ?? 0).toLocaleString()}` : ""}</td>
+                                <td className="p-2 text-right font-medium">{row.credit > 0 ? `EGP ${(row.credit ?? 0).toLocaleString()}` : ""}</td>
+                                <td className={`p-2 text-right font-semibold ${row.runningBalance < 0 ? "text-red-600" : ""}`}>EGP {(row.runningBalance ?? 0).toLocaleString()}</td>
+                              </tr>
+                            ))
+                          )}
+                          <tr className="border-t-2 bg-blue-50/50 font-semibold">
+                            <td className="p-2" colSpan={3}>Closing Balance</td>
+                            <td className="p-2 text-right">EGP {ledgerRows.reduce((s, r) => s + r.debit, 0).toLocaleString()}</td>
+                            <td className="p-2 text-right">EGP {ledgerRows.reduce((s, r) => s + r.credit, 0).toLocaleString()}</td>
+                            <td className={`p-2 text-right ${closingBalance < 0 ? "text-red-600" : ""}`}>EGP {(closingBalance ?? 0).toLocaleString()}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ── Trial Balance sub-view ── */}
+          {glView === "trial-balance" && (() => {
+            const trialBalanceAccounts = activeGLAccounts
+              .sort((a, b) => a.code.localeCompare(b.code))
+              .map((a) => {
+                const isDebitNormal = ["ASSET", "EXPENSE"].includes(a.type);
+                const debitBalance = isDebitNormal ? Math.abs(a.balance ?? 0) : 0;
+                const creditBalance = !isDebitNormal ? Math.abs(a.balance ?? 0) : 0;
+                return { ...a, debitBalance, creditBalance };
+              });
+            const totalDebits = trialBalanceAccounts.reduce((s, a) => s + a.debitBalance, 0);
+            const totalCredits = trialBalanceAccounts.reduce((s, a) => s + a.creditBalance, 0);
+            const isBalanced = Math.abs(totalDebits - totalCredits) < 0.01;
+
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Trial Balance as of {new Date().toLocaleDateString()}</span>
+                    {isBalanced ? (
+                      <Badge variant="success">Balanced</Badge>
+                    ) : (
+                      <Badge variant="destructive">Out of Balance: EGP {Math.abs(totalDebits - totalCredits).toLocaleString()}</Badge>
+                    )}
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    const rows = trialBalanceAccounts.map((a) => ({
+                      Code: a.code, Name: a.name, Type: a.type,
+                      Debit: a.debitBalance, Credit: a.creditBalance,
+                    }));
+                    rows.push({ Code: "", Name: "TOTAL", Type: "" as GLAccount["type"], Debit: totalDebits, Credit: totalCredits });
+                    downloadCSV("trial-balance.csv", rows);
+                  }}><Download className="h-3 w-3 mr-1" /> Export CSV</Button>
+                </div>
+                <Card>
+                  <CardContent className="p-0 overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="text-left p-2 font-medium">Account Code</th>
+                          <th className="text-left p-2 font-medium">Account Name</th>
+                          <th className="text-left p-2 font-medium">Type</th>
+                          <th className="text-right p-2 font-medium">Debit Balance</th>
+                          <th className="text-right p-2 font-medium">Credit Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {trialBalanceAccounts.map((a) => (
+                          <tr key={a.id} className="border-b hover:bg-muted/30">
+                            <td className="p-2"><span className="font-mono text-xs font-semibold">{a.code}</span></td>
+                            <td className="p-2 font-medium">{a.name}</td>
+                            <td className="p-2">{typeBadge(a.type)}</td>
+                            <td className="p-2 text-right font-medium">{a.debitBalance > 0 ? `EGP ${(a.debitBalance ?? 0).toLocaleString()}` : ""}</td>
+                            <td className="p-2 text-right font-medium">{a.creditBalance > 0 ? `EGP ${(a.creditBalance ?? 0).toLocaleString()}` : ""}</td>
+                          </tr>
+                        ))}
+                        <tr className="border-t-2 bg-muted/50 font-bold">
+                          <td className="p-2" colSpan={3}>Total</td>
+                          <td className="p-2 text-right">EGP {(totalDebits ?? 0).toLocaleString()}</td>
+                          <td className="p-2 text-right">EGP {(totalCredits ?? 0).toLocaleString()}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </CardContent>
+                </Card>
+                <div className="grid grid-cols-2 gap-4">
+                  <Card>
+                    <CardContent className="p-3 text-center">
+                      <div className="text-xs text-muted-foreground">Total Debits</div>
+                      <div className="text-xl font-bold">EGP {(totalDebits ?? 0).toLocaleString()}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-3 text-center">
+                      <div className="text-xs text-muted-foreground">Total Credits</div>
+                      <div className="text-xl font-bold">EGP {(totalCredits ?? 0).toLocaleString()}</div>
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            );
+          })()}
         </TabsContent>
 
         {/* ═══ Journal Entries ═══ */}
@@ -1693,12 +1928,20 @@ export default function AccountingPage() {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline" className="h-8 text-red-600 border-red-200 hover:bg-red-50" onClick={() => rejectSOApproval(apr.id, apr.entityId)}>
-                            <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
-                          </Button>
-                          <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={() => approveSOFromApproval(apr.id, apr.entityId)}>
-                            <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
-                          </Button>
+                          {canApproveOrRejectSO ? (
+                            <>
+                              <Button size="sm" variant="outline" className="h-8 text-red-600 border-red-200 hover:bg-red-50" onClick={() => rejectSOApproval(apr.id, apr.entityId)}>
+                                <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                              </Button>
+                              <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={() => approveSOFromApproval(apr.id, apr.entityId)}>
+                                <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+                              </Button>
+                            </>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500">
+                              <Lock className="h-3 w-3" /> Approval requires Accounting or Procurement role
+                            </span>
+                          )}
                         </div>
                       </div>
                     );

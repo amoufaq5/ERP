@@ -1415,6 +1415,60 @@ function MarketeerDashboard() {
     return { ...p, sales, samples };
   }).sort((a, b) => b.sales - a.sales);
 
+  // ─── Doctor Coverage Heatmap by Classification ─────────────────────────────
+  const classificationCoverage = (["A", "B", "C", "D"] as const).map((cls) => {
+    const docsInClass = teamDoctors.filter((d: any) => d.classification === cls);
+    const total = docsInClass.length;
+    const visitedDocIds = new Set(teamVisits.map((v: any) => v.doctorId));
+    const visited = docsInClass.filter((d: any) => visitedDocIds.has(d.id)).length;
+    const pct = total > 0 ? Math.round((visited / total) * 100) : 0;
+    return { cls, total, visited, pct };
+  });
+
+  const classColors: Record<string, { bar: string; bg: string; label: string }> = {
+    A: { bar: "bg-red-500", bg: "bg-red-100", label: "text-red-700" },
+    B: { bar: "bg-amber-500", bg: "bg-amber-100", label: "text-amber-700" },
+    C: { bar: "bg-blue-500", bg: "bg-blue-100", label: "text-blue-700" },
+    D: { bar: "bg-gray-400", bg: "bg-gray-100", label: "text-gray-600" },
+  };
+
+  // ─── Buying Ladder Progression ─────────────────────────────────────────────
+  const buyingLadderCounts = BUYING_LADDER_STAGES.map((stage) => {
+    const count = teamDoctors.filter((d: any) => d.buyingLadderStage === stage).length;
+    return { stage, count };
+  });
+  const maxLadderCount = Math.max(...buyingLadderCounts.map((b) => b.count), 1);
+  const ladderColors: Record<string, string> = {
+    Unaware: "bg-gray-400",
+    Aware: "bg-blue-400",
+    Trial: "bg-amber-400",
+    Regular: "bg-green-500",
+    Champion: "bg-emerald-600",
+  };
+
+  // ─── Pending Approvals Summary ─────────────────────────────────────────────
+  const pendingWeeklyPlans = safeArr<any>(store.weeklyPlans).filter(
+    (wp) => wp.status === "SUBMITTED" && repIds.has(wp.repId)
+  );
+  const pendingMarketRequests = teamMarketRequests.filter((mr: any) => mr.status === "PENDING");
+  const pendingVisitApprovals = safeArr<any>(store.visits).filter(
+    (v) => v.status === "LOGGED" && repIds.has(v.repId)
+  );
+
+  // ─── Top Performing Reps ───────────────────────────────────────────────────
+  const repPerformance = myReps.map((rep) => {
+    const repVisits = safeArr<any>(store.visits).filter((v: any) => v.repId === rep.id);
+    const repDoctors = safeArr<any>(store.doctors).filter((d: any) => d.assignedRepId === rep.id);
+    const visitedDocIds = new Set(repVisits.map((v: any) => v.doctorId));
+    const coverageCount = repDoctors.filter((d: any) => visitedDocIds.has(d.id)).length;
+    const coveragePctRep = repDoctors.length > 0 ? Math.round((coverageCount / repDoctors.length) * 100) : 0;
+    const repKpis = safeArr<any>(store.kpis).filter((k: any) => k.userId === rep.id);
+    const totalTarget = repKpis.reduce((s: number, k: any) => s + ((k.target as number) ?? 0), 0);
+    const totalActual = repKpis.reduce((s: number, k: any) => s + ((k.actual as number) ?? 0), 0);
+    const achievement = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
+    return { id: rep.id, name: rep.name, achievement, coveragePct: coveragePctRep, visitCount: repVisits.length };
+  }).sort((a, b) => b.achievement - a.achievement).slice(0, 5);
+
   return (
     <div className="p-6 space-y-6">
       <RoleHeader
@@ -1492,6 +1546,150 @@ function MarketeerDashboard() {
 
       {/* Quiz Results */}
       <MyQuizResultsCard userId={user.id} />
+
+      {/* ─── Doctor Coverage Heatmap & Buying Ladder ─────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Doctor Coverage Heatmap */}
+        <Card>
+          <CardHeader><CardTitle className="text-base">Doctor Coverage by Classification</CardTitle></CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            {classificationCoverage.map((row) => {
+              const colors = classColors[row.cls];
+              const isLow = row.cls === "A" && row.pct < 80;
+              return (
+                <div key={row.cls} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className={`text-xs font-bold ${colors.bg} ${colors.label}`}>Class {row.cls}</Badge>
+                      <span className="text-muted-foreground">{row.visited}/{row.total} doctors visited</span>
+                    </div>
+                    <span className={`font-semibold ${isLow ? "text-red-600" : ""}`}>{row.pct}%</span>
+                  </div>
+                  <div className="h-2.5 bg-muted rounded-full">
+                    <div className={`h-full rounded-full ${colors.bar}`} style={{ width: `${Math.min(row.pct, 100)}%` }} />
+                  </div>
+                  {isLow && (
+                    <div className="flex items-center gap-1 text-xs text-red-600">
+                      <AlertTriangle className="h-3 w-3" />
+                      Low coverage — prioritize Class A doctors
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <div className="pt-2 border-t text-xs text-muted-foreground">
+              Total: {teamDoctors.length} doctors assigned &middot; {new Set(teamVisits.map((v: any) => v.doctorId)).size} unique visited
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Buying Ladder Progression */}
+        <Card>
+          <CardHeader><CardTitle className="text-base">Buying Ladder Progression</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {buyingLadderCounts.map((row, idx) => (
+              <div key={row.stage} className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {idx > 0 && <span className="text-muted-foreground text-xs">&#8594;</span>}
+                    <span className="font-medium">{row.stage}</span>
+                  </div>
+                  <span className="font-semibold">{row.count} doctors</span>
+                </div>
+                <div className="h-2.5 bg-muted rounded-full">
+                  <div className={`h-full rounded-full ${ladderColors[row.stage] ?? "bg-gray-400"}`} style={{ width: `${maxLadderCount > 0 ? Math.round((row.count / maxLadderCount) * 100) : 0}%` }} />
+                </div>
+              </div>
+            ))}
+            <div className="pt-2 border-t text-xs text-muted-foreground">
+              Goal: Move doctors from Unaware &#8594; Champion to increase prescriptions
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ─── Pending Approvals & Top Performing Reps ─────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Pending Approvals Summary */}
+        <Card>
+          <CardHeader><CardTitle className="text-base">Pending Approvals</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="h-4 w-4 text-amber-600" />
+                <span>Weekly Plans</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={pendingWeeklyPlans.length > 0 ? "destructive" : "secondary"} className="text-xs">
+                  {pendingWeeklyPlans.length}
+                </Badge>
+                <Link href="/crm/weekly-plans" className="text-xs text-blue-600 hover:underline">Review</Link>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-amber-600" />
+                <span>Market Requests</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={pendingMarketRequests.length > 0 ? "destructive" : "secondary"} className="text-xs">
+                  {pendingMarketRequests.length}
+                </Badge>
+                <Link href="/crm/market-requests" className="text-xs text-blue-600 hover:underline">Review</Link>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-amber-600" />
+                <span>Visit Approvals</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={pendingVisitApprovals.length > 0 ? "destructive" : "secondary"} className="text-xs">
+                  {pendingVisitApprovals.length}
+                </Badge>
+                <Link href="/crm/visits" className="text-xs text-blue-600 hover:underline">Review</Link>
+              </div>
+            </div>
+            {(pendingWeeklyPlans.length + pendingMarketRequests.length + pendingVisitApprovals.length) === 0 && (
+              <div className="flex items-center gap-2 text-green-600 pt-1">
+                <ShieldCheck className="h-4 w-4" />
+                <span className="text-xs font-medium">All caught up — no pending approvals</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Top Performing Reps */}
+        <Card>
+          <CardHeader><CardTitle className="text-base">Top Performing Reps</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {repPerformance.length === 0 ? (
+              <p className="text-muted-foreground">No medical reps assigned yet.</p>
+            ) : repPerformance.map((rep, idx) => {
+              const medalColors = ["text-yellow-500", "text-gray-400", "text-amber-600"];
+              return (
+                <div key={rep.id} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-bold text-xs w-5 text-center ${idx < 3 ? (medalColors[idx] ?? "text-muted-foreground") : "text-muted-foreground"}`}>
+                        #{idx + 1}
+                      </span>
+                      <span>{rep.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground">{rep.coveragePct}% cov.</span>
+                      <span className="font-semibold">{rep.achievement}%</span>
+                    </div>
+                  </div>
+                  <div className="h-2 bg-muted rounded-full ml-7">
+                    <div className={`h-full rounded-full ${rep.achievement >= 100 ? "bg-green-500" : rep.achievement >= 80 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${Math.min(rep.achievement, 100)}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      </div>
 
       <QuickActions items={[
         { label: "My Region", icon: MapPin, href: "/crm/marketeer" },

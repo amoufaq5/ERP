@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Package, Truck, ClipboardCheck, Plus, ShieldCheck, FileText, ArrowRight, CheckCircle, X, Anchor, Ship, Star, TrendingUp, TrendingDown, Minus, Award, MessageSquare } from "lucide-react";
+import { Package, Truck, ClipboardCheck, Plus, ShieldCheck, FileText, ArrowRight, CheckCircle, X, Anchor, Ship, Star, TrendingUp, TrendingDown, Minus, Award, MessageSquare, Receipt, DollarSign, Eye } from "lucide-react";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { EntityFormModal, type EntityField, type EntityFormData } from "@/components/shared/entity-form-modal";
 import { useApiDataStore } from "@/lib/api/use-api-store";
-import { type PurchaseOrder, type RFQ, type GoodsReceipt, type Shipment } from "@/lib/data-store";
+import { type PurchaseOrder, type RFQ, type GoodsReceipt, type Shipment, type Invoice } from "@/lib/data-store";
 import { VendorLink } from "@/components/shared/entity-detail-dialog";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 import { useNotificationCenter } from "@/lib/notification-context";
@@ -266,6 +266,39 @@ export default function ProcurementPage() {
       return true;
     });
   }, [store.rfqs, rfqSearch]);
+
+  // ─── Bills (Vendor Invoices / AP) ─────────────────────────────────────
+  const vendorIds = useMemo(() => new Set(store.vendors.map((v) => v.id)), [store.vendors]);
+  const vendorBills = useMemo(() =>
+    store.invoices.filter((inv) => vendorIds.has(inv.customerId)),
+    [store.invoices, vendorIds],
+  );
+  const billsTotal = vendorBills.reduce((s, b) => s + (b.total ?? 0), 0);
+  const billsPaidCount = vendorBills.filter((b) => b.status === "PAID").length;
+  const billsOutstanding = vendorBills.filter((b) => b.status !== "PAID" && b.status !== "VOID").reduce((s, b) => s + (b.total ?? 0), 0);
+
+  const [detailBill, setDetailBill] = useState<Invoice | null>(null);
+
+  function markBillPaid(bill: Invoice) {
+    store.update("invoices", bill.id, { status: "PAID" as const });
+    logAction({
+      userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+      action: "UPDATE", module: "ERP", entity: "Invoice",
+      entityId: bill.id, entityName: `Bill ${bill.number}`,
+      details: `Vendor bill ${bill.number} marked as PAID`,
+      oldValues: { status: bill.status },
+      newValues: { status: "PAID" },
+    });
+    addNotification({
+      type: "SUCCESS",
+      title: `Bill ${bill.number} paid`,
+      message: `Vendor bill ${bill.number} for EGP ${(bill.total ?? 0).toLocaleString()} has been marked as paid.`,
+      module: "PROCUREMENT",
+      entityType: "invoice",
+      entityId: bill.id,
+      actionUrl: "/erp/procurement",
+    });
+  }
 
   const vendorOptions = store.vendors.map((v) => ({ value: v.id, label: v.name }));
 
@@ -675,6 +708,7 @@ export default function ProcurementPage() {
           <TabsTrigger value="shipments">Shipments ({store.shipments.length})</TabsTrigger>
           <TabsTrigger value="rfqs">{t("proc.rfqs")} ({store.rfqs.length})</TabsTrigger>
           <TabsTrigger value="grn">{t("proc.grn")} ({store.goodsReceipts.length})</TabsTrigger>
+          <TabsTrigger value="bills">Bills</TabsTrigger>
           <TabsTrigger value="scorecard">Vendor Scorecard ({vendorScores.length})</TabsTrigger>
         </TabsList>
 
@@ -929,6 +963,63 @@ export default function ProcurementPage() {
                 ] as Column<Record<string, unknown>>[]}
                 data={store.goodsReceipts as unknown as Record<string, unknown>[]}
                 exportable exportFilename="goods-receipts.csv" emptyMessage="No goods receipts."
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Bills (AP) Tab ── */}
+        <TabsContent value="bills" className="space-y-4">
+          {/* Stats row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatsCard icon={Receipt} title="Total Bills" value={String(vendorBills.length)} subtitle="Vendor invoices" iconColor="text-blue-600" />
+            <StatsCard icon={DollarSign} title="Total AP Amount" value={egp(billsTotal)} subtitle="Sum of all bills" iconColor="text-purple-600" />
+            <StatsCard icon={CheckCircle} title="Paid Bills" value={String(billsPaidCount)} subtitle={`${vendorBills.length - billsPaidCount} unpaid`} iconColor="text-green-600" />
+            <StatsCard icon={FileText} title="Outstanding AP" value={egp(billsOutstanding)} subtitle="Unpaid balance" iconColor="text-amber-600" />
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Vendor Bills (Accounts Payable)</CardTitle>
+              <CardDescription>Invoices from vendors, auto-created when GRN is confirmed.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={[
+                  { key: "number", label: "Bill #", render: (v: string) => <span className="font-mono text-xs font-semibold">{v}</span> },
+                  { key: "customerId", label: "Vendor", render: (v: string) => <VendorLink vendorId={v} /> },
+                  { key: "date", label: "Date", render: (v: string) => v?.slice(0, 10) },
+                  { key: "dueDate", label: "Due Date", render: (v: string) => v?.slice(0, 10) },
+                  { key: "total", label: "Amount", className: "text-right", render: (v: number) => <span className="font-semibold">{egp(v)}</span> },
+                  { key: "status", label: "Status", render: (v: string) => {
+                    const colorMap: Record<string, string> = {
+                      PAID: "bg-green-100 text-green-800",
+                      SENT: "bg-blue-100 text-blue-800",
+                      OVERDUE: "bg-red-100 text-red-800",
+                      DRAFT: "bg-gray-100 text-gray-800",
+                      PARTIAL: "bg-amber-100 text-amber-800",
+                      VOID: "bg-gray-100 text-gray-500",
+                    };
+                    return <Badge className={colorMap[v] ?? "bg-gray-100 text-gray-800"}>{v}</Badge>;
+                  }},
+                  { key: "id", label: "Actions", className: "text-right", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const bill = row as unknown as Invoice;
+                    return (
+                      <div className="flex items-center justify-end gap-1">
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setDetailBill(bill)}>
+                          <Eye className="h-3 w-3 mr-1" /> View
+                        </Button>
+                        {bill.status !== "PAID" && bill.status !== "VOID" && (
+                          <Button size="sm" className="h-7 text-xs" onClick={() => markBillPaid(bill)}>
+                            <CheckCircle className="h-3 w-3 mr-1" /> Mark Paid
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  }},
+                ] as Column<Record<string, unknown>>[]}
+                data={vendorBills as unknown as Record<string, unknown>[]}
+                exportable exportFilename="vendor-bills.csv" emptyMessage="No vendor bills. Bills are created when GRNs are confirmed."
               />
             </CardContent>
           </Card>
@@ -1452,6 +1543,49 @@ export default function ProcurementPage() {
                   </table>
                 </div>
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Bill Detail Dialog ── */}
+      <Dialog open={!!detailBill} onOpenChange={(o) => !o && setDetailBill(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Bill {detailBill?.number}</DialogTitle></DialogHeader>
+          {detailBill && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div><span className="text-muted-foreground">Bill Number</span><p className="font-mono text-xs font-semibold">{detailBill.number}</p></div>
+                <div><span className="text-muted-foreground">Vendor</span><p className="font-medium">{vendorName(detailBill.customerId)}</p></div>
+                <div><span className="text-muted-foreground">Date</span><p>{detailBill.date?.slice(0, 10)}</p></div>
+                <div><span className="text-muted-foreground">Due Date</span><p>{detailBill.dueDate?.slice(0, 10)}</p></div>
+                <div><span className="text-muted-foreground">Status</span><p><StatusBadge status={detailBill.status} /></p></div>
+                <div><span className="text-muted-foreground">Currency</span><p>{detailBill.currency}</p></div>
+                <div><span className="text-muted-foreground">Subtotal</span><p>{egp(detailBill.subtotal)}</p></div>
+                <div><span className="text-muted-foreground">Tax</span><p>{egp(detailBill.tax)}</p></div>
+                <div className="col-span-2"><span className="text-muted-foreground">Total</span><p className="text-lg font-bold">{egp(detailBill.total)}</p></div>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Line Items</span>
+                <div className="mt-1 border rounded">
+                  <table className="w-full text-xs">
+                    <thead><tr className="bg-muted/50"><th className="p-2 text-left">Item</th><th className="p-2 text-right">Qty</th><th className="p-2 text-right">Price</th><th className="p-2 text-right">Total</th></tr></thead>
+                    <tbody>
+                      {(detailBill.items || []).map((it, i) => (
+                        <tr key={i} className="border-t"><td className="p-2">{it.description}</td><td className="p-2 text-right">{it.quantity}</td><td className="p-2 text-right">{egp(it.unitPrice)}</td><td className="p-2 text-right">{egp(it.total)}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {detailBill.notes && <div><span className="text-muted-foreground">Notes</span><p className="text-xs">{detailBill.notes}</p></div>}
+              {detailBill.status !== "PAID" && detailBill.status !== "VOID" && (
+                <div className="pt-2">
+                  <Button size="sm" className="w-full" onClick={() => { markBillPaid(detailBill); setDetailBill(null); }}>
+                    <CheckCircle className="h-4 w-4 mr-2" /> Mark as Paid
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

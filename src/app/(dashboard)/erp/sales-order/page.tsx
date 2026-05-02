@@ -654,6 +654,24 @@ export default function SalesOrderPage() {
                       { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{egp(v)}</span> },
                       { key: "date", label: "Date", render: (v: string) => v?.slice(0, 10) },
                       { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
+                      { key: "invoiceId", label: "Invoice / JE", render: (_v: unknown, row: Record<string, unknown>) => {
+                        const so = row as unknown as SalesOrder;
+                        if (so.status !== "INVOICED" || !so.invoiceId) return <span className="text-xs text-muted-foreground">--</span>;
+                        const inv = store.invoices.find((i) => i.id === so.invoiceId);
+                        const je = store.journalEntries.find((j) => j.reference === so.number);
+                        return (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
+                              <FileText className="h-2.5 w-2.5" /> {inv?.number ?? "Invoice"}
+                            </span>
+                            {je && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">
+                                <DollarSign className="h-2.5 w-2.5" /> {je.number ?? "JE"}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      }},
                       { key: "id", label: "Actions", className: "text-right", render: (_v: unknown, row: Record<string, unknown>) => {
                         const so = row as unknown as SalesOrder;
                         return (
@@ -1283,6 +1301,32 @@ export default function SalesOrderPage() {
               </div>
               {detailSO.dnId && <div><span className="text-muted-foreground">Delivery Note</span><p className="font-mono text-xs">{store.deliveryNotes.find((d) => d.id === detailSO.dnId)?.number ?? detailSO.dnId}</p></div>}
               {detailSO.invoiceId && <div><span className="text-muted-foreground">Invoice</span><p className="font-mono text-xs">{store.invoices.find((inv) => inv.id === detailSO.invoiceId)?.number ?? detailSO.invoiceId}</p></div>}
+              {detailSO.status === "INVOICED" && detailSO.invoiceId && (() => {
+                const inv = store.invoices.find((i) => i.id === detailSO.invoiceId);
+                const je = store.journalEntries.find((j) => j.reference === detailSO.number);
+                return (
+                  <div className="border border-green-200 rounded-lg bg-green-50/50 p-3 space-y-2">
+                    <p className="text-xs font-semibold text-green-800 flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5" /> Financial Integration Complete</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <FileText className="h-3.5 w-3.5 text-green-600" />
+                        <div>
+                          <span className="text-muted-foreground">Invoice Generated</span>
+                          <p className="font-mono font-semibold">{inv?.number ?? "N/A"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <DollarSign className="h-3.5 w-3.5 text-purple-600" />
+                        <div>
+                          <span className="text-muted-foreground">Journal Entry Created</span>
+                          <p className="font-mono font-semibold">{je?.number ?? "N/A"}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Invoice and journal entry were auto-created when delivery was confirmed.</p>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </DialogContent>
