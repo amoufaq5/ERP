@@ -92,12 +92,12 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.application.create({
           data: {
-            candidateId: body.candidateId,
-            jobId: body.jobId,
-            status: (body.status || "APPLIED").toUpperCase(),
-            appliedDate: body.appliedDate ? new Date(body.appliedDate) : new Date(),
-            coverLetter: body.coverLetter || null,
-            score: body.score ? parseInt(body.score) : null,
+            candidateId: data.candidateId,
+            jobId: data.jobId,
+            status: data.status,
+            appliedDate: data.appliedDate ? new Date(data.appliedDate) : new Date(),
+            coverLetter: data.coverLetter || null,
+            score: data.score || null,
           },
           include: {
             candidate: { select: { id: true, firstName: true, lastName: true, email: true } },
@@ -110,10 +110,8 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `app-${Date.now()}`,
-      ...body,
-      status: (body.status || "APPLIED").toUpperCase(),
-      appliedDate: body.appliedDate || new Date().toISOString(),
-      score: body.score ? parseInt(body.score) : null,
+      ...data,
+      appliedDate: data.appliedDate || new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

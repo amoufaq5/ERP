@@ -86,19 +86,19 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.candidate.create({
           data: {
-            firstName: body.firstName,
-            lastName: body.lastName,
-            email: body.email,
-            phone: body.phone || null,
-            linkedIn: body.linkedIn || null,
-            resumeUrl: body.resumeUrl || null,
-            source: (body.source || "WEBSITE").toUpperCase(),
-            status: (body.status || "NEW").toUpperCase(),
-            currentCompany: body.currentCompany || null,
-            currentTitle: body.currentTitle || null,
-            expectedSalary: body.expectedSalary ? parseFloat(body.expectedSalary) : null,
-            rating: body.rating ? parseInt(body.rating) : null,
-            notes: body.notes || null,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            email: data.email,
+            phone: data.phone || null,
+            linkedIn: data.linkedIn || null,
+            resumeUrl: data.resumeUrl || null,
+            source: data.source,
+            status: data.status,
+            currentCompany: data.currentCompany || null,
+            currentTitle: data.currentTitle || null,
+            expectedSalary: data.expectedSalary || null,
+            rating: data.rating || null,
+            notes: data.notes || null,
           },
         });
         return apiResponse(record, 201);
@@ -107,11 +107,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `cand-${Date.now()}`,
-      ...body,
-      source: (body.source || "WEBSITE").toUpperCase(),
-      status: (body.status || "NEW").toUpperCase(),
-      expectedSalary: body.expectedSalary ? parseFloat(body.expectedSalary) : null,
-      rating: body.rating ? parseInt(body.rating) : null,
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

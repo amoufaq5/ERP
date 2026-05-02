@@ -87,16 +87,16 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.contact.create({
           data: {
-            firstName: body.firstName,
-            lastName: body.lastName,
-            email: body.email || null,
-            phone: body.phone || null,
-            mobile: body.mobile || null,
-            title: body.title || null,
-            accountId: body.accountId || null,
-            ownerId: body.ownerId || null,
-            doNotCall: body.doNotCall || false,
-            doNotEmail: body.doNotEmail || false,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            email: data.email || null,
+            phone: data.phone || null,
+            mobile: data.mobile || null,
+            title: data.title || null,
+            accountId: data.accountId || null,
+            ownerId: data.ownerId || null,
+            doNotCall: data.doNotCall,
+            doNotEmail: data.doNotEmail,
           },
         });
         return apiResponse(record, 201);
@@ -105,9 +105,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `cont-${Date.now()}`,
-      ...body,
-      doNotCall: body.doNotCall || false,
-      doNotEmail: body.doNotEmail || false,
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

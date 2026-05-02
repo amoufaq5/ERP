@@ -82,18 +82,18 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.campaign.create({
           data: {
-            name: body.name,
-            type: body.type.toUpperCase(),
-            status: (body.status || "DRAFT").toUpperCase(),
-            startDate: body.startDate ? new Date(body.startDate) : null,
-            endDate: body.endDate ? new Date(body.endDate) : null,
-            budget: body.budget ? parseFloat(body.budget) : 0,
-            spent: body.spent ? parseFloat(body.spent) : 0,
-            expectedRevenue: body.expectedRevenue ? parseFloat(body.expectedRevenue) : 0,
-            actualRevenue: body.actualRevenue ? parseFloat(body.actualRevenue) : 0,
-            leads: body.leads ? parseInt(body.leads) : 0,
-            conversions: body.conversions ? parseInt(body.conversions) : 0,
-            ownerId: body.ownerId || null,
+            name: data.name,
+            type: data.type,
+            status: data.status,
+            startDate: data.startDate ? new Date(data.startDate) : null,
+            endDate: data.endDate ? new Date(data.endDate) : null,
+            budget: data.budget,
+            spent: data.spent,
+            expectedRevenue: data.expectedRevenue,
+            actualRevenue: data.actualRevenue,
+            leads: data.leads,
+            conversions: data.conversions,
+            ownerId: data.ownerId || null,
           },
         });
         return apiResponse(record, 201);
@@ -102,15 +102,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `camp-${Date.now()}`,
-      ...body,
-      type: body.type.toUpperCase(),
-      status: (body.status || "DRAFT").toUpperCase(),
-      budget: body.budget ? parseFloat(body.budget) : 0,
-      spent: body.spent ? parseFloat(body.spent) : 0,
-      expectedRevenue: body.expectedRevenue ? parseFloat(body.expectedRevenue) : 0,
-      actualRevenue: body.actualRevenue ? parseFloat(body.actualRevenue) : 0,
-      leads: body.leads ? parseInt(body.leads) : 0,
-      conversions: body.conversions ? parseInt(body.conversions) : 0,
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

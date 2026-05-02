@@ -97,18 +97,18 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.account.create({
           data: {
-            name: body.name,
-            industry: body.industry || null,
-            website: body.website || null,
-            phone: body.phone || null,
-            email: body.email || null,
-            address: body.address || null,
-            city: body.city || null,
-            country: body.country || null,
-            type: (body.type || "CUSTOMER").toUpperCase(),
-            annualRevenue: body.annualRevenue ? parseFloat(body.annualRevenue) : null,
-            employeeCount: body.employeeCount ? parseInt(body.employeeCount) : null,
-            ownerId: body.ownerId || null,
+            name: data.name,
+            industry: data.industry || null,
+            website: data.website || null,
+            phone: data.phone || null,
+            email: data.email || null,
+            address: data.address || null,
+            city: data.city || null,
+            country: data.country || null,
+            type: data.type,
+            annualRevenue: data.annualRevenue || null,
+            employeeCount: data.employeeCount || null,
+            ownerId: data.ownerId || null,
           },
         });
         return apiResponse(record, 201);
@@ -119,8 +119,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `acct-${Date.now()}`,
-      ...body,
-      type: (body.type || "CUSTOMER").toUpperCase(),
+      ...data,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

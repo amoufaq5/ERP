@@ -98,15 +98,15 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.approvalLog.create({
           data: {
-            entityType: body.entityType.toUpperCase(),
-            entityId: body.entityId,
-            action: body.action.toUpperCase(),
-            fromStatus: body.fromStatus,
-            toStatus: body.toStatus,
-            performedById: body.performedById,
-            comment: body.comment || null,
-            level: body.level ? parseInt(body.level) : 1,
-            businessUnitId: body.businessUnitId || null,
+            entityType: data.entityType,
+            entityId: data.entityId,
+            action: data.action,
+            fromStatus: data.fromStatus,
+            toStatus: data.toStatus,
+            performedById: data.performedById,
+            comment: data.comment || null,
+            level: data.level,
+            businessUnitId: data.businessUnitId || null,
           },
           include: {
             performedBy: { select: { id: true, name: true, email: true } },
@@ -119,10 +119,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `al-${Date.now()}`,
-      ...body,
-      entityType: body.entityType.toUpperCase(),
-      action: body.action.toUpperCase(),
-      level: body.level ? parseInt(body.level) : 1,
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);

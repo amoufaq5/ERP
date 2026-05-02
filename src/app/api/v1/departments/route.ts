@@ -81,10 +81,10 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.department.create({
           data: {
-            name: body.name,
-            managerId: body.managerId || null,
-            description: body.description || null,
-            budget: body.budget ? parseFloat(body.budget) : null,
+            name: data.name,
+            managerId: data.managerId || null,
+            description: data.description || null,
+            budget: data.budget || null,
           },
         });
         return apiResponse(record, 201);
@@ -93,8 +93,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `dept-${Date.now()}`,
-      ...body,
-      budget: body.budget ? parseFloat(body.budget) : null,
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);
