@@ -328,7 +328,7 @@ export default function AccountingPage() {
   ];
 
   // ─── Assets helpers ────────────────────────────────────────────────
-  const assetFmt = (n: number) => `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const assetFmt = (n: number) => `EGP ${(n ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const assetTotalValue = assets.reduce((s, a) => s + a.currentValue, 0);
 
   const filteredAssets = assets.filter((a) => {
@@ -913,9 +913,9 @@ export default function AccountingPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatsCard icon={Landmark} title={t("acct.totalAssets")} value={`EGP ${(totalBankBalance / 1e6).toFixed(1)}M`} subtitle={`${store.bankAccounts.length} accounts`} iconColor="bg-indigo-100 text-indigo-600" />
-        <StatsCard icon={Users} title={t("acct.totalLiabilities")} value={`EGP ${(totalAR / 1e6).toFixed(1)}M`} subtitle={`${store.customers.length} customers`} iconColor="bg-blue-100 text-blue-600" />
-        <StatsCard icon={Building2} title={t("acct.totalExpenses")} value={`EGP ${(totalAP / 1e6).toFixed(1)}M`} subtitle={`${store.vendors.length} vendors`} iconColor="bg-red-100 text-red-600" />
+        <StatsCard icon={Landmark} title={t("acct.totalAssets")} value={`EGP ${((totalBankBalance ?? 0) / 1e6).toFixed(1)}M`} subtitle={`${store.bankAccounts.length} accounts`} iconColor="bg-indigo-100 text-indigo-600" />
+        <StatsCard icon={Users} title={t("acct.totalLiabilities")} value={`EGP ${((totalAR ?? 0) / 1e6).toFixed(1)}M`} subtitle={`${store.customers.length} customers`} iconColor="bg-blue-100 text-blue-600" />
+        <StatsCard icon={Building2} title={t("acct.totalExpenses")} value={`EGP ${((totalAP ?? 0) / 1e6).toFixed(1)}M`} subtitle={`${store.vendors.length} vendors`} iconColor="bg-red-100 text-red-600" />
         <StatsCard icon={BookOpen} title={t("acct.totalRevenue")} value={activeGLAccounts.length} subtitle={`${store.glAccounts.length} total`} iconColor="bg-violet-100 text-violet-600" />
         <StatsCard icon={ScrollText} title={t("acct.postedJournals")} value={postedJEs} subtitle={`${store.journalEntries.length} total`} iconColor="bg-emerald-100 text-emerald-600" />
       </div>
@@ -1196,7 +1196,7 @@ export default function AccountingPage() {
         <TabsContent value="bank" className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
-              Total Balance: <span className="font-semibold text-foreground">EGP {totalBankBalance.toLocaleString()}</span>
+              Total Balance: <span className="font-semibold text-foreground">EGP {(totalBankBalance ?? 0).toLocaleString()}</span>
             </div>
             <Button size="sm" onClick={() => { setEditingBank(null); setBankFormOpen(true); }}><Plus className="h-4 w-4 mr-1" /> Add Account</Button>
           </div>
@@ -1216,9 +1216,9 @@ export default function AccountingPage() {
                     if (!incoming && !outgoing) return <span className="text-xs text-muted-foreground">—</span>;
                     return (
                       <div className="text-xs">
-                        {incoming > 0 && <span className="text-green-600">+{(incoming / 1000).toFixed(0)}K in</span>}
+                        {incoming > 0 && <span className="text-green-600">+{((incoming ?? 0) / 1000).toFixed(0)}K in</span>}
                         {incoming > 0 && outgoing > 0 && " / "}
-                        {outgoing > 0 && <span className="text-red-600">-{(outgoing / 1000).toFixed(0)}K out</span>}
+                        {outgoing > 0 && <span className="text-red-600">-{((outgoing ?? 0) / 1000).toFixed(0)}K out</span>}
                       </div>
                     );
                   }},
@@ -1265,11 +1265,11 @@ export default function AccountingPage() {
             }
           />
           <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Assets</div><div className="text-lg font-bold text-blue-700">EGP {(totalAssets / 1e6).toFixed(2)}M</div></CardContent></Card>
-            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Liabilities</div><div className="text-lg font-bold text-red-600">EGP {(Math.abs(totalLiabilities) / 1e6).toFixed(2)}M</div></CardContent></Card>
-            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Equity</div><div className="text-lg font-bold text-purple-700">EGP {(totalEquity / 1e6).toFixed(2)}M</div></CardContent></Card>
-            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Revenue</div><div className="text-lg font-bold text-green-700">EGP {(totalRevenue / 1e6).toFixed(2)}M</div></CardContent></Card>
-            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Expenses</div><div className="text-lg font-bold text-amber-700">EGP {(totalExpenses / 1e6).toFixed(2)}M</div></CardContent></Card>
+            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Assets</div><div className="text-lg font-bold text-blue-700">EGP {((totalAssets ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
+            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Liabilities</div><div className="text-lg font-bold text-red-600">EGP {Math.abs((totalLiabilities ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
+            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Equity</div><div className="text-lg font-bold text-purple-700">EGP {((totalEquity ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
+            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Revenue</div><div className="text-lg font-bold text-green-700">EGP {((totalRevenue ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
+            <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Expenses</div><div className="text-lg font-bold text-amber-700">EGP {((totalExpenses ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
           </div>
           <Card>
             <CardContent className="p-0 overflow-x-auto">
@@ -1338,7 +1338,7 @@ export default function AccountingPage() {
                   { key: "reference", label: "Ref", render: (v) => v ? <span className="font-mono text-xs">{v as string}</span> : <span className="text-muted-foreground">—</span> },
                   { key: "type", label: "Type", render: (v) => jeBadge(v as string) },
                   { key: "lines", label: "Debit", className: "text-right", render: (v) => {
-                    const lines = v as JournalEntry["lines"];
+                    const lines = (v || []) as JournalEntry["lines"];
                     return <span className="font-semibold">{lines.reduce((s, l) => s + (l.debit ?? 0), 0).toLocaleString()}</span>;
                   }},
                   { key: "id", label: "Credit", className: "text-right", render: (_v, row) => {
@@ -1437,7 +1437,7 @@ export default function AccountingPage() {
                     { key: "actual", label: "Actual", className: "text-right", render: (v) => ((v as number) ?? 0).toLocaleString() },
                     { key: "id", label: "Variance", className: "text-right", render: (_v, row) => {
                       const b = row as unknown as Budget;
-                      const v = b.budgeted - b.actual;
+                      const v = (b.budgeted ?? 0) - (b.actual ?? 0);
                       return <span className={`font-semibold ${v >= 0 ? "text-green-600" : "text-red-600"}`}>{v >= 0 ? "+" : ""}{v.toLocaleString()}</span>;
                     }},
                     { key: "status", label: "Status", render: (v) => <Badge variant={(v as string) === "APPROVED" ? "success" : (v as string) === "CLOSED" ? "secondary" : "warning"}>{v as string}</Badge> },
@@ -1458,14 +1458,14 @@ export default function AccountingPage() {
             <div className="space-y-3">
               <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Cost Allocation by Center</CardTitle></CardHeader>
                 <CardContent>
-                  <div className="text-sm text-muted-foreground mb-3">Based on posted journal entry debit lines tagged with cost centers. Total allocated: <span className="font-semibold text-foreground">EGP {totalAllocated.toLocaleString()}</span></div>
+                  <div className="text-sm text-muted-foreground mb-3">Based on posted journal entry debit lines tagged with cost centers. Total allocated: <span className="font-semibold text-foreground">EGP {(totalAllocated ?? 0).toLocaleString()}</span></div>
                   <div className="space-y-3">
                     {store.costCenters.map((cc) => {
                       const alloc = ccAllocations[cc.id] ?? 0;
                       const pct = totalAllocated > 0 ? (alloc / totalAllocated) * 100 : 0;
                       return (
                         <div key={cc.id} className="space-y-1">
-                          <div className="flex justify-between text-sm"><span className="font-medium">{cc.name}</span><span>EGP {alloc.toLocaleString()} ({pct.toFixed(1)}%)</span></div>
+                          <div className="flex justify-between text-sm"><span className="font-medium">{cc.name}</span><span>EGP {(alloc ?? 0).toLocaleString()} ({(pct ?? 0).toFixed(1)}%)</span></div>
                           <div className="h-3 bg-muted rounded-full"><div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} /></div>
                         </div>
                       );
@@ -1493,13 +1493,13 @@ export default function AccountingPage() {
                             <Badge variant={variance >= 0 ? "success" : "destructive"}>{variance >= 0 ? "Favorable" : "Unfavorable"}</Badge>
                           </div>
                           <div className="grid grid-cols-3 gap-4 text-sm">
-                            <div><span className="text-muted-foreground">Budget:</span> <span className="font-semibold">EGP {cc.budget.toLocaleString()}</span></div>
-                            <div><span className="text-muted-foreground">Actual:</span> <span className="font-semibold">EGP {cc.actualSpend.toLocaleString()}</span></div>
-                            <div><span className="text-muted-foreground">Variance:</span> <span className={`font-semibold ${variance >= 0 ? "text-green-600" : "text-red-600"}`}>{variance >= 0 ? "+" : ""}EGP {variance.toLocaleString()}</span></div>
+                            <div><span className="text-muted-foreground">Budget:</span> <span className="font-semibold">EGP {(cc.budget ?? 0).toLocaleString()}</span></div>
+                            <div><span className="text-muted-foreground">Actual:</span> <span className="font-semibold">EGP {(cc.actualSpend ?? 0).toLocaleString()}</span></div>
+                            <div><span className="text-muted-foreground">Variance:</span> <span className={`font-semibold ${variance >= 0 ? "text-green-600" : "text-red-600"}`}>{variance >= 0 ? "+" : ""}EGP {(variance ?? 0).toLocaleString()}</span></div>
                           </div>
                           <div className="relative h-4 bg-muted rounded-full overflow-hidden">
                             <div className={`h-full rounded-full ${pctBudget > 100 ? "bg-red-500" : pctBudget > 80 ? "bg-amber-500" : "bg-green-500"}`} style={{ width: `${pctActual}%` }} />
-                            <div className="absolute right-2 top-0 h-full flex items-center"><span className="text-[10px] font-medium">{pctBudget.toFixed(0)}%</span></div>
+                            <div className="absolute right-2 top-0 h-full flex items-center"><span className="text-[10px] font-medium">{(pctBudget ?? 0).toFixed(0)}%</span></div>
                           </div>
                         </div>
                       );
@@ -1543,7 +1543,7 @@ export default function AccountingPage() {
               <div className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Products with Formulas</div><div className="text-lg font-bold text-purple-700">{withFormula} / {totalProducts}</div></CardContent></Card>
-                  <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Avg Gross Margin (with formula)</div><div className={`text-lg font-bold ${avgMargin >= 0 ? "text-green-700" : "text-red-600"}`}>{avgMargin.toFixed(1)}%</div></CardContent></Card>
+                  <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Avg Gross Margin (with formula)</div><div className={`text-lg font-bold ${avgMargin >= 0 ? "text-green-700" : "text-red-600"}`}>{(avgMargin ?? 0).toFixed(1)}%</div></CardContent></Card>
                   <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Overhead Rate</div><div className="text-lg font-bold text-amber-700">15%</div><div className="text-[10px] text-muted-foreground">of raw material cost</div></CardContent></Card>
                 </div>
                 <Card>
@@ -1572,28 +1572,28 @@ export default function AccountingPage() {
                               <div className="text-[10px] text-muted-foreground">{d.product.strength} - {d.product.form}</div>
                             </td>
                             <td className="px-3 py-2 text-right font-mono text-xs">
-                              {d.hasFormula ? `EGP ${d.rawMaterialCost.toFixed(2)}` : <span className="text-muted-foreground">N/A</span>}
+                              {d.hasFormula ? `EGP ${(d.rawMaterialCost ?? 0).toFixed(2)}` : <span className="text-muted-foreground">N/A</span>}
                             </td>
                             <td className="px-3 py-2 text-right font-mono text-xs">
-                              {d.hasFormula ? `EGP ${d.overhead.toFixed(2)}` : <span className="text-muted-foreground">N/A</span>}
+                              {d.hasFormula ? `EGP ${(d.overhead ?? 0).toFixed(2)}` : <span className="text-muted-foreground">N/A</span>}
                             </td>
                             <td className="px-3 py-2 text-right font-mono text-xs font-semibold">
-                              {d.hasFormula ? `EGP ${d.totalCost.toFixed(2)}` : <span className="text-muted-foreground">No formula</span>}
+                              {d.hasFormula ? `EGP ${(d.totalCost ?? 0).toFixed(2)}` : <span className="text-muted-foreground">No formula</span>}
                             </td>
                             <td className="px-3 py-2 text-right font-mono text-xs font-semibold">
-                              EGP {d.sellingPrice.toFixed(2)}
+                              EGP {(d.sellingPrice ?? 0).toFixed(2)}
                             </td>
                             <td className="px-3 py-2 text-right">
                               {d.hasFormula ? (
-                                <span className={`font-semibold ${d.margin >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                  EGP {d.margin.toFixed(2)}
+                                <span className={`font-semibold ${(d.margin ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                  EGP {(d.margin ?? 0).toFixed(2)}
                                 </span>
                               ) : <span className="text-muted-foreground">--</span>}
                             </td>
                             <td className="px-3 py-2 text-right">
                               {d.hasFormula ? (
-                                <Badge className={d.marginPct >= 30 ? "bg-green-100 text-green-700" : d.marginPct >= 15 ? "bg-amber-100 text-amber-700" : d.marginPct >= 0 ? "bg-orange-100 text-orange-700" : "bg-red-100 text-red-700"}>
-                                  {d.marginPct.toFixed(1)}%
+                                <Badge className={(d.marginPct ?? 0) >= 30 ? "bg-green-100 text-green-700" : (d.marginPct ?? 0) >= 15 ? "bg-amber-100 text-amber-700" : (d.marginPct ?? 0) >= 0 ? "bg-orange-100 text-orange-700" : "bg-red-100 text-red-700"}>
+                                  {(d.marginPct ?? 0).toFixed(1)}%
                                 </Badge>
                               ) : <span className="text-muted-foreground">--</span>}
                             </td>
@@ -1947,7 +1947,7 @@ export default function AccountingPage() {
                                 if (inv) {
                                   const cust = store.customers.find((c) => c.id === inv.customerId);
                                   logAction({ userId: "u-admin", userName: "Admin User", userRole: "ADMIN", action: "UPDATE", module: "ERP", entity: "Invoice", entityId: invId, entityName: `Invoice ${inv.number}`, details: `Invoice status change: ${inv.number} ${oldStatus} -> PAID`, oldValues: { status: oldStatus }, newValues: { status: "PAID" } });
-                                  addNotification({ type: "SUCCESS", title: `Payment received for ${inv.number}`, message: `Payment of EGP ${inv.total.toLocaleString()} received from ${cust?.name ?? "Unknown"} for invoice ${inv.number}.`, module: "INVOICE", entityType: "invoice", entityId: invId, actionUrl: "/erp/accounting" });
+                                  addNotification({ type: "SUCCESS", title: `Payment received for ${inv.number}`, message: `Payment of EGP ${(inv.total ?? 0).toLocaleString()} received from ${cust?.name ?? "Unknown"} for invoice ${inv.number}.`, module: "INVOICE", entityType: "invoice", entityId: invId, actionUrl: "/erp/accounting" });
                                 }
                               }}>
                                 Mark Paid
@@ -2214,8 +2214,8 @@ export default function AccountingPage() {
                       <tr key={i} className="hover:bg-muted/30">
                         <td className="px-3 py-2 font-mono text-xs">{glName(l.accountId)}</td>
                         <td className="px-3 py-2 text-xs">{l.description ?? "—"}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-red-600">{l.debit > 0 ? l.debit.toLocaleString() : "—"}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-green-600">{l.credit > 0 ? l.credit.toLocaleString() : "—"}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-red-600">{(l.debit ?? 0) > 0 ? (l.debit ?? 0).toLocaleString() : "—"}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-green-600">{(l.credit ?? 0) > 0 ? (l.credit ?? 0).toLocaleString() : "—"}</td>
                         <td className="px-3 py-2 text-xs">{l.costCenterId ? ccName(l.costCenterId) : "—"}</td>
                         {jeDetail.status === "DRAFT" && (
                           <td className="px-3 py-2">
@@ -2233,8 +2233,8 @@ export default function AccountingPage() {
                   <tfoot className="bg-muted/30 font-semibold">
                     <tr>
                       <td colSpan={2} className="px-3 py-2">Total</td>
-                      <td className="px-3 py-2 text-right">{(jeDetail.lines || []).reduce((s, l) => s + l.debit, 0).toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right">{(jeDetail.lines || []).reduce((s, l) => s + l.credit, 0).toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">{(jeDetail.lines || []).reduce((s, l) => s + (l.debit ?? 0), 0).toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">{(jeDetail.lines || []).reduce((s, l) => s + (l.credit ?? 0), 0).toLocaleString()}</td>
                       <td colSpan={jeDetail.status === "DRAFT" ? 2 : 1} />
                     </tr>
                   </tfoot>
@@ -2340,7 +2340,7 @@ export default function AccountingPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-lg font-semibold">{entity.name}</p>
-                    <p className="text-sm text-muted-foreground">{"code" in entity ? entity.code : ""} · Outstanding: EGP {entity.outstanding.toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">{"code" in entity ? entity.code : ""} · Outstanding: EGP {(entity.outstanding ?? 0).toLocaleString()}</p>
                   </div>
                   <Button variant="outline" size="sm" onClick={() => {
                     const html = buildPrintableReport({
@@ -2431,7 +2431,7 @@ export default function AccountingPage() {
         open={invFormOpen} onOpenChange={(open) => { setInvFormOpen(open); if (!open) setEditingInvoice(null); }}
         title={editingInvoice ? `Edit ${editingInvoice.number}` : "Add Invoice"}
         fields={invoiceFields}
-        initialData={editingInvoice ? { number: editingInvoice.number, customerId: editingInvoice.customerId, date: editingInvoice.date.slice(0, 10), dueDate: editingInvoice.dueDate.slice(0, 10), productId: editingInvoice.items[0]?.productId ?? "", quantity: editingInvoice.items[0]?.quantity ?? 1, unitPrice: editingInvoice.items[0]?.unitPrice ?? 0, subtotal: editingInvoice.subtotal, tax: editingInvoice.tax, total: editingInvoice.total, status: editingInvoice.status, notes: editingInvoice.notes ?? "" } : undefined}
+        initialData={editingInvoice ? { number: editingInvoice.number, customerId: editingInvoice.customerId, date: editingInvoice.date.slice(0, 10), dueDate: editingInvoice.dueDate.slice(0, 10), productId: (editingInvoice.items || [])[0]?.productId ?? "", quantity: (editingInvoice.items || [])[0]?.quantity ?? 1, unitPrice: (editingInvoice.items || [])[0]?.unitPrice ?? 0, subtotal: editingInvoice.subtotal, tax: editingInvoice.tax, total: editingInvoice.total, status: editingInvoice.status, notes: editingInvoice.notes ?? "" } : undefined}
         onSubmit={handleInvoiceSubmit}
         submitLabel={editingInvoice ? "Save" : "Create"}
       />
@@ -2569,9 +2569,9 @@ export default function AccountingPage() {
                 <div><span className="text-muted-foreground">Tax ID</span><p className="font-mono">{viewEInvoice.receiverTaxId}</p></div>
                 <div><span className="text-muted-foreground">Date</span><p className="font-medium">{viewEInvoice.dateIssued}</p></div>
                 <div><span className="text-muted-foreground">Status</span><p><span className={`px-2 py-0.5 rounded-full text-xs capitalize ${einvoiceStatusColors[viewEInvoice.status]}`}>{viewEInvoice.status}</span></p></div>
-                <div><span className="text-muted-foreground">Net Amount</span><p className="font-medium">EGP {viewEInvoice.netAmount.toLocaleString()}</p></div>
-                <div><span className="text-muted-foreground">VAT (14%)</span><p className="font-medium">EGP {viewEInvoice.vatAmount.toLocaleString()}</p></div>
-                <div><span className="text-muted-foreground">Total</span><p className="font-bold text-lg">EGP {viewEInvoice.totalAmount.toLocaleString()}</p></div>
+                <div><span className="text-muted-foreground">Net Amount</span><p className="font-medium">EGP {(viewEInvoice.netAmount ?? 0).toLocaleString()}</p></div>
+                <div><span className="text-muted-foreground">VAT (14%)</span><p className="font-medium">EGP {(viewEInvoice.vatAmount ?? 0).toLocaleString()}</p></div>
+                <div><span className="text-muted-foreground">Total</span><p className="font-bold text-lg">EGP {(viewEInvoice.totalAmount ?? 0).toLocaleString()}</p></div>
                 <div><span className="text-muted-foreground">ETA UUID</span><p className="font-mono text-xs">{viewEInvoice.uuid || "—"}</p></div>
               </div>
               {(viewEInvoice.items || []).length > 0 && (
@@ -2580,7 +2580,7 @@ export default function AccountingPage() {
                   <table className="w-full text-xs">
                     <thead><tr className="border-b"><th className="text-left p-2">Description</th><th className="text-right p-2">Qty</th><th className="text-right p-2">Unit Price</th><th className="text-right p-2">Total</th></tr></thead>
                     <tbody>{(viewEInvoice.items || []).map((item, i) => (
-                      <tr key={i} className="border-b"><td className="p-2">{item.description}</td><td className="p-2 text-right">{item.quantity}</td><td className="p-2 text-right">{item.unitPrice.toLocaleString()}</td><td className="p-2 text-right font-medium">{item.total.toLocaleString()}</td></tr>
+                      <tr key={i} className="border-b"><td className="p-2">{item.description}</td><td className="p-2 text-right">{item.quantity}</td><td className="p-2 text-right">{(item.unitPrice ?? 0).toLocaleString()}</td><td className="p-2 text-right font-medium">{(item.total ?? 0).toLocaleString()}</td></tr>
                     ))}</tbody>
                   </table>
                 </div>

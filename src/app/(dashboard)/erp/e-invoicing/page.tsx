@@ -626,7 +626,7 @@ export default function EInvoicingPage() {
       className: "text-right",
       render: (v: unknown, row: Record<string, unknown>) => {
         const inv = row as unknown as ETAInvoice;
-        const hasExempt = inv.items.some((it) => it.isExempt);
+        const hasExempt = (inv.items || []).some((it) => it.isExempt);
         return (
           <span className="tabular-nums text-sm">
             {fmtEGP(Number(v))}

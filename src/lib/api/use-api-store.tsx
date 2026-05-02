@@ -63,6 +63,8 @@ const SHAPE_MAPPERS: Partial<Record<EntityKey, (item: Record<string, unknown>) =
     name: e.name ?? `${e.firstName ?? ""} ${e.lastName ?? ""}`.trim(),
   }),
   vendors: (v) => ({
+    outstanding: 0,
+    creditLimit: 0,
     ...v,
     contactName: v.contactName ?? v.name ?? "",
     paymentTerms: v.paymentTerms ?? "Net 30",
@@ -74,7 +76,16 @@ const SHAPE_MAPPERS: Partial<Record<EntityKey, (item: Record<string, unknown>) =
   }),
   customers: (c) => ({
     outstanding: 0,
+    creditLimit: 0,
     ...c,
+  }),
+  purchaseOrders: (po) => ({
+    items: [],
+    ...po,
+  }),
+  salesOrders: (so) => ({
+    items: [],
+    ...so,
   }),
 };
 

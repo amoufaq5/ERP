@@ -1321,9 +1321,9 @@ export default function ProcurementPage() {
         fields={rfqFields}
         initialData={editingRFQ ? {
           vendorId: editingRFQ.vendorId,
-          description: editingRFQ.items[0]?.description ?? "",
-          quantity: editingRFQ.items[0]?.quantity ?? 0,
-          unit: editingRFQ.items[0]?.unit ?? "",
+          description: (editingRFQ.items || [])[0]?.description ?? "",
+          quantity: (editingRFQ.items || [])[0]?.quantity ?? 0,
+          unit: (editingRFQ.items || [])[0]?.unit ?? "",
           validUntil: editingRFQ.validUntil?.slice(0, 10) ?? "",
           notes: editingRFQ.notes ?? "",
         } : undefined}
