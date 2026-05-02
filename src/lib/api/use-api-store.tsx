@@ -47,6 +47,11 @@ const SHAPE_MAPPERS: Partial<Record<EntityKey, (item: Record<string, unknown>) =
     stockQty: p.quantity ?? p.stockQty ?? 0,
     therapeuticArea: p.category ?? p.therapeuticArea ?? "",
   }),
+  invoices: (inv) => ({
+    items: [],
+    ...inv,
+    number: inv.invoiceNumber ?? inv.number ?? "",
+  }),
   glAccounts: (a) => ({
     subType: "",
     currency: "EGP",
@@ -66,6 +71,10 @@ const SHAPE_MAPPERS: Partial<Record<EntityKey, (item: Record<string, unknown>) =
     ...je,
     number: je.entryNumber ?? je.number ?? "",
     lines: je.lines ?? [],
+  }),
+  customers: (c) => ({
+    outstanding: 0,
+    ...c,
   }),
 };
 

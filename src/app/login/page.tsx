@@ -49,20 +49,10 @@ function LoginPageInner() {
 
   useEffect(() => {
     setMounted(true);
-    // Always clear stale auth on login page to prevent redirect loops
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("logout") === "1" || params.get("clear") === "1") {
-      localStorage.removeItem("token");
-      localStorage.removeItem("pharma.currentUser");
-      window.history.replaceState({}, "", "/login");
-      return;
-    }
-    // If already logged in, redirect to dashboard
-    const token = localStorage.getItem("token");
-    if (token) {
-      router.push("/dashboard");
-    }
-  }, [router]);
+    // Clear stale auth so user can always login fresh
+    localStorage.removeItem("token");
+    localStorage.removeItem("pharma.currentUser");
+  }, []);
 
   function fillCredentials(user: string, pass: string) {
     setUsername(user);

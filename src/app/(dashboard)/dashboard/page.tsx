@@ -78,6 +78,10 @@ import { useApiDataStore } from "@/lib/api/use-api-store";
 import { BUYING_LADDER_STAGES, type BuyingLadderStage, type SampleGiven } from "@/lib/data-store";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
+function safeArr<T>(val: unknown): T[] {
+  return Array.isArray(val) ? val : [];
+}
+
 const fmtEGP = (n: number) => `EGP ${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 const fmtM = (n: number) =>
   n >= 1_000_000
@@ -206,14 +210,23 @@ function ModuleQuickStatsRow() {
   const store = useApiDataStore();
   const leads = useLocalStorageData<StoredLead>(LEAD_STORAGE_KEY);
 
+  const invoices = safeArr<any>(store.invoices);
+  const customers = safeArr<any>(store.customers);
+  const bankAccounts = safeArr<any>(store.bankAccounts);
+  const products = safeArr<any>(store.products);
+  const purchaseOrders = safeArr<any>(store.purchaseOrders);
+  const shipments = safeArr<any>(store.shipments);
+  const employees = safeArr<any>(store.employees);
+  const jobs = safeArr<any>(store.jobs);
+
   // Finance stats
-  const totalRevenue = store.invoices
+  const totalRevenue = invoices
     .filter((i) => i.status === "PAID" || i.status === "PARTIAL")
-    .reduce((s, i) => s + i.total, 0);
-  const arOutstanding = store.customers.reduce((s, c) => s + c.outstanding, 0);
-  const cashBalance = store.bankAccounts
+    .reduce((s, i) => s + (i.total || 0), 0);
+  const arOutstanding = customers.reduce((s, c) => s + (c.outstanding || 0), 0);
+  const cashBalance = bankAccounts
     .filter((b) => b.currency === "EGP" && b.status === "ACTIVE")
-    .reduce((s, b) => s + b.balance, 0);
+    .reduce((s, b) => s + (b.balance || 0), 0);
 
   // CRM stats
   const activeLeads = leads.filter((l) => l.status !== "CLOSED_WON" && l.status !== "CLOSED_LOST").length;
@@ -223,16 +236,16 @@ function ModuleQuickStatsRow() {
   const winRate = totalClosedLeads > 0 ? Math.round((wonLeads / totalClosedLeads) * 100) : 0;
 
   // Supply Chain stats
-  const lowStockItems = store.products.filter((p) => p.stockQty <= p.reorderLevel).length;
-  const pendingPOs = store.purchaseOrders.filter((po) => po.status === "DRAFT" || po.status === "APPROVED" || po.status === "ORDERED").length;
-  const deliveredShipments = store.shipments.filter((s) => s.status === "DELIVERED").length;
-  const totalShipments = store.shipments.length;
+  const lowStockItems = products.filter((p) => (p.stockQty || 0) <= (p.reorderLevel || 0)).length;
+  const pendingPOs = purchaseOrders.filter((po) => po.status === "DRAFT" || po.status === "APPROVED" || po.status === "ORDERED").length;
+  const deliveredShipments = shipments.filter((s) => s.status === "DELIVERED").length;
+  const totalShipments = shipments.length;
   const onTimeDelivery = totalShipments > 0 ? Math.round((deliveredShipments / totalShipments) * 100) : 0;
 
   // HR stats
-  const totalEmployees = store.employees.length;
-  const openPositions = store.jobs.filter((j) => j.status === "OPEN").length;
-  const upcomingLeaves = store.employees.filter((e) => e.status === "ON_LEAVE").length;
+  const totalEmployees = employees.length;
+  const openPositions = jobs.filter((j) => j.status === "OPEN").length;
+  const upcomingLeaves = safeArr<any>(store.employees).filter((e) => e.status === "ON_LEAVE").length;
 
   const modules = [
     {
@@ -298,10 +311,10 @@ function OperationalAlertsBanner() {
   const store = useApiDataStore();
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
-  const overdueInvoices = store.invoices.filter((i) => i.status === "OVERDUE").length;
-  const lowStockProducts = store.products.filter((p) => p.stockQty <= p.reorderLevel).length;
-  const pendingEscalations = store.weeklyPlans.filter((wp) => wp.status === "SUBMITTED" && wp.approvalLevel && wp.approvalLevel > 1).length;
-  const slaBreaches = store.visits.filter((v) => {
+  const overdueInvoices = safeArr<any>(store.invoices).filter((i) => i.status === "OVERDUE").length;
+  const lowStockProducts = safeArr<any>(store.products).filter((p) => (p.stockQty || 0) <= (p.reorderLevel || 0)).length;
+  const pendingEscalations = safeArr<any>(store.weeklyPlans).filter((wp) => wp.status === "SUBMITTED" && wp.approvalLevel && wp.approvalLevel > 1).length;
+  const slaBreaches = safeArr<any>(store.visits).filter((v) => {
     if (v.status !== "LOGGED") return false;
     const visitDate = new Date(v.dateTime);
     const daysSince = (Date.now() - visitDate.getTime()) / 86400000;
@@ -345,9 +358,9 @@ function ApprovalQueueWidget() {
   const store = useApiDataStore();
 
   const pendingExpenses = useLocalStorageData<StoredExpense>(EXPENSE_STORAGE_KEY).filter((e) => e.status === "PENDING");
-  const pendingPlans = store.weeklyPlans.filter((wp) => wp.status === "SUBMITTED");
-  const pendingMarketRequests = store.marketRequests.filter((mr) => mr.status === "PENDING");
-  const pendingVisits = store.visits.filter((v) => v.status === "LOGGED");
+  const pendingPlans = safeArr<any>(store.weeklyPlans).filter((wp) => wp.status === "SUBMITTED");
+  const pendingMarketRequests = safeArr<any>(store.marketRequests).filter((mr) => mr.status === "PENDING");
+  const pendingVisits = safeArr<any>(store.visits).filter((v) => v.status === "LOGGED");
 
   const totalPending = pendingExpenses.length + pendingPlans.length + pendingMarketRequests.length + pendingVisits.length;
 
@@ -428,87 +441,90 @@ interface ActivityItem {
 function ActivityFeedWidget() {
   const store = useApiDataStore();
 
+  const visits = safeArr<any>(store.visits);
+  const doctors = safeArr<any>(store.doctors);
+  const invoicesArr = safeArr<any>(store.invoices);
+  const productsArr = safeArr<any>(store.products);
+  const marketRequestsArr = safeArr<any>(store.marketRequests);
+  const purchaseOrdersArr = safeArr<any>(store.purchaseOrders);
+  const vendorsArr = safeArr<any>(store.vendors);
+  const candidatesArr = safeArr<any>(store.candidates);
+
   const activities = useMemo(() => {
     const items: ActivityItem[] = [];
 
-    // Recent visits (approved)
-    store.visits
+    visits
       .filter((v) => v.status === "APPROVED")
       .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
       .slice(0, 3)
       .forEach((v) => {
-        const doc = store.doctors.find((d) => d.id === v.doctorId);
+        const doc = doctors.find((d) => d.id === v.doctorId);
         items.push({
           id: `vis-${v.id}`,
-          message: `Visit approved: ${doc?.name ?? "Doctor"} — ${v.productIds.length} products discussed`,
+          message: `Visit approved: ${doc?.name ?? "Doctor"} — ${(v.productIds || []).length} products discussed`,
           module: "CRM",
           moduleColor: "bg-blue-100 text-blue-700",
           timestamp: v.dateTime,
         });
       });
 
-    // Overdue invoices
-    store.invoices
+    invoicesArr
       .filter((i) => i.status === "OVERDUE")
       .slice(0, 2)
       .forEach((inv) => {
         const daysDue = Math.round((Date.now() - new Date(inv.dueDate).getTime()) / 86400000);
         items.push({
           id: `inv-${inv.id}`,
-          message: `Invoice ${inv.number} overdue by ${daysDue} days`,
+          message: `Invoice ${inv.number || inv.invoiceNumber || inv.id} overdue by ${daysDue} days`,
           module: "Finance",
           moduleColor: "bg-red-100 text-red-700",
           timestamp: inv.dueDate,
         });
       });
 
-    // Low stock alerts
-    store.products
-      .filter((p) => p.stockQty <= p.reorderLevel && p.stockQty > 0)
+    productsArr
+      .filter((p) => (p.stockQty || 0) <= (p.reorderLevel || 0) && (p.stockQty || 0) > 0)
       .slice(0, 2)
       .forEach((p) => {
         items.push({
           id: `stock-${p.id}`,
-          message: `Low stock alert: ${p.name} ${p.strength} — ${p.stockQty} remaining`,
+          message: `Low stock alert: ${p.name} ${p.strength || ""} — ${p.stockQty} remaining`,
           module: "Supply Chain",
           moduleColor: "bg-amber-100 text-amber-700",
           timestamp: new Date().toISOString(),
         });
       });
 
-    // Recent market requests approved
-    store.marketRequests
+    marketRequestsArr
       .filter((mr) => mr.status === "APPROVED" && mr.approvedAt)
       .sort((a, b) => new Date(b.approvedAt!).getTime() - new Date(a.approvedAt!).getTime())
       .slice(0, 2)
       .forEach((mr) => {
         items.push({
           id: `mr-${mr.id}`,
-          message: `Market request approved: ${mr.type} — ${mr.description.slice(0, 50)}`,
+          message: `Market request approved: ${mr.type} — ${(mr.description || "").slice(0, 50)}`,
           module: "CRM",
           moduleColor: "bg-blue-100 text-blue-700",
           timestamp: mr.approvedAt!,
         });
       });
 
-    // Recent POs
-    store.purchaseOrders
+    purchaseOrdersArr
       .filter((po) => po.status === "ORDERED" || po.status === "RECEIVED")
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 2)
       .forEach((po) => {
-        const vendor = store.vendors.find((v) => v.id === po.vendorId);
+        const vendor = vendorsArr.find((v) => v.id === po.vendorId);
         items.push({
           id: `po-${po.id}`,
-          message: `PO ${po.number} ${po.status.toLowerCase()}: ${vendor?.name ?? "Vendor"} — ${fmtEGP(po.total)}`,
+          message: `PO ${po.number} ${po.status.toLowerCase()}: ${vendor?.name ?? "Vendor"} — ${fmtEGP(po.total || 0)}`,
           module: "Supply Chain",
           moduleColor: "bg-amber-100 text-amber-700",
           timestamp: po.createdAt,
         });
       });
 
-    // New candidates
-    store.candidates
+    candidatesArr
       .filter((c) => c.status === "INTERVIEW" || c.status === "OFFER")
       .slice(0, 1)
       .forEach((c) => {
@@ -524,7 +540,7 @@ function ActivityFeedWidget() {
     return items
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, 10);
-  }, [store]);
+  }, [visits, doctors, invoicesArr, productsArr, marketRequestsArr, purchaseOrdersArr, vendorsArr, candidatesArr]);
 
   return (
     <Card>
@@ -567,6 +583,11 @@ function ActivityFeedWidget() {
 
 function RevenueAndSalesCharts() {
   const store = useApiDataStore();
+  const storeInvoices = safeArr<any>(store.invoices);
+  const storeProducts = safeArr<any>(store.products);
+  const storeTerritories = safeArr<any>(store.territories);
+  const storeVisits = safeArr<any>(store.visits);
+  const storeDoctors = safeArr<any>(store.doctors);
 
   // Monthly revenue trend (last 6 months)
   const monthlyRevenue = useMemo(() => {
@@ -576,31 +597,31 @@ function RevenueAndSalesCharts() {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthStr = d.toISOString().slice(0, 7);
       const label = d.toLocaleDateString("en-US", { month: "short" });
-      const revenue = store.invoices
-        .filter((inv) => (inv.status === "PAID" || inv.status === "PARTIAL") && inv.date.startsWith(monthStr))
-        .reduce((s, inv) => s + inv.total, 0);
+      const revenue = storeInvoices
+        .filter((inv) => (inv.status === "PAID" || inv.status === "PARTIAL") && (inv.date || "").startsWith(monthStr))
+        .reduce((s, inv) => s + (inv.total || 0), 0);
       months.push({ label, revenue });
     }
     return months;
-  }, [store.invoices]);
+  }, [storeInvoices]);
 
   const maxMonthlyRevenue = Math.max(...monthlyRevenue.map((m) => m.revenue), 1);
 
   // Top 5 products by revenue
   const topProducts = useMemo(() => {
     const productMap: Record<string, { name: string; revenue: number }> = {};
-    store.invoices
+    storeInvoices
       .filter((inv) => inv.status === "PAID" || inv.status === "PARTIAL")
       .forEach((inv) => {
-        inv.items.forEach((item) => {
-          const prod = store.products.find((p) => p.id === item.productId);
-          const name = prod ? `${prod.name} ${prod.strength}` : item.description;
+        (inv.items || []).forEach((item: any) => {
+          const prod = storeProducts.find((p) => p.id === item.productId);
+          const name = prod ? `${prod.name} ${prod.strength || ""}` : (item.description || "Unknown");
           if (!productMap[item.productId]) productMap[item.productId] = { name, revenue: 0 };
-          productMap[item.productId].revenue += item.total;
+          productMap[item.productId].revenue += (item.total || 0);
         });
       });
     return Object.values(productMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
-  }, [store.invoices, store.products]);
+  }, [storeInvoices, storeProducts]);
 
   const maxProductRevenue = topProducts[0]?.revenue || 1;
 
@@ -622,20 +643,21 @@ function RevenueAndSalesCharts() {
   // Sales by territory from visits
   const territoryBreakdown = useMemo(() => {
     const tMap: Record<string, { name: string; visits: number; doctors: number }> = {};
-    store.territories
+    storeTerritories
       .filter((t) => t.level === "district" || t.level === "region")
       .forEach((t) => {
-        const tVisits = store.visits.filter((v) => {
-          const doc = store.doctors.find((d) => d.id === v.doctorId);
-          return doc && t.assignedRepIds.some((rid) => rid === v.repId);
+        const repIds = t.assignedRepIds || [];
+        const tVisits = storeVisits.filter((v) => {
+          const doc = storeDoctors.find((d) => d.id === v.doctorId);
+          return doc && repIds.some((rid: string) => rid === v.repId);
         }).length;
-        const tDocs = store.doctors.filter((d) => d.assignedRepId && t.assignedRepIds.includes(d.assignedRepId)).length;
+        const tDocs = storeDoctors.filter((d) => d.assignedRepId && repIds.includes(d.assignedRepId)).length;
         if (tVisits > 0 || tDocs > 0) {
           tMap[t.id] = { name: t.name, visits: tVisits, doctors: tDocs };
         }
       });
     return Object.values(tMap).sort((a, b) => b.visits - a.visits).slice(0, 5);
-  }, [store.territories, store.visits, store.doctors]);
+  }, [storeTerritories, storeVisits, storeDoctors]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -927,10 +949,10 @@ function TeamQuizResultsCard({ getReportsOf, userId }: { getReportsOf: (id: stri
 function AdminDashboard() {
   const { user } = useCurrentUser();
   const store = useApiDataStore();
-  const totalRevenue = store.invoices
+  const totalRevenue = safeArr<any>(store.invoices)
     .filter((i) => i.status === "PAID" || i.status === "PARTIAL")
-    .reduce((s, i) => s + i.total, 0);
-  const totalCustomers = store.customers.length;
+    .reduce((s, i) => s + (i.total || 0), 0);
+  const totalCustomers = safeArr<any>(store.customers).length;
   return (
     <div className="p-6 space-y-6">
       <RoleHeader
@@ -951,8 +973,8 @@ function AdminDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Total Revenue (YTD)" value={fmtM(totalRevenue)} delta="+14.2%" trend="up" icon={DollarSign} color="bg-green-100 text-green-600" />
         <KpiCard label="Customers" value={totalCustomers} delta="+8.3%" trend="up" icon={Users} color="bg-blue-100 text-blue-600" />
-        <KpiCard label="Employees" value={store.employees.length} icon={Users} color="bg-purple-100 text-purple-600" />
-        <KpiCard label="Open Positions" value={store.jobs.filter(j => j.status === "OPEN").length} delta={`${store.candidates.length} applicants`} trend="up" icon={Briefcase} color="bg-orange-100 text-orange-600" />
+        <KpiCard label="Employees" value={safeArr<any>(store.employees).length} icon={Users} color="bg-purple-100 text-purple-600" />
+        <KpiCard label="Open Positions" value={safeArr<any>(store.jobs).filter(j => j.status === "OPEN").length} delta={`${safeArr<any>(store.candidates).length} applicants`} trend="up" icon={Briefcase} color="bg-orange-100 text-orange-600" />
       </div>
 
       {/* Revenue & Sales Chart Area */}
@@ -1045,23 +1067,33 @@ function BUMDashboard() {
   const reps = allSubordinates.filter((u) => u.role === "MEDICAL_REP");
   const repIds = new Set(reps.map((r) => r.id));
 
+  const allInvoices = safeArr<any>(store.invoices);
+  const allDoctors = safeArr<any>(store.doctors);
+  const allVisits = safeArr<any>(store.visits);
+  const allTerritories = safeArr<any>(store.territories);
+  const allMR = safeArr<any>(store.marketRequests);
+  const allWP = safeArr<any>(store.weeklyPlans);
+  const allProducts = safeArr<any>(store.products);
+  const allKpis = safeArr<any>(store.kpis);
+  const allBUs = safeArr<any>(store.businessUnits);
+
   // Revenue from invoices
-  const buRevenue = store.invoices
+  const buRevenue = allInvoices
     .filter((i) => i.status === "PAID" || i.status === "PARTIAL")
-    .reduce((s, i) => s + i.total, 0);
+    .reduce((s, i) => s + (i.total || 0), 0);
 
   // Doctor & visit counts scoped to my reps
-  const myDoctors = store.doctors.filter((d) => d.assignedRepId && repIds.has(d.assignedRepId));
-  const myVisits = store.visits.filter((v) => repIds.has(v.repId));
+  const myDoctors = allDoctors.filter((d) => d.assignedRepId && repIds.has(d.assignedRepId));
+  const myVisits = allVisits.filter((v) => repIds.has(v.repId));
   const todayStr = new Date().toISOString().slice(0, 10);
   const activeRepsToday = new Set(
-    myVisits.filter((v) => v.dateTime.slice(0, 10) === todayStr).map((v) => v.repId)
+    myVisits.filter((v) => (v.dateTime || "").slice(0, 10) === todayStr).map((v) => v.repId)
   ).size;
 
   // Coverage: territories with assigned reps / total territories (brick level)
-  const totalTerritories = store.territories.filter((t) => t.level === "brick").length;
-  const coveredTerritories = store.territories.filter(
-    (t) => t.level === "brick" && t.assignedRepIds.some((rid) => repIds.has(rid))
+  const totalTerritories = allTerritories.filter((t) => t.level === "brick").length;
+  const coveredTerritories = allTerritories.filter(
+    (t) => t.level === "brick" && (t.assignedRepIds || []).some((rid: string) => repIds.has(rid))
   ).length;
   const coveragePct = totalTerritories > 0 ? Math.round((coveredTerritories / totalTerritories) * 100) : 0;
 
@@ -1070,18 +1102,18 @@ function BUMDashboard() {
   const compliancePct = myVisits.length > 0 ? Math.round((approvedVisits / myVisits.length) * 100) : 0;
 
   // Pending items needing BUM attention
-  const pendingMarketRequests = store.marketRequests.filter((mr) => mr.status === "PENDING");
-  const pendingVisitApprovals = store.visits.filter((v) => v.status === "LOGGED");
-  const pendingPlans = store.weeklyPlans.filter((wp) => wp.status === "SUBMITTED");
+  const pendingMarketRequests = allMR.filter((mr) => mr.status === "PENDING");
+  const pendingVisitApprovals = allVisits.filter((v) => v.status === "LOGGED");
+  const pendingPlans = allWP.filter((wp) => wp.status === "SUBMITTED");
 
   // Product performance sorted by invoice sales
-  const productSales = store.products.map((p) => {
-    const sales = store.invoices
+  const productSales = allProducts.map((p) => {
+    const sales = allInvoices
       .filter((inv) => inv.status === "PAID" || inv.status === "PARTIAL")
       .reduce((sum, inv) => {
-        const lineTotal = inv.items
-          .filter((it) => it.productId === p.id)
-          .reduce((ls, it) => ls + it.total, 0);
+        const lineTotal = (inv.items || [])
+          .filter((it: any) => it.productId === p.id)
+          .reduce((ls: number, it: any) => ls + (it.total || 0), 0);
         return sum + lineTotal;
       }, 0);
     return { ...p, sales };
@@ -1089,9 +1121,9 @@ function BUMDashboard() {
 
   // Marketeer performance from KPIs
   const marketeerPerf = marketeers.map((m) => {
-    const kpis = store.kpis.filter((k) => k.userId === m.id);
-    const totalTarget = kpis.reduce((s, k) => s + k.target, 0);
-    const totalActual = kpis.reduce((s, k) => s + k.actual, 0);
+    const kpis = allKpis.filter((k) => k.userId === m.id);
+    const totalTarget = kpis.reduce((s, k) => s + (k.target || 0), 0);
+    const totalActual = kpis.reduce((s, k) => s + (k.actual || 0), 0);
     const achievement = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
     const mReports = getReportsOf(m.id);
     return {
@@ -1104,19 +1136,19 @@ function BUMDashboard() {
   });
 
   // BU breakdown
-  const buBreakdown = store.businessUnits.map((bu) => {
-    const buProducts = store.products.filter((p) => p.buId === bu.id);
-    const buDoctors = store.doctors.filter((d) => d.buId === bu.id);
-    const buReps = reps.filter((r) => bu.memberIds.includes(r.id));
-    const buVisits = store.visits.filter((v) => v.buId === bu.id);
-    const buSales = store.invoices
+  const buBreakdown = allBUs.map((bu) => {
+    const buProds = allProducts.filter((p) => p.buId === bu.id);
+    const buDocs = allDoctors.filter((d) => d.buId === bu.id);
+    const buReps = reps.filter((r) => (bu.memberIds || []).includes(r.id));
+    const buVis = allVisits.filter((v) => v.buId === bu.id);
+    const buSales = allInvoices
       .filter((inv) => inv.status === "PAID" || inv.status === "PARTIAL")
       .reduce((sum, inv) => {
-        return sum + inv.items
-          .filter((it) => buProducts.some((p) => p.id === it.productId))
-          .reduce((ls, it) => ls + it.total, 0);
+        return sum + (inv.items || [])
+          .filter((it: any) => buProds.some((p) => p.id === it.productId))
+          .reduce((ls: number, it: any) => ls + (it.total || 0), 0);
       }, 0);
-    return { id: bu.id, name: bu.name, code: bu.code, color: bu.color, sales: buSales, doctorCount: buDoctors.length, repCount: buReps.length, visitCount: buVisits.length, productCount: buProducts.length };
+    return { id: bu.id, name: bu.name, code: bu.code, color: bu.color, sales: buSales, doctorCount: buDocs.length, repCount: buReps.length, visitCount: buVis.length, productCount: buProds.length };
   });
 
   const maxBuSales = Math.max(...buBreakdown.map((b) => b.sales), 1);
@@ -1138,7 +1170,7 @@ function BUMDashboard() {
       {/* Top KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="BU Revenue (YTD)" value={fmtM(buRevenue)} icon={DollarSign} color="bg-green-100 text-green-600" />
-        <KpiCard label="Business Units" value={store.businessUnits.length} delta={`${store.products.length} products`} icon={Target} color="bg-blue-100 text-blue-600" />
+        <KpiCard label="Business Units" value={allBUs.length} delta={`${allProducts.length} products`} icon={Target} color="bg-blue-100 text-blue-600" />
         <KpiCard label="National Coverage" value={`${coveragePct}%`} delta={`${coveredTerritories}/${totalTerritories} bricks`} icon={MapPin} color="bg-purple-100 text-purple-600" />
         <KpiCard label="Field Force" value={reps.length} delta={`${activeRepsToday} active today`} trend={activeRepsToday > 0 ? "up" : "flat"} icon={Users} color="bg-orange-100 text-orange-600" />
       </div>
@@ -1239,7 +1271,7 @@ function BUMDashboard() {
           <CardHeader><CardTitle className="text-base">Top Products by Sales</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
             {productSales.slice(0, 5).map((p) => {
-              const buName = store.businessUnits.find((b) => b.id === p.buId)?.code ?? "---";
+              const buName = safeArr<any>(store.businessUnits).find((b) => b.id === p.buId)?.code ?? "---";
               const maxSales = productSales[0]?.sales || 1;
               return (
                 <div key={p.id} className="space-y-1">
@@ -1284,7 +1316,7 @@ function BUMDashboard() {
               const entries = Object.entries(samplesByProduct).sort((a, b) => b[1] - a[1]);
               if (entries.length === 0) return <p className="text-muted-foreground">No samples distributed yet.</p>;
               return entries.map(([pid, qty]) => {
-                const prod = store.products.find((p) => p.id === pid);
+                const prod = safeArr<any>(store.products).find((p) => p.id === pid);
                 return (
                   <div key={pid} className="flex justify-between">
                     <span>{prod?.name ?? pid} {prod?.strength ?? ""}</span>
@@ -1329,27 +1361,27 @@ function MarketeerDashboard() {
   const repIds = new Set(myReps.map((r) => r.id));
 
   // Revenue
-  const regionRevenue = store.invoices
+  const regionRevenue = safeArr<any>(store.invoices)
     .filter((i) => i.status === "PAID" || i.status === "PARTIAL")
-    .reduce((s, i) => s + i.total, 0);
+    .reduce((s, i) => s + (i.total || 0), 0);
 
   // Visits scoped to my reps
-  const teamVisits = store.visits.filter((v) => repIds.has(v.repId));
-  const totalSamplesDistributed = teamVisits.reduce((s, v) => s + v.samplesDistributed, 0);
+  const teamVisits = safeArr<any>(store.visits).filter((v) => repIds.has(v.repId));
+  const totalSamplesDistributed = teamVisits.reduce((s, v) => s + (v.samplesDistributed || 0), 0);
 
   // Coverage
-  const totalBricks = store.territories.filter((t) => t.level === "brick").length;
-  const coveredBricks = store.territories.filter(
-    (t) => t.level === "brick" && t.assignedRepIds.some((rid) => repIds.has(rid))
+  const totalBricks = safeArr<any>(store.territories).filter((t) => t.level === "brick").length;
+  const coveredBricks = safeArr<any>(store.territories).filter(
+    (t) => t.level === "brick" && (t.assignedRepIds || []).some((rid: string) => repIds.has(rid))
   ).length;
   const coveragePct = totalBricks > 0 ? Math.round((coveredBricks / totalBricks) * 100) : 0;
 
   // Doctors in scope
-  const teamDoctors = store.doctors.filter((d) => d.assignedRepId && repIds.has(d.assignedRepId));
+  const teamDoctors = safeArr<any>(store.doctors).filter((d) => d.assignedRepId && repIds.has(d.assignedRepId));
   const uniqueDoctorsVisited = new Set(teamVisits.map((v) => v.doctorId)).size;
 
   // Market requests
-  const teamMarketRequests = store.marketRequests.filter(
+  const teamMarketRequests = safeArr<any>(store.marketRequests).filter(
     (mr) => repIds.has(mr.requestedById) || mr.requestedById === user.id || myDMs.some((dm) => dm.id === mr.requestedById)
   );
   const pendingMRs = teamMarketRequests.filter((mr) => mr.status === "PENDING");
@@ -1358,13 +1390,13 @@ function MarketeerDashboard() {
 
   // DM performance
   const dmPerf = myDMs.map((dm) => {
-    const dmKpis = store.kpis.filter((k) => k.userId === dm.id);
-    const totalTarget = dmKpis.reduce((s, k) => s + k.target, 0);
-    const totalActual = dmKpis.reduce((s, k) => s + k.actual, 0);
+    const dmKpis = safeArr<any>(store.kpis).filter((k) => k.userId === dm.id);
+    const totalTarget = dmKpis.reduce((s, k) => s + (k.target || 0), 0);
+    const totalActual = dmKpis.reduce((s, k) => s + (k.actual || 0), 0);
     const achievement = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
     const dmReps = getReportsOf(dm.id);
     const dmRepIds = new Set(dmReps.map((r) => r.id));
-    const dmVisits = store.visits.filter((v) => dmRepIds.has(v.repId));
+    const dmVisits = safeArr<any>(store.visits).filter((v) => dmRepIds.has(v.repId));
     return {
       id: dm.id,
       name: `${dm.name} — ${dm.territory ?? "District"}`,
@@ -1375,11 +1407,11 @@ function MarketeerDashboard() {
   });
 
   // Product performance within BUs
-  const productPerf = store.products.map((p) => {
-    const sales = store.invoices
+  const productPerf = safeArr<any>(store.products).map((p) => {
+    const sales = safeArr<any>(store.invoices)
       .filter((inv) => inv.status === "PAID" || inv.status === "PARTIAL")
-      .reduce((sum, inv) => sum + inv.items.filter((it) => it.productId === p.id).reduce((ls, it) => ls + it.total, 0), 0);
-    const samples = teamVisits.reduce((s, v) => s + v.samplesGiven.filter((sg) => sg.productId === p.id).reduce((ss, sg) => ss + sg.quantity, 0), 0);
+      .reduce((sum, inv) => sum + (inv.items || []).filter((it: any) => it.productId === p.id).reduce((ls: number, it: any) => ls + (it.total || 0), 0), 0);
+    const samples = teamVisits.reduce((s, v) => s + (v.samplesGiven || []).filter((sg: any) => sg.productId === p.id).reduce((ss: number, sg: any) => ss + (sg.quantity || 0), 0), 0);
     return { ...p, sales, samples };
   }).sort((a, b) => b.sales - a.sales);
 
@@ -1440,7 +1472,7 @@ function MarketeerDashboard() {
         <CardHeader><CardTitle className="text-base">Product Performance</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm">
           {productPerf.slice(0, 6).map((p) => {
-            const buLabel = store.businessUnits.find((b) => b.id === p.buId)?.code ?? "---";
+            const buLabel = safeArr<any>(store.businessUnits).find((b) => b.id === p.buId)?.code ?? "---";
             const maxSales = productPerf[0]?.sales || 1;
             return (
               <div key={p.id} className="space-y-1">
@@ -1482,49 +1514,49 @@ function DistrictManagerDashboard() {
   const repIds = new Set(myReps.map((r) => r.id));
 
   // Visits scoped to my reps
-  const teamVisits = store.visits.filter((v) => repIds.has(v.repId));
+  const teamVisits = safeArr<any>(store.visits).filter((v) => repIds.has(v.repId));
   const todayStr = new Date().toISOString().slice(0, 10);
-  const visitsToday = teamVisits.filter((v) => v.dateTime.slice(0, 10) === todayStr);
+  const visitsToday = teamVisits.filter((v) => (v.dateTime || "").slice(0, 10) === todayStr);
   const uniqueDoctorsVisited = new Set(teamVisits.map((v) => v.doctorId)).size;
-  const totalSamples = teamVisits.reduce((s, v) => s + v.samplesDistributed, 0);
+  const totalSamples = teamVisits.reduce((s, v) => s + (v.samplesDistributed || 0), 0);
 
   // Revenue
-  const districtRevenue = store.invoices
+  const districtRevenue = safeArr<any>(store.invoices)
     .filter((i) => i.status === "PAID" || i.status === "PARTIAL")
-    .reduce((s, i) => s + i.total, 0);
+    .reduce((s, i) => s + (i.total || 0), 0);
 
   // Coverage
-  const totalBricks = store.territories.filter((t) => t.level === "brick").length;
-  const coveredBricks = store.territories.filter(
-    (t) => t.level === "brick" && t.assignedRepIds.some((rid) => repIds.has(rid))
+  const totalBricks = safeArr<any>(store.territories).filter((t) => t.level === "brick").length;
+  const coveredBricks = safeArr<any>(store.territories).filter(
+    (t) => t.level === "brick" && (t.assignedRepIds || []).some((rid: string) => repIds.has(rid))
   ).length;
   const coveragePct = totalBricks > 0 ? Math.round((coveredBricks / totalBricks) * 100) : 0;
 
   // Pending visit approvals for my reps
-  const pendingVisitApprovals = store.visits.filter(
+  const pendingVisitApprovals = safeArr<any>(store.visits).filter(
     (v) => v.status === "LOGGED" && repIds.has(v.repId)
   );
 
   // Pending market requests from my reps
-  const pendingMRs = store.marketRequests.filter(
+  const pendingMRs = safeArr<any>(store.marketRequests).filter(
     (mr) => mr.status === "PENDING" && repIds.has(mr.requestedById)
   );
 
   // District KPIs
-  const districtKpis = store.kpis.filter((k) => k.userId === user.id);
+  const districtKpis = safeArr<any>(store.kpis).filter((k) => k.userId === user.id);
 
   // Rep performance
   const repPerf = myReps.map((rep) => {
-    const repVisits = store.visits.filter((v) => v.repId === rep.id);
-    const repVisitsToday = repVisits.filter((v) => v.dateTime.slice(0, 10) === todayStr).length;
-    const repDoctors = store.doctors.filter((d) => d.assignedRepId === rep.id);
+    const repVisits = safeArr<any>(store.visits).filter((v) => v.repId === rep.id);
+    const repVisitsToday = repVisits.filter((v) => (v.dateTime || "").slice(0, 10) === todayStr).length;
+    const repDoctors = safeArr<any>(store.doctors).filter((d) => d.assignedRepId === rep.id);
     const repDoctorsVisited = new Set(repVisits.map((v) => v.doctorId)).size;
     const repCoverage = repDoctors.length > 0 ? Math.round((repDoctorsVisited / repDoctors.length) * 100) : 0;
     const repApproved = repVisits.filter((v) => v.status === "APPROVED").length;
     const repCompliance = repVisits.length > 0 ? Math.round((repApproved / repVisits.length) * 100) : 0;
-    const repKpis = store.kpis.filter((k) => k.userId === rep.id);
+    const repKpis = safeArr<any>(store.kpis).filter((k) => k.userId === rep.id);
     const kpiTarget = repKpis.find((k) => k.metric === "Visits")?.target ?? 0;
-    const repPendingApprovals = store.visits.filter((v) => v.status === "LOGGED" && v.repId === rep.id).length;
+    const repPendingApprovals = safeArr<any>(store.visits).filter((v) => v.status === "LOGGED" && v.repId === rep.id).length;
 
     return {
       id: rep.id,
@@ -1547,8 +1579,8 @@ function DistrictManagerDashboard() {
   );
 
   // Territories assigned to reps
-  const assignedTerritories = store.territories.filter(
-    (t) => t.level === "brick" && t.assignedRepIds.some((rid) => repIds.has(rid))
+  const assignedTerritories = safeArr<any>(store.territories).filter(
+    (t) => t.level === "brick" && (t.assignedRepIds || []).some((rid: string) => repIds.has(rid))
   );
 
   return (
@@ -1633,7 +1665,7 @@ function DistrictManagerDashboard() {
             <div className="flex justify-between"><span>Total visits</span><span className="font-semibold">{teamVisits.length}</span></div>
             <div className="flex justify-between"><span>Unique doctors visited</span><span className="font-semibold">{uniqueDoctorsVisited}</span></div>
             <div className="flex justify-between"><span>Samples distributed</span><span className="font-semibold">{totalSamples.toLocaleString()}</span></div>
-            <div className="flex justify-between"><span>Market requests</span><span className="font-semibold">{store.marketRequests.filter((mr) => repIds.has(mr.requestedById)).length}</span></div>
+            <div className="flex justify-between"><span>Market requests</span><span className="font-semibold">{safeArr<any>(store.marketRequests).filter((mr) => repIds.has(mr.requestedById)).length}</span></div>
             {districtKpis.map((kpi) => (
               <div key={kpi.id} className="flex justify-between">
                 <span>{kpi.metric}</span>
@@ -1658,7 +1690,7 @@ function DistrictManagerDashboard() {
                 <span>{t.name}</span>
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="text-[10px]">{t.imsCode}</Badge>
-                  <span className="text-xs text-muted-foreground">{t.assignedRepIds.filter((rid) => repIds.has(rid)).length} reps</span>
+                  <span className="text-xs text-muted-foreground">{(t.assignedRepIds || []).filter((rid: string) => repIds.has(rid)).length} reps</span>
                 </div>
               </div>
             ))}
@@ -1715,16 +1747,16 @@ function MedicalRepDashboard() {
   const { user } = useCurrentUser();
   const store = useApiDataStore();
 
-  const myVisits = store.visits.filter((v) => v.repId === user.id);
-  const myDoctors = store.doctors.filter((d) => d.assignedRepId === user.id);
-  const myTasks = store.tasks.filter((t) => t.assignedToId === user.id && t.status !== "DONE");
-  const myRequests = store.marketRequests.filter((r) => r.requestedById === user.id);
+  const myVisits = safeArr<any>(store.visits).filter((v) => v.repId === user.id);
+  const myDoctors = safeArr<any>(store.doctors).filter((d) => d.assignedRepId === user.id);
+  const myTasks = safeArr<any>(store.tasks).filter((t) => t.assignedToId === user.id && t.status !== "DONE");
+  const myRequests = safeArr<any>(store.marketRequests).filter((r) => r.requestedById === user.id);
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const todayStr = now.toISOString().split("T")[0];
   const mtdVisits = myVisits.filter((v) => new Date(v.dateTime) >= monthStart);
-  const todayVisits = myVisits.filter((v) => v.dateTime.startsWith(todayStr));
+  const todayVisits = myVisits.filter((v) => (v.dateTime || "").startsWith(todayStr));
   const uniqueDoctorsVisited = new Set(mtdVisits.map((v) => v.doctorId)).size;
   const totalSamplesGiven = mtdVisits.reduce((s, v) => s + v.samplesDistributed, 0);
   const coveragePct = myDoctors.length > 0 ? Math.round((uniqueDoctorsVisited / myDoctors.length) * 100) : 0;
@@ -1732,13 +1764,13 @@ function MedicalRepDashboard() {
   const callRate = mtdVisits.length > 0 ? (mtdVisits.length / Math.max(1, Math.ceil(now.getDate() * 0.8))).toFixed(1) : "0";
 
   const todayPlanned = useMemo(() => {
-    const plans = store.weeklyPlans.filter((p) => p.repId === user.id && p.status === "APPROVED");
+    const plans = safeArr<any>(store.weeklyPlans).filter((p) => p.repId === user.id && p.status === "APPROVED");
     const visits: { doctorId: string; doctorName: string; specialty: string; hospital: string; time: string; isKOL: boolean }[] = [];
     for (const plan of plans) {
-      const dayPlan = plan.days.find((d) => d.date === todayStr);
+      const dayPlan = plan.days.find((d: any) => d.date === todayStr);
       if (!dayPlan) continue;
       for (const pv of dayPlan.visits) {
-        const doc = pv.doctorId ? store.doctors.find((d) => d.id === pv.doctorId) : null;
+        const doc = pv.doctorId ? safeArr<any>(store.doctors).find((d) => d.id === pv.doctorId) : null;
         if (doc) visits.push({ doctorId: doc.id, doctorName: doc.name, specialty: doc.specialty, hospital: doc.hospital, time: pv.timeSlot || "—", isKOL: doc.isKOL });
       }
     }
@@ -1749,7 +1781,7 @@ function MedicalRepDashboard() {
     const map: Record<string, { name: string; given: number }> = {};
     for (const v of mtdVisits) {
       for (const s of v.samplesGiven) {
-        const prod = store.products.find((p) => p.id === s.productId);
+        const prod = safeArr<any>(store.products).find((p) => p.id === s.productId);
         const name = prod ? `${prod.name} ${prod.strength}` : s.productId;
         if (!map[s.productId]) map[s.productId] = { name, given: 0 };
         map[s.productId].given += s.quantity;
@@ -1759,8 +1791,8 @@ function MedicalRepDashboard() {
   }, [mtdVisits, store.products]);
   const maxSamples = samplesByProduct[0]?.given || 1;
 
-  const myBUs = store.businessUnits.filter((bu) => bu.memberIds.includes(user.id));
-  const myProducts = store.products.filter((p) => myBUs.some((bu) => bu.id === p.buId));
+  const myBUs = safeArr<any>(store.businessUnits).filter((bu) => (bu.memberIds || []).includes(user.id));
+  const myProducts = safeArr<any>(store.products).filter((p) => myBUs.some((bu) => bu.id === p.buId));
   const kolDoctors = myDoctors.filter((d) => d.isKOL);
 
   const [notes, setNotes] = useState("");
@@ -1783,7 +1815,7 @@ function MedicalRepDashboard() {
 
   function handleCheckin() {
     if (!checkinDoctor) return;
-    const doc = store.doctors.find((d) => d.id === checkinDoctor);
+    const doc = safeArr<any>(store.doctors).find((d) => d.id === checkinDoctor);
     store.add("visits", {
       id: store.genId("vis"),
       repId: user.id,
@@ -1914,7 +1946,7 @@ function MedicalRepDashboard() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            {(myProducts.length > 0 ? myProducts : store.products.slice(0, 5)).map((p) => (
+            {(myProducts.length > 0 ? myProducts : safeArr<any>(store.products).slice(0, 5)).map((p) => (
               <div key={p.id} className="p-2 rounded border">
                 <div className="flex justify-between">
                   <span className="font-medium">{p.name} {p.strength}</span>
@@ -1978,7 +2010,7 @@ function MedicalRepDashboard() {
               <p className="text-sm text-muted-foreground">No visit points recorded today.</p>
             ) : (todayVisits.length > 0 ? todayVisits : todayPlanned.slice(0, 6)).map((v, i, arr) => {
               const docId = "doctorId" in v ? (v as { doctorId: string }).doctorId : "";
-              const doc = store.doctors.find((d) => d.id === docId);
+              const doc = safeArr<any>(store.doctors).find((d) => d.id === docId);
               return (
                 <div key={i} className="flex items-center gap-1 shrink-0">
                   <div className="flex flex-col items-center">
@@ -2023,7 +2055,7 @@ function MedicalRepDashboard() {
             <div>
               <Label>Products Discussed</Label>
               <div className="flex flex-wrap gap-1 mt-1">
-                {store.products.slice(0, 8).map((p) => (
+                {safeArr<any>(store.products).slice(0, 8).map((p) => (
                   <button key={p.id} type="button" onClick={() => setCheckinProducts((prev) => prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id])}
                     className={`px-2 py-1 rounded-full text-xs border transition-colors ${checkinProducts.includes(p.id) ? "bg-blue-100 border-blue-400 text-blue-700" : "bg-muted border-border"}`}>
                     {p.name} {p.strength}
@@ -2050,12 +2082,12 @@ function AccountantDashboard() {
   const { user } = useCurrentUser();
   const { config } = useAppConfig();
   const store = useApiDataStore();
-  const arOutstanding = store.customers.reduce((s, c) => s + c.outstanding, 0);
-  const apOutstanding = store.vendors.reduce((s, v) => s + v.outstanding, 0);
-  const bankBalance = store.bankAccounts
+  const arOutstanding = safeArr<any>(store.customers).reduce((s, c) => s + (c.outstanding || 0), 0);
+  const apOutstanding = safeArr<any>(store.vendors).reduce((s, v) => s + (v.outstanding || 0), 0);
+  const bankBalance = safeArr<any>(store.bankAccounts)
     .filter((b) => b.currency === "EGP" && b.status === "ACTIVE")
-    .reduce((s, b) => s + b.balance, 0);
-  const chequesPending = store.cheques.filter((c) => c.status === "PENDING").length;
+    .reduce((s, b) => s + (b.balance || 0), 0);
+  const chequesPending = safeArr<any>(store.cheques).filter((c) => c.status === "PENDING").length;
   return (
     <div className="p-6 space-y-6">
       <RoleHeader
@@ -2093,9 +2125,9 @@ function AccountantDashboard() {
         <Card>
           <CardHeader><CardTitle className="text-base">Top Customers Outstanding</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
-            {[...store.customers]
-              .filter((c) => c.outstanding > 0)
-              .sort((a, b) => b.outstanding - a.outstanding)
+            {[...safeArr<any>(store.customers)]
+              .filter((c) => (c.outstanding || 0) > 0)
+              .sort((a, b) => (b.outstanding || 0) - (a.outstanding || 0))
               .slice(0, 5)
               .map((c) => (
               <div key={c.id} className="flex justify-between">
@@ -2199,7 +2231,7 @@ function WarehouseDashboard() {
 function HRDashboard() {
   const { user } = useCurrentUser();
   const store = useApiDataStore();
-  const openTasks = store.tasks.filter((t) => t.status === "TODO" || t.status === "IN_PROGRESS").length;
+  const openTasks = safeArr<any>(store.tasks).filter((t) => t.status === "TODO" || t.status === "IN_PROGRESS").length;
   return (
     <div className="p-6 space-y-6">
       <RoleHeader
@@ -2212,10 +2244,10 @@ function HRDashboard() {
       <OperationalAlertsBanner />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Headcount" value={store.employees.length} delta={`${store.employees.filter(e => e.status === "ACTIVE").length} active`} trend="up" icon={Users} color="bg-blue-100 text-blue-600" />
-        <KpiCard label="Open Positions" value={store.jobs.filter(j => j.status === "OPEN").length} icon={Briefcase} color="bg-purple-100 text-purple-600" />
-        <KpiCard label="Total Candidates" value={store.candidates.length} delta={`${store.candidates.filter(c => c.status === "INTERVIEW").length} interviewing`} trend="up" icon={UserPlus} color="bg-green-100 text-green-600" />
-        <KpiCard label="Active Projects" value={store.projects.filter(p => p.status === "In Progress").length} icon={Calendar} color="bg-amber-100 text-amber-600" />
+        <KpiCard label="Headcount" value={safeArr<any>(store.employees).length} delta={`${safeArr<any>(store.employees).filter(e => e.status === "ACTIVE").length} active`} trend="up" icon={Users} color="bg-blue-100 text-blue-600" />
+        <KpiCard label="Open Positions" value={safeArr<any>(store.jobs).filter(j => j.status === "OPEN").length} icon={Briefcase} color="bg-purple-100 text-purple-600" />
+        <KpiCard label="Total Candidates" value={safeArr<any>(store.candidates).length} delta={`${safeArr<any>(store.candidates).filter(c => c.status === "INTERVIEW").length} interviewing`} trend="up" icon={UserPlus} color="bg-green-100 text-green-600" />
+        <KpiCard label="Active Projects" value={safeArr<any>(store.projects).filter(p => p.status === "In Progress").length} icon={Calendar} color="bg-amber-100 text-amber-600" />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
@@ -2224,7 +2256,7 @@ function HRDashboard() {
             {(["APPLIED", "SCREENING", "INTERVIEW", "OFFER", "HIRED"] as const).map((stage) => (
               <div key={stage} className="flex items-center justify-between">
                 <span>{stage.charAt(0) + stage.slice(1).toLowerCase()}</span>
-                <Badge variant="secondary">{store.candidates.filter(c => c.status === stage).length}</Badge>
+                <Badge variant="secondary">{safeArr<any>(store.candidates).filter(c => c.status === stage).length}</Badge>
               </div>
             ))}
           </CardContent>
