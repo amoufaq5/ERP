@@ -146,7 +146,7 @@ export default function AIHubPage() {
     const employees = store.employees || []
     const products = store.products || []
     const salesOrders = store.salesOrders || []
-    const leads = store.leads || []
+    const leads = (store as unknown as Record<string, unknown[]>).leads || []
 
     return {
       invoiceCount: invoices.length,

@@ -183,7 +183,7 @@ export default function DocumentsPage() {
           <span className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 ${cfg.color}`}>
             <Icon className={`h-3 w-3 ${s === "processing" ? "animate-spin" : ""}`} />{s}
           </span>
-          {(row as OCRDocument).confidence && <span className="text-xs text-muted-foreground">{(row as OCRDocument).confidence}%</span>}
+          {(row as unknown as OCRDocument).confidence && <span className="text-xs text-muted-foreground">{(row as unknown as OCRDocument).confidence}%</span>}
         </div>
       )
     }},

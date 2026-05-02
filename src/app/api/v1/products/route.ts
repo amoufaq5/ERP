@@ -84,16 +84,16 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
       try {
         const record = await prisma.product.create({
           data: {
-            name: body.name,
-            sku: body.sku,
-            description: body.description || null,
-            category: body.category || null,
-            unitPrice: parseFloat(body.unitPrice),
-            costPrice: parseFloat(body.costPrice),
-            quantity: body.quantity ? parseInt(body.quantity) : 0,
-            reorderLevel: body.reorderLevel ? parseInt(body.reorderLevel) : 10,
-            unit: body.unit || "pcs",
-            status: (body.status || "ACTIVE").toUpperCase(),
+            name: data.name,
+            sku: data.sku,
+            description: data.description || null,
+            category: data.category || null,
+            unitPrice: data.unitPrice,
+            costPrice: data.costPrice,
+            quantity: data.quantity,
+            reorderLevel: data.reorderLevel,
+            unit: data.unit,
+            status: data.status,
           },
         });
         return apiResponse(record, 201);
@@ -102,11 +102,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
     const record = {
       id: `prod-${Date.now()}`,
-      ...body,
-      unitPrice: parseFloat(body.unitPrice),
-      costPrice: parseFloat(body.costPrice),
-      quantity: parseInt(body.quantity || "0"),
-      status: (body.status || "ACTIVE").toUpperCase(),
+      ...data,
       createdAt: new Date().toISOString(),
     };
     return apiResponse(record, 201);
