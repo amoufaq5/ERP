@@ -115,9 +115,9 @@ const DOCUMENT_TYPES = [
 ];
 
 const fmt = (n: number) =>
-  `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `EGP ${(n ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const egp = (n: number) => `EGP ${n.toLocaleString()}`;
+const egp = (n: number) => `EGP ${(n ?? 0).toLocaleString()}`;
 
 export default function PartnerDetailPage() {
   const searchParams = useSearchParams();

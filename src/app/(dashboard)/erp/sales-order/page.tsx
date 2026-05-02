@@ -555,8 +555,8 @@ export default function SalesOrderPage() {
     store.update("salesOrders", so.id, { status: "INVOICED", invoiceId: invId });
   }
 
-  const egp = (n: number) => `EGP ${n.toLocaleString()}`;
-  const fmt = (n: number) => "EGP " + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const egp = (n: number) => `EGP ${(n ?? 0).toLocaleString()}`;
+  const fmt = (n: number) => "EGP " + (n ?? 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   return (
     <div className="space-y-6">

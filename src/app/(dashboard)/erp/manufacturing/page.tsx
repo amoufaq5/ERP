@@ -323,7 +323,7 @@ export default function ManufacturingPage() {
               <DataTable
                 columns={[
                   { key: "bomName", label: "BOM / Assembly", render: (v) => <span className="font-medium">{v as string}</span> },
-                  { key: "quantity", label: "Quantity", className: "text-right", render: (v) => <span className="font-medium">{(v as number).toLocaleString()}</span> },
+                  { key: "quantity", label: "Quantity", className: "text-right", render: (v) => <span className="font-medium">{((v as number) ?? 0).toLocaleString()}</span> },
                   { key: "priority", label: "Priority", render: (v) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColor[v as string]}`}>{v as string}</span> },
                   { key: "assignedTo", label: "Assigned To", className: "text-xs" },
                   { key: "startDate", label: "Start", className: "text-xs" },

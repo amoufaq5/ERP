@@ -265,7 +265,7 @@ export default function LeadsPage() {
     { key: "id", label: "ID", className: "w-24" },
     { key: "title", label: "Title" },
     { key: "account", label: "Account" },
-    { key: "value", label: "Value", render: (v) => <span className="font-medium">EGP {(v as number).toLocaleString()}</span> },
+    { key: "value", label: "Value", render: (v) => <span className="font-medium">EGP {((v as number) ?? 0).toLocaleString()}</span> },
     {
       key: "probability", label: "Probability",
       render: (v) => (
@@ -465,7 +465,7 @@ export default function LeadsPage() {
                   className: "text-right",
                   render: (_v: unknown, row: unknown) => {
                     const lead = row as Lead;
-                    return <span className="font-medium text-foreground">${lead.value.toLocaleString()}</span>;
+                    return <span className="font-medium text-foreground">${(lead.value ?? 0).toLocaleString()}</span>;
                   },
                 },
                 {
@@ -554,7 +554,7 @@ export default function LeadsPage() {
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">{opp.account}</p>
                             <div className="mt-2 flex items-center justify-between">
-                              <span className="text-sm font-bold text-foreground">EGP {opp.value.toLocaleString()}</span>
+                              <span className="text-sm font-bold text-foreground">EGP {(opp.value ?? 0).toLocaleString()}</span>
                               <span className="text-xs text-muted-foreground">{opp.probability}%</span>
                             </div>
                             <div className="mt-2 w-full bg-muted rounded-full h-1">
@@ -679,7 +679,7 @@ export default function LeadsPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-medium text-foreground">EGP {item.value.toLocaleString()}</p>
+                      <p className="text-sm font-medium text-foreground">EGP {(item.value ?? 0).toLocaleString()}</p>
                       <span className="text-xs text-muted-foreground">{item.status.replace(/_/g, " ")}</span>
                     </div>
                   </div>
@@ -784,7 +784,7 @@ export default function LeadsPage() {
                 <div><span className="text-sm text-muted-foreground">Company</span><p className="font-medium">{detailLead.company || "—"}</p></div>
                 <div><span className="text-sm text-muted-foreground">Source</span><p className="font-medium">{detailLead.source.replace(/_/g, " ")}</p></div>
                 <div><span className="text-sm text-muted-foreground">Status</span><p><LeadStatusBadge status={detailLead.status} /></p></div>
-                <div><span className="text-sm text-muted-foreground">Estimated Value</span><p className="font-medium">EGP {detailLead.value.toLocaleString()}</p></div>
+                <div><span className="text-sm text-muted-foreground">Estimated Value</span><p className="font-medium">EGP {(detailLead.value ?? 0).toLocaleString()}</p></div>
                 <div><span className="text-sm text-muted-foreground">Assigned To</span><p className="font-medium">{detailLead.assignedTo}</p></div>
                 <div><span className="text-sm text-muted-foreground">Created</span><p className="font-medium">{detailLead.createdAt}</p></div>
               </div>
@@ -848,11 +848,11 @@ export default function LeadsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div><span className="text-sm text-muted-foreground">Account</span><p className="font-medium">{detailOpp.account}</p></div>
                   <div><span className="text-sm text-muted-foreground">Owner</span><p className="font-medium">{detailOpp.owner}</p></div>
-                  <div><span className="text-sm text-muted-foreground">Value</span><p className="font-medium">EGP {detailOpp.value.toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Value</span><p className="font-medium">EGP {(detailOpp.value ?? 0).toLocaleString()}</p></div>
                   <div><span className="text-sm text-muted-foreground">Probability</span><p className="font-medium">{detailOpp.probability}%</p></div>
                   <div><span className="text-sm text-muted-foreground">Stage</span><p><StageBadge stage={detailOpp.stage} /></p></div>
                   <div><span className="text-sm text-muted-foreground">Expected Close</span><p className="font-medium">{detailOpp.expectedClose}</p></div>
-                  <div><span className="text-sm text-muted-foreground">Weighted Value</span><p className="font-medium">EGP {Math.round(detailOpp.value * detailOpp.probability / 100).toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Weighted Value</span><p className="font-medium">EGP {Math.round((detailOpp.value ?? 0) * (detailOpp.probability ?? 0) / 100).toLocaleString()}</p></div>
                   <div><span className="text-sm text-muted-foreground">Created</span><p className="font-medium">{detailOpp.createdAt}</p></div>
                 </div>
                 {/* Probability Bar */}
@@ -873,8 +873,8 @@ export default function LeadsPage() {
                     <div className="pt-3 border-t">
                       <h4 className="text-sm font-semibold mb-2">ERP Customer Data — {matchedCustomer.name}</h4>
                       <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div><span className="text-muted-foreground">Outstanding</span><p className="font-medium">EGP {matchedCustomer.outstanding.toLocaleString()}</p></div>
-                        <div><span className="text-muted-foreground">Credit Limit</span><p className="font-medium">EGP {matchedCustomer.creditLimit.toLocaleString()}</p></div>
+                        <div><span className="text-muted-foreground">Outstanding</span><p className="font-medium">EGP {(matchedCustomer.outstanding ?? 0).toLocaleString()}</p></div>
+                        <div><span className="text-muted-foreground">Credit Limit</span><p className="font-medium">EGP {(matchedCustomer.creditLimit ?? 0).toLocaleString()}</p></div>
                         <div><span className="text-muted-foreground">Invoices</span><p className="font-medium">{relatedInvoices.length} ({relatedInvoices.filter(i => i.status === "PAID").length} paid)</p></div>
                         <div><span className="text-muted-foreground">Payment Terms</span><p className="font-medium">{matchedCustomer.paymentTerms}</p></div>
                       </div>

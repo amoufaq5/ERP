@@ -698,10 +698,10 @@ function PivotTableSection() {
                       {pivotData.type === "bu" && <td className="p-3 text-right">{(row as { products: number }).products}</td>}
                       {pivotData.type === "bu" && <td className="p-3 text-right">{(row as { orders: number }).orders}</td>}
                       {pivotData.type === "product" && <td className="p-3">{(row as { buName: string }).buName}</td>}
-                      {pivotData.type === "product" && <td className="p-3 text-right">{(row as { quantity: number }).quantity.toLocaleString()}</td>}
+                      {pivotData.type === "product" && <td className="p-3 text-right">{((row as { quantity: number }).quantity ?? 0).toLocaleString()}</td>}
                       {pivotData.type === "customer" && <td className="p-3">{(row as { type: string }).type}</td>}
                       {pivotData.type === "customer" && <td className="p-3 text-right">{(row as { invoiceCount: number }).invoiceCount}</td>}
-                      <td className="p-3 text-right font-semibold">{row.revenue.toLocaleString()}</td>
+                      <td className="p-3 text-right font-semibold">{(row.revenue ?? 0).toLocaleString()}</td>
                       <td className="p-3">
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">

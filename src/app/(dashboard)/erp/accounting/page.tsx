@@ -1433,8 +1433,8 @@ export default function AccountingPage() {
                       if (b.accountId) return <span className="text-xs">{glName(b.accountId)}</span>;
                       return <span className="text-muted-foreground">—</span>;
                     }},
-                    { key: "budgeted", label: "Budgeted", className: "text-right", render: (v) => (v as number).toLocaleString() },
-                    { key: "actual", label: "Actual", className: "text-right", render: (v) => (v as number).toLocaleString() },
+                    { key: "budgeted", label: "Budgeted", className: "text-right", render: (v) => ((v as number) ?? 0).toLocaleString() },
+                    { key: "actual", label: "Actual", className: "text-right", render: (v) => ((v as number) ?? 0).toLocaleString() },
                     { key: "id", label: "Variance", className: "text-right", render: (_v, row) => {
                       const b = row as unknown as Budget;
                       const v = b.budgeted - b.actual;
@@ -1919,7 +1919,7 @@ export default function AccountingPage() {
                       columns={[
                         { key: "number", label: "Invoice #", render: (v: unknown) => <span className="font-mono text-xs font-semibold">{v as string}</span> },
                         { key: "customerName", label: "Customer", render: (v: unknown) => <span className="font-medium">{v as string}</span> },
-                        { key: "total", label: "Amount", className: "text-right", render: (v: unknown) => <span className="font-semibold">{(v as number).toLocaleString()}</span> },
+                        { key: "total", label: "Amount", className: "text-right", render: (v: unknown) => <span className="font-semibold">{((v as number) ?? 0).toLocaleString()}</span> },
                         { key: "dueDate", label: "Due Date", render: (v: unknown) => <span className="text-xs">{new Date(v as string).toLocaleDateString()}</span> },
                         { key: "daysOverdue", label: "Days Overdue", className: "text-right", render: (v: unknown) => {
                           const days = v as number;

@@ -116,7 +116,7 @@ export default function CollectionsPage() {
   const totalCollected = payments.reduce((s, p) => s + p.amount, 0);
   const bouncedTotal = cheques.filter((c) => c.status === "BOUNCED").reduce((s, c) => s + c.amount, 0);
 
-  const fmt = (n: number) => `EGP ${n.toLocaleString()}`;
+  const fmt = (n: number) => `EGP ${(n ?? 0).toLocaleString()}`;
 
   /* ─── Filtered data ─── */
   const filteredInvoices = useMemo(() => {

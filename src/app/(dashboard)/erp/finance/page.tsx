@@ -147,7 +147,7 @@ export default function FinancePage() {
     )},
     { key: "amount", label: "Amount (EGP)", render: (v, row) => (
       <span className={`font-medium ${String((row as unknown as BankingTransaction).type) === "credit" ? "text-green-700" : "text-red-700"}`}>
-        {String((row as unknown as BankingTransaction).type) === "credit" ? "+" : "-"}{Number(v).toLocaleString()}
+        {String((row as unknown as BankingTransaction).type) === "credit" ? "+" : "-"}{(Number(v) || 0).toLocaleString()}
       </span>
     )},
     { key: "matchStatus", label: "Match", render: (v, row) => (
@@ -953,7 +953,7 @@ export default function FinancePage() {
       {activeTab === "sales-orders" && (() => {
         const soApprovals = approvals.getByModule("SalesOrder");
         const pendingSOApprovals = soApprovals.filter((a) => a.status === "PENDING");
-        const egpF = (n: number) => `EGP ${n.toLocaleString()}`;
+        const egpF = (n: number) => `EGP ${(n ?? 0).toLocaleString()}`;
 
         function submitSOForApproval(so: SalesOrder) {
           const customer = store.customers.find((c) => c.id === so.customerId);

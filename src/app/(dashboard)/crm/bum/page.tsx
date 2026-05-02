@@ -115,17 +115,18 @@ const PL_OPEX: PLLineItem[] = [
 ];
 
 function formatEGP(amount: number): string {
-  if (Math.abs(amount) >= 1000000) {
-    return `EGP ${(amount / 1000000).toFixed(2)}M`;
+  const val = amount ?? 0;
+  if (Math.abs(val) >= 1000000) {
+    return `EGP ${(val / 1000000).toFixed(2)}M`;
   }
-  if (Math.abs(amount) >= 1000) {
-    return `EGP ${(amount / 1000).toFixed(0)}K`;
+  if (Math.abs(val) >= 1000) {
+    return `EGP ${(val / 1000).toFixed(0)}K`;
   }
-  return `EGP ${amount.toLocaleString()}`;
+  return `EGP ${val.toLocaleString()}`;
 }
 
 function formatEGPFull(amount: number): string {
-  return `EGP ${amount.toLocaleString()}`;
+  return `EGP ${(amount ?? 0).toLocaleString()}`;
 }
 
 function pctChange(current: number, prior: number): number {

@@ -699,7 +699,7 @@ export default function ExpensesPage() {
       addNotification({
         type: "SUCCESS",
         title: "Expense Approved",
-        message: `Expense of EGP ${exp.amount.toLocaleString()} by ${exp.userName} has been approved and posted as ${jeNumber}.`,
+        message: `Expense of EGP ${(exp.amount ?? 0).toLocaleString()} by ${exp.userName} has been approved and posted as ${jeNumber}.`,
         module: "EXPENSES",
         entityType: "expense",
         entityId: exp.id,
@@ -719,7 +719,7 @@ export default function ExpensesPage() {
         entity: "Expense",
         entityId: exp.id,
         entityName: `Expense ${exp.id}`,
-        details: `${user.name} approved expense by ${exp.userName}: ${exp.description} — EGP ${exp.amount.toLocaleString()}`,
+        details: `${user.name} approved expense by ${exp.userName}: ${exp.description} — EGP ${(exp.amount ?? 0).toLocaleString()}`,
         oldValues: { status: "PENDING" },
         newValues: { status: "APPROVED", approvedBy: user.name, journalEntryId: jeId },
       });
@@ -764,7 +764,7 @@ export default function ExpensesPage() {
       addNotification({
         type: "WARNING",
         title: isReturn ? "Expense Returned for Revision" : "Expense Rejected",
-        message: `Expense of EGP ${selectedExpense.amount.toLocaleString()} by ${selectedExpense.userName} ${isReturn ? "returned" : "rejected"}. Reason: ${rejectionReason}`,
+        message: `Expense of EGP ${(selectedExpense.amount ?? 0).toLocaleString()} by ${selectedExpense.userName} ${isReturn ? "returned" : "rejected"}. Reason: ${rejectionReason}`,
         module: "EXPENSES",
         entityType: "expense",
         entityId: selectedExpense.id,
@@ -784,7 +784,7 @@ export default function ExpensesPage() {
         entity: "Expense",
         entityId: selectedExpense.id,
         entityName: `Expense ${selectedExpense.id}`,
-        details: `${user.name} ${isReturn ? "returned" : "rejected"} expense by ${selectedExpense.userName}: ${selectedExpense.description} — EGP ${selectedExpense.amount.toLocaleString()}. Reason: ${rejectionReason}`,
+        details: `${user.name} ${isReturn ? "returned" : "rejected"} expense by ${selectedExpense.userName}: ${selectedExpense.description} — EGP ${(selectedExpense.amount ?? 0).toLocaleString()}. Reason: ${rejectionReason}`,
         oldValues: { status: "PENDING" },
         newValues: { status: isReturn ? "DRAFT" : "REJECTED", rejectionReason },
       });
@@ -1609,7 +1609,7 @@ export default function ExpensesPage() {
             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
                 Possible duplicate: Similar expense found on <strong>{duplicateMatch?.date}</strong> for{" "}
-                <strong>EGP {duplicateMatch?.amount.toLocaleString()}</strong>. Submit anyway?
+                <strong>EGP {(duplicateMatch?.amount ?? 0).toLocaleString()}</strong>. Submit anyway?
               </p>
             </div>
             {duplicateMatch && (
@@ -1709,7 +1709,7 @@ export default function ExpensesPage() {
 
                   <div>
                     <p className="text-xs text-slate-500">Amount</p>
-                    <p className="font-bold text-lg text-green-700">{ocrResult.amount.toLocaleString()} EGP</p>
+                    <p className="font-bold text-lg text-green-700">{(ocrResult.amount ?? 0).toLocaleString()} EGP</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Date</p>
@@ -1767,7 +1767,7 @@ export default function ExpensesPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="font-semibold text-xs">{scan.amount.toLocaleString()} EGP</span>
+                        <span className="font-semibold text-xs">{(scan.amount ?? 0).toLocaleString()} EGP</span>
                         <Badge className={`text-[10px] px-1.5 py-0 ${confidenceColor(scan.confidence)}`}>
                           {scan.confidence}%
                         </Badge>

@@ -415,7 +415,7 @@ export default function CampaignsPage() {
                   { key: "name", label: "Member Name", render: (v) => <span className="font-medium text-foreground">{v as string}</span> },
                   { key: "account", label: "Account", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
                   { key: "program", label: "Program", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
-                  { key: "points", label: "Points", className: "text-right", render: (v) => <span className="font-semibold text-foreground">{(v as number).toLocaleString()}</span> },
+                  { key: "points", label: "Points", className: "text-right", render: (v) => <span className="font-semibold text-foreground">{((v as number) ?? 0).toLocaleString()}</span> },
                   { key: "tier", label: "Tier", render: (v) => <TierBadge tier={v as Tier} /> },
                   { key: "joinDate", label: "Join Date", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
                   { key: "_actions", label: "", render: (_v, row) => {
@@ -457,7 +457,7 @@ export default function CampaignsPage() {
                   { key: "member", label: "Member", render: (v) => <span className="font-medium text-foreground">{v as string}</span> },
                   { key: "type", label: "Type", render: (v) => <TxnTypeBadge type={v as TransactionType} /> },
                   { key: "points", label: "Points", className: "text-right", render: (v) => {
-                    const pts = v as number;
+                    const pts = (v as number) ?? 0;
                     return <span className={`font-semibold tabular-nums ${pts > 0 ? "text-green-600" : "text-red-600"}`}>{pts > 0 ? "+" : ""}{pts.toLocaleString()}</span>;
                   }},
                   { key: "description", label: "Description", className: "max-w-[280px] truncate", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
@@ -529,8 +529,8 @@ export default function CampaignsPage() {
                   <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{detailCampaign.type.replace(/_/g, " ")}</p></div>
                   <div><span className="text-sm text-muted-foreground">Status</span><p><StatusBadge status={STATUS_MAP[detailCampaign.status]} /></p></div>
                   <div><span className="text-sm text-muted-foreground">Owner</span><p className="font-medium">{detailCampaign.owner}</p></div>
-                  <div><span className="text-sm text-muted-foreground">Budget</span><p className="font-medium">EGP {detailCampaign.budget.toLocaleString()}</p></div>
-                  <div><span className="text-sm text-muted-foreground">Spent</span><p className="font-medium">EGP {detailCampaign.spent.toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Budget</span><p className="font-medium">EGP {(detailCampaign.budget ?? 0).toLocaleString()}</p></div>
+                  <div><span className="text-sm text-muted-foreground">Spent</span><p className="font-medium">EGP {(detailCampaign.spent ?? 0).toLocaleString()}</p></div>
                   <div><span className="text-sm text-muted-foreground">Leads Generated</span><p className="font-medium">{detailCampaign.leads}</p></div>
                   <div><span className="text-sm text-muted-foreground">Conversions</span><p className="font-medium">{detailCampaign.conversions}</p></div>
                   <div><span className="text-sm text-muted-foreground">Conversion Rate</span><p className="font-medium">{convRate}%</p></div>
@@ -541,7 +541,7 @@ export default function CampaignsPage() {
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-muted-foreground">Budget Utilization</span>
-                    <span className="font-medium">{budgetPct}% &mdash; EGP {detailCampaign.spent.toLocaleString()} / EGP {detailCampaign.budget.toLocaleString()}</span>
+                    <span className="font-medium">{budgetPct}% &mdash; EGP {(detailCampaign.spent ?? 0).toLocaleString()} / EGP {(detailCampaign.budget ?? 0).toLocaleString()}</span>
                   </div>
                   <div className="h-3 bg-muted rounded-full overflow-hidden">
                     <div className={`h-full rounded-full ${budgetColor}`} style={{ width: `${budgetPct}%` }} />
@@ -565,7 +565,7 @@ export default function CampaignsPage() {
               <div><span className="text-sm text-muted-foreground">Name</span><p className="font-medium">{viewMember.name}</p></div>
               <div><span className="text-sm text-muted-foreground">Account</span><p className="font-medium">{viewMember.account}</p></div>
               <div><span className="text-sm text-muted-foreground">Program</span><p className="font-medium">{viewMember.program}</p></div>
-              <div><span className="text-sm text-muted-foreground">Points</span><p className="font-medium">{viewMember.points.toLocaleString()}</p></div>
+              <div><span className="text-sm text-muted-foreground">Points</span><p className="font-medium">{(viewMember.points ?? 0).toLocaleString()}</p></div>
               <div><span className="text-sm text-muted-foreground">Tier</span><p className="font-medium">{viewMember.tier}</p></div>
               <div><span className="text-sm text-muted-foreground">Join Date</span><p className="font-medium">{viewMember.joinDate}</p></div>
             </div>

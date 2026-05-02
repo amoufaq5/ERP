@@ -1085,17 +1085,17 @@ export default function BusinessUnitsPage() {
                             </div>
                             <div className="p-2 bg-muted/50 rounded">
                               <span className="text-muted-foreground block">Price (EGP)</span>
-                              <span className="font-medium">{product.pricePerUnit.toLocaleString()}</span>
+                              <span className="font-medium">{(product.pricePerUnit ?? 0).toLocaleString()}</span>
                             </div>
                             <div className="p-2 bg-muted/50 rounded">
                               <span className="text-muted-foreground block">Stock Qty</span>
                               <span className={`font-medium ${product.stockQty <= product.reorderLevel ? "text-red-600" : "text-green-700"}`}>
-                                {product.stockQty.toLocaleString()}
+                                {(product.stockQty ?? 0).toLocaleString()}
                               </span>
                             </div>
                             <div className="p-2 bg-muted/50 rounded">
                               <span className="text-muted-foreground block">Reorder Level</span>
-                              <span className="font-medium">{product.reorderLevel.toLocaleString()}</span>
+                              <span className="font-medium">{(product.reorderLevel ?? 0).toLocaleString()}</span>
                             </div>
                           </div>
                           {product.edaRegistration && (

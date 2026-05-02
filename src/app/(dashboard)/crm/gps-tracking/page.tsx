@@ -341,8 +341,8 @@ export default function GpsTrackingPage() {
         <span className="font-medium text-foreground">{v as string}</span>
       </div>
     )},
-    { key: "latitude", label: "Latitude", render: (v) => <span className="font-mono text-xs text-muted-foreground">{(v as number).toFixed(4)}</span> },
-    { key: "longitude", label: "Longitude", render: (v) => <span className="font-mono text-xs text-muted-foreground">{(v as number).toFixed(4)}</span> },
+    { key: "latitude", label: "Latitude", render: (v) => <span className="font-mono text-xs text-muted-foreground">{((v as number) ?? 0).toFixed(4)}</span> },
+    { key: "longitude", label: "Longitude", render: (v) => <span className="font-mono text-xs text-muted-foreground">{((v as number) ?? 0).toFixed(4)}</span> },
     { key: "lastUpdated", label: "Last Updated" },
     { key: "battery", label: "Battery", render: (v) => (
       <div className="flex items-center gap-2">

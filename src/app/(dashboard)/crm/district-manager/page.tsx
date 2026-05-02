@@ -308,7 +308,7 @@ export default function DistrictManagerPage() {
                           </Badge>
                           {r.amount && (
                             <span className="text-sm font-bold text-slate-700">
-                              EGP {r.amount.toLocaleString()}
+                              EGP {(r.amount ?? 0).toLocaleString()}
                             </span>
                           )}
                         </div>

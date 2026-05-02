@@ -1029,10 +1029,10 @@ export default function InventoryPage() {
                 columns={[
                   { key: "productCode", label: "Code", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
                   { key: "product", label: "Product", render: (v) => <span className="font-medium text-sm">{v as string}</span> },
-                  { key: "salesMonth1", label: "Month -3", className: "text-right", render: (v) => <span className="text-sm text-muted-foreground">{(v as number).toLocaleString()}</span> },
-                  { key: "salesMonth2", label: "Month -2", className: "text-right", render: (v) => <span className="text-sm text-muted-foreground">{(v as number).toLocaleString()}</span> },
-                  { key: "salesMonth3", label: "Month -1", className: "text-right", render: (v) => <span className="text-sm font-medium">{(v as number).toLocaleString()}</span> },
-                  { key: "avgMonthlySales", label: "Avg Monthly", className: "text-right", render: (v) => <span className="font-semibold">{(v as number).toLocaleString()}</span> },
+                  { key: "salesMonth1", label: "Month -3", className: "text-right", render: (v) => <span className="text-sm text-muted-foreground">{((v as number) ?? 0).toLocaleString()}</span> },
+                  { key: "salesMonth2", label: "Month -2", className: "text-right", render: (v) => <span className="text-sm text-muted-foreground">{((v as number) ?? 0).toLocaleString()}</span> },
+                  { key: "salesMonth3", label: "Month -1", className: "text-right", render: (v) => <span className="text-sm font-medium">{((v as number) ?? 0).toLocaleString()}</span> },
+                  { key: "avgMonthlySales", label: "Avg Monthly", className: "text-right", render: (v) => <span className="font-semibold">{((v as number) ?? 0).toLocaleString()}</span> },
                   { key: "trend", label: "Trend", render: (v) => {
                     const trend = v as TrendDirection;
                     const Icon = trend === "up" ? ArrowUp : trend === "down" ? ArrowDown : Minus;
@@ -1045,13 +1045,13 @@ export default function InventoryPage() {
                       </div>
                     );
                   }},
-                  { key: "forecastNextMonth", label: "Forecast", className: "text-right", render: (v) => <span className="font-semibold text-blue-700">{(v as number).toLocaleString()}</span> },
+                  { key: "forecastNextMonth", label: "Forecast", className: "text-right", render: (v) => <span className="font-semibold text-blue-700">{((v as number) ?? 0).toLocaleString()}</span> },
                   { key: "reorderPoint", label: "Reorder Pt", className: "text-right", render: (_v, row) => {
                     const f = row as unknown as ForecastRecord;
                     const isBelow = f.currentStock <= f.reorderPoint;
                     return (
                       <div className="text-right">
-                        <span className="text-sm">{f.reorderPoint.toLocaleString()}</span>
+                        <span className="text-sm">{(f.reorderPoint ?? 0).toLocaleString()}</span>
                         {isBelow && <div className="text-[10px] text-red-500 font-medium">Stock below!</div>}
                       </div>
                     );
@@ -1060,12 +1060,12 @@ export default function InventoryPage() {
                   { key: "currentStock", label: "Current Stock", className: "text-right", render: (_v, row) => {
                     const f = row as unknown as ForecastRecord;
                     const isBelow = f.currentStock <= f.reorderPoint;
-                    return <span className={`font-medium ${isBelow ? "text-red-600" : ""}`}>{f.currentStock.toLocaleString()} {f.unit}</span>;
+                    return <span className={`font-medium ${isBelow ? "text-red-600" : ""}`}>{(f.currentStock ?? 0).toLocaleString()} {f.unit}</span>;
                   }},
                   { key: "suggestedOrderQty", label: "Suggested Order", className: "text-right", render: (_v, row) => {
                     const f = row as unknown as ForecastRecord;
                     return f.suggestedOrderQty > 0
-                      ? <Badge className="bg-blue-100 text-blue-700">{f.suggestedOrderQty.toLocaleString()} {f.unit}</Badge>
+                      ? <Badge className="bg-blue-100 text-blue-700">{(f.suggestedOrderQty ?? 0).toLocaleString()} {f.unit}</Badge>
                       : <span className="text-xs text-muted-foreground">Sufficient</span>;
                   }},
                   { key: "seasonalFactor", label: "Season", render: (v) => {

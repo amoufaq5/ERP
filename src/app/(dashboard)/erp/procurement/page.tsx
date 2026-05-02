@@ -563,7 +563,7 @@ export default function ProcurementPage() {
     store.update("rfqs", rfq.id, { status: "CONVERTED", convertedPOId: poId });
   }
 
-  const egp = (n: number) => `EGP ${n.toLocaleString()}`;
+  const egp = (n: number) => `EGP ${(n ?? 0).toLocaleString()}`;
 
   // ─── Vendor Scorecard helpers ────────────────────────────────────────
   const scorecardVendorName = (id: string) =>
@@ -797,7 +797,7 @@ export default function ProcurementPage() {
                   { key: "trackingNumber", label: "Tracking", render: (v: string) => <span className="font-mono text-xs">{v || "—"}</span> },
                   { key: "shipDate", label: "Ship Date", render: (v: string) => v?.slice(0, 10) },
                   { key: "expectedArrival", label: "ETA", render: (v: string) => v?.slice(0, 10) },
-                  { key: "cost", label: "Cost", className: "text-right", render: (v: number) => <span>{v > 0 ? `EGP ${v.toLocaleString()}` : "—"}</span> },
+                  { key: "cost", label: "Cost", className: "text-right", render: (v: number) => <span>{v > 0 ? `EGP ${(v ?? 0).toLocaleString()}` : "—"}</span> },
                   { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
                   { key: "id", label: "Actions", className: "text-right", render: (_v: unknown, row: Record<string, unknown>) => {
                     const s = row as unknown as Shipment;

@@ -618,9 +618,9 @@ export default function SupplyChainPage() {
                   { key: "sku", label: "SKU", render: (v: string) => <span className="font-medium">{v}</span> },
                   { key: "name", label: "Item Name" },
                   { key: "category", label: "Category" },
-                  { key: "onHand", label: "On Hand", render: (v: number) => <span className="font-medium">{v.toLocaleString()}</span> },
-                  { key: "reorder", label: "Reorder Point", render: (v: number) => <>{v.toLocaleString()}</> },
-                  { key: "max", label: "Max", render: (v: number) => <>{v.toLocaleString()}</> },
+                  { key: "onHand", label: "On Hand", render: (v: number) => <span className="font-medium">{(v ?? 0).toLocaleString()}</span> },
+                  { key: "reorder", label: "Reorder Point", render: (v: number) => <>{(v ?? 0).toLocaleString()}</> },
+                  { key: "max", label: "Max", render: (v: number) => <>{(v ?? 0).toLocaleString()}</> },
                   { key: "unit", label: "Unit" },
                   { key: "location", label: "Location" },
                   { key: "status", label: "Status", render: (v: string) => stockBadge(v) },
@@ -681,7 +681,7 @@ export default function SupplyChainPage() {
                           style={{ width: `${utilization}%` }}
                         />
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{wh.used.toLocaleString()} / {wh.capacity.toLocaleString()} sqft</p>
+                      <p className="text-xs text-muted-foreground mt-1">{(wh.used ?? 0).toLocaleString()} / {(wh.capacity ?? 0).toLocaleString()} sqft</p>
                     </div>
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div>
@@ -822,7 +822,7 @@ export default function SupplyChainPage() {
                           <p className="text-xs text-muted-foreground">{v.category}</p>
                         </div>
                       </div>
-                      <span className="font-medium text-sm">EGP {v.outstanding.toLocaleString()}</span>
+                      <span className="font-medium text-sm">EGP {(v.outstanding ?? 0).toLocaleString()}</span>
                     </div>
                   ))}
                 </div>
@@ -1174,7 +1174,7 @@ export default function SupplyChainPage() {
                       <div><span className="text-muted-foreground">Category</span><p className="font-medium">{vendor.category}</p></div>
                       <div><span className="text-muted-foreground">GMP Certified</span><p><Badge variant={vendor.gmpCertified ? "default" : "secondary"}>{vendor.gmpCertified ? "Yes" : "No"}</Badge></p></div>
                       <div><span className="text-muted-foreground">Payment Terms</span><p className="font-medium">{vendor.paymentTerms}</p></div>
-                      <div><span className="text-muted-foreground">Outstanding</span><p className="font-medium">EGP {vendor.outstanding.toLocaleString()}</p></div>
+                      <div><span className="text-muted-foreground">Outstanding</span><p className="font-medium">EGP {(vendor.outstanding ?? 0).toLocaleString()}</p></div>
                       <div><span className="text-muted-foreground">Contact</span><p className="font-medium">{vendor.email}</p></div>
                     </div>
                   </div>
@@ -1246,7 +1246,7 @@ export default function SupplyChainPage() {
                             <span className="text-muted-foreground ml-2">{p.method}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">EGP {p.amount.toLocaleString()}</span>
+                            <span className="font-medium">EGP {(p.amount ?? 0).toLocaleString()}</span>
                             <span className="text-xs text-muted-foreground">{p.date.split("T")[0]}</span>
                           </div>
                         </div>

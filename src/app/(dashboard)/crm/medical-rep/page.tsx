@@ -1481,7 +1481,7 @@ function KOLList({
             </div>
             <div className="text-right shrink-0">
               <p className="text-2xl font-bold text-amber-700">{kols.length}</p>
-              <p className="text-xs text-amber-700">KOLs · EGP {totalRevenue.toLocaleString()}/mo</p>
+              <p className="text-xs text-amber-700">KOLs · EGP {(totalRevenue ?? 0).toLocaleString()}/mo</p>
             </div>
           </div>
         </CardContent>
