@@ -271,10 +271,10 @@ export default function TerritoriesPage() {
     { key: "territory", label: "Territory", sortable: true },
     { key: "repsCount", label: "Reps", sortable: true },
     { key: "doctorsCount", label: "Doctors", sortable: true },
-    { key: "visitsPerMonth", label: "Visits/Month", sortable: true, render: (v: number) => v.toLocaleString() },
-    { key: "revenue", label: "Revenue (EGP)", sortable: true, render: (v: number) => `${(v / 1000).toFixed(0)}K` },
-    { key: "revenuePerRep", label: "Rev/Rep", sortable: true, render: (v: number) => `${(v / 1000).toFixed(0)}K` },
-    { key: "revenuePerDoctor", label: "Rev/Doctor", sortable: true, render: (v: number) => v.toLocaleString() },
+    { key: "visitsPerMonth", label: "Visits/Month", sortable: true, render: (v: number) => (v ?? 0).toLocaleString() },
+    { key: "revenue", label: "Revenue (EGP)", sortable: true, render: (v: number) => `${((v ?? 0) / 1000).toFixed(0)}K` },
+    { key: "revenuePerRep", label: "Rev/Rep", sortable: true, render: (v: number) => `${((v ?? 0) / 1000).toFixed(0)}K` },
+    { key: "revenuePerDoctor", label: "Rev/Doctor", sortable: true, render: (v: number) => (v ?? 0).toLocaleString() },
     {
       key: "coverageEfficiency", label: "Coverage %", sortable: true,
       render: (v: number) => (
@@ -359,7 +359,7 @@ export default function TerritoriesPage() {
             <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
               {territory.geoShare != null && (
                 <span className="flex items-center gap-1 font-mono text-emerald-600">
-                  <BarChart3 className="h-3 w-3" />{territory.geoShare.toFixed(2)}%
+                  <BarChart3 className="h-3 w-3" />{(territory.geoShare ?? 0).toFixed(2)}%
                 </span>
               )}
               {doctorCount > 0 && (
@@ -483,7 +483,7 @@ export default function TerritoriesPage() {
                             <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                               <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(selectedTerritory.geoShare * 10, 100)}%` }} />
                             </div>
-                            <span className="font-semibold font-mono text-emerald-600">{selectedTerritory.geoShare.toFixed(4)}%</span>
+                            <span className="font-semibold font-mono text-emerald-600">{(selectedTerritory.geoShare ?? 0).toFixed(4)}%</span>
                           </div>
                         </div>
                       )}
@@ -660,10 +660,10 @@ export default function TerritoriesPage() {
                         <span className="font-medium">{t.territory}</span>
                         <div className="flex items-center gap-3 text-xs">
                           <span className="text-muted-foreground">
-                            Actual: <strong className="text-foreground">{(t.revenue / 1000).toFixed(0)}K</strong>
+                            Actual: <strong className="text-foreground">{((t.revenue ?? 0) / 1000).toFixed(0)}K</strong>
                           </span>
                           <span className="text-muted-foreground">
-                            Potential: <strong className="text-foreground">{(t.potential / 1000).toFixed(0)}K</strong>
+                            Potential: <strong className="text-foreground">{((t.potential ?? 0) / 1000).toFixed(0)}K</strong>
                           </span>
                           <Badge className={gapPct <= 15 ? "bg-green-100 text-green-700" : gapPct <= 30 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}>
                             {gapPct}% gap

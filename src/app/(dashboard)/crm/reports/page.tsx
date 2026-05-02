@@ -493,22 +493,22 @@ export default function CRMReportsPage() {
 
   const reportColumns: Column<ReportRow>[] = useMemo(() => [
     { key: "group", label: builderGroupBy.charAt(0).toUpperCase() + builderGroupBy.slice(1), sortable: true },
-    { key: "metric1", label: templateCfg.metrics[0], sortable: true, render: (v: number) => v.toLocaleString() },
-    { key: "metric2", label: templateCfg.metrics[1], sortable: true, render: (v: number) => v.toLocaleString() },
-    { key: "metric3", label: templateCfg.metrics[2], sortable: true, render: (v: number) => typeof v === "number" && v < 10 ? v.toFixed(1) : v.toLocaleString() },
+    { key: "metric1", label: templateCfg.metrics[0], sortable: true, render: (v: number) => (v ?? 0).toLocaleString() },
+    { key: "metric2", label: templateCfg.metrics[1], sortable: true, render: (v: number) => (v ?? 0).toLocaleString() },
+    { key: "metric3", label: templateCfg.metrics[2], sortable: true, render: (v: number) => typeof v === "number" && v < 10 ? v.toFixed(1) : (v ?? 0).toLocaleString() },
     { key: "metric4", label: templateCfg.metrics[3], sortable: true, render: (v: number) => {
       const isPercent = templateCfg.metrics[3].includes("%");
-      if (isPercent) return `${v}%`;
-      return v.toLocaleString();
+      if (isPercent) return `${v ?? 0}%`;
+      return (v ?? 0).toLocaleString();
     }},
     { key: "metric5", label: templateCfg.metrics[4], sortable: true, render: (v: number) => {
       const isPercent = templateCfg.metrics[4].includes("%");
       if (isPercent) return (
-        <Badge className={v >= 100 ? "bg-green-100 text-green-700" : v >= 85 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}>
-          {v}%
+        <Badge className={(v ?? 0) >= 100 ? "bg-green-100 text-green-700" : (v ?? 0) >= 85 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}>
+          {v ?? 0}%
         </Badge>
       );
-      return v.toLocaleString();
+      return (v ?? 0).toLocaleString();
     }},
   ], [builderGroupBy, templateCfg]);
 

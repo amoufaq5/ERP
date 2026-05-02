@@ -435,7 +435,7 @@ export default function IntegrationHubPage() {
 
   const kpis = [
     { title: "Active Flows", value: activeCount.toString(), sub: `of ${flows.length} total`, icon: <Zap className="h-5 w-5 text-blue-600" /> },
-    { title: "Total Executions", value: totalExecutions.toLocaleString(), sub: "All time", icon: <Activity className="h-5 w-5 text-emerald-600" /> },
+    { title: "Total Executions", value: (totalExecutions ?? 0).toLocaleString(), sub: "All time", icon: <Activity className="h-5 w-5 text-emerald-600" /> },
     { title: "Success Rate", value: `${successRate}%`, sub: `${successCount} of ${SEED_LOGS.length} recent`, icon: <CheckCircle2 className="h-5 w-5 text-green-600" /> },
     { title: "Failed", value: failedCount.toString(), sub: "Last 20 executions", icon: <AlertTriangle className="h-5 w-5 text-red-500" /> },
   ]

@@ -252,7 +252,7 @@ export default function AccountingPage() {
           addNotification({
             type: "WARNING",
             title: `Invoice ${inv.number} is overdue`,
-            message: `Invoice for ${customer?.name ?? "Unknown"} (EGP ${inv.total.toLocaleString()}) was due on ${inv.dueDate}. Currently ${daysOverdue} day(s) overdue.`,
+            message: `Invoice for ${customer?.name ?? "Unknown"} (EGP ${(inv.total ?? 0).toLocaleString()}) was due on ${inv.dueDate}. Currently ${daysOverdue} day(s) overdue.`,
             module: "INVOICE",
             entityType: "invoice",
             entityId: inv.id,
@@ -313,7 +313,7 @@ export default function AccountingPage() {
     { key: "receiverName", label: "Receiver" },
     { key: "receiverTaxId", label: "Tax ID", render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
     { key: "dateIssued", label: "Date" },
-    { key: "totalAmount", label: "Total (EGP)", render: (v) => <span className="font-medium">{Number(v).toLocaleString()}</span> },
+    { key: "totalAmount", label: "Total (EGP)", render: (v) => <span className="font-medium">{Number(v || 0).toLocaleString()}</span> },
     { key: "status", label: "Status", render: (v) => <span className={`px-2 py-0.5 rounded-full text-xs capitalize ${einvoiceStatusColors[String(v)] || ""}`}>{String(v)}</span> },
     { key: "uuid", label: "ETA UUID", render: (v) => v ? <span className="font-mono text-xs">{String(v)}</span> : <span className="text-muted-foreground text-xs">—</span> },
     { key: "actions", label: "", render: (_v, row) => {
@@ -706,7 +706,7 @@ export default function AccountingPage() {
         addNotification({
           type: "SUCCESS",
           title: `Payment received for ${editingInvoice.number}`,
-          message: `Payment of EGP ${payload.total.toLocaleString()} received from ${customer?.name ?? "Unknown"} for invoice ${editingInvoice.number}.`,
+          message: `Payment of EGP ${(payload.total ?? 0).toLocaleString()} received from ${customer?.name ?? "Unknown"} for invoice ${editingInvoice.number}.`,
           module: "INVOICE",
           entityType: "invoice",
           entityId: editingInvoice.id,
@@ -721,7 +721,7 @@ export default function AccountingPage() {
         userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
         action: "CREATE", module: "ERP", entity: "Invoice",
         entityId: newId, entityName: `Invoice ${number}`,
-        details: `Invoice created: ${number} - EGP ${payload.total.toLocaleString()} (${payload.status})`,
+        details: `Invoice created: ${number} - EGP ${(payload.total ?? 0).toLocaleString()} (${payload.status})`,
         newValues: { total: payload.total, status: payload.status, customerId: payload.customerId },
       });
     }
@@ -898,7 +898,7 @@ export default function AccountingPage() {
     approvals.reject(approvalId, "Sales order rejected by accounting — returned to DRAFT");
   }
 
-  const egpFmt = (n: number) => `EGP ${n.toLocaleString()}`;
+  const egpFmt = (n: number) => `EGP ${(n ?? 0).toLocaleString()}`;
 
   return (
     <div className="space-y-6">
@@ -1002,8 +1002,8 @@ export default function AccountingPage() {
                   } },
                   { key: "type", label: "Type", render: (v: string) => <span className="text-xs">{v}</span> },
                   { key: "phone", label: "Phone", render: (v: string) => <span className="text-xs">{v}</span> },
-                  { key: "creditLimit", label: "Credit Limit", className: "text-right", render: (v: number) => <span className="font-semibold">{v.toLocaleString()}</span> },
-                  { key: "outstanding", label: "Outstanding", className: "text-right", render: (v: number) => v.toLocaleString() },
+                  { key: "creditLimit", label: "Credit Limit", className: "text-right", render: (v: number) => <span className="font-semibold">{(v ?? 0).toLocaleString()}</span> },
+                  { key: "outstanding", label: "Outstanding", className: "text-right", render: (v: number) => (v ?? 0).toLocaleString() },
                   { key: "status", label: "Status", render: (v: string) => (
                     <Badge variant={v === "ACTIVE" ? "success" : v === "HOLD" ? "warning" : "destructive"}>{v}</Badge>
                   ) },
@@ -1054,7 +1054,7 @@ export default function AccountingPage() {
                   } },
                   { key: "category", label: "Category", render: (v: string) => <span className="text-xs">{v}</span> },
                   { key: "email", label: "Contact", render: (v: string) => <span className="text-xs">{v}</span> },
-                  { key: "outstanding", label: "Outstanding", className: "text-right", render: (v: number) => v.toLocaleString() },
+                  { key: "outstanding", label: "Outstanding", className: "text-right", render: (v: number) => (v ?? 0).toLocaleString() },
                   { key: "paymentTerms", label: "Terms", render: (v: string) => <span className="text-xs">{v}</span> },
                   { key: "gmpCertified", label: "GMP", render: (v: boolean) => (
                     <Badge variant={v ? "success" : "secondary"}>{v ? "Yes" : "No"}</Badge>
@@ -1118,7 +1118,7 @@ export default function AccountingPage() {
                       </div>
                     );
                   } },
-                  { key: "amount", label: "Amount", className: "text-right", render: (v: number) => <span className="font-semibold">{v.toLocaleString()}</span> },
+                  { key: "amount", label: "Amount", className: "text-right", render: (v: number) => <span className="font-semibold">{(v ?? 0).toLocaleString()}</span> },
                   { key: "issueDate", label: "Issue Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
                   { key: "dueDate", label: "Due Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
                   { key: "status", label: "Status", render: (v: string) => (
@@ -1168,7 +1168,7 @@ export default function AccountingPage() {
                   } },
                   { key: "date", label: "Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
                   { key: "dueDate", label: "Due Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
-                  { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{v.toLocaleString()}</span> },
+                  { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{(v ?? 0).toLocaleString()}</span> },
                   { key: "status", label: "Status", render: (v: string) => (
                     <Badge variant={v === "PAID" ? "success" : v === "OVERDUE" ? "destructive" : v === "VOID" ? "secondary" : "warning"}>{v}</Badge>
                   ) },
@@ -1209,7 +1209,7 @@ export default function AccountingPage() {
                   { key: "bankName", label: "Bank" },
                   { key: "accountNumber", label: "Account #", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
                   { key: "currency", label: "Cur." },
-                  { key: "balance", label: "Balance", render: (v) => <span className="font-semibold text-green-700">EGP {(v as number).toLocaleString()}</span>, className: "text-right" },
+                  { key: "balance", label: "Balance", render: (v) => <span className="font-semibold text-green-700">EGP {((v as number) ?? 0).toLocaleString()}</span>, className: "text-right" },
                   { key: "id", label: "Cheques", render: (_v, row) => {
                     const incoming = store.cheques.filter((c) => c.bankAccountId === row.id && c.type === "INCOMING" && (c.status === "PENDING" || c.status === "DEPOSITED")).reduce((s, c) => s + c.amount, 0);
                     const outgoing = store.cheques.filter((c) => c.bankAccountId === row.id && c.type === "OUTGOING" && c.status === "PENDING").reduce((s, c) => s + c.amount, 0);
@@ -1283,7 +1283,7 @@ export default function AccountingPage() {
                     const type = row.type as string;
                     const bal = v as number;
                     const isDebitNormal = type === "ASSET" || type === "EXPENSE";
-                    return <span className={`font-semibold ${bal < 0 ? "text-red-600" : ""}`}>{isDebitNormal ? "" : ""}{Math.abs(bal).toLocaleString()}</span>;
+                    return <span className={`font-semibold ${bal < 0 ? "text-red-600" : ""}`}>{isDebitNormal ? "" : ""}{Math.abs(bal ?? 0).toLocaleString()}</span>;
                   }},
                   { key: "isActive", label: "Status", render: (v) => <Badge variant={(v as boolean) ? "success" : "secondary"}>{(v as boolean) ? "Active" : "Inactive"}</Badge> },
                   { key: "id", label: "", render: (_v, row) => {
@@ -1303,11 +1303,11 @@ export default function AccountingPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-3 rounded-lg bg-muted/50">
                   <div className="text-xs text-muted-foreground">Total Debits</div>
-                  <div className="text-xl font-bold">EGP {(activeGLAccounts.filter((a) => ["ASSET", "EXPENSE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance), 0)).toLocaleString()}</div>
+                  <div className="text-xl font-bold">EGP {(activeGLAccounts.filter((a) => ["ASSET", "EXPENSE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance ?? 0), 0)).toLocaleString()}</div>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-muted/50">
                   <div className="text-xs text-muted-foreground">Total Credits</div>
-                  <div className="text-xl font-bold">EGP {(activeGLAccounts.filter((a) => ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance), 0)).toLocaleString()}</div>
+                  <div className="text-xl font-bold">EGP {(activeGLAccounts.filter((a) => ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance ?? 0), 0)).toLocaleString()}</div>
                 </div>
               </div>
             </CardContent>
@@ -1339,11 +1339,11 @@ export default function AccountingPage() {
                   { key: "type", label: "Type", render: (v) => jeBadge(v as string) },
                   { key: "lines", label: "Debit", className: "text-right", render: (v) => {
                     const lines = v as JournalEntry["lines"];
-                    return <span className="font-semibold">{lines.reduce((s, l) => s + l.debit, 0).toLocaleString()}</span>;
+                    return <span className="font-semibold">{lines.reduce((s, l) => s + (l.debit ?? 0), 0).toLocaleString()}</span>;
                   }},
                   { key: "id", label: "Credit", className: "text-right", render: (_v, row) => {
                     const je = row as unknown as JournalEntry;
-                    return <span className="font-semibold">{je.lines.reduce((s, l) => s + l.credit, 0).toLocaleString()}</span>;
+                    return <span className="font-semibold">{(je.lines || []).reduce((s, l) => s + (l.credit ?? 0), 0).toLocaleString()}</span>;
                   }},
                   { key: "status", label: "Status", render: (v) => <Badge variant={(v as string) === "POSTED" ? "success" : (v as string) === "VOID" ? "destructive" : "warning"}>{v as string}</Badge> },
                   { key: "createdAt", label: "", render: (_v, row) => {
@@ -1388,12 +1388,12 @@ export default function AccountingPage() {
                     { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
                     { key: "name", label: "Name", render: (v) => <span className="font-medium">{v as string}</span> },
                     { key: "type", label: "Type", render: (v) => <Badge variant="outline">{(v as string).replace(/_/g, " & ")}</Badge> },
-                    { key: "budget", label: "Budget", className: "text-right", render: (v) => <span>{(v as number).toLocaleString()}</span> },
-                    { key: "actualSpend", label: "Actual", className: "text-right", render: (v) => <span>{(v as number).toLocaleString()}</span> },
+                    { key: "budget", label: "Budget", className: "text-right", render: (v) => <span>{((v as number) ?? 0).toLocaleString()}</span> },
+                    { key: "actualSpend", label: "Actual", className: "text-right", render: (v) => <span>{((v as number) ?? 0).toLocaleString()}</span> },
                     { key: "id", label: "Variance", className: "text-right", render: (_v, row) => {
                       const cc = row as unknown as CostCenter;
                       const variance = cc.budget - cc.actualSpend;
-                      return <span className={`font-semibold ${variance >= 0 ? "text-green-600" : "text-red-600"}`}>{variance >= 0 ? "+" : ""}{variance.toLocaleString()}</span>;
+                      return <span className={`font-semibold ${variance >= 0 ? "text-green-600" : "text-red-600"}`}>{variance >= 0 ? "+" : ""}{(variance ?? 0).toLocaleString()}</span>;
                     }},
                     { key: "isActive", label: "Util %", render: (_v, row) => {
                       const cc = row as unknown as CostCenter;

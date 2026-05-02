@@ -545,7 +545,7 @@ export default function PlanningPage() {
                 columns={[
                   { key: "id", label: "Order ID", render: (v: string) => <span className="font-mono text-xs">{v}</span> },
                   { key: "product", label: "Product", render: (v: string) => <span className="font-medium">{v}</span> },
-                  { key: "quantity", label: "Qty", className: "text-right", render: (v: number) => v.toLocaleString() },
+                  { key: "quantity", label: "Qty", className: "text-right", render: (v: number) => (v ?? 0).toLocaleString() },
                   { key: "line", label: "Line" },
                   { key: "startDate", label: "Start" },
                   { key: "dueDate", label: "Due" },

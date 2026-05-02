@@ -815,7 +815,7 @@ export default function ExpensesPage() {
       key: "amount",
       label: "Amount (EGP)",
       sortable: true,
-      render: (v: number) => <span className="font-semibold">{v.toLocaleString()}</span>,
+      render: (v: number) => <span className="font-semibold">{(v ?? 0).toLocaleString()}</span>,
     },
     {
       key: "description",
@@ -868,7 +868,7 @@ export default function ExpensesPage() {
       sortable: true,
       render: (v: number) => (
         <div>
-          <span className="font-semibold">{v.toLocaleString()}</span>
+          <span className="font-semibold">{(v ?? 0).toLocaleString()}</span>
           <div className="text-[10px] text-slate-500 mt-0.5">
             Level {getApprovalLevel(v).level}: {getApprovalLevel(v).approver}
           </div>
@@ -953,19 +953,19 @@ export default function ExpensesPage() {
   const reportByTypeColumns: Column[] = [
     { key: "type", label: "Expense Type", sortable: true },
     { key: "count", label: "Count", sortable: true },
-    { key: "total", label: "Total (EGP)", sortable: true, render: (v: number) => v.toLocaleString() },
+    { key: "total", label: "Total (EGP)", sortable: true, render: (v: number) => (v ?? 0).toLocaleString() },
   ];
 
   const reportByPersonColumns: Column[] = [
     { key: "person", label: "Person", sortable: true },
     { key: "count", label: "Count", sortable: true },
-    { key: "total", label: "Total (EGP)", sortable: true, render: (v: number) => v.toLocaleString() },
+    { key: "total", label: "Total (EGP)", sortable: true, render: (v: number) => (v ?? 0).toLocaleString() },
   ];
 
   const reportByMonthColumns: Column[] = [
     { key: "month", label: "Month", sortable: true },
     { key: "count", label: "Count", sortable: true },
-    { key: "total", label: "Total (EGP)", sortable: true, render: (v: number) => v.toLocaleString() },
+    { key: "total", label: "Total (EGP)", sortable: true, render: (v: number) => (v ?? 0).toLocaleString() },
   ];
 
   function handleExportCSV() {
@@ -1364,7 +1364,7 @@ export default function ExpensesPage() {
                 </div>
                 <div>
                   <p className="text-slate-500 text-xs">Amount</p>
-                  <p className="font-semibold text-lg">{selectedExpense.amount.toLocaleString()} EGP</p>
+                  <p className="font-semibold text-lg">{(selectedExpense.amount ?? 0).toLocaleString()} EGP</p>
                 </div>
                 <div>
                   <p className="text-slate-500 text-xs">Status</p>
@@ -1463,7 +1463,7 @@ export default function ExpensesPage() {
           <div className="space-y-4">
             <p className="text-sm text-slate-600">
               Rejecting expense from <strong>{selectedExpense?.userName}</strong> for{" "}
-              <strong>{selectedExpense?.amount.toLocaleString()} EGP</strong>.
+              <strong>{(selectedExpense?.amount ?? 0).toLocaleString()} EGP</strong>.
             </p>
             {/* Action type selection */}
             <div className="space-y-2">

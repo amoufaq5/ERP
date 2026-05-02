@@ -1196,7 +1196,7 @@ export default function MarketRequestsPage() {
         <StatsCard
           icon={DollarSign}
           title="Total Amount"
-          value={`EGP ${totalAmount.toLocaleString()}`}
+          value={`EGP ${(totalAmount ?? 0).toLocaleString()}`}
           subtitle={`${rejected} rejected`}
           iconColor="bg-purple-100 text-purple-700"
         />
@@ -1533,7 +1533,7 @@ export default function MarketRequestsPage() {
                             )}
                             {r.amount && (
                               <span className="text-sm font-bold text-slate-700">
-                                EGP {r.amount.toLocaleString()}
+                                EGP {(r.amount ?? 0).toLocaleString()}
                               </span>
                             )}
                           </div>
@@ -1671,7 +1671,7 @@ export default function MarketRequestsPage() {
                 </div>
                 <div>
                   <p className="text-xs text-slate-500">Total Approved Budget</p>
-                  <p className="text-2xl font-bold">EGP {totalApprovedBudget.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">EGP {(totalApprovedBudget ?? 0).toLocaleString()}</p>
                 </div>
               </div>
             </Card>
@@ -1849,7 +1849,7 @@ export default function MarketRequestsPage() {
                         <td className="py-2 text-center">
                           <Badge className="bg-amber-100 text-amber-700 text-xs">{tr.pending}</Badge>
                         </td>
-                        <td className="py-2 text-right font-semibold">EGP {tr.totalAmount.toLocaleString()}</td>
+                        <td className="py-2 text-right font-semibold">EGP {(tr.totalAmount ?? 0).toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1937,21 +1937,21 @@ export default function MarketRequestsPage() {
                           <Badge variant="outline" className="text-xs">{cb.type}</Badge>
                         </div>
                         <div className="flex items-center gap-3 text-xs">
-                          <span className="text-green-700 font-semibold">EGP {cb.approvedBudget.toLocaleString()}</span>
-                          {cb.pendingBudget > 0 && <span className="text-amber-600">+{cb.pendingBudget.toLocaleString()} pending</span>}
+                          <span className="text-green-700 font-semibold">EGP {(cb.approvedBudget ?? 0).toLocaleString()}</span>
+                          {cb.pendingBudget > 0 && <span className="text-amber-600">+{(cb.pendingBudget ?? 0).toLocaleString()} pending</span>}
                         </div>
                       </div>
                       <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex">
-                        <div className="h-full bg-green-500 transition-all" style={{ width: `${(cb.approvedBudget / maxCategoryBudget) * 100}%` }} title={`Approved: EGP ${cb.approvedBudget.toLocaleString()}`} />
-                        <div className="h-full bg-amber-400 transition-all" style={{ width: `${(cb.pendingBudget / maxCategoryBudget) * 100}%` }} title={`Pending: EGP ${cb.pendingBudget.toLocaleString()}`} />
-                        <div className="h-full bg-red-400 transition-all" style={{ width: `${(cb.rejectedBudget / maxCategoryBudget) * 100}%` }} title={`Rejected: EGP ${cb.rejectedBudget.toLocaleString()}`} />
+                        <div className="h-full bg-green-500 transition-all" style={{ width: `${(cb.approvedBudget / maxCategoryBudget) * 100}%` }} title={`Approved: EGP ${(cb.approvedBudget ?? 0).toLocaleString()}`} />
+                        <div className="h-full bg-amber-400 transition-all" style={{ width: `${(cb.pendingBudget / maxCategoryBudget) * 100}%` }} title={`Pending: EGP ${(cb.pendingBudget ?? 0).toLocaleString()}`} />
+                        <div className="h-full bg-red-400 transition-all" style={{ width: `${(cb.rejectedBudget / maxCategoryBudget) * 100}%` }} title={`Rejected: EGP ${(cb.rejectedBudget ?? 0).toLocaleString()}`} />
                       </div>
                     </div>
                   );
                 })}
                 <div className="flex items-center justify-between pt-3 border-t">
                   <span className="text-sm font-semibold text-slate-700">Total Approved</span>
-                  <span className="text-lg font-bold text-green-700">EGP {totalApprovedBudget.toLocaleString()}</span>
+                  <span className="text-lg font-bold text-green-700">EGP {(totalApprovedBudget ?? 0).toLocaleString()}</span>
                 </div>
                 <div className="flex items-center gap-4 text-[10px] text-slate-500">
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> Approved</span>
