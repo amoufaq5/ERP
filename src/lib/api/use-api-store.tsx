@@ -81,10 +81,14 @@ const SHAPE_MAPPERS: Partial<Record<EntityKey, (item: Record<string, unknown>) =
   }),
   purchaseOrders: (po) => ({
     items: [],
+    discountPct: 0,
+    discountAmount: 0,
     ...po,
   }),
   salesOrders: (so) => ({
     items: [],
+    discountPct: 0,
+    discountAmount: 0,
     ...so,
   }),
 };

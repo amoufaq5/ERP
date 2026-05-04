@@ -396,7 +396,7 @@ export interface Invoice {
   tax: number;
   total: number;
   currency: string;
-  status: "DRAFT" | "SENT" | "PARTIAL" | "PAID" | "OVERDUE" | "VOID";
+  status: "DRAFT" | "APPROVED" | "SENT" | "PARTIAL" | "PAID" | "OVERDUE" | "VOID";
   items: { productId: string; description: string; quantity: number; unitPrice: number; total: number }[];
   notes?: string;
 }
@@ -517,11 +517,15 @@ export interface PurchaseOrder {
   expectedDate: string;
   items: { productId: string; description: string; quantity: number; unitPrice: number; total: number }[];
   subtotal: number;
+  discountPct?: number;
+  discountAmount?: number;
   tax: number;
   total: number;
-  status: "DRAFT" | "APPROVED" | "ORDERED" | "RECEIVED" | "CANCELLED";
+  status: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "ORDERED" | "RECEIVED" | "CANCELLED";
   grnId?: string;
   invoiceId?: string;
+  jeId?: string;
+  escalatedToFinance?: boolean;
   createdAt: string;
 }
 
@@ -533,12 +537,16 @@ export interface SalesOrder {
   expectedDate: string;
   items: { productId: string; description: string; quantity: number; unitPrice: number; total: number }[];
   subtotal: number;
+  discountPct: number;
+  discountAmount: number;
   tax: number;
   total: number;
-  status: "DRAFT" | "CONFIRMED" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "INVOICED" | "CANCELLED";
+  status: "DRAFT" | "PENDING_APPROVAL" | "CONFIRMED" | "PROCESSING" | "PREPARING" | "SHIPPED" | "DELIVERED" | "INVOICED" | "CANCELLED";
   invoiceId?: string;
+  jeId?: string;
   dnId?: string;
   soApprovalId?: string;
+  escalatedToFinance?: boolean;
   createdAt: string;
 }
 
