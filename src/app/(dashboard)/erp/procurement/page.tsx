@@ -463,21 +463,63 @@ export default function ProcurementPage() {
     }
   }
 
-  // ─── Integration: Approve PO ─────────────────────────────────────────
-  function approvePO(po: PurchaseOrder) {
-    store.update("purchaseOrders", po.id, { status: "APPROVED" });
+  // ─── Integration: Submit PO for Approval ──────────────────────────────
+  function submitForApproval(po: PurchaseOrder) {
+    store.update("purchaseOrders", po.id, { status: "PENDING_APPROVAL" });
+
+    // Auto-create a DRAFT invoice (bill) for the vendor
+    const invId = store.genId("inv");
+    const invNumber = store.generateInvoiceNumber();
+    store.add("invoices", {
+      id: invId,
+      number: invNumber,
+      customerId: po.vendorId,
+      date: new Date().toISOString().split("T")[0],
+      dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+      subtotal: po.subtotal,
+      tax: po.tax,
+      total: po.total,
+      currency: "EGP",
+      status: "DRAFT",
+      items: (po.items || []).map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })),
+      notes: `Auto-generated from PO ${po.number} — pending accounting approval`,
+    });
+    store.update("purchaseOrders", po.id, { invoiceId: invId });
+
     logAction({
       userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
-      action: "APPROVE", module: "ERP", entity: "PurchaseOrder",
+      action: "UPDATE", module: "ERP", entity: "PurchaseOrder",
       entityId: po.id, entityName: `PO ${po.number}`,
-      details: `PO status change: ${po.number} DRAFT -> APPROVED`,
+      details: `PO status change: ${po.number} DRAFT -> PENDING_APPROVAL. Draft bill ${invNumber} created.`,
       oldValues: { status: "DRAFT" },
-      newValues: { status: "APPROVED" },
+      newValues: { status: "PENDING_APPROVAL", invoiceId: invId },
     });
     addNotification({
-      type: "SUCCESS",
-      title: `PO ${po.number} approved`,
-      message: `Purchase order ${po.number} for ${vendorName(po.vendorId)} (EGP ${po.total.toLocaleString()}) has been approved.`,
+      type: "INFO",
+      title: `PO ${po.number} submitted`,
+      message: `PO submitted to Accounting for approval`,
+      module: "PROCUREMENT",
+      entityType: "purchase_order",
+      entityId: po.id,
+      actionUrl: "/erp/procurement",
+    });
+  }
+
+  // ─── Cancel PO (from DRAFT or PENDING_APPROVAL) ─────────────────────
+  function cancelPO(po: PurchaseOrder) {
+    store.update("purchaseOrders", po.id, { status: "CANCELLED" });
+    logAction({
+      userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+      action: "UPDATE", module: "ERP", entity: "PurchaseOrder",
+      entityId: po.id, entityName: `PO ${po.number}`,
+      details: `PO cancelled: ${po.number}`,
+      oldValues: { status: po.status },
+      newValues: { status: "CANCELLED" },
+    });
+    addNotification({
+      type: "WARNING",
+      title: `PO ${po.number} cancelled`,
+      message: `Purchase order ${po.number} has been cancelled.`,
       module: "PROCUREMENT",
       entityType: "purchase_order",
       entityId: po.id,
@@ -523,34 +565,27 @@ export default function ProcurementPage() {
     });
   }
 
-  // ─── Integration: Confirm GRN → auto-create Invoice + Journal Entry ──
+  // ─── Integration: Confirm GRN → auto-create Draft Journal Entry ──────
   function confirmGRN(grn: GoodsReceipt) {
     store.update("goodsReceipts", grn.id, { status: "RECEIVED" });
 
     const po = store.purchaseOrders.find((p) => p.id === grn.poId);
     if (!po) return;
 
-    // Auto-create vendor invoice (AP)
-    const invId = store.genId("inv");
-    const invNumber = store.generateInvoiceNumber();
-    store.add("invoices", {
-      id: invId,
-      number: invNumber,
-      customerId: po.vendorId,
-      date: new Date().toISOString().split("T")[0],
-      dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
-      subtotal: po.subtotal,
-      tax: po.tax,
-      total: po.total,
-      currency: "EGP",
-      status: "SENT",
-      items: (po.items || []).map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })),
-      notes: `Auto-generated from PO ${po.number} / GRN ${grn.number}`,
-    });
+    const discount = (po.discountAmount ?? 0);
+    const inventoryAmount = po.subtotal - discount;
+    const apAmount = po.total;
 
-    // Auto-create journal entry: DR Inventory, CR Accounts Payable
+    // Auto-create DRAFT journal entry: DR Inventory, CR AP, CR Purchase Discount (if any)
     const jeId = store.genId("je");
     const jeNumber = store.generateJournalNumber();
+    const jeLines: { accountId: string; description: string; debit: number; credit: number }[] = [
+      { accountId: "gl-1200", description: "Inventory — Raw Materials", debit: inventoryAmount, credit: 0 },
+      { accountId: "gl-2000", description: "Accounts Payable", debit: 0, credit: apAmount },
+    ];
+    if (discount > 0) {
+      jeLines.push({ accountId: "gl-5900", description: "Purchase Discount", debit: 0, credit: discount });
+    }
     store.add("journalEntries", {
       id: jeId,
       number: jeNumber,
@@ -558,23 +593,29 @@ export default function ProcurementPage() {
       description: `Goods received — PO ${po.number}`,
       reference: po.number,
       type: "GENERAL",
-      lines: [
-        { accountId: "gl-1200", description: "Inventory — Raw Materials", debit: po.subtotal, credit: 0 },
-        { accountId: "gl-2000", description: "Accounts Payable", debit: 0, credit: po.subtotal },
-      ],
-      status: "POSTED",
+      lines: jeLines,
+      status: "DRAFT",
       createdBy: "u-admin",
       createdAt: new Date().toISOString(),
     });
 
-    store.update("purchaseOrders", po.id, { invoiceId: invId });
+    store.update("purchaseOrders", po.id, { jeId });
     logAction({
       userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
       action: "UPDATE", module: "ERP", entity: "GoodsReceipt",
       entityId: grn.id, entityName: `GRN ${grn.number}`,
-      details: `GRN confirmed: ${grn.number} for PO ${po.number}. Auto-created Invoice ${invNumber} and JE ${jeNumber}.`,
+      details: `GRN confirmed: ${grn.number} for PO ${po.number}. Auto-created Draft JE ${jeNumber}.`,
       oldValues: { status: "PENDING" },
       newValues: { status: "RECEIVED" },
+    });
+    addNotification({
+      type: "INFO",
+      title: `Draft JE created for PO ${po.number}`,
+      message: `Draft JE created for PO, pending accounting approval`,
+      module: "PROCUREMENT",
+      entityType: "journal_entry",
+      entityId: jeId,
+      actionUrl: "/erp/procurement",
     });
   }
 
@@ -720,9 +761,9 @@ export default function ProcurementPage() {
             onSearchChange={setPOSearch}
             fields={[
               { key: "status", label: "Status", type: "select" as const, options: [
-                { value: "DRAFT", label: "Draft" }, { value: "APPROVED", label: "Approved" },
-                { value: "ORDERED", label: "Ordered" }, { value: "RECEIVED", label: "Received" },
-                { value: "CANCELLED", label: "Cancelled" },
+                { value: "DRAFT", label: "Draft" }, { value: "PENDING_APPROVAL", label: "Pending Approval" },
+                { value: "APPROVED", label: "Approved" }, { value: "ORDERED", label: "Ordered" },
+                { value: "RECEIVED", label: "Received" }, { value: "CANCELLED", label: "Cancelled" },
               ]},
             ]}
             values={poFilters}
@@ -744,14 +785,40 @@ export default function ProcurementPage() {
                   }},
                   { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{egp(v)}</span> },
                   { key: "date", label: "Date", render: (v: string) => v?.slice(0, 10) },
-                  { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
+                  { key: "status", label: "Status", render: (_v: unknown, row: Record<string, unknown>) => {
+                    const po = row as unknown as PurchaseOrder;
+                    const statusColors: Record<string, string> = {
+                      DRAFT: "bg-gray-100 text-gray-800 border-gray-200",
+                      PENDING_APPROVAL: "bg-amber-100 text-amber-800 border-amber-200",
+                      APPROVED: "bg-green-100 text-green-800 border-green-200",
+                      ORDERED: "bg-blue-100 text-blue-800 border-blue-200",
+                      RECEIVED: "bg-teal-100 text-teal-800 border-teal-200",
+                      CANCELLED: "bg-red-100 text-red-800 border-red-200",
+                    };
+                    const statusLabels: Record<string, string> = {
+                      DRAFT: "Draft",
+                      PENDING_APPROVAL: "Pending Approval",
+                      APPROVED: "Approved",
+                      ORDERED: "Ordered",
+                      RECEIVED: "Received",
+                      CANCELLED: "Cancelled",
+                    };
+                    return (
+                      <div className="flex items-center gap-1.5">
+                        <Badge className={statusColors[po.status] ?? "bg-gray-100 text-gray-800"}>{statusLabels[po.status] ?? po.status}</Badge>
+                        {po.escalatedToFinance && (
+                          <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-[10px] px-1.5 py-0">Escalated to Finance</Badge>
+                        )}
+                      </div>
+                    );
+                  }},
                   { key: "id", label: "Actions", className: "text-right", render: (_v: unknown, row: Record<string, unknown>) => {
                     const po = row as unknown as PurchaseOrder;
                     return (
                       <div className="flex items-center justify-end gap-1">
                         {po.status === "DRAFT" && (
-                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => approvePO(po)}>
-                            Approve
+                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => submitForApproval(po)}>
+                            Submit for Approval
                           </Button>
                         )}
                         {po.status === "APPROVED" && (
@@ -772,7 +839,7 @@ export default function ProcurementPage() {
                         <EditDeleteMenu
                           onView={() => setDetailPO(po)}
                           onEdit={po.status === "DRAFT" ? () => openPOModal(po) : undefined}
-                          onDelete={po.status === "DRAFT" ? () => store.remove("purchaseOrders", po.id) : undefined}
+                          onDelete={(po.status === "DRAFT" || po.status === "PENDING_APPROVAL") ? () => cancelPO(po) : undefined}
                           canView
                           itemLabel={po.number}
                           compact
@@ -792,17 +859,19 @@ export default function ProcurementPage() {
             <CardHeader className="pb-2"><CardTitle className="text-sm">Integration Flow</CardTitle></CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 text-xs flex-wrap">
-                <Badge variant="outline">PO Created (DRAFT)</Badge>
+                <Badge variant="outline" className="bg-gray-50">PO Created (DRAFT)</Badge>
                 <ArrowRight className="h-3 w-3" />
-                <Badge variant="outline" className="bg-blue-50">Approved</Badge>
+                <Badge variant="outline" className="bg-amber-50">Submit for Approval (PENDING_APPROVAL)</Badge>
                 <ArrowRight className="h-3 w-3" />
-                <Badge variant="outline" className="bg-amber-50">Ordered → Create Shipment</Badge>
+                <Badge variant="outline" className="bg-green-50">Approved by Accounting</Badge>
+                <ArrowRight className="h-3 w-3" />
+                <Badge variant="outline" className="bg-blue-50">Ordered → Create Shipment</Badge>
                 <ArrowRight className="h-3 w-3" />
                 <Badge variant="outline" className="bg-cyan-50">Shipment Delivered → Auto Receive</Badge>
                 <ArrowRight className="h-3 w-3" />
-                <Badge variant="outline" className="bg-green-50">Received → Auto GRN</Badge>
+                <Badge variant="outline" className="bg-teal-50">Received → Auto GRN</Badge>
                 <ArrowRight className="h-3 w-3" />
-                <Badge variant="outline" className="bg-purple-50">GRN Confirmed → Auto Invoice + Journal Entry</Badge>
+                <Badge variant="outline" className="bg-purple-50">GRN Confirmed → Draft JE (pending accounting)</Badge>
               </div>
             </CardContent>
           </Card>
@@ -1491,10 +1560,20 @@ export default function ProcurementPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div><span className="text-muted-foreground">Buyer</span><p className="font-medium">{COMPANY_NAME}</p></div>
                 <div><span className="text-muted-foreground">Vendor</span><p className="font-medium">{vendorName(detailPO.vendorId)}</p></div>
-                <div><span className="text-muted-foreground">Status</span><p><StatusBadge status={detailPO.status} /></p></div>
+                <div><span className="text-muted-foreground">Status</span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <StatusBadge status={detailPO.status === "PENDING_APPROVAL" ? "Pending Approval" : detailPO.status} />
+                    {detailPO.escalatedToFinance && (
+                      <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-[10px] px-1.5 py-0">Escalated to Finance</Badge>
+                    )}
+                  </div>
+                </div>
                 <div><span className="text-muted-foreground">Date</span><p>{detailPO.date?.slice(0, 10)}</p></div>
                 <div><span className="text-muted-foreground">Expected</span><p>{detailPO.expectedDate?.slice(0, 10)}</p></div>
                 <div><span className="text-muted-foreground">Subtotal</span><p>{egp(detailPO.subtotal)}</p></div>
+                {(detailPO.discountAmount ?? 0) > 0 && (
+                  <div><span className="text-muted-foreground">Discount ({(detailPO.discountPct ?? 0)}%)</span><p className="text-green-700">-{egp(detailPO.discountAmount ?? 0)}</p></div>
+                )}
                 <div><span className="text-muted-foreground">Tax (14%)</span><p>{egp(detailPO.tax)}</p></div>
                 <div className="col-span-2"><span className="text-muted-foreground">Total</span><p className="text-lg font-bold">{egp(detailPO.total)}</p></div>
               </div>
@@ -1513,6 +1592,7 @@ export default function ProcurementPage() {
               </div>
               {detailPO.grnId && <div><span className="text-muted-foreground">GRN</span><p className="font-mono text-xs">{store.goodsReceipts.find((g) => g.id === detailPO.grnId)?.number ?? detailPO.grnId}</p></div>}
               {detailPO.invoiceId && <div><span className="text-muted-foreground">Invoice</span><p className="font-mono text-xs">{store.invoices.find((inv) => inv.id === detailPO.invoiceId)?.number ?? detailPO.invoiceId}</p></div>}
+              {detailPO.jeId && <div><span className="text-muted-foreground">Journal Entry</span><p className="font-mono text-xs">{store.journalEntries.find((je) => je.id === detailPO.jeId)?.number ?? detailPO.jeId}</p></div>}
             </div>
           )}
         </DialogContent>
