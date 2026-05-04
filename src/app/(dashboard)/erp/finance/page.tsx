@@ -1311,45 +1311,163 @@ export default function FinancePage() {
         );
       })()}
 
-      {/* ─── Banking Tab ─────────────────────────────────────────── */}
+      {/* ─── Banking Tab (merged: Bank Accounts + Transactions + Reconciliation) ── */}
       {activeTab === "banking" && (
         <div className="space-y-4">
+          {/* Sub-view toggle */}
+          <div className="flex gap-1 border-b border-border pb-2 flex-wrap">
+            {([["accounts", "Bank Accounts", Landmark], ["transactions", "Transactions", FileSpreadsheet], ["reconciliation", "Reconciliation", ArrowUpDown]] as const).map(([key, label, Icon]) => (
+              <button key={key} onClick={() => setBankingSubView(key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${bankingSubView === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+                <Icon className="h-3.5 w-3.5" />{label}
+              </button>
+            ))}
+          </div>
+
+          {/* Summary stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><Landmark className="h-5 w-5 text-blue-600" /></div><div><p className="text-sm text-muted-foreground">Total Balance</p><p className="text-2xl font-bold">EGP {bankingTotalBalance.toLocaleString()}</p></div></div></CardContent></Card>
+            <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><Landmark className="h-5 w-5 text-blue-600" /></div><div><p className="text-sm text-muted-foreground">Total Balance</p><p className="text-2xl font-bold">EGP {(bankingTotalBalance ?? 0).toLocaleString()}</p></div></div></CardContent></Card>
             <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-red-100 rounded-lg"><Unlink className="h-5 w-5 text-red-600" /></div><div><p className="text-sm text-muted-foreground">Unreconciled</p><p className="text-2xl font-bold">{bankingUnreconciled}</p></div></div></CardContent></Card>
             <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><Link2 className="h-5 w-5 text-green-600" /></div><div><p className="text-sm text-muted-foreground">Matched</p><p className="text-2xl font-bold">{bankingTransactions.filter(tx => tx.matchStatus === "matched").length}</p></div></div></CardContent></Card>
             <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><CreditCard className="h-5 w-5 text-purple-600" /></div><div><p className="text-sm text-muted-foreground">Active Accounts</p><p className="text-2xl font-bold">{bankingAccounts.filter(a => a.isActive).length}</p></div></div></CardContent></Card>
           </div>
 
-          <div className="flex justify-end"><Button size="sm" onClick={() => setShowAddBankingAccount(true)}><Plus className="h-4 w-4 mr-2" />Add Account</Button></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {bankingAccounts.map(acc => (
-              <Card key={acc.id} className={!acc.isActive ? "opacity-60" : ""}>
-                <CardContent className="pt-6 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">{acc.bankName}</h3>
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${acc.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>{acc.isActive ? "Active" : "Inactive"}</span>
-                  </div>
-                  <div className="text-sm space-y-1">
-                    <div className="flex justify-between"><span className="text-muted-foreground">Account</span><span className="font-mono">{acc.accountNumber}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">IBAN</span><span className="font-mono text-xs">{acc.iban.substring(0, 12)}...</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Currency</span><span>{acc.currency}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Last Sync</span><span>{acc.lastSynced}</span></div>
-                  </div>
-                  <div className="pt-2 border-t">
-                    <p className="text-sm text-muted-foreground">Balance</p>
-                    <p className="text-2xl font-bold">{acc.currency} {acc.balance.toLocaleString()}</p>
-                  </div>
-                  <Button size="sm" variant="outline" className="w-full"><RefreshCw className="h-4 w-4 mr-2" />Sync Transactions</Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
+          {/* ── Bank Accounts sub-view ── */}
+          {bankingSubView === "accounts" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Total Balance: <span className="font-semibold text-foreground">{egp(totalBankBalance)}</span> across {store.bankAccounts.length} store accounts
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => { setEditingBank(null); setShowBankModal(true); }}><Plus className="h-4 w-4 mr-1" /> New Bank Account</Button>
+                  <Button size="sm" variant="outline" onClick={() => setShowAddBankingAccount(true)}><Plus className="h-4 w-4 mr-1" /> Add Banking Account</Button>
+                </div>
+              </div>
 
-      {/* ─── Transactions Tab ─────────────────────────────────────── */}
-      {activeTab === "transactions" && (
+              {/* Store bank account cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {store.bankAccounts.map((acc) => {
+                  const accCheques = store.cheques.filter((c) => c.bankAccountId === acc.id);
+                  const pendingIn = accCheques.filter((c) => c.type === "INCOMING" && (c.status === "PENDING" || c.status === "DEPOSITED")).reduce((s, c) => s + c.amount, 0);
+                  const pendingOut = accCheques.filter((c) => c.type === "OUTGOING" && c.status === "PENDING").reduce((s, c) => s + c.amount, 0);
+                  const accPayments = store.payments.filter((p) => p.bankAccountId === acc.id);
+                  const recentTxCount = accPayments.length;
+                  return (
+                    <Card key={acc.id} className={`cursor-pointer transition-all hover:shadow-md hover:border-primary/40 ${acc.status !== "ACTIVE" ? "opacity-60" : ""}`} onClick={() => setBankDetailId(acc.id)}>
+                      <CardContent className="pt-5 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 bg-blue-100 rounded-lg"><Landmark className="h-4 w-4 text-blue-600" /></div>
+                            <div>
+                              <h3 className="font-semibold text-sm">{acc.name}</h3>
+                              <p className="text-xs text-muted-foreground">{acc.bankName}</p>
+                            </div>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${acc.status === "ACTIVE" ? "bg-green-100 text-green-800" : acc.status === "DORMANT" ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-600"}`}>{acc.status}</span>
+                        </div>
+                        <div className="text-sm space-y-1.5">
+                          <div className="flex justify-between"><span className="text-muted-foreground">Account #</span><span className="font-mono text-xs">{acc.accountNumber}</span></div>
+                          {acc.iban && <div className="flex justify-between"><span className="text-muted-foreground">IBAN</span><span className="font-mono text-xs">{acc.iban.length > 16 ? acc.iban.substring(0, 16) + "..." : acc.iban}</span></div>}
+                          <div className="flex justify-between"><span className="text-muted-foreground">Currency</span><span>{acc.currency}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Type</span><Badge variant="outline" className="text-xs h-5">{acc.type}</Badge></div>
+                        </div>
+                        <div className="pt-2 border-t">
+                          <p className="text-xs text-muted-foreground">Balance</p>
+                          <p className="text-xl font-bold text-green-700">{egp(acc.balance)}</p>
+                        </div>
+                        {(pendingIn > 0 || pendingOut > 0) && (
+                          <div className="flex gap-3 text-xs pt-1">
+                            {pendingIn > 0 && <span className="text-green-600">+{(pendingIn / 1000).toFixed(0)}K incoming</span>}
+                            {pendingOut > 0 && <span className="text-red-600">-{(pendingOut / 1000).toFixed(0)}K outgoing</span>}
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                          <span>{recentTxCount} transaction{recentTxCount !== 1 ? "s" : ""}</span>
+                          <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> Click to view</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                {store.bankAccounts.length === 0 && bankingAccounts.length === 0 && (
+                  <div className="col-span-3 text-center py-12 text-muted-foreground">
+                    <Landmark className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p>No bank accounts. Click &quot;New Bank Account&quot; to get started.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Banking accounts cards */}
+              {bankingAccounts.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {bankingAccounts.map(acc => (
+                    <Card key={acc.id} className={!acc.isActive ? "opacity-60" : ""}>
+                      <CardContent className="pt-6 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold">{acc.bankName}</h3>
+                          <span className={`px-2 py-0.5 rounded-full text-xs ${acc.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>{acc.isActive ? "Active" : "Inactive"}</span>
+                        </div>
+                        <div className="text-sm space-y-1">
+                          <div className="flex justify-between"><span className="text-muted-foreground">Account</span><span className="font-mono">{acc.accountNumber}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">IBAN</span><span className="font-mono text-xs">{acc.iban.substring(0, 12)}...</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Currency</span><span>{acc.currency}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Last Sync</span><span>{acc.lastSynced}</span></div>
+                        </div>
+                        <div className="pt-2 border-t">
+                          <p className="text-sm text-muted-foreground">Balance</p>
+                          <p className="text-2xl font-bold">{acc.currency} {(acc.balance ?? 0).toLocaleString()}</p>
+                        </div>
+                        <Button size="sm" variant="outline" className="w-full"><RefreshCw className="h-4 w-4 mr-2" />Sync Transactions</Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* DataTable view */}
+              {store.bankAccounts.length > 0 && (
+                <div className="bg-card rounded-xl border border-border shadow-sm">
+                  <div className="px-4 py-3 border-b border-border">
+                    <h3 className="text-sm font-semibold">All Bank Accounts</h3>
+                  </div>
+                  <DataTable columns={bankColumns} data={store.bankAccounts as unknown as Record<string, unknown>[]} exportable exportFilename="bank-accounts.csv" emptyMessage="No bank accounts." />
+                </div>
+              )}
+
+              {/* Linked Cheques by Bank Account */}
+              {store.bankAccounts.length > 0 && store.cheques.some((c) => c.bankAccountId) && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2"><BookOpen className="h-4 w-4" /> Cheques Linked to Bank Accounts</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0 overflow-x-auto">
+                    <DataTable
+                      columns={[
+                        { key: "number", label: "Cheque #", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                        { key: "bankAccountId", label: "Bank Account", render: (v) => {
+                          const ba = store.bankAccounts.find((b) => b.id === (v as string));
+                          return ba ? <span className="text-xs cursor-pointer text-blue-700 hover:underline" onClick={() => setBankDetailId(ba.id)}>{ba.name} ({ba.bankName})</span> : <span className="text-muted-foreground text-xs">--</span>;
+                        }},
+                        { key: "type", label: "Type", render: (v) => (
+                          <Badge className={(v as string) === "INCOMING" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"}>{v as string}</Badge>
+                        )},
+                        { key: "partyName", label: "Party" },
+                        { key: "amount", label: "Amount", className: "text-right", render: (v) => <span className="font-semibold">{egp(v as number)}</span> },
+                        { key: "dueDate", label: "Due Date", render: (v) => <span className="text-xs">{new Date(v as string).toLocaleDateString()}</span> },
+                        { key: "status", label: "Status", render: (v) => <StatusBadge status={v as string} /> },
+                      ] as Column<Record<string, unknown>>[]}
+                      data={store.cheques.filter((c) => c.bankAccountId) as unknown as Record<string, unknown>[]}
+                      emptyMessage="No cheques linked to bank accounts."
+                    />
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* ── Transactions sub-view ── */}
+          {bankingSubView === "transactions" && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -1374,10 +1492,10 @@ export default function FinancePage() {
             <DataTable columns={bankingTxColumns} data={bankingFilteredTx as unknown as Record<string, unknown>[]} exportable exportFilename="bank-transactions" emptyMessage="No transactions." />
           </CardContent>
         </Card>
-      )}
+          )}
 
-      {/* ─── Reconciliation Tab ───────────────────────────────────── */}
-      {activeTab === "reconciliation" && (() => {
+          {/* ── Reconciliation sub-view ── */}
+          {bankingSubView === "reconciliation" && (() => {
         // Build bank statement entries for selected account/period
         const reconBankTxs = bankingTransactions.filter((tx) => {
           if (reconAccountId && tx.accountId !== reconAccountId) return false;
@@ -1660,7 +1778,9 @@ export default function FinancePage() {
             </Card>
           </div>
         );
-      })()}
+          })()}
+        </div>
+      )}
 
       {/* ─── Payment Gateway Tab ──────────────────────────────────── */}
       {activeTab === "payment-gateway" && (
@@ -2000,6 +2120,17 @@ export default function FinancePage() {
           setEditingBank(null);
         }}
         submitLabel={editingBank ? "Save" : "Create"}
+      />
+
+      {/* ── GL Account Form Modal ── */}
+      <EntityFormModal
+        open={glFormOpen}
+        onOpenChange={(open) => { setGlFormOpen(open); if (!open) setEditingGL(null); }}
+        title={editingGL ? `Edit ${editingGL.name}` : "Add GL Account"}
+        fields={glFields}
+        initialData={editingGL ? { code: editingGL.code, name: editingGL.name, type: editingGL.type, subType: editingGL.subType, balance: editingGL.balance, isActive: editingGL.isActive } : undefined}
+        onSubmit={handleGLSubmit}
+        submitLabel={editingGL ? "Save" : "Create"}
       />
     </div>
   );
