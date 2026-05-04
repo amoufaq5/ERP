@@ -15,9 +15,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useApiDataStore } from "@/lib/api/use-api-store";
-import { type Invoice, type Payment, type Budget, type GLAccount, type SalesOrder, type BankAccount } from "@/lib/data-store";
+import { type Invoice, type Payment, type Budget, type GLAccount, type JournalEntry, type SalesOrder, type BankAccount } from "@/lib/data-store";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useApprovals } from "@/lib/approval-workflow";
 import { openInvoicePDF } from "@/lib/invoice-pdf";
 import {
@@ -26,14 +27,14 @@ import {
   BarChart3, Calculator, Activity, Target,
   ShoppingBag, CheckCircle, XCircle, AlertTriangle,
   ArrowUpDown, RefreshCw, Eye, Link2, Unlink, ArrowDownLeft, ArrowUpRight,
-  Wallet, QrCode, FileSpreadsheet,
+  Wallet, QrCode, FileSpreadsheet, ScrollText,
 } from "lucide-react";
 import { downloadCSV } from "@/lib/download";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
 const egp = (n: number) => `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-type Tab = "overview" | "invoices" | "payments" | "bank" | "vendors" | "budgets" | "trial" | "ratios" | "cashflow" | "sales-orders" | "banking" | "transactions" | "reconciliation" | "payment-gateway";
+type Tab = "overview" | "invoices" | "payments" | "gl" | "vendors" | "budgets" | "trial" | "ratios" | "cashflow" | "sales-orders" | "banking" | "transactions" | "reconciliation" | "payment-gateway";
 
 // ─── Banking interfaces & sample data ──────────────────────────
 interface BankingTransaction {
@@ -96,6 +97,17 @@ export default function FinancePage() {
   const [bankDetailId, setBankDetailId] = useState<string | null>(null);
   const [bankTxFilter, setBankTxFilter] = useState<"all" | "credit" | "debit">("all");
   const [bankTxSearch, setBankTxSearch] = useState("");
+
+  // ─── GL / Chart of Accounts state ──────────────────────────────
+  const [glView, setGlView] = useState<"coa" | "ledger" | "trial-balance">("coa");
+  const [glSearch, setGlSearch] = useState("");
+  const [glFilters, setGlFilters] = useState<FilterState>({ _search: "", type: "" });
+  const [glFormOpen, setGlFormOpen] = useState(false);
+  const [editingGL, setEditingGL] = useState<GLAccount | null>(null);
+  const [selectedGLAccountId, setSelectedGLAccountId] = useState<string>("");
+
+  // ─── Banking sub-view state ───────────────────────────────────
+  const [bankingSubView, setBankingSubView] = useState<"accounts" | "transactions" | "reconciliation">("accounts");
 
   // ─── Banking (merged from banking page) ────────────────────────
   const [bankingAccounts, setBankingAccounts] = useState(bankingSampleAccounts);
@@ -193,6 +205,46 @@ export default function FinancePage() {
 
   const glName = (id: string) => store.glAccounts.find((a) => a.id === id)?.name ?? id;
   const ccName = (id: string) => store.costCenters.find((c) => c.id === id)?.name ?? id;
+
+  // ─── GL / Chart of Accounts computed ──────────────────────────
+  const activeGLAccounts = store.glAccounts.filter((a) => a.isActive);
+  const glCoaTotalAssets = activeGLAccounts.filter((a) => a.type === "ASSET").reduce((s, a) => s + (a.balance ?? 0), 0);
+  const glCoaTotalLiabilities = activeGLAccounts.filter((a) => a.type === "LIABILITY").reduce((s, a) => s + (a.balance ?? 0), 0);
+  const glCoaTotalEquity = activeGLAccounts.filter((a) => a.type === "EQUITY").reduce((s, a) => s + (a.balance ?? 0), 0);
+  const glCoaTotalRevenue = activeGLAccounts.filter((a) => a.type === "REVENUE").reduce((s, a) => s + (a.balance ?? 0), 0);
+  const glCoaTotalExpenses = activeGLAccounts.filter((a) => a.type === "EXPENSE").reduce((s, a) => s + (a.balance ?? 0), 0);
+
+  const filteredGL = useMemo(() => {
+    return store.glAccounts.filter((a) => {
+      if (glSearch) {
+        const q = glSearch.toLowerCase();
+        if (!a.code.toLowerCase().includes(q) && !a.name.toLowerCase().includes(q)) return false;
+      }
+      if (glFilters.type && a.type !== glFilters.type) return false;
+      return true;
+    });
+  }, [store.glAccounts, glSearch, glFilters]);
+
+  const typeBadge = (type: string) => {
+    const colors: Record<string, string> = { ASSET: "bg-blue-100 text-blue-800", LIABILITY: "bg-red-100 text-red-800", EQUITY: "bg-purple-100 text-purple-800", REVENUE: "bg-green-100 text-green-800", EXPENSE: "bg-amber-100 text-amber-800" };
+    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors[type] || "bg-gray-100 text-gray-800"}`}>{type}</span>;
+  };
+
+  const glFields: EntityField[] = [
+    { name: "code", label: "Account Code", type: "text", required: true, placeholder: "1000" },
+    { name: "name", label: "Account Name", type: "text", required: true },
+    { name: "type", label: "Type", type: "select", required: true, options: ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"].map((t) => ({ label: t, value: t })) },
+    { name: "subType", label: "Sub-Type", type: "text", required: true, placeholder: "e.g., Current Asset" },
+    { name: "balance", label: "Opening Balance", type: "number", defaultValue: 0 },
+    { name: "isActive", label: "Active", type: "checkbox", defaultValue: true },
+  ];
+
+  function handleGLSubmit(data: EntityFormData) {
+    const payload = { code: String(data.code), name: String(data.name), type: String(data.type) as GLAccount["type"], subType: String(data.subType), balance: Number(data.balance ?? 0), isActive: data.isActive !== false };
+    if (editingGL) { store.update("glAccounts", editingGL.id, payload); }
+    else { store.add("glAccounts", { id: store.genId("gl"), ...payload }); }
+    setGlFormOpen(false); setEditingGL(null);
+  }
 
   // ─── Filters ───────────────────────────────────────────────────
   const filteredInvoices = useMemo(() => {
@@ -419,7 +471,7 @@ export default function FinancePage() {
     { key: "overview", label: t("acct.overview") },
     { key: "invoices", label: `${t("fin.invoices")} (${store.invoices.length})` },
     { key: "payments", label: `${t("fin.payments")} (${store.payments.length})` },
-    { key: "bank", label: `Bank Accounts (${store.bankAccounts.length})` },
+    { key: "gl", label: `Chart of Accounts (${store.glAccounts.length})` },
     { key: "vendors", label: `Vendors AP (${store.vendors.length})` },
     { key: "budgets", label: `${t("fin.budgets")} (${store.budgets.length})` },
     { key: "trial", label: "Trial Balance" },
@@ -427,8 +479,6 @@ export default function FinancePage() {
     { key: "cashflow", label: "Cash Flow" },
     { key: "sales-orders", label: `${t("fin.salesOrders")} (${store.salesOrders.length})` },
     { key: "banking", label: "Banking" },
-    { key: "transactions", label: "Transactions" },
-    { key: "reconciliation", label: "Reconciliation" },
     { key: "payment-gateway", label: "Payment Gateway" },
   ];
 
@@ -476,8 +526,8 @@ export default function FinancePage() {
         {activeTab === "payments" && (
           <Button type="button" onClick={() => { setEditingPayment(null); setShowPaymentModal(true); }} className="gap-2"><Plus className="h-4 w-4" /> Record Payment</Button>
         )}
-        {activeTab === "bank" && (
-          <Button type="button" onClick={() => { setEditingBank(null); setShowBankModal(true); }} className="gap-2"><Plus className="h-4 w-4" /> New Bank Account</Button>
+        {activeTab === "gl" && glView === "coa" && (
+          <Button type="button" onClick={() => { setEditingGL(null); setGlFormOpen(true); }} className="gap-2"><Plus className="h-4 w-4" /> Add GL Account</Button>
         )}
         {activeTab === "budgets" && (
           <Button type="button" onClick={() => { setEditingBudget(null); setShowBudgetModal(true); }} className="gap-2"><Plus className="h-4 w-4" /> Add Budget</Button>
@@ -591,106 +641,294 @@ export default function FinancePage() {
         </div>
       )}
 
-      {activeTab === "bank" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Total Balance: <span className="font-semibold text-foreground">{egp(totalBankBalance)}</span> across {store.bankAccounts.length} accounts
-            </div>
-            <Button size="sm" onClick={() => { setEditingBank(null); setShowBankModal(true); }}><Plus className="h-4 w-4 mr-1" /> New Bank Account</Button>
+      {/* ─── GL / Chart of Accounts Tab ────────────────────────────── */}
+      {activeTab === "gl" && (
+        <div className="space-y-3">
+          {/* Sub-tab toggle buttons */}
+          <div className="flex gap-1 border-b border-border pb-2 flex-wrap">
+            {([["coa", "Chart of Accounts", BookOpen], ["ledger", "General Ledger", ScrollText], ["trial-balance", "Trial Balance", Calculator]] as const).map(([key, label, Icon]) => (
+              <button key={key} onClick={() => setGlView(key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${glView === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+                <Icon className="h-3.5 w-3.5" />{label}
+              </button>
+            ))}
           </div>
 
-          {/* Summary cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {store.bankAccounts.map((acc) => {
-              const accCheques = store.cheques.filter((c) => c.bankAccountId === acc.id);
-              const pendingIn = accCheques.filter((c) => c.type === "INCOMING" && (c.status === "PENDING" || c.status === "DEPOSITED")).reduce((s, c) => s + c.amount, 0);
-              const pendingOut = accCheques.filter((c) => c.type === "OUTGOING" && c.status === "PENDING").reduce((s, c) => s + c.amount, 0);
-              const accPayments = store.payments.filter((p) => p.bankAccountId === acc.id);
-              const recentTxCount = accPayments.length;
-              return (
-                <Card key={acc.id} className={`cursor-pointer transition-all hover:shadow-md hover:border-primary/40 ${acc.status !== "ACTIVE" ? "opacity-60" : ""}`} onClick={() => setBankDetailId(acc.id)}>
-                  <CardContent className="pt-5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 bg-blue-100 rounded-lg"><Landmark className="h-4 w-4 text-blue-600" /></div>
-                        <div>
-                          <h3 className="font-semibold text-sm">{acc.name}</h3>
-                          <p className="text-xs text-muted-foreground">{acc.bankName}</p>
-                        </div>
-                      </div>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${acc.status === "ACTIVE" ? "bg-green-100 text-green-800" : acc.status === "DORMANT" ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-600"}`}>{acc.status}</span>
+          {/* ── Chart of Accounts sub-view ── */}
+          {glView === "coa" && (
+            <div className="space-y-3">
+              <FilterBar
+                searchPlaceholder="Search accounts..."
+                searchValue={glSearch}
+                onSearchChange={setGlSearch}
+                fields={[{ key: "type", label: "Type", type: "select", options: ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"].map((t) => ({ label: t, value: t })) }]}
+                values={glFilters}
+                onChange={(k, v) => setGlFilters((f) => ({ ...f, [k]: v }))}
+                rightSlot={
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => {
+                      const rows = activeGLAccounts.map((a) => ({
+                        Code: a.code, Name: a.name, Type: a.type, SubType: a.subType,
+                        Debit: ["ASSET", "EXPENSE"].includes(a.type) ? (a.balance ?? 0) : 0,
+                        Credit: ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type) ? (a.balance ?? 0) : 0,
+                      }));
+                      downloadCSV("chart-of-accounts.csv", rows);
+                    }}><Download className="h-3 w-3 mr-1" /> Export</Button>
+                    <Button size="sm" onClick={() => { setEditingGL(null); setGlFormOpen(true); }}><Plus className="h-3 w-3 mr-1" /> Add Account</Button>
+                  </div>
+                }
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Assets</div><div className="text-lg font-bold text-blue-700">EGP {((glCoaTotalAssets ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
+                <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Liabilities</div><div className="text-lg font-bold text-red-600">EGP {(Math.abs(glCoaTotalLiabilities ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
+                <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Equity</div><div className="text-lg font-bold text-purple-700">EGP {((glCoaTotalEquity ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
+                <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Revenue</div><div className="text-lg font-bold text-green-700">EGP {((glCoaTotalRevenue ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
+                <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Expenses</div><div className="text-lg font-bold text-amber-700">EGP {((glCoaTotalExpenses ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
+              </div>
+              <Card>
+                <CardContent className="p-0 overflow-x-auto">
+                  <DataTable
+                    columns={[
+                      { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs font-semibold">{v as string}</span> },
+                      { key: "name", label: "Account Name", render: (v) => <span className="font-medium">{v as string}</span> },
+                      { key: "type", label: "Type", render: (v) => typeBadge(v as string) },
+                      { key: "subType", label: "Sub-Type", render: (v) => <span className="text-xs text-muted-foreground">{v as string}</span> },
+                      { key: "balance", label: "Balance", className: "text-right", render: (v, row) => {
+                        const type = row.type as string;
+                        const bal = v as number;
+                        return <span className={`font-semibold ${(bal ?? 0) < 0 ? "text-red-600" : ""}`}>{Math.abs(bal ?? 0).toLocaleString()}</span>;
+                      }},
+                      { key: "isActive", label: "Status", render: (v) => <Badge variant={(v as boolean) ? "success" : "secondary"}>{(v as boolean) ? "Active" : "Inactive"}</Badge> },
+                      { key: "id", label: "", render: (_v, row) => {
+                        const a = row as unknown as GLAccount;
+                        return <EditDeleteMenu onEdit={() => { setEditingGL(a); setGlFormOpen(true); }} onDelete={() => store.remove("glAccounts", a.id)} itemLabel={a.name} compact />;
+                      }},
+                    ] as Column<Record<string, unknown>>[]}
+                    data={filteredGL as unknown as Record<string, unknown>[]}
+                    exportable exportFilename="erp-chart-of-accounts.csv" emptyMessage="No accounts found."
+                  />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Calculator className="h-4 w-4" /> Trial Balance Summary</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-3 rounded-lg bg-muted/50">
+                      <div className="text-xs text-muted-foreground">Total Debits</div>
+                      <div className="text-xl font-bold">EGP {(activeGLAccounts.filter((a) => ["ASSET", "EXPENSE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance ?? 0), 0)).toLocaleString()}</div>
                     </div>
-                    <div className="text-sm space-y-1.5">
-                      <div className="flex justify-between"><span className="text-muted-foreground">Account #</span><span className="font-mono text-xs">{acc.accountNumber}</span></div>
-                      {acc.iban && <div className="flex justify-between"><span className="text-muted-foreground">IBAN</span><span className="font-mono text-xs">{acc.iban.length > 16 ? acc.iban.substring(0, 16) + "..." : acc.iban}</span></div>}
-                      <div className="flex justify-between"><span className="text-muted-foreground">Currency</span><span>{acc.currency}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Type</span><Badge variant="outline" className="text-xs h-5">{acc.type}</Badge></div>
+                    <div className="text-center p-3 rounded-lg bg-muted/50">
+                      <div className="text-xs text-muted-foreground">Total Credits</div>
+                      <div className="text-xl font-bold">EGP {(activeGLAccounts.filter((a) => ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance ?? 0), 0)).toLocaleString()}</div>
                     </div>
-                    <div className="pt-2 border-t">
-                      <p className="text-xs text-muted-foreground">Balance</p>
-                      <p className="text-xl font-bold text-green-700">{egp(acc.balance)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* ── General Ledger sub-view ── */}
+          {glView === "ledger" && (() => {
+            const selectedAccount = store.glAccounts.find((a) => a.id === selectedGLAccountId);
+            const postedJournalEntries = store.journalEntries.filter((j) => j.status === "POSTED");
+            const ledgerLines: { date: string; jeNumber: string; jeDescription: string; lineDescription: string; debit: number; credit: number }[] = [];
+            postedJournalEntries.forEach((je) => {
+              (je.lines || []).forEach((line) => {
+                if (line.accountId === selectedGLAccountId) {
+                  ledgerLines.push({
+                    date: je.date,
+                    jeNumber: je.number,
+                    jeDescription: je.description,
+                    lineDescription: line.description || je.description,
+                    debit: line.debit ?? 0,
+                    credit: line.credit ?? 0,
+                  });
+                }
+              });
+            });
+            ledgerLines.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+            const isDebitNormal = selectedAccount ? ["ASSET", "EXPENSE"].includes(selectedAccount.type) : true;
+            const openingBalance = 0;
+            let runningBalance = openingBalance;
+            const ledgerRows = ledgerLines.map((line) => {
+              if (isDebitNormal) {
+                runningBalance = runningBalance + line.debit - line.credit;
+              } else {
+                runningBalance = runningBalance + line.credit - line.debit;
+              }
+              return { ...line, runningBalance };
+            });
+            const closingBalance = runningBalance;
+
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 min-w-[300px]">
+                    <Label className="text-sm whitespace-nowrap">Account:</Label>
+                    <Select value={selectedGLAccountId} onValueChange={setSelectedGLAccountId}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a GL account..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {store.glAccounts.filter((a) => a.isActive).sort((a, b) => a.code.localeCompare(b.code)).map((a) => (
+                          <SelectItem key={a.id} value={a.id}>{a.code} - {a.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {selectedAccount && (
+                    <div className="flex items-center gap-2">
+                      {typeBadge(selectedAccount.type)}
+                      <span className="text-sm text-muted-foreground">{selectedAccount.subType}</span>
                     </div>
-                    {(pendingIn > 0 || pendingOut > 0) && (
-                      <div className="flex gap-3 text-xs pt-1">
-                        {pendingIn > 0 && <span className="text-green-600">+{(pendingIn / 1000).toFixed(0)}K incoming</span>}
-                        {pendingOut > 0 && <span className="text-red-600">-{(pendingOut / 1000).toFixed(0)}K outgoing</span>}
-                      </div>
+                  )}
+                </div>
+
+                {!selectedGLAccountId ? (
+                  <Card>
+                    <CardContent className="py-12 text-center">
+                      <ScrollText className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                      <p className="text-muted-foreground">Select a GL account above to view its ledger entries.</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center justify-between">
+                        <span className="flex items-center gap-2"><ScrollText className="h-4 w-4" /> General Ledger: {selectedAccount?.code} - {selectedAccount?.name}</span>
+                        <span className="text-xs text-muted-foreground">{ledgerRows.length} entries</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0 overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left p-2 font-medium">Date</th>
+                            <th className="text-left p-2 font-medium">JE Number</th>
+                            <th className="text-left p-2 font-medium">Description</th>
+                            <th className="text-right p-2 font-medium">Debit</th>
+                            <th className="text-right p-2 font-medium">Credit</th>
+                            <th className="text-right p-2 font-medium">Balance</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b bg-blue-50/50">
+                            <td className="p-2 text-xs text-muted-foreground" colSpan={5}>Opening Balance</td>
+                            <td className="p-2 text-right font-semibold">EGP {(openingBalance ?? 0).toLocaleString()}</td>
+                          </tr>
+                          {ledgerRows.length === 0 ? (
+                            <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">No posted journal entries found for this account.</td></tr>
+                          ) : (
+                            ledgerRows.map((row, idx) => (
+                              <tr key={idx} className="border-b hover:bg-muted/30">
+                                <td className="p-2 text-xs">{new Date(row.date).toLocaleDateString()}</td>
+                                <td className="p-2"><span className="font-mono text-xs font-semibold">{row.jeNumber}</span></td>
+                                <td className="p-2 text-xs">{row.lineDescription}</td>
+                                <td className="p-2 text-right font-medium">{row.debit > 0 ? `EGP ${(row.debit ?? 0).toLocaleString()}` : ""}</td>
+                                <td className="p-2 text-right font-medium">{row.credit > 0 ? `EGP ${(row.credit ?? 0).toLocaleString()}` : ""}</td>
+                                <td className={`p-2 text-right font-semibold ${row.runningBalance < 0 ? "text-red-600" : ""}`}>EGP {(row.runningBalance ?? 0).toLocaleString()}</td>
+                              </tr>
+                            ))
+                          )}
+                          <tr className="border-t-2 bg-blue-50/50 font-semibold">
+                            <td className="p-2" colSpan={3}>Closing Balance</td>
+                            <td className="p-2 text-right">EGP {ledgerRows.reduce((s, r) => s + r.debit, 0).toLocaleString()}</td>
+                            <td className="p-2 text-right">EGP {ledgerRows.reduce((s, r) => s + r.credit, 0).toLocaleString()}</td>
+                            <td className={`p-2 text-right ${closingBalance < 0 ? "text-red-600" : ""}`}>EGP {(closingBalance ?? 0).toLocaleString()}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ── Trial Balance sub-view ── */}
+          {glView === "trial-balance" && (() => {
+            const trialBalanceAccounts = activeGLAccounts
+              .sort((a, b) => a.code.localeCompare(b.code))
+              .map((a) => {
+                const isDebitNormal = ["ASSET", "EXPENSE"].includes(a.type);
+                const debitBalance = isDebitNormal ? Math.abs(a.balance ?? 0) : 0;
+                const creditBalance = !isDebitNormal ? Math.abs(a.balance ?? 0) : 0;
+                return { ...a, debitBalance, creditBalance };
+              });
+            const totalDebitsGL = trialBalanceAccounts.reduce((s, a) => s + a.debitBalance, 0);
+            const totalCreditsGL = trialBalanceAccounts.reduce((s, a) => s + a.creditBalance, 0);
+            const isBalancedGL = Math.abs(totalDebitsGL - totalCreditsGL) < 0.01;
+
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Trial Balance as of {new Date().toLocaleDateString()}</span>
+                    {isBalancedGL ? (
+                      <Badge variant="success">Balanced</Badge>
+                    ) : (
+                      <Badge variant="destructive">Out of Balance: EGP {Math.abs(totalDebitsGL - totalCreditsGL).toLocaleString()}</Badge>
                     )}
-                    <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
-                      <span>{recentTxCount} transaction{recentTxCount !== 1 ? "s" : ""}</span>
-                      <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> Click to view</span>
-                    </div>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    const rows = trialBalanceAccounts.map((a) => ({
+                      Code: a.code, Name: a.name, Type: a.type,
+                      Debit: a.debitBalance, Credit: a.creditBalance,
+                    }));
+                    rows.push({ Code: "", Name: "TOTAL", Type: "" as GLAccount["type"], Debit: totalDebitsGL, Credit: totalCreditsGL });
+                    downloadCSV("trial-balance.csv", rows);
+                  }}><Download className="h-3 w-3 mr-1" /> Export CSV</Button>
+                </div>
+                <Card>
+                  <CardContent className="p-0 overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="text-left p-2 font-medium">Account Code</th>
+                          <th className="text-left p-2 font-medium">Account Name</th>
+                          <th className="text-left p-2 font-medium">Type</th>
+                          <th className="text-right p-2 font-medium">Debit Balance</th>
+                          <th className="text-right p-2 font-medium">Credit Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {trialBalanceAccounts.map((a) => (
+                          <tr key={a.id} className="border-b hover:bg-muted/30">
+                            <td className="p-2"><span className="font-mono text-xs font-semibold">{a.code}</span></td>
+                            <td className="p-2 font-medium">{a.name}</td>
+                            <td className="p-2">{typeBadge(a.type)}</td>
+                            <td className="p-2 text-right font-medium">{a.debitBalance > 0 ? `EGP ${(a.debitBalance ?? 0).toLocaleString()}` : ""}</td>
+                            <td className="p-2 text-right font-medium">{a.creditBalance > 0 ? `EGP ${(a.creditBalance ?? 0).toLocaleString()}` : ""}</td>
+                          </tr>
+                        ))}
+                        <tr className="border-t-2 bg-muted/50 font-bold">
+                          <td className="p-2" colSpan={3}>Total</td>
+                          <td className="p-2 text-right">EGP {(totalDebitsGL ?? 0).toLocaleString()}</td>
+                          <td className="p-2 text-right">EGP {(totalCreditsGL ?? 0).toLocaleString()}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </CardContent>
                 </Card>
-              );
-            })}
-            {store.bankAccounts.length === 0 && (
-              <div className="col-span-3 text-center py-12 text-muted-foreground">
-                <Landmark className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                <p>No bank accounts. Click &quot;New Bank Account&quot; to get started.</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <Card>
+                    <CardContent className="p-3 text-center">
+                      <div className="text-xs text-muted-foreground">Total Debits</div>
+                      <div className="text-xl font-bold">EGP {(totalDebitsGL ?? 0).toLocaleString()}</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-3 text-center">
+                      <div className="text-xs text-muted-foreground">Total Credits</div>
+                      <div className="text-xl font-bold">EGP {(totalCreditsGL ?? 0).toLocaleString()}</div>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
-            )}
-          </div>
-
-          {/* DataTable view */}
-          {store.bankAccounts.length > 0 && (
-            <div className="bg-card rounded-xl border border-border shadow-sm">
-              <div className="px-4 py-3 border-b border-border">
-                <h3 className="text-sm font-semibold">All Bank Accounts</h3>
-              </div>
-              <DataTable columns={bankColumns} data={store.bankAccounts as unknown as Record<string, unknown>[]} exportable exportFilename="bank-accounts.csv" emptyMessage="No bank accounts." />
-            </div>
-          )}
-
-          {/* Linked Cheques by Bank Account */}
-          {store.bankAccounts.length > 0 && store.cheques.some((c) => c.bankAccountId) && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2"><BookOpen className="h-4 w-4" /> Cheques Linked to Bank Accounts</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 overflow-x-auto">
-                <DataTable
-                  columns={[
-                    { key: "number", label: "Cheque #", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
-                    { key: "bankAccountId", label: "Bank Account", render: (v) => {
-                      const ba = store.bankAccounts.find((b) => b.id === (v as string));
-                      return ba ? <span className="text-xs cursor-pointer text-blue-700 hover:underline" onClick={() => setBankDetailId(ba.id)}>{ba.name} ({ba.bankName})</span> : <span className="text-muted-foreground text-xs">--</span>;
-                    }},
-                    { key: "type", label: "Type", render: (v) => (
-                      <Badge className={(v as string) === "INCOMING" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"}>{v as string}</Badge>
-                    )},
-                    { key: "partyName", label: "Party" },
-                    { key: "amount", label: "Amount", className: "text-right", render: (v) => <span className="font-semibold">{egp(v as number)}</span> },
-                    { key: "dueDate", label: "Due Date", render: (v) => <span className="text-xs">{new Date(v as string).toLocaleDateString()}</span> },
-                    { key: "status", label: "Status", render: (v) => <StatusBadge status={v as string} /> },
-                  ] as Column<Record<string, unknown>>[]}
-                  data={store.cheques.filter((c) => c.bankAccountId) as unknown as Record<string, unknown>[]}
-                  emptyMessage="No cheques linked to bank accounts."
-                />
-              </CardContent>
-            </Card>
-          )}
+            );
+          })()}
         </div>
       )}
 

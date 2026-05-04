@@ -29,6 +29,7 @@ import {
   type CostCenter,
   type Budget,
   type SalesOrder,
+  type PurchaseOrder,
 } from "@/lib/data-store";
 import { useApprovals } from "@/lib/approval-workflow";
 import { openInvoicePDF } from "@/lib/invoice-pdf";
@@ -235,6 +236,9 @@ export default function AccountingPage() {
   const [editingJE, setEditingJE] = useState<JournalEntry | null>(null);
   const [jeDetailId, setJeDetailId] = useState<string | null>(null);
   const [jeNewLine, setJeNewLine] = useState({ accountId: "", description: "", debit: 0, credit: 0, costCenterId: "" });
+
+  // Approval Center state
+  const [approvalSubTab, setApprovalSubTab] = useState<"so-approvals" | "po-approvals" | "draft-invoices" | "draft-je">("so-approvals");
 
   // Cost Accounting state
   const [costTab, setCostTab] = useState<"centers" | "budgets" | "allocation" | "variance" | "product-costing">("centers");
@@ -980,11 +984,9 @@ export default function AccountingPage() {
           <TabsTrigger value="vendors">{t("acct.vendors")} ({store.vendors.length})</TabsTrigger>
           <TabsTrigger value="cheques">{t("acct.cheques")} ({store.cheques.length})</TabsTrigger>
           <TabsTrigger value="invoices">{t("acct.invoices")} ({store.invoices.length})</TabsTrigger>
-          <TabsTrigger value="bank">{t("acct.bankAccounts")} ({store.bankAccounts.length})</TabsTrigger>
-          <TabsTrigger value="gl">{t("acct.chartOfAccounts")}</TabsTrigger>
           <TabsTrigger value="je">{t("acct.journalEntries")}</TabsTrigger>
           <TabsTrigger value="cost">{t("acct.costCenters")}</TabsTrigger>
-          <TabsTrigger value="sales-orders">{t("acct.salesOrders")} ({store.salesOrders.length})</TabsTrigger>
+          <TabsTrigger value="sales-orders">Approvals</TabsTrigger>
           <TabsTrigger value="collections">Collections</TabsTrigger>
           <TabsTrigger value="einvoicing">E-Invoicing</TabsTrigger>
           <TabsTrigger value="assets">Assets</TabsTrigger>
@@ -1209,345 +1211,10 @@ export default function AccountingPage() {
           </Card>
         </TabsContent>
 
-        {/* Bank Accounts */}
-        <TabsContent value="bank" className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Total Balance: <span className="font-semibold text-foreground">EGP {(totalBankBalance ?? 0).toLocaleString()}</span>
-            </div>
-            <Button size="sm" onClick={() => { setEditingBank(null); setBankFormOpen(true); }}><Plus className="h-4 w-4 mr-1" /> Add Account</Button>
-          </div>
-          <Card>
-            <CardContent className="p-0">
-              <DataTable
-                columns={[
-                  { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
-                  { key: "name", label: "Account Name", render: (v) => <span className="font-medium">{v as string}</span> },
-                  { key: "bankName", label: "Bank" },
-                  { key: "accountNumber", label: "Account #", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
-                  { key: "currency", label: "Cur." },
-                  { key: "balance", label: "Balance", render: (v) => <span className="font-semibold text-green-700">EGP {((v as number) ?? 0).toLocaleString()}</span>, className: "text-right" },
-                  { key: "id", label: "Cheques", render: (_v, row) => {
-                    const incoming = store.cheques.filter((c) => c.bankAccountId === row.id && c.type === "INCOMING" && (c.status === "PENDING" || c.status === "DEPOSITED")).reduce((s, c) => s + c.amount, 0);
-                    const outgoing = store.cheques.filter((c) => c.bankAccountId === row.id && c.type === "OUTGOING" && c.status === "PENDING").reduce((s, c) => s + c.amount, 0);
-                    if (!incoming && !outgoing) return <span className="text-xs text-muted-foreground">—</span>;
-                    return (
-                      <div className="text-xs">
-                        {incoming > 0 && <span className="text-green-600">+{((incoming ?? 0) / 1000).toFixed(0)}K in</span>}
-                        {incoming > 0 && outgoing > 0 && " / "}
-                        {outgoing > 0 && <span className="text-red-600">-{((outgoing ?? 0) / 1000).toFixed(0)}K out</span>}
-                      </div>
-                    );
-                  }},
-                  { key: "status", label: "Status", render: (v) => (
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${(v as string) === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600"}`}>{v as string}</span>
-                  )},
-                  { key: "type", label: "", render: (_v, row) => (
-                    <EditDeleteMenu
-                      onEdit={() => { const b = store.bankAccounts.find((x) => x.id === row.id); if (b) { setEditingBank(b); setBankFormOpen(true); } }}
-                      onDelete={() => store.remove("bankAccounts", row.id as string)}
-                      itemLabel={row.name as string}
-                    />
-                  )},
-                ] as Column<Record<string, unknown>>[]}
-                data={store.bankAccounts as unknown as Record<string, unknown>[]}
-                exportable exportFilename="erp-accounting.csv" emptyMessage="No bank accounts."
-                
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* ═══ GL tab removed — GL is now in Finance ═══ */}
+        {/* ═══ Bank tab removed — Bank Accounts are now in Finance/Banking ═══ */}
 
-        {/* ═══ General Ledger ═══ */}
-        <TabsContent value="gl" className="space-y-3">
-          {/* Sub-tab toggle buttons */}
-          <div className="flex gap-1 border-b border-border pb-2 flex-wrap">
-            {([["coa", "Chart of Accounts", BookOpen], ["ledger", "General Ledger", ScrollText], ["trial-balance", "Trial Balance", Calculator]] as const).map(([key, label, Icon]) => (
-              <button key={key} onClick={() => setGlView(key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${glView === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
-                <Icon className="h-3.5 w-3.5" />{label}
-              </button>
-            ))}
-          </div>
-
-          {/* ── Chart of Accounts sub-view ── */}
-          {glView === "coa" && (
-            <div className="space-y-3">
-              <FilterBar
-                searchPlaceholder="Search accounts..."
-                searchValue={glSearch}
-                onSearchChange={setGlSearch}
-                fields={[{ key: "type", label: "Type", type: "select", options: ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"].map((t) => ({ label: t, value: t })) }]}
-                values={glFilters}
-                onChange={(k, v) => setGlFilters((f) => ({ ...f, [k]: v }))}
-                rightSlot={
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => {
-                      const rows = activeGLAccounts.map((a) => ({
-                        Code: a.code, Name: a.name, Type: a.type, SubType: a.subType,
-                        Debit: ["ASSET", "EXPENSE"].includes(a.type) ? a.balance : 0,
-                        Credit: ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type) ? a.balance : 0,
-                      }));
-                      downloadCSV("trial-balance.csv", rows);
-                    }}><Download className="h-3 w-3 mr-1" /> Export</Button>
-                    <Button size="sm" onClick={() => { setEditingGL(null); setGlFormOpen(true); }}><Plus className="h-3 w-3 mr-1" /> Add Account</Button>
-                  </div>
-                }
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Assets</div><div className="text-lg font-bold text-blue-700">EGP {((totalAssets ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
-                <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Liabilities</div><div className="text-lg font-bold text-red-600">EGP {Math.abs((totalLiabilities ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
-                <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Equity</div><div className="text-lg font-bold text-purple-700">EGP {((totalEquity ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
-                <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Revenue</div><div className="text-lg font-bold text-green-700">EGP {((totalRevenue ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
-                <Card><CardContent className="p-3"><div className="text-xs text-muted-foreground">Expenses</div><div className="text-lg font-bold text-amber-700">EGP {((totalExpenses ?? 0) / 1e6).toFixed(2)}M</div></CardContent></Card>
-              </div>
-              <Card>
-                <CardContent className="p-0 overflow-x-auto">
-                  <DataTable
-                    columns={[
-                      { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs font-semibold">{v as string}</span> },
-                      { key: "name", label: "Account Name", render: (v) => <span className="font-medium">{v as string}</span> },
-                      { key: "type", label: "Type", render: (v) => typeBadge(v as string) },
-                      { key: "subType", label: "Sub-Type", render: (v) => <span className="text-xs text-muted-foreground">{v as string}</span> },
-                      { key: "balance", label: "Balance", className: "text-right", render: (v, row) => {
-                        const type = row.type as string;
-                        const bal = v as number;
-                        const isDebitNormal = type === "ASSET" || type === "EXPENSE";
-                        return <span className={`font-semibold ${bal < 0 ? "text-red-600" : ""}`}>{isDebitNormal ? "" : ""}{Math.abs(bal ?? 0).toLocaleString()}</span>;
-                      }},
-                      { key: "isActive", label: "Status", render: (v) => <Badge variant={(v as boolean) ? "success" : "secondary"}>{(v as boolean) ? "Active" : "Inactive"}</Badge> },
-                      { key: "id", label: "", render: (_v, row) => {
-                        const a = row as unknown as GLAccount;
-                        return <EditDeleteMenu onEdit={() => { setEditingGL(a); setGlFormOpen(true); }} onDelete={() => store.remove("glAccounts", a.id)} itemLabel={a.name} compact />;
-                      }},
-                    ] as Column<Record<string, unknown>>[]}
-                    data={filteredGL as unknown as Record<string, unknown>[]}
-
-                    exportable exportFilename="erp-chart-of-accounts.csv" emptyMessage="No accounts found."
-                  />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Calculator className="h-4 w-4" /> Trial Balance Summary</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-3 rounded-lg bg-muted/50">
-                      <div className="text-xs text-muted-foreground">Total Debits</div>
-                      <div className="text-xl font-bold">EGP {(activeGLAccounts.filter((a) => ["ASSET", "EXPENSE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance ?? 0), 0)).toLocaleString()}</div>
-                    </div>
-                    <div className="text-center p-3 rounded-lg bg-muted/50">
-                      <div className="text-xs text-muted-foreground">Total Credits</div>
-                      <div className="text-xl font-bold">EGP {(activeGLAccounts.filter((a) => ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type)).reduce((s, a) => s + Math.abs(a.balance ?? 0), 0)).toLocaleString()}</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* ── General Ledger sub-view ── */}
-          {glView === "ledger" && (() => {
-            const selectedAccount = store.glAccounts.find((a) => a.id === selectedGLAccountId);
-            const postedJournalEntries = store.journalEntries.filter((j) => j.status === "POSTED");
-            const ledgerLines: { date: string; jeNumber: string; jeDescription: string; lineDescription: string; debit: number; credit: number }[] = [];
-            postedJournalEntries.forEach((je) => {
-              (je.lines || []).forEach((line) => {
-                if (line.accountId === selectedGLAccountId) {
-                  ledgerLines.push({
-                    date: je.date,
-                    jeNumber: je.number,
-                    jeDescription: je.description,
-                    lineDescription: line.description || je.description,
-                    debit: line.debit ?? 0,
-                    credit: line.credit ?? 0,
-                  });
-                }
-              });
-            });
-            ledgerLines.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-            const isDebitNormal = selectedAccount ? ["ASSET", "EXPENSE"].includes(selectedAccount.type) : true;
-            const openingBalance = 0;
-            let runningBalance = openingBalance;
-            const ledgerRows = ledgerLines.map((line) => {
-              if (isDebitNormal) {
-                runningBalance = runningBalance + line.debit - line.credit;
-              } else {
-                runningBalance = runningBalance + line.credit - line.debit;
-              }
-              return { ...line, runningBalance };
-            });
-            const closingBalance = runningBalance;
-
-            return (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-2 min-w-[300px]">
-                    <Label className="text-sm whitespace-nowrap">Account:</Label>
-                    <Select value={selectedGLAccountId} onValueChange={setSelectedGLAccountId}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a GL account..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {store.glAccounts.filter((a) => a.isActive).sort((a, b) => a.code.localeCompare(b.code)).map((a) => (
-                          <SelectItem key={a.id} value={a.id}>{a.code} - {a.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {selectedAccount && (
-                    <div className="flex items-center gap-2">
-                      {typeBadge(selectedAccount.type)}
-                      <span className="text-sm text-muted-foreground">{selectedAccount.subType}</span>
-                    </div>
-                  )}
-                </div>
-
-                {!selectedGLAccountId ? (
-                  <Card>
-                    <CardContent className="py-12 text-center">
-                      <ScrollText className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                      <p className="text-muted-foreground">Select a GL account above to view its ledger entries.</p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center justify-between">
-                        <span className="flex items-center gap-2"><ScrollText className="h-4 w-4" /> General Ledger: {selectedAccount?.code} - {selectedAccount?.name}</span>
-                        <span className="text-xs text-muted-foreground">{ledgerRows.length} entries</span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0 overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b bg-muted/50">
-                            <th className="text-left p-2 font-medium">Date</th>
-                            <th className="text-left p-2 font-medium">JE Number</th>
-                            <th className="text-left p-2 font-medium">Description</th>
-                            <th className="text-right p-2 font-medium">Debit</th>
-                            <th className="text-right p-2 font-medium">Credit</th>
-                            <th className="text-right p-2 font-medium">Balance</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b bg-blue-50/50">
-                            <td className="p-2 text-xs text-muted-foreground" colSpan={5}>Opening Balance</td>
-                            <td className="p-2 text-right font-semibold">EGP {(openingBalance ?? 0).toLocaleString()}</td>
-                          </tr>
-                          {ledgerRows.length === 0 ? (
-                            <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">No posted journal entries found for this account.</td></tr>
-                          ) : (
-                            ledgerRows.map((row, idx) => (
-                              <tr key={idx} className="border-b hover:bg-muted/30">
-                                <td className="p-2 text-xs">{new Date(row.date).toLocaleDateString()}</td>
-                                <td className="p-2"><span className="font-mono text-xs font-semibold">{row.jeNumber}</span></td>
-                                <td className="p-2 text-xs">{row.lineDescription}</td>
-                                <td className="p-2 text-right font-medium">{row.debit > 0 ? `EGP ${(row.debit ?? 0).toLocaleString()}` : ""}</td>
-                                <td className="p-2 text-right font-medium">{row.credit > 0 ? `EGP ${(row.credit ?? 0).toLocaleString()}` : ""}</td>
-                                <td className={`p-2 text-right font-semibold ${row.runningBalance < 0 ? "text-red-600" : ""}`}>EGP {(row.runningBalance ?? 0).toLocaleString()}</td>
-                              </tr>
-                            ))
-                          )}
-                          <tr className="border-t-2 bg-blue-50/50 font-semibold">
-                            <td className="p-2" colSpan={3}>Closing Balance</td>
-                            <td className="p-2 text-right">EGP {ledgerRows.reduce((s, r) => s + r.debit, 0).toLocaleString()}</td>
-                            <td className="p-2 text-right">EGP {ledgerRows.reduce((s, r) => s + r.credit, 0).toLocaleString()}</td>
-                            <td className={`p-2 text-right ${closingBalance < 0 ? "text-red-600" : ""}`}>EGP {(closingBalance ?? 0).toLocaleString()}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* ── Trial Balance sub-view ── */}
-          {glView === "trial-balance" && (() => {
-            const trialBalanceAccounts = activeGLAccounts
-              .sort((a, b) => a.code.localeCompare(b.code))
-              .map((a) => {
-                const isDebitNormal = ["ASSET", "EXPENSE"].includes(a.type);
-                const debitBalance = isDebitNormal ? Math.abs(a.balance ?? 0) : 0;
-                const creditBalance = !isDebitNormal ? Math.abs(a.balance ?? 0) : 0;
-                return { ...a, debitBalance, creditBalance };
-              });
-            const totalDebits = trialBalanceAccounts.reduce((s, a) => s + a.debitBalance, 0);
-            const totalCredits = trialBalanceAccounts.reduce((s, a) => s + a.creditBalance, 0);
-            const isBalanced = Math.abs(totalDebits - totalCredits) < 0.01;
-
-            return (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <Calculator className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Trial Balance as of {new Date().toLocaleDateString()}</span>
-                    {isBalanced ? (
-                      <Badge variant="success">Balanced</Badge>
-                    ) : (
-                      <Badge variant="destructive">Out of Balance: EGP {Math.abs(totalDebits - totalCredits).toLocaleString()}</Badge>
-                    )}
-                  </div>
-                  <Button size="sm" variant="outline" onClick={() => {
-                    const rows = trialBalanceAccounts.map((a) => ({
-                      Code: a.code, Name: a.name, Type: a.type,
-                      Debit: a.debitBalance, Credit: a.creditBalance,
-                    }));
-                    rows.push({ Code: "", Name: "TOTAL", Type: "" as GLAccount["type"], Debit: totalDebits, Credit: totalCredits });
-                    downloadCSV("trial-balance.csv", rows);
-                  }}><Download className="h-3 w-3 mr-1" /> Export CSV</Button>
-                </div>
-                <Card>
-                  <CardContent className="p-0 overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b bg-muted/50">
-                          <th className="text-left p-2 font-medium">Account Code</th>
-                          <th className="text-left p-2 font-medium">Account Name</th>
-                          <th className="text-left p-2 font-medium">Type</th>
-                          <th className="text-right p-2 font-medium">Debit Balance</th>
-                          <th className="text-right p-2 font-medium">Credit Balance</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {trialBalanceAccounts.map((a) => (
-                          <tr key={a.id} className="border-b hover:bg-muted/30">
-                            <td className="p-2"><span className="font-mono text-xs font-semibold">{a.code}</span></td>
-                            <td className="p-2 font-medium">{a.name}</td>
-                            <td className="p-2">{typeBadge(a.type)}</td>
-                            <td className="p-2 text-right font-medium">{a.debitBalance > 0 ? `EGP ${(a.debitBalance ?? 0).toLocaleString()}` : ""}</td>
-                            <td className="p-2 text-right font-medium">{a.creditBalance > 0 ? `EGP ${(a.creditBalance ?? 0).toLocaleString()}` : ""}</td>
-                          </tr>
-                        ))}
-                        <tr className="border-t-2 bg-muted/50 font-bold">
-                          <td className="p-2" colSpan={3}>Total</td>
-                          <td className="p-2 text-right">EGP {(totalDebits ?? 0).toLocaleString()}</td>
-                          <td className="p-2 text-right">EGP {(totalCredits ?? 0).toLocaleString()}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </CardContent>
-                </Card>
-                <div className="grid grid-cols-2 gap-4">
-                  <Card>
-                    <CardContent className="p-3 text-center">
-                      <div className="text-xs text-muted-foreground">Total Debits</div>
-                      <div className="text-xl font-bold">EGP {(totalDebits ?? 0).toLocaleString()}</div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-3 text-center">
-                      <div className="text-xs text-muted-foreground">Total Credits</div>
-                      <div className="text-xl font-bold">EGP {(totalCredits ?? 0).toLocaleString()}</div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            );
-          })()}
-        </TabsContent>
+        {/* GL TabsContent removed — moved to Finance page */}
 
         {/* ═══ Journal Entries ═══ */}
         <TabsContent value="je" className="space-y-3">
@@ -1846,38 +1513,28 @@ export default function AccountingPage() {
           })()}
         </TabsContent>
 
-        {/* ── Sales Orders with Approval Workflow ── */}
+        {/* ═══ Approval Center ═══ */}
         <TabsContent value="sales-orders" className="space-y-4">
+          {/* Summary stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card className="border-blue-200 bg-blue-50/50">
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-2">
-                  <ShoppingBag className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <p className="text-2xl font-bold">{store.salesOrders.length}</p>
-                    <p className="text-xs text-muted-foreground">Total SOs</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
             <Card className="border-amber-200 bg-amber-50/50">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5 text-amber-600" />
                   <div>
-                    <p className="text-2xl font-bold">{pendingSOApprovals.length}</p>
-                    <p className="text-xs text-muted-foreground">Pending Approval</p>
+                    <p className="text-2xl font-bold">{(store.salesOrders || []).filter((s) => s.status === "PENDING_APPROVAL").length}</p>
+                    <p className="text-xs text-muted-foreground">SO Pending Approval</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-green-200 bg-green-50/50">
+            <Card className="border-blue-200 bg-blue-50/50">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <ShoppingBag className="h-5 w-5 text-blue-600" />
                   <div>
-                    <p className="text-2xl font-bold">{store.salesOrders.filter((s) => s.status === "INVOICED").length}</p>
-                    <p className="text-xs text-muted-foreground">Invoiced</p>
+                    <p className="text-2xl font-bold">{(store.purchaseOrders || []).filter((p) => p.status === "PENDING_APPROVAL").length}</p>
+                    <p className="text-xs text-muted-foreground">PO Pending Approval</p>
                   </div>
                 </div>
               </CardContent>
@@ -1887,158 +1544,370 @@ export default function AccountingPage() {
                 <div className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-purple-600" />
                   <div>
-                    <p className="text-2xl font-bold">{egpFmt(store.salesOrders.filter((s) => s.status === "INVOICED").reduce((sum, s) => sum + s.total, 0))}</p>
-                    <p className="text-xs text-muted-foreground">Revenue</p>
+                    <p className="text-2xl font-bold">{(store.invoices || []).filter((i) => i.status === "DRAFT").length}</p>
+                    <p className="text-xs text-muted-foreground">Draft Invoices</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-green-200 bg-green-50/50">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-green-600" />
+                  <div>
+                    <p className="text-2xl font-bold">{(store.journalEntries || []).filter((j) => j.status === "DRAFT").length}</p>
+                    <p className="text-xs text-muted-foreground">Draft JEs</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Pending Approvals Section */}
-          {pendingSOApprovals.length > 0 && (
-            <Card className="border-amber-300">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Pending SO Approvals</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {pendingSOApprovals.map((apr) => {
-                    const so = store.salesOrders.find((s) => s.id === apr.entityId);
-                    const customer = so ? store.customers.find((c) => c.id === so.customerId) : null;
-                    return (
-                      <div key={apr.id} className="flex items-center justify-between border rounded-lg p-3 bg-white">
-                        <div className="space-y-1">
-                          <p className="font-medium text-sm">{apr.title}</p>
-                          <p className="text-xs text-muted-foreground">{apr.description}</p>
-                          <div className="flex items-center gap-2 text-xs">
-                            <Badge variant="outline">{apr.priority}</Badge>
-                            {apr.amount && <span className="font-semibold">{egpFmt(apr.amount)}</span>}
-                            {customer && <span className="text-muted-foreground">Customer: {customer.name}</span>}
+          {/* Sub-tab toggle */}
+          <div className="flex gap-1 border-b border-border pb-2 flex-wrap">
+            {([
+              ["so-approvals", "SO Approvals", ShoppingBag],
+              ["po-approvals", "PO Approvals", Building2],
+              ["draft-invoices", "Draft Invoices", FileText],
+              ["draft-je", "Draft JE", BookOpen],
+            ] as const).map(([key, label, Icon]) => (
+              <button key={key} onClick={() => setApprovalSubTab(key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${approvalSubTab === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+                <Icon className="h-3.5 w-3.5" />{label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── A) SO Approval Queue ── */}
+          {approvalSubTab === "so-approvals" && (
+            <div className="space-y-4">
+              {(() => {
+                const pendingSOs = (store.salesOrders || []).filter((s) => s.status === "PENDING_APPROVAL");
+                const canApprove = ["ADMIN", "ACCOUNTANT"].includes(user.role);
+                if (pendingSOs.length === 0) {
+                  return (
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <CheckCircle className="h-10 w-10 mx-auto text-green-400 mb-3" />
+                        <p className="text-muted-foreground">No sales orders pending approval.</p>
+                      </CardContent>
+                    </Card>
+                  );
+                }
+                return pendingSOs.map((so) => {
+                  const customer = store.customers.find((c) => c.id === so.customerId);
+                  const linkedInvoice = so.invoiceId ? store.invoices.find((inv) => inv.id === so.invoiceId) : null;
+                  return (
+                    <Card key={so.id} className="border-amber-200">
+                      <CardContent className="pt-4 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1">
+                            <p className="font-semibold text-sm flex items-center gap-2">
+                              <span className="font-mono">{so.number}</span>
+                              <span className="text-muted-foreground font-normal">— {customer?.name ?? "Unknown"}</span>
+                              {so.escalatedToFinance && <Badge variant="destructive" className="text-[10px]">Escalated to Finance</Badge>}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Date: {so.date?.slice(0, 10)} | Items: {(so.items || []).map((i) => `${i.description} x${i.quantity}`).join(", ")}</p>
                           </div>
-                          {so && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Stock check: {(so.items || []).map((item) => {
-                                const prod = store.products.find((p) => p.id === item.productId);
-                                if (!prod) return `${item.description}: N/A`;
-                                const ok = prod.stockQty >= item.quantity;
-                                return `${prod.name}: ${ok ? "OK" : "INSUFFICIENT"} (need ${item.quantity}, have ${prod.stockQty})`;
-                              }).join(" | ")}
-                            </div>
-                          )}
+                          <div className="text-right text-sm">
+                            <div className="text-xs text-muted-foreground">Subtotal: {egpFmt(so.subtotal ?? 0)}</div>
+                            {(so.discountAmount ?? 0) > 0 && <div className="text-xs text-muted-foreground">Discount ({(so.discountPct ?? 0)}%): -{egpFmt(so.discountAmount ?? 0)}</div>}
+                            <div className="text-xs text-muted-foreground">Tax: {egpFmt(so.tax ?? 0)}</div>
+                            <div className="font-bold">{egpFmt(so.total ?? 0)}</div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {canApproveOrRejectSO ? (
+                        {linkedInvoice && (
+                          <div className="text-xs bg-muted/30 rounded p-2 flex items-center gap-2">
+                            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>Linked Draft Invoice: <span className="font-mono font-semibold">{linkedInvoice.number}</span> — {egpFmt(linkedInvoice.total ?? 0)} ({linkedInvoice.status})</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 justify-end">
+                          {canApprove ? (
                             <>
-                              <Button size="sm" variant="outline" className="h-8 text-red-600 border-red-200 hover:bg-red-50" onClick={() => rejectSOApproval(apr.id, apr.entityId)}>
+                              <Button size="sm" variant="outline" className="h-8 text-red-600 border-red-200 hover:bg-red-50" onClick={() => {
+                                store.update("salesOrders", so.id, { status: "DRAFT" });
+                                if (linkedInvoice) store.update("invoices", linkedInvoice.id, { status: "VOID" as Invoice["status"] });
+                                addNotification({ type: "WARNING", title: `SO ${so.number} rejected`, message: `Sales order ${so.number} was rejected and returned to DRAFT.`, module: "ACCOUNTING", entityType: "salesOrder", entityId: so.id, actionUrl: "/erp/accounting" });
+                              }}>
                                 <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
                               </Button>
-                              <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={() => approveSOFromApproval(apr.id, apr.entityId)}>
+                              <Button size="sm" variant="outline" className="h-8 text-amber-600 border-amber-200 hover:bg-amber-50" onClick={() => {
+                                store.update("salesOrders", so.id, { escalatedToFinance: true });
+                                addNotification({ type: "WARNING", title: `SO ${so.number} escalated`, message: `SO escalated to Finance for review`, module: "ACCOUNTING", entityType: "salesOrder", entityId: so.id, actionUrl: "/erp/accounting" });
+                              }}>
+                                <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Escalate to Finance
+                              </Button>
+                              <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={() => {
+                                store.update("salesOrders", so.id, { status: "CONFIRMED" });
+                                if (linkedInvoice) store.update("invoices", linkedInvoice.id, { status: "APPROVED" as Invoice["status"] });
+                                store.update("salesOrders", so.id, { status: "PREPARING" });
+                                addNotification({ type: "SUCCESS", title: `SO ${so.number} approved`, message: `Sales order ${so.number} approved. Invoice ${linkedInvoice?.number ?? ""} approved. Sent to warehouse for preparation.`, module: "ACCOUNTING", entityType: "salesOrder", entityId: so.id, actionUrl: "/erp/accounting" });
+                              }}>
                                 <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
                               </Button>
                             </>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500">
-                              <Lock className="h-3 w-3" /> Approval requires Accounting or Procurement role
+                              <Lock className="h-3 w-3" /> Read-only — approval requires ADMIN or ACCOUNTANT role
                             </span>
                           )}
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+                      </CardContent>
+                    </Card>
+                  );
+                });
+              })()}
+            </div>
           )}
 
-          {/* All Sales Orders */}
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">All Sales Orders</CardTitle></CardHeader>
-            <CardContent>
-              <DataTable
-                columns={[
-                  { key: "number", label: "SO #", render: (v: unknown) => <span className="font-mono text-xs font-semibold">{v as string}</span> },
-                  { key: "customerId", label: "Customer", render: (v: unknown) => { const c = store.customers.find((x) => x.id === (v as string)); return c ? c.name : (v as string); } },
-                  { key: "total", label: "Total", className: "text-right", render: (v: unknown) => <span className="font-semibold">{egpFmt(v as number)}</span> },
-                  { key: "date", label: "Date", render: (v: unknown) => (v as string)?.slice(0, 10) },
-                  { key: "status", label: "Status", render: (v: unknown) => {
-                    const s = v as string;
-                    const colors: Record<string, string> = { DRAFT: "bg-gray-100 text-gray-800", CONFIRMED: "bg-blue-100 text-blue-800", PROCESSING: "bg-indigo-100 text-indigo-800", SHIPPED: "bg-cyan-100 text-cyan-800", DELIVERED: "bg-amber-100 text-amber-800", INVOICED: "bg-green-100 text-green-800", CANCELLED: "bg-red-100 text-red-800" };
-                    return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[s] ?? "bg-muted"}`}>{s}</span>;
-                  }},
-                  { key: "id", label: "Actions", className: "text-right", render: (_v: unknown, row: Record<string, unknown>) => {
-                    const so = row as unknown as SalesOrder;
-                    return (
-                      <div className="flex items-center justify-end gap-1">
-                        {so.status === "DRAFT" && (
-                          <Button size="sm" className="h-7 text-xs" onClick={() => submitSOForApproval(so)}>
-                            Submit for Approval
-                          </Button>
+          {/* ── B) PO Approval Queue ── */}
+          {approvalSubTab === "po-approvals" && (
+            <div className="space-y-4">
+              {(() => {
+                const pendingPOs = (store.purchaseOrders || []).filter((p) => p.status === "PENDING_APPROVAL");
+                const canApprove = ["ADMIN", "ACCOUNTANT"].includes(user.role);
+                if (pendingPOs.length === 0) {
+                  return (
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <CheckCircle className="h-10 w-10 mx-auto text-green-400 mb-3" />
+                        <p className="text-muted-foreground">No purchase orders pending approval.</p>
+                      </CardContent>
+                    </Card>
+                  );
+                }
+                return pendingPOs.map((po) => {
+                  const vendor = store.vendors.find((v) => v.id === po.vendorId);
+                  const linkedInvoice = po.invoiceId ? store.invoices.find((inv) => inv.id === po.invoiceId) : null;
+                  return (
+                    <Card key={po.id} className="border-blue-200">
+                      <CardContent className="pt-4 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1">
+                            <p className="font-semibold text-sm flex items-center gap-2">
+                              <span className="font-mono">{po.number}</span>
+                              <span className="text-muted-foreground font-normal">— {vendor?.name ?? "Unknown"}</span>
+                              {po.escalatedToFinance && <Badge variant="destructive" className="text-[10px]">Escalated to Finance</Badge>}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Date: {po.date?.slice(0, 10)} | Items: {(po.items || []).map((i) => `${i.description} x${i.quantity}`).join(", ")}</p>
+                          </div>
+                          <div className="text-right text-sm">
+                            <div className="text-xs text-muted-foreground">Subtotal: {egpFmt(po.subtotal ?? 0)}</div>
+                            {((po.discountAmount ?? 0) > 0) && <div className="text-xs text-muted-foreground">Discount ({(po.discountPct ?? 0)}%): -{egpFmt(po.discountAmount ?? 0)}</div>}
+                            <div className="text-xs text-muted-foreground">Tax: {egpFmt(po.tax ?? 0)}</div>
+                            <div className="font-bold">{egpFmt(po.total ?? 0)}</div>
+                          </div>
+                        </div>
+                        {linkedInvoice && (
+                          <div className="text-xs bg-muted/30 rounded p-2 flex items-center gap-2">
+                            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>Linked Draft Invoice/Bill: <span className="font-mono font-semibold">{linkedInvoice.number}</span> — {egpFmt(linkedInvoice.total ?? 0)} ({linkedInvoice.status})</span>
+                          </div>
                         )}
-                        {so.invoiceId && (
-                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => {
-                            const inv = store.invoices.find((i) => i.id === so.invoiceId);
-                            const cust = store.customers.find((c) => c.id === so.customerId);
-                            if (inv) openInvoicePDF(inv, cust, "customer");
-                          }}>
-                            <FileText className="h-3.5 w-3.5 mr-1" /> PDF
-                          </Button>
+                        <div className="flex items-center gap-2 justify-end">
+                          {canApprove ? (
+                            <>
+                              <Button size="sm" variant="outline" className="h-8 text-red-600 border-red-200 hover:bg-red-50" onClick={() => {
+                                store.update("purchaseOrders", po.id, { status: "DRAFT" });
+                                addNotification({ type: "WARNING", title: `PO ${po.number} rejected`, message: `Purchase order ${po.number} was rejected and returned to DRAFT.`, module: "ACCOUNTING", entityType: "purchaseOrder", entityId: po.id, actionUrl: "/erp/accounting" });
+                              }}>
+                                <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-8 text-amber-600 border-amber-200 hover:bg-amber-50" onClick={() => {
+                                store.update("purchaseOrders", po.id, { escalatedToFinance: true });
+                                addNotification({ type: "WARNING", title: `PO ${po.number} escalated`, message: `PO escalated to Finance for review`, module: "ACCOUNTING", entityType: "purchaseOrder", entityId: po.id, actionUrl: "/erp/accounting" });
+                              }}>
+                                <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Escalate to Finance
+                              </Button>
+                              <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={() => {
+                                store.update("purchaseOrders", po.id, { status: "APPROVED" });
+                                addNotification({ type: "SUCCESS", title: `PO ${po.number} approved`, message: `Purchase order ${po.number} has been approved.`, module: "ACCOUNTING", entityType: "purchaseOrder", entityId: po.id, actionUrl: "/erp/accounting" });
+                              }}>
+                                <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+                              </Button>
+                            </>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500">
+                              <Lock className="h-3 w-3" /> Read-only — approval requires ADMIN or ACCOUNTANT role
+                            </span>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                });
+              })()}
+            </div>
+          )}
+
+          {/* ── C) Draft Invoice Management ── */}
+          {approvalSubTab === "draft-invoices" && (
+            <div className="space-y-4">
+              {(() => {
+                const soIds = new Set((store.salesOrders || []).map((s) => s.invoiceId).filter(Boolean));
+                const poIds = new Set((store.purchaseOrders || []).map((p) => p.invoiceId).filter(Boolean));
+                const draftInvoices = (store.invoices || []).filter((inv) => inv.status === "DRAFT" && (soIds.has(inv.id) || poIds.has(inv.id)));
+                const canApprove = ["ADMIN", "ACCOUNTANT"].includes(user.role);
+                if (draftInvoices.length === 0) {
+                  return (
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <CheckCircle className="h-10 w-10 mx-auto text-green-400 mb-3" />
+                        <p className="text-muted-foreground">No draft invoices linked to SOs/POs.</p>
+                      </CardContent>
+                    </Card>
+                  );
+                }
+                return draftInvoices.map((inv) => {
+                  const customer = store.customers.find((c) => c.id === inv.customerId);
+                  const linkedSO = (store.salesOrders || []).find((s) => s.invoiceId === inv.id);
+                  const linkedPO = (store.purchaseOrders || []).find((p) => p.invoiceId === inv.id);
+                  return (
+                    <Card key={inv.id} className="border-purple-200">
+                      <CardContent className="pt-4 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1">
+                            <p className="font-semibold text-sm flex items-center gap-2">
+                              <span className="font-mono">{inv.number}</span>
+                              <Badge variant="outline" className="text-[10px]">DRAFT</Badge>
+                              {linkedSO && <span className="text-xs text-muted-foreground">from SO {linkedSO.number}</span>}
+                              {linkedPO && <span className="text-xs text-muted-foreground">from PO {linkedPO.number}</span>}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {customer ? `Customer: ${customer.name}` : ""} | Date: {inv.date?.slice(0, 10)} | Due: {inv.dueDate?.slice(0, 10)}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-muted-foreground">Subtotal: {egpFmt(inv.subtotal ?? 0)}</div>
+                            <div className="text-xs text-muted-foreground">Tax: {egpFmt(inv.tax ?? 0)}</div>
+                            <div className="font-bold text-sm">{egpFmt(inv.total ?? 0)}</div>
+                          </div>
+                        </div>
+                        {(inv.items || []).length > 0 && (
+                          <div className="border rounded text-xs overflow-hidden">
+                            <table className="w-full">
+                              <thead><tr className="bg-muted/50"><th className="p-2 text-left">Item</th><th className="p-2 text-right">Qty</th><th className="p-2 text-right">Unit Price</th><th className="p-2 text-right">Total</th></tr></thead>
+                              <tbody>
+                                {(inv.items || []).map((item, idx) => (
+                                  <tr key={idx} className="border-t">
+                                    <td className="p-2">{item.description}</td>
+                                    <td className="p-2 text-right">{(item.quantity ?? 0).toLocaleString()}</td>
+                                    <td className="p-2 text-right">{(item.unitPrice ?? 0).toLocaleString()}</td>
+                                    <td className="p-2 text-right font-medium">{(item.total ?? 0).toLocaleString()}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 justify-end">
+                          {canApprove ? (
+                            <>
+                              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setEditingInvoice(inv); setInvFormOpen(true); }}>
+                                <Settings className="h-3.5 w-3.5 mr-1" /> Edit
+                              </Button>
+                              <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700 text-xs" onClick={() => {
+                                store.update("invoices", inv.id, { status: "APPROVED" as Invoice["status"] });
+                                addNotification({ type: "SUCCESS", title: `Invoice ${inv.number} approved`, message: `Draft invoice ${inv.number} has been approved.`, module: "ACCOUNTING", entityType: "invoice", entityId: inv.id, actionUrl: "/erp/accounting" });
+                              }}>
+                                <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve Invoice
+                              </Button>
+                            </>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500">
+                              <Lock className="h-3 w-3" /> Read-only
+                            </span>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                });
+              })()}
+            </div>
+          )}
+
+          {/* ── D) Draft JE Approval ── */}
+          {approvalSubTab === "draft-je" && (
+            <div className="space-y-4">
+              {(() => {
+                const draftJEs = (store.journalEntries || []).filter((j) => j.status === "DRAFT");
+                const canApprove = ["ADMIN", "ACCOUNTANT"].includes(user.role);
+                if (draftJEs.length === 0) {
+                  return (
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <CheckCircle className="h-10 w-10 mx-auto text-green-400 mb-3" />
+                        <p className="text-muted-foreground">No draft journal entries.</p>
+                      </CardContent>
+                    </Card>
+                  );
+                }
+                return draftJEs.map((je) => (
+                  <Card key={je.id} className="border-green-200">
+                    <CardContent className="pt-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <p className="font-semibold text-sm flex items-center gap-2">
+                            <span className="font-mono">{je.number}</span>
+                            <Badge variant="warning" className="text-[10px]">DRAFT</Badge>
+                            {jeBadge(je.type)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Date: {je.date?.slice(0, 10)} | {je.description}</p>
+                          {je.reference && <p className="text-xs text-muted-foreground">Ref: <span className="font-mono">{je.reference}</span></p>}
+                        </div>
+                        <div className="text-right text-sm">
+                          <div className="text-xs text-muted-foreground">Total Debit: {((je.lines || []).reduce((s, l) => s + (l.debit ?? 0), 0)).toLocaleString()}</div>
+                          <div className="text-xs text-muted-foreground">Total Credit: {((je.lines || []).reduce((s, l) => s + (l.credit ?? 0), 0)).toLocaleString()}</div>
+                        </div>
+                      </div>
+                      {(je.lines || []).length > 0 && (
+                        <div className="border rounded text-xs overflow-hidden">
+                          <table className="w-full">
+                            <thead><tr className="bg-muted/50"><th className="p-2 text-left">Account</th><th className="p-2 text-left">Description</th><th className="p-2 text-right">Debit</th><th className="p-2 text-right">Credit</th></tr></thead>
+                            <tbody>
+                              {(je.lines || []).map((line, idx) => (
+                                <tr key={idx} className="border-t">
+                                  <td className="p-2 font-mono">{glName(line.accountId)}</td>
+                                  <td className="p-2">{line.description ?? "—"}</td>
+                                  <td className="p-2 text-right font-medium">{(line.debit ?? 0) > 0 ? (line.debit ?? 0).toLocaleString() : "—"}</td>
+                                  <td className="p-2 text-right font-medium">{(line.credit ?? 0) > 0 ? (line.credit ?? 0).toLocaleString() : "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 justify-end">
+                        {canApprove ? (
+                          <>
+                            <Button size="sm" variant="outline" className="h-8 text-red-600 border-red-200 hover:bg-red-50" onClick={() => {
+                              store.update("journalEntries", je.id, { status: "VOID" as JournalEntry["status"] });
+                              logAction({ userId: user.id ?? "u-admin", userName: user.name ?? "Admin", userRole: user.role, action: "UPDATE", module: "ERP", entity: "JournalEntry", entityId: je.id, entityName: `JE ${je.number}`, details: `Journal entry voided from Approval Center: ${je.number}`, oldValues: { status: "DRAFT" }, newValues: { status: "VOID" } });
+                              addNotification({ type: "WARNING", title: `JE ${je.number} voided`, message: `Journal entry ${je.number} has been voided.`, module: "ACCOUNTING", entityType: "journalEntry", entityId: je.id, actionUrl: "/erp/accounting" });
+                            }}>
+                              <XCircle className="h-3.5 w-3.5 mr-1" /> Void
+                            </Button>
+                            <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={() => {
+                              store.update("journalEntries", je.id, { status: "POSTED" as JournalEntry["status"] });
+                              logAction({ userId: user.id ?? "u-admin", userName: user.name ?? "Admin", userRole: user.role, action: "UPDATE", module: "ERP", entity: "JournalEntry", entityId: je.id, entityName: `JE ${je.number}`, details: `Journal entry posted from Approval Center: ${je.number}`, oldValues: { status: "DRAFT" }, newValues: { status: "POSTED" } });
+                              addNotification({ type: "SUCCESS", title: `JE ${je.number} posted`, message: `Journal entry ${je.number} has been posted.`, module: "ACCOUNTING", entityType: "journalEntry", entityId: je.id, actionUrl: "/erp/accounting" });
+                            }}>
+                              <CheckCircle className="h-3.5 w-3.5 mr-1" /> Post
+                            </Button>
+                          </>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500">
+                            <Lock className="h-3 w-3" /> Read-only
+                          </span>
                         )}
                       </div>
-                    );
-                  }},
-                ] as Column<Record<string, unknown>>[]}
-                data={store.salesOrders as unknown as Record<string, unknown>[]}
-                emptyMessage="No sales orders."
-              />
-            </CardContent>
-          </Card>
-
-          {/* Approval Flow */}
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Sales Order Approval Workflow</CardTitle></CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2 text-xs flex-wrap">
-                <Badge variant="outline">1. DRAFT</Badge>
-                <span className="text-muted-foreground">→</span>
-                <Badge variant="outline" className="bg-blue-50">2. CONFIRMED (Submit for Approval)</Badge>
-                <span className="text-muted-foreground">→</span>
-                <Badge variant="outline" className="bg-amber-50">3. Accounting Reviews + Stock Check</Badge>
-                <span className="text-muted-foreground">→</span>
-                <Badge variant="outline" className="bg-indigo-50">4. Approve → PROCESSING (soApprovalId assigned)</Badge>
-                <span className="text-muted-foreground">→</span>
-                <Badge variant="outline" className="bg-cyan-50">5. SHIPPED → DELIVERED → INVOICED (via SO page)</Badge>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-2">Rejected SOs return to DRAFT. Approved SOs move to PROCESSING for stock deduction and fulfillment.</p>
-            </CardContent>
-          </Card>
-
-          {/* Approval History */}
-          {soApprovals.filter((a) => a.status !== "PENDING").length > 0 && (
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Approval History</CardTitle></CardHeader>
-              <CardContent>
-                <div className="border rounded text-xs">
-                  <table className="w-full">
-                    <thead><tr className="bg-muted/50"><th className="p-2 text-left">SO</th><th className="p-2 text-left">Description</th><th className="p-2 text-right">Amount</th><th className="p-2">Status</th><th className="p-2">Resolved</th><th className="p-2">Comments</th></tr></thead>
-                    <tbody>
-                      {soApprovals.filter((a) => a.status !== "PENDING").map((a) => (
-                        <tr key={a.id} className="border-t">
-                          <td className="p-2 font-mono">{a.title}</td>
-                          <td className="p-2">{a.description?.slice(0, 60)}</td>
-                          <td className="p-2 text-right font-semibold">{a.amount ? egpFmt(a.amount) : "—"}</td>
-                          <td className="p-2">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${a.status === "APPROVED" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{a.status}</span>
-                          </td>
-                          <td className="p-2">{a.resolvedAt ? new Date(a.resolvedAt).toLocaleDateString() : "—"}</td>
-                          <td className="p-2 text-muted-foreground">{a.comments ?? "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+                    </CardContent>
+                  </Card>
+                ));
+              })()}
+            </div>
           )}
         </TabsContent>
 

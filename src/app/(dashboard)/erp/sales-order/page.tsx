@@ -23,6 +23,7 @@ import { useApiDataStore } from "@/lib/api/use-api-store";
 import { type SalesOrder, type DeliveryNote } from "@/lib/data-store";
 import { CustomerLink } from "@/components/shared/entity-detail-dialog";
 import { useTranslation } from "@/lib/i18n/i18n-context";
+import { useNotificationCenter } from "@/lib/notification-context";
 
 interface SOLine {
   productId: string;
@@ -197,10 +198,13 @@ export default function SalesOrderPage() {
   const [soSearch, setSOSearch] = useState("");
   const [soFilters, setSOFilters] = useState<FilterState>({});
 
+  const { addNotification } = useNotificationCenter();
+
   // Multi-line-item SO form state
   const [soCustomerId, setSOCustomerId] = useState("");
   const [soExpectedDate, setSOExpectedDate] = useState("");
   const [soLines, setSOLines] = useState<SOLine[]>([{ productId: "", quantity: 1 }]);
+  const [soDiscountPct, setSODiscountPct] = useState(0);
 
   // ── Quotation state ──
   const [quotations, setQuotations] = useState<Quotation[]>(SEED_QUOTATIONS);
@@ -228,8 +232,10 @@ export default function SalesOrderPage() {
 
   // Stats
   const totalSOs = store.salesOrders.length;
+  const pendingApprovalSOs = store.salesOrders.filter((s) => s.status === "PENDING_APPROVAL").length;
   const confirmedSOs = store.salesOrders.filter((s) => s.status === "CONFIRMED").length;
   const processingSOs = store.salesOrders.filter((s) => s.status === "PROCESSING").length;
+  const preparingSOs = store.salesOrders.filter((s) => s.status === "PREPARING").length;
   const shippedSOs = store.salesOrders.filter((s) => s.status === "SHIPPED").length;
   const deliveredSOs = store.salesOrders.filter((s) => s.status === "DELIVERED").length;
   const totalRevenue = store.salesOrders.filter((s) => s.status === "INVOICED").reduce((sum, s) => sum + s.total, 0);
@@ -365,6 +371,8 @@ export default function SalesOrderPage() {
       expectedDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
       items: soItems,
       subtotal: q.subtotal,
+      discountPct: 0,
+      discountAmount: 0,
       tax: q.tax,
       total: q.total,
       status: "DRAFT" as const,
@@ -391,11 +399,13 @@ export default function SalesOrderPage() {
       setSOCustomerId(so.customerId);
       setSOExpectedDate(so.expectedDate?.slice(0, 10) ?? "");
       setSOLines((so.items || []).map((it) => ({ productId: it.productId, quantity: it.quantity })));
+      setSODiscountPct(so.discountPct ?? 0);
     } else {
       setEditingSO(null);
       setSOCustomerId("");
       setSOExpectedDate("");
       setSOLines([{ productId: "", quantity: 1 }]);
+      setSODiscountPct(0);
     }
     setShowSOModal(true);
   }
@@ -409,8 +419,10 @@ export default function SalesOrderPage() {
   }
 
   const soSubtotal = soLines.reduce((sum, l) => sum + l.quantity * getLinePrice(l.productId), 0);
-  const soTax = soSubtotal * 0.14;
-  const soTotal = soSubtotal + soTax;
+  const soDiscountAmount = soSubtotal * (soDiscountPct / 100);
+  const soDiscountedSubtotal = soSubtotal - soDiscountAmount;
+  const soTax = soDiscountedSubtotal * 0.14;
+  const soTotal = soDiscountedSubtotal + soTax;
 
   function handleSOSubmit() {
     if (!soCustomerId || !soExpectedDate || soLines.length === 0) return;
@@ -427,14 +439,17 @@ export default function SalesOrderPage() {
       };
     });
     const subtotal = items.reduce((sum, i) => sum + i.total, 0);
-    const tax = subtotal * 0.14;
-    const total = subtotal + tax;
+    const discountPct = soDiscountPct;
+    const discountAmount = subtotal * (discountPct / 100);
+    const discountedSubtotal = subtotal - discountAmount;
+    const tax = discountedSubtotal * 0.14;
+    const total = discountedSubtotal + tax;
 
     if (editingSO) {
       store.update("salesOrders", editingSO.id, {
         customerId: soCustomerId,
         items,
-        subtotal, tax, total,
+        subtotal, discountPct, discountAmount, tax, total,
         expectedDate: soExpectedDate,
       });
     } else {
@@ -445,7 +460,7 @@ export default function SalesOrderPage() {
         date: new Date().toISOString(),
         expectedDate: soExpectedDate,
         items,
-        subtotal, tax, total,
+        subtotal, discountPct, discountAmount, tax, total,
         status: "DRAFT",
         createdAt: new Date().toISOString(),
       });
@@ -454,38 +469,37 @@ export default function SalesOrderPage() {
     setEditingSO(null);
   }
 
-  // ─── Submit SO for approval (status → CONFIRMED, sent to Finance) ────
+  // ─── Submit SO for approval (DRAFT → PENDING_APPROVAL, auto-create draft invoice) ────
   function submitSOForApproval(so: SalesOrder) {
-    store.update("salesOrders", so.id, { status: "CONFIRMED" });
+    // Auto-create a DRAFT invoice with all SO line items
+    const invId = store.genId("inv");
+    store.add("invoices", {
+      id: invId,
+      number: store.generateInvoiceNumber(),
+      customerId: so.customerId,
+      date: new Date().toISOString().split("T")[0],
+      dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+      subtotal: so.subtotal, tax: so.tax, total: so.total,
+      currency: "EGP", status: "DRAFT",
+      items: (so.items || []).map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })),
+      notes: `Auto-generated DRAFT invoice from SO ${so.number}`,
+    });
+
+    store.update("salesOrders", so.id, { status: "PENDING_APPROVAL", invoiceId: invId });
+
+    addNotification({
+      type: "APPROVAL",
+      title: `SO ${so.number} submitted to Accounting for approval`,
+      message: `Sales Order ${so.number} for ${customerName(so.customerId)} (${egp(so.total)}) has been submitted to Accounting for approval. A draft invoice has been created.`,
+      module: "FINANCE",
+      entityType: "SalesOrder",
+      entityId: so.id,
+    });
   }
 
-  // ─── Process Order (CONFIRMED → PROCESSING) — stock availability check ───
-  function processOrder(so: SalesOrder) {
-    const stockIssues: string[] = [];
-    for (const item of so.items) {
-      const product = store.products.find((p) => p.id === item.productId);
-      if (product && product.stockQty < item.quantity) {
-        stockIssues.push(`${product.name}: need ${item.quantity}, have ${product.stockQty}`);
-      }
-    }
-    if (stockIssues.length > 0) {
-      alert(`Cannot process — insufficient stock:\n${stockIssues.join("\n")}`);
-      return;
-    }
-
-    // Deduct inventory at PROCESSING stage
-    for (const item of so.items) {
-      const product = store.products.find((p) => p.id === item.productId);
-      if (product) {
-        store.update("products", product.id, { stockQty: product.stockQty - item.quantity });
-      }
-    }
-
-    store.update("salesOrders", so.id, { status: "PROCESSING" });
-  }
-
-  // ─── Mark Shipped (PROCESSING → SHIPPED) — auto-create DeliveryNote ───
+  // ─── Mark Shipped (PREPARING → SHIPPED) — auto-create DeliveryNote ───
   function markShipped(so: SalesOrder) {
+    if (so.status !== "PREPARING") return;
     const dnId = store.genId("dn");
     store.add("deliveryNotes", {
       id: dnId,
@@ -500,9 +514,9 @@ export default function SalesOrderPage() {
     store.update("salesOrders", so.id, { status: "SHIPPED", dnId });
   }
 
-  // ─── Cancel Order (DRAFT or CONFIRMED → CANCELLED) ───
+  // ─── Cancel Order (DRAFT or PENDING_APPROVAL → CANCELLED) ───
   function cancelOrder(so: SalesOrder) {
-    if (so.status !== "DRAFT" && so.status !== "CONFIRMED") return;
+    if (so.status !== "DRAFT" && so.status !== "PENDING_APPROVAL") return;
     store.update("salesOrders", so.id, { status: "CANCELLED" });
   }
 
@@ -517,42 +531,45 @@ export default function SalesOrderPage() {
     };
   }
 
-  // ─── Integration: Confirm Delivery → auto-create Invoice + JE ───────
-  // Stock is already deducted at PROCESSING stage, so no stock check here.
+  // ─── Integration: Confirm Delivery → DELIVERED, auto-create DRAFT JE ───────
   function confirmDelivery(dn: DeliveryNote) {
     store.update("deliveryNotes", dn.id, { status: "DELIVERED" });
 
     const so = store.salesOrders.find((s) => s.id === dn.soId);
     if (!so) return;
 
-    const invId = store.genId("inv");
-    store.add("invoices", {
-      id: invId,
-      number: store.generateInvoiceNumber(),
-      customerId: so.customerId,
-      date: new Date().toISOString().split("T")[0],
-      dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
-      subtotal: so.subtotal, tax: so.tax, total: so.total,
-      currency: "EGP", status: "SENT",
-      items: (so.items || []).map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })),
-      notes: `Auto-generated from SO ${so.number} / DN ${dn.number}`,
-    });
+    // Build JE lines with discount handling
+    const jeLines = [
+      { accountId: "gl-1100", description: "Accounts Receivable", debit: so.total, credit: 0 },
+      { accountId: "gl-4000", description: "Product Sales Revenue", debit: 0, credit: so.subtotal - (so.discountAmount ?? 0) },
+      { accountId: "gl-2100", description: "VAT Payable", debit: 0, credit: so.tax },
+    ];
+    // If there is a discount, add a DR entry for Sales Discount
+    if ((so.discountAmount ?? 0) > 0) {
+      jeLines.push({ accountId: "gl-4900", description: "Sales Discount", debit: so.discountAmount, credit: 0 });
+    }
 
+    const jeId = store.genId("je");
     store.add("journalEntries", {
-      id: store.genId("je"),
+      id: jeId,
       number: store.generateJournalNumber(),
       date: new Date().toISOString().split("T")[0],
       description: `Sales revenue — SO ${so.number}`,
       reference: so.number, type: "GENERAL",
-      lines: [
-        { accountId: "gl-1100", description: "Accounts Receivable", debit: so.total, credit: 0 },
-        { accountId: "gl-4000", description: "Product Sales Revenue", debit: 0, credit: so.subtotal },
-        { accountId: "gl-2100", description: "VAT Payable", debit: 0, credit: so.tax },
-      ],
-      status: "POSTED", createdBy: "u-admin", createdAt: new Date().toISOString(),
+      lines: jeLines,
+      status: "DRAFT", createdBy: "u-admin", createdAt: new Date().toISOString(),
     });
 
-    store.update("salesOrders", so.id, { status: "INVOICED", invoiceId: invId });
+    store.update("salesOrders", so.id, { status: "DELIVERED", jeId });
+
+    addNotification({
+      type: "INFO",
+      title: `Draft JE created for SO ${so.number}, pending approval`,
+      message: `Delivery confirmed for SO ${so.number}. A draft Journal Entry (${store.journalEntries.find(j => j.id === jeId)?.number ?? jeId}) has been created and is pending approval.`,
+      module: "FINANCE",
+      entityType: "JournalEntry",
+      entityId: jeId,
+    });
   }
 
   const egp = (n: number) => `EGP ${(n ?? 0).toLocaleString()}`;
@@ -608,7 +625,7 @@ export default function SalesOrderPage() {
       {topView === "sales" && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatsCard icon={ShoppingBag} title={t("so.totalSOs")} value={String(totalSOs)} subtitle={`${confirmedSOs} confirmed, ${processingSOs} processing`} iconColor="text-blue-600" />
+            <StatsCard icon={ShoppingBag} title={t("so.totalSOs")} value={String(totalSOs)} subtitle={`${pendingApprovalSOs} pending, ${confirmedSOs} confirmed, ${preparingSOs} preparing`} iconColor="text-blue-600" />
             <StatsCard icon={Package} title={t("so.pendingDelivery")} value={String(shippedSOs)} subtitle={`${store.deliveryNotes.filter((d) => d.status === "PENDING").length} DN pending`} iconColor="text-amber-600" />
             <StatsCard icon={Truck} title="Delivered" value={String(deliveredSOs)} subtitle="Completed" iconColor="text-green-600" />
             <StatsCard icon={FileText} title={t("so.invoicedRevenue")} value={egp(totalRevenue)} subtitle="From completed SOs" iconColor="text-purple-600" />
@@ -628,8 +645,9 @@ export default function SalesOrderPage() {
                 onSearchChange={setSOSearch}
                 fields={[
                   { key: "status", label: "Status", type: "select" as const, options: [
-                    { value: "DRAFT", label: "Draft" }, { value: "CONFIRMED", label: "Confirmed" },
-                    { value: "PROCESSING", label: "Processing" }, { value: "SHIPPED", label: "Shipped" },
+                    { value: "DRAFT", label: "Draft" }, { value: "PENDING_APPROVAL", label: "Pending Approval" },
+                    { value: "CONFIRMED", label: "Approved" }, { value: "PROCESSING", label: "Processing" },
+                    { value: "PREPARING", label: "Preparing" }, { value: "SHIPPED", label: "Shipped" },
                     { value: "DELIVERED", label: "Delivered" }, { value: "INVOICED", label: "Invoiced" },
                     { value: "CANCELLED", label: "Cancelled" },
                   ]},
@@ -651,22 +669,40 @@ export default function SalesOrderPage() {
                         const so = row as unknown as SalesOrder;
                         return <span className="text-sm">{(so.items || []).map((i) => `${i.description} ×${i.quantity}`).join(", ")}</span>;
                       }},
+                      { key: "discountPct", label: "Discount", className: "text-right", render: (_v: unknown, row: Record<string, unknown>) => {
+                        const so = row as unknown as SalesOrder;
+                        const pct = so.discountPct ?? 0;
+                        return pct > 0 ? <span className="text-sm font-medium text-orange-600">{pct}%</span> : <span className="text-xs text-muted-foreground">--</span>;
+                      }},
                       { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{egp(v)}</span> },
                       { key: "date", label: "Date", render: (v: string) => v?.slice(0, 10) },
-                      { key: "status", label: "Status", render: (v: string) => <StatusBadge status={v} /> },
-                      { key: "invoiceId", label: "Invoice / JE", render: (_v: unknown, row: Record<string, unknown>) => {
+                      { key: "status", label: "Status", render: (_v: unknown, row: Record<string, unknown>) => {
                         const so = row as unknown as SalesOrder;
-                        if (so.status !== "INVOICED" || !so.invoiceId) return <span className="text-xs text-muted-foreground">--</span>;
-                        const inv = store.invoices.find((i) => i.id === so.invoiceId);
-                        const je = store.journalEntries.find((j) => j.reference === so.number);
                         return (
                           <div className="flex flex-col gap-0.5">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
-                              <FileText className="h-2.5 w-2.5" /> {inv?.number ?? "Invoice"}
-                            </span>
+                            <StatusBadge status={so.status} />
+                            {so.status === "PENDING_APPROVAL" && <Badge variant="outline" className="text-[9px] bg-yellow-50 text-yellow-700 border-yellow-200 mt-0.5">Pending Approval</Badge>}
+                            {so.escalatedToFinance && <Badge variant="outline" className="text-[9px] bg-red-50 text-red-700 border-red-200 mt-0.5">Escalated to Finance</Badge>}
+                            {so.status === "CONFIRMED" && <Badge variant="outline" className="text-[9px] bg-green-50 text-green-700 border-green-200 mt-0.5">Approved</Badge>}
+                            {so.status === "PREPARING" && <Badge variant="outline" className="text-[9px] bg-orange-50 text-orange-700 border-orange-200 mt-0.5">Preparing for Delivery</Badge>}
+                          </div>
+                        );
+                      }},
+                      { key: "invoiceId", label: "Invoice / JE", render: (_v: unknown, row: Record<string, unknown>) => {
+                        const so = row as unknown as SalesOrder;
+                        if (!so.invoiceId && !so.jeId) return <span className="text-xs text-muted-foreground">--</span>;
+                        const inv = so.invoiceId ? store.invoices.find((i) => i.id === so.invoiceId) : null;
+                        const je = so.jeId ? store.journalEntries.find((j) => j.id === so.jeId) : store.journalEntries.find((j) => j.reference === so.number);
+                        return (
+                          <div className="flex flex-col gap-0.5">
+                            {inv && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
+                                <FileText className="h-2.5 w-2.5" /> {inv.number} ({inv.status})
+                              </span>
+                            )}
                             {je && (
                               <span className="inline-flex items-center gap-1 text-[10px] font-medium text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">
-                                <DollarSign className="h-2.5 w-2.5" /> {je.number ?? "JE"}
+                                <DollarSign className="h-2.5 w-2.5" /> {je.number} ({je.status})
                               </span>
                             )}
                           </div>
@@ -681,17 +717,12 @@ export default function SalesOrderPage() {
                                 <ArrowRight className="h-3 w-3 mr-1" /> Submit for Approval
                               </Button>
                             )}
-                            {so.status === "CONFIRMED" && (
-                              <Button size="sm" className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700" onClick={() => processOrder(so)}>
-                                <Package className="h-3 w-3 mr-1" /> Process Order
-                              </Button>
-                            )}
-                            {so.status === "PROCESSING" && (
+                            {so.status === "PREPARING" && (
                               <Button size="sm" className="h-7 text-xs bg-cyan-600 hover:bg-cyan-700" onClick={() => markShipped(so)}>
                                 <Truck className="h-3 w-3 mr-1" /> Mark Shipped
                               </Button>
                             )}
-                            {(so.status === "DRAFT" || so.status === "CONFIRMED") && (
+                            {(so.status === "DRAFT" || so.status === "PENDING_APPROVAL") && (
                               <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => cancelOrder(so)}>
                                 <Ban className="h-3 w-3 mr-1" /> Cancel
                               </Button>
@@ -720,17 +751,21 @@ export default function SalesOrderPage() {
                   <div className="flex items-center gap-2 text-xs flex-wrap">
                     <Badge variant="outline">1. DRAFT</Badge>
                     <ArrowRight className="h-3 w-3" />
-                    <Badge variant="outline" className="bg-blue-50">2. CONFIRMED (Submit for Approval)</Badge>
+                    <Badge variant="outline" className="bg-yellow-50">2. PENDING APPROVAL (Sent to Accounting)</Badge>
                     <ArrowRight className="h-3 w-3" />
-                    <Badge variant="outline" className="bg-indigo-50">3. PROCESSING (Stock Check + Deduction)</Badge>
+                    <Badge variant="outline" className="bg-green-50">3. CONFIRMED (Approved by Accounting)</Badge>
                     <ArrowRight className="h-3 w-3" />
-                    <Badge variant="outline" className="bg-cyan-50">4. SHIPPED (Auto-create DN)</Badge>
+                    <Badge variant="outline" className="bg-indigo-50">4. PROCESSING (Stock Check + Deduction)</Badge>
                     <ArrowRight className="h-3 w-3" />
-                    <Badge variant="outline" className="bg-amber-50">5. DELIVERED (DN Confirmed)</Badge>
+                    <Badge variant="outline" className="bg-orange-50">5. PREPARING (Warehouse Prepares)</Badge>
                     <ArrowRight className="h-3 w-3" />
-                    <Badge variant="outline" className="bg-green-50">6. INVOICED (Auto: Invoice + JE)</Badge>
+                    <Badge variant="outline" className="bg-cyan-50">6. SHIPPED (Auto-create DN)</Badge>
+                    <ArrowRight className="h-3 w-3" />
+                    <Badge variant="outline" className="bg-amber-50">7. DELIVERED (DN Confirmed, Draft JE Created)</Badge>
+                    <ArrowRight className="h-3 w-3" />
+                    <Badge variant="outline" className="bg-purple-50">8. INVOICED (JE Approved)</Badge>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-2">DRAFT and CONFIRMED orders can be cancelled. Stock is reserved at the PROCESSING stage.</p>
+                  <p className="text-[10px] text-muted-foreground mt-2">DRAFT and PENDING APPROVAL orders can be cancelled. A draft invoice is auto-created on submission. Stock is reserved at PROCESSING. A draft JE is created on delivery confirmation.</p>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1231,12 +1266,40 @@ export default function SalesOrderPage() {
               </div>
             </div>
 
+            {/* Discount */}
+            <div>
+              <Label className="mb-1.5 block text-sm">Discount %</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={0.5}
+                className="w-32"
+                value={soDiscountPct}
+                onChange={(e) => setSODiscountPct(Math.min(100, Math.max(0, Number(e.target.value))))}
+                placeholder="0"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Enter discount percentage (0-100). Tax is calculated on the discounted subtotal.</p>
+            </div>
+
             {/* Totals */}
             <div className="border rounded-lg p-3 bg-muted/30 space-y-1 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-medium">EGP {soSubtotal.toLocaleString()}</span>
               </div>
+              {soDiscountPct > 0 && (
+                <>
+                  <div className="flex justify-between text-orange-600">
+                    <span>Discount ({soDiscountPct}%)</span>
+                    <span className="font-medium">- EGP {soDiscountAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Discounted Subtotal</span>
+                    <span className="font-medium">EGP {soDiscountedSubtotal.toLocaleString()}</span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tax (14%)</span>
                 <span className="font-medium">EGP {soTax.toLocaleString()}</span>
@@ -1265,10 +1328,25 @@ export default function SalesOrderPage() {
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div><span className="text-muted-foreground">Customer</span><p className="font-medium">{customerName(detailSO.customerId)}</p></div>
-                <div><span className="text-muted-foreground">Status</span><p><StatusBadge status={detailSO.status} /></p></div>
+                <div>
+                  <span className="text-muted-foreground">Status</span>
+                  <div className="flex flex-col gap-0.5">
+                    <StatusBadge status={detailSO.status} />
+                    {detailSO.status === "PENDING_APPROVAL" && <Badge variant="outline" className="text-[9px] bg-yellow-50 text-yellow-700 border-yellow-200 mt-0.5 w-fit">Pending Approval</Badge>}
+                    {detailSO.escalatedToFinance && <Badge variant="outline" className="text-[9px] bg-red-50 text-red-700 border-red-200 mt-0.5 w-fit">Escalated to Finance</Badge>}
+                    {detailSO.status === "CONFIRMED" && <Badge variant="outline" className="text-[9px] bg-green-50 text-green-700 border-green-200 mt-0.5 w-fit">Approved</Badge>}
+                    {detailSO.status === "PREPARING" && <Badge variant="outline" className="text-[9px] bg-orange-50 text-orange-700 border-orange-200 mt-0.5 w-fit">Preparing for Delivery</Badge>}
+                  </div>
+                </div>
                 <div><span className="text-muted-foreground">Date</span><p>{detailSO.date?.slice(0, 10)}</p></div>
                 <div><span className="text-muted-foreground">Expected</span><p>{detailSO.expectedDate?.slice(0, 10)}</p></div>
                 <div><span className="text-muted-foreground">Subtotal</span><p>{egp(detailSO.subtotal)}</p></div>
+                {(detailSO.discountPct ?? 0) > 0 && (
+                  <>
+                    <div><span className="text-muted-foreground">Discount %</span><p className="text-orange-600 font-medium">{detailSO.discountPct}%</p></div>
+                    <div><span className="text-muted-foreground">Discount Amount</span><p className="text-orange-600 font-medium">- {egp(detailSO.discountAmount)}</p></div>
+                  </>
+                )}
                 <div><span className="text-muted-foreground">Tax (14%)</span><p>{egp(detailSO.tax)}</p></div>
                 <div className="col-span-2"><span className="text-muted-foreground">Total</span><p className="text-lg font-bold">{egp(detailSO.total)}</p></div>
               </div>
@@ -1300,30 +1378,42 @@ export default function SalesOrderPage() {
                 </div>
               </div>
               {detailSO.dnId && <div><span className="text-muted-foreground">Delivery Note</span><p className="font-mono text-xs">{store.deliveryNotes.find((d) => d.id === detailSO.dnId)?.number ?? detailSO.dnId}</p></div>}
-              {detailSO.invoiceId && <div><span className="text-muted-foreground">Invoice</span><p className="font-mono text-xs">{store.invoices.find((inv) => inv.id === detailSO.invoiceId)?.number ?? detailSO.invoiceId}</p></div>}
-              {detailSO.status === "INVOICED" && detailSO.invoiceId && (() => {
-                const inv = store.invoices.find((i) => i.id === detailSO.invoiceId);
-                const je = store.journalEntries.find((j) => j.reference === detailSO.number);
+              {detailSO.invoiceId && <div><span className="text-muted-foreground">Invoice</span><p className="font-mono text-xs">{store.invoices.find((inv) => inv.id === detailSO.invoiceId)?.number ?? detailSO.invoiceId} ({store.invoices.find((inv) => inv.id === detailSO.invoiceId)?.status ?? ""})</p></div>}
+              {(detailSO.invoiceId || detailSO.jeId) && (() => {
+                const inv = detailSO.invoiceId ? store.invoices.find((i) => i.id === detailSO.invoiceId) : null;
+                const je = detailSO.jeId ? store.journalEntries.find((j) => j.id === detailSO.jeId) : store.journalEntries.find((j) => j.reference === detailSO.number);
+                const isComplete = detailSO.status === "INVOICED";
                 return (
-                  <div className="border border-green-200 rounded-lg bg-green-50/50 p-3 space-y-2">
-                    <p className="text-xs font-semibold text-green-800 flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5" /> Financial Integration Complete</p>
+                  <div className={`border ${isComplete ? "border-green-200 bg-green-50/50" : "border-blue-200 bg-blue-50/50"} rounded-lg p-3 space-y-2`}>
+                    <p className={`text-xs font-semibold ${isComplete ? "text-green-800" : "text-blue-800"} flex items-center gap-1`}>
+                      {isComplete ? <CheckCircle className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                      {isComplete ? "Financial Integration Complete" : "Financial Documents"}
+                    </p>
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <FileText className="h-3.5 w-3.5 text-green-600" />
-                        <div>
-                          <span className="text-muted-foreground">Invoice Generated</span>
-                          <p className="font-mono font-semibold">{inv?.number ?? "N/A"}</p>
+                      {inv && (
+                        <div className="flex items-center gap-1.5">
+                          <FileText className="h-3.5 w-3.5 text-green-600" />
+                          <div>
+                            <span className="text-muted-foreground">Invoice</span>
+                            <p className="font-mono font-semibold">{inv.number} <StatusBadge status={inv.status} /></p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <DollarSign className="h-3.5 w-3.5 text-purple-600" />
-                        <div>
-                          <span className="text-muted-foreground">Journal Entry Created</span>
-                          <p className="font-mono font-semibold">{je?.number ?? "N/A"}</p>
+                      )}
+                      {je && (
+                        <div className="flex items-center gap-1.5">
+                          <DollarSign className="h-3.5 w-3.5 text-purple-600" />
+                          <div>
+                            <span className="text-muted-foreground">Journal Entry</span>
+                            <p className="font-mono font-semibold">{je.number} <StatusBadge status={je.status} /></p>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground">Invoice and journal entry were auto-created when delivery was confirmed.</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {isComplete
+                        ? "Invoice and journal entry have been approved."
+                        : "Draft invoice created on submission. Draft JE created on delivery confirmation. Both require approval."}
+                    </p>
                   </div>
                 );
               })()}

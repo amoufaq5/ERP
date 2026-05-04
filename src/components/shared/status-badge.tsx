@@ -40,6 +40,7 @@ const STATUS_MAP: Record<string, string> = {
   planning:        YELLOW,
   scheduled:       YELLOW,
   "pending approval": YELLOW,
+  pending_approval: YELLOW,
   "on hold":       GRAY,
   waiting:         GRAY,
   paused:          GRAY,
@@ -58,6 +59,10 @@ const STATUS_MAP: Record<string, string> = {
   released:        BLUE,
   shipped:         INDIGO,
   "in production": INDIGO,
+  preparing:       ORANGE,
+  confirmed:       GREEN,
+  delivered:       GREEN,
+  invoiced:        PURPLE,
   review:          PURPLE,
 
   // --- RED: cancelled / rejected / void / terminated / disposed / overdue / critical / urgent ---
