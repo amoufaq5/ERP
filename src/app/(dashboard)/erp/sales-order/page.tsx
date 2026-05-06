@@ -28,6 +28,7 @@ import { useNotificationCenter } from "@/lib/notification-context";
 interface SOLine {
   productId: string;
   quantity: number;
+  discountPct: number;
 }
 
 // ── Returns seed data ──────────────────────────────────────────────────────
@@ -203,8 +204,7 @@ export default function SalesOrderPage() {
   // Multi-line-item SO form state
   const [soCustomerId, setSOCustomerId] = useState("");
   const [soExpectedDate, setSOExpectedDate] = useState("");
-  const [soLines, setSOLines] = useState<SOLine[]>([{ productId: "", quantity: 1 }]);
-  const [soDiscountPct, setSODiscountPct] = useState(0);
+  const [soLines, setSOLines] = useState<SOLine[]>([{ productId: "", quantity: 1, discountPct: 0 }]);
 
   // ── Quotation state ──
   const [quotations, setQuotations] = useState<Quotation[]>(SEED_QUOTATIONS);
@@ -217,7 +217,7 @@ export default function SalesOrderPage() {
   const [qtCustomerId, setQtCustomerId] = useState("");
   const [qtValidUntil, setQtValidUntil] = useState("");
   const [qtTerms, setQtTerms] = useState("");
-  const [qtLines, setQtLines] = useState<SOLine[]>([{ productId: "", quantity: 1 }]);
+  const [qtLines, setQtLines] = useState<SOLine[]>([{ productId: "", quantity: 1, discountPct: 0 }]);
 
   // ── Returns state ──
   const [returns, setReturns] = useState(RETURNS);
@@ -283,13 +283,13 @@ export default function SalesOrderPage() {
       setQtCustomerId(q.customerId);
       setQtValidUntil(q.validUntil);
       setQtTerms(q.terms);
-      setQtLines((q.items || []).map((it) => ({ productId: it.productId, quantity: it.quantity })));
+      setQtLines((q.items || []).map((it) => ({ productId: it.productId, quantity: it.quantity, discountPct: 0 })));
     } else {
       setEditingQuote(null);
       setQtCustomerId("");
       setQtValidUntil("");
       setQtTerms("Payment net 30 days. Delivery within 5 business days.");
-      setQtLines([{ productId: "", quantity: 1 }]);
+      setQtLines([{ productId: "", quantity: 1, discountPct: 0 }]);
     }
     setShowQuoteModal(true);
   }
@@ -361,6 +361,7 @@ export default function SalesOrderPage() {
       description: it.description,
       quantity: it.quantity,
       unitPrice: it.unitPrice,
+      discountPct: 0,
       total: it.total,
     }));
     const newSO = {
@@ -398,14 +399,12 @@ export default function SalesOrderPage() {
       setEditingSO(so);
       setSOCustomerId(so.customerId);
       setSOExpectedDate(so.expectedDate?.slice(0, 10) ?? "");
-      setSOLines((so.items || []).map((it) => ({ productId: it.productId, quantity: it.quantity })));
-      setSODiscountPct(so.discountPct ?? 0);
+      setSOLines((so.items || []).map((it) => ({ productId: it.productId, quantity: it.quantity, discountPct: it.discountPct ?? 0 })));
     } else {
       setEditingSO(null);
       setSOCustomerId("");
       setSOExpectedDate("");
-      setSOLines([{ productId: "", quantity: 1 }]);
-      setSODiscountPct(0);
+      setSOLines([{ productId: "", quantity: 1, discountPct: 0 }]);
     }
     setShowSOModal(true);
   }
@@ -418,11 +417,16 @@ export default function SalesOrderPage() {
     return product ? `${product.name} ${product.strength}` : "Custom item";
   }
 
-  const soSubtotal = soLines.reduce((sum, l) => sum + l.quantity * getLinePrice(l.productId), 0);
-  const soDiscountAmount = soSubtotal * (soDiscountPct / 100);
-  const soDiscountedSubtotal = soSubtotal - soDiscountAmount;
-  const soTax = soDiscountedSubtotal * 0.14;
-  const soTotal = soDiscountedSubtotal + soTax;
+  const soSubtotal = soLines.reduce((sum, l) => {
+    const price = getLinePrice(l.productId);
+    return sum + (l.quantity ?? 0) * price * (1 - (l.discountPct ?? 0) / 100);
+  }, 0);
+  const soTotalDiscountAmount = soLines.reduce((sum, l) => {
+    const price = getLinePrice(l.productId);
+    return sum + (l.quantity ?? 0) * price * ((l.discountPct ?? 0) / 100);
+  }, 0);
+  const soTax = soSubtotal * 0.14;
+  const soTotal = soSubtotal + soTax;
 
   function handleSOSubmit() {
     if (!soCustomerId || !soExpectedDate || soLines.length === 0) return;
@@ -430,26 +434,29 @@ export default function SalesOrderPage() {
 
     const items = soLines.map((l) => {
       const price = getLinePrice(l.productId);
+      const disc = l.discountPct ?? 0;
       return {
         productId: l.productId,
         description: getLineDesc(l.productId),
         quantity: l.quantity,
         unitPrice: price,
-        total: l.quantity * price,
+        discountPct: disc,
+        total: (l.quantity ?? 0) * price * (1 - disc / 100),
       };
     });
-    const subtotal = items.reduce((sum, i) => sum + i.total, 0);
-    const discountPct = soDiscountPct;
-    const discountAmount = subtotal * (discountPct / 100);
-    const discountedSubtotal = subtotal - discountAmount;
-    const tax = discountedSubtotal * 0.14;
-    const total = discountedSubtotal + tax;
+    const subtotal = items.reduce((sum, i) => sum + (i.total ?? 0), 0);
+    const discountAmount = items.reduce((sum, i) => sum + (i.quantity ?? 0) * (i.unitPrice ?? 0) * ((i.discountPct ?? 0) / 100), 0);
+    const avgDiscountPct = items.length > 0
+      ? items.reduce((sum, i) => sum + (i.discountPct ?? 0), 0) / items.length
+      : 0;
+    const tax = subtotal * 0.14;
+    const total = subtotal + tax;
 
     if (editingSO) {
       store.update("salesOrders", editingSO.id, {
         customerId: soCustomerId,
         items,
-        subtotal, discountPct, discountAmount, tax, total,
+        subtotal, discountPct: avgDiscountPct, discountAmount, tax, total,
         expectedDate: soExpectedDate,
       });
     } else {
@@ -460,7 +467,7 @@ export default function SalesOrderPage() {
         date: new Date().toISOString(),
         expectedDate: soExpectedDate,
         items,
-        subtotal, discountPct, discountAmount, tax, total,
+        subtotal, discountPct: avgDiscountPct, discountAmount, tax, total,
         status: "DRAFT",
         createdAt: new Date().toISOString(),
       });
@@ -481,7 +488,7 @@ export default function SalesOrderPage() {
       dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
       subtotal: so.subtotal, tax: so.tax, total: so.total,
       currency: "EGP", status: "DRAFT",
-      items: (so.items || []).map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })),
+      items: (so.items || []).map((i) => ({ productId: i.productId, description: i.description + ((i.discountPct ?? 0) > 0 ? ` (${i.discountPct}% off)` : ""), quantity: i.quantity, unitPrice: i.unitPrice, total: i.total })),
       notes: `Auto-generated DRAFT invoice from SO ${so.number}`,
     });
 
@@ -539,14 +546,15 @@ export default function SalesOrderPage() {
     if (!so) return;
 
     // Build JE lines with discount handling
+    const totalDiscountAmount = so.discountAmount ?? 0;
     const jeLines = [
       { accountId: "gl-1100", description: "Accounts Receivable", debit: so.total, credit: 0 },
-      { accountId: "gl-4000", description: "Product Sales Revenue", debit: 0, credit: so.subtotal - (so.discountAmount ?? 0) },
+      { accountId: "gl-4000", description: "Product Sales Revenue", debit: 0, credit: so.subtotal },
       { accountId: "gl-2100", description: "VAT Payable", debit: 0, credit: so.tax },
     ];
     // If there is a discount, add a DR entry for Sales Discount
-    if ((so.discountAmount ?? 0) > 0) {
-      jeLines.push({ accountId: "gl-4900", description: "Sales Discount", debit: so.discountAmount, credit: 0 });
+    if (totalDiscountAmount > 0) {
+      jeLines.push({ accountId: "gl-4900", description: "Sales Discount", debit: totalDiscountAmount, credit: 0 });
     }
 
     const jeId = store.genId("je");
@@ -677,10 +685,10 @@ export default function SalesOrderPage() {
                         const so = row as unknown as SalesOrder;
                         return <span className="text-sm">{(so.items || []).map((i) => `${i.description} ×${i.quantity}`).join(", ")}</span>;
                       }},
-                      { key: "discountPct", label: "Discount", className: "text-right", render: (_v: unknown, row: Record<string, unknown>) => {
+                      { key: "discountAmount", label: "Discount", className: "text-right", render: (_v: unknown, row: Record<string, unknown>) => {
                         const so = row as unknown as SalesOrder;
-                        const pct = so.discountPct ?? 0;
-                        return pct > 0 ? <span className="text-sm font-medium text-orange-600">{pct}%</span> : <span className="text-xs text-muted-foreground">--</span>;
+                        const amt = so.discountAmount ?? 0;
+                        return amt > 0 ? <span className="text-sm font-medium text-orange-600">{egp(amt)}</span> : <span className="text-xs text-muted-foreground">--</span>;
                       }},
                       { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{egp(v)}</span> },
                       { key: "date", label: "Date", render: (v: string) => v?.slice(0, 10) },
@@ -1218,7 +1226,7 @@ export default function SalesOrderPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-sm font-semibold">Line Items</Label>
-                <Button type="button" variant="outline" size="sm" onClick={() => setSOLines((prev) => [...prev, { productId: "", quantity: 1 }])}>
+                <Button type="button" variant="outline" size="sm" onClick={() => setSOLines((prev) => [...prev, { productId: "", quantity: 1, discountPct: 0 }])}>
                   <Plus className="h-3.5 w-3.5 mr-1" />Add Line
                 </Button>
               </div>
@@ -1274,39 +1282,17 @@ export default function SalesOrderPage() {
               </div>
             </div>
 
-            {/* Discount */}
-            <div>
-              <Label className="mb-1.5 block text-sm">Discount %</Label>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                step={0.5}
-                className="w-32"
-                value={soDiscountPct}
-                onChange={(e) => setSODiscountPct(Math.min(100, Math.max(0, Number(e.target.value))))}
-                placeholder="0"
-              />
-              <p className="text-[10px] text-muted-foreground mt-1">Enter discount percentage (0-100). Tax is calculated on the discounted subtotal.</p>
-            </div>
-
             {/* Totals */}
             <div className="border rounded-lg p-3 bg-muted/30 space-y-1 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-medium">EGP {soSubtotal.toLocaleString()}</span>
               </div>
-              {soDiscountPct > 0 && (
-                <>
-                  <div className="flex justify-between text-orange-600">
-                    <span>Discount ({soDiscountPct}%)</span>
-                    <span className="font-medium">- EGP {soDiscountAmount.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Discounted Subtotal</span>
-                    <span className="font-medium">EGP {soDiscountedSubtotal.toLocaleString()}</span>
-                  </div>
-                </>
+              {soTotalDiscountAmount > 0 && (
+                <div className="flex justify-between text-orange-600">
+                  <span>Total Discount</span>
+                  <span className="font-medium">- EGP {soTotalDiscountAmount.toLocaleString()}</span>
+                </div>
               )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tax (14%)</span>
@@ -1582,7 +1568,7 @@ export default function SalesOrderPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-sm font-semibold">Line Items</Label>
-                <Button type="button" variant="outline" size="sm" onClick={() => setQtLines((prev) => [...prev, { productId: "", quantity: 1 }])}>
+                <Button type="button" variant="outline" size="sm" onClick={() => setQtLines((prev) => [...prev, { productId: "", quantity: 1, discountPct: 0 }])}>
                   <Plus className="h-3.5 w-3.5 mr-1" />Add Line
                 </Button>
               </div>
