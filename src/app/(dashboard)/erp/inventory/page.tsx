@@ -1542,6 +1542,106 @@ export default function InventoryPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Product Stock Movement Detail Dialog ── */}
+      <Dialog open={!!selectedProduct} onOpenChange={(open) => { if (!open) setSelectedProduct(null); }}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedProduct?.name} {selectedProduct?.strength} — Stock Movements</DialogTitle>
+          </DialogHeader>
+          {selectedProduct && (
+            <div className="space-y-5">
+              {/* Stock Summary Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <p className="text-[11px] text-muted-foreground">Current Stock</p>
+                    <p className="text-lg font-bold">{(selectedProduct.stockQty ?? 0).toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <p className="text-[11px] text-muted-foreground">Total Inbound</p>
+                    <p className="text-lg font-bold text-emerald-600">{(totalInbound ?? 0).toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <p className="text-[11px] text-muted-foreground">Total Outbound</p>
+                    <p className="text-lg font-bold text-red-600">{(totalOutbound ?? 0).toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <p className="text-[11px] text-muted-foreground">Reorder Level</p>
+                    <p className="text-lg font-bold">{(selectedProduct.reorderLevel ?? 0).toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <p className="text-[11px] text-muted-foreground">Status</p>
+                    <Badge className={`mt-1 ${productStockStatus === "OK" ? "bg-emerald-100 text-emerald-700" : productStockStatus === "Low Stock" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
+                      {productStockStatus}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Product Info */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <div><span className="text-muted-foreground">Code</span><p className="font-mono font-medium">{selectedProduct.code}</p></div>
+                <div><span className="text-muted-foreground">Form</span><p className="font-medium">{selectedProduct.form}</p></div>
+                <div><span className="text-muted-foreground">Warehouse</span><p className="font-medium">{selectedProduct.warehouse || "--"}</p></div>
+                <div><span className="text-muted-foreground">Therapeutic Area</span><p className="font-medium">{selectedProduct.therapeuticArea}</p></div>
+              </div>
+
+              {/* Movement History Table */}
+              <div>
+                <h4 className="text-sm font-semibold mb-3">Stock Movement History</h4>
+                {(stockMovements || []).length === 0 ? (
+                  <div className="text-center py-8 text-sm text-muted-foreground border rounded-lg">
+                    No stock movements recorded for this product.
+                  </div>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted/50">
+                          <th className="text-left px-3 py-2 font-medium text-muted-foreground">Date</th>
+                          <th className="text-left px-3 py-2 font-medium text-muted-foreground">Reference</th>
+                          <th className="text-left px-3 py-2 font-medium text-muted-foreground">Type</th>
+                          <th className="text-right px-3 py-2 font-medium text-muted-foreground">Quantity</th>
+                          <th className="text-left px-3 py-2 font-medium text-muted-foreground">Source / Destination</th>
+                          <th className="text-right px-3 py-2 font-medium text-muted-foreground">Running Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {(stockMovements || []).map((m) => (
+                          <tr key={m.id} className="hover:bg-muted/30">
+                            <td className="px-3 py-2 text-xs">{new Date(m.date).toLocaleDateString()}</td>
+                            <td className="px-3 py-2 font-mono text-xs font-medium">{m.reference}</td>
+                            <td className="px-3 py-2">
+                              <Badge className={m.type === "IN" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}>
+                                {m.type === "IN" ? <ArrowDown className="h-3 w-3 mr-1" /> : <ArrowUp className="h-3 w-3 mr-1" />}
+                                {m.type}
+                              </Badge>
+                            </td>
+                            <td className={`px-3 py-2 text-right font-medium ${m.type === "IN" ? "text-emerald-600" : "text-red-600"}`}>
+                              {m.type === "IN" ? "+" : "-"}{(m.quantity ?? 0).toLocaleString()}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground">{m.source}</td>
+                            <td className="px-3 py-2 text-right font-medium">{(m.runningBalance ?? 0).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* ── PO Suggestions Dialog ── */}
       <Dialog open={showPOSuggestions} onOpenChange={setShowPOSuggestions}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">

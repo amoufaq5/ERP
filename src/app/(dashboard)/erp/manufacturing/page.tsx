@@ -672,12 +672,23 @@ export default function ManufacturingPage() {
                     </div>
                   </div>
                 )}
-                {/* Required Materials (scaled for this WO) */}
-                {detailWO.materials && detailWO.materials.length > 0 && (
+                {/* Material Issue Section */}
+                {(detailWO.materials || []).length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold mb-2">
-                      Required Materials ({detailWO.materials.length})
-                      {bom && <span className="font-normal text-muted-foreground ml-1">(scaled from batch of {bom.batchSize.toLocaleString()} to {detailWO.quantity.toLocaleString()})</span>}
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      {detailWO.materialsIssued ? (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          Material Issue — Issued
+                        </>
+                      ) : (
+                        <>
+                          <Package className="h-4 w-4 text-blue-600" />
+                          Material Issue — Pending
+                        </>
+                      )}
+                      <span className="font-normal text-muted-foreground ml-1">({(detailWO.materials || []).length} components)</span>
+                      {bom && <span className="font-normal text-muted-foreground">(scaled from batch of {bom.batchSize.toLocaleString()} to {(detailWO.quantity ?? 0).toLocaleString()})</span>}
                     </h4>
                     <div className="border rounded-lg overflow-hidden">
                       <table className="w-full text-sm">
@@ -685,22 +696,92 @@ export default function ManufacturingPage() {
                           <tr className="border-b bg-muted/50">
                             <th className="text-left px-3 py-2 font-medium">Code</th>
                             <th className="text-left px-3 py-2 font-medium">Material</th>
-                            <th className="text-right px-3 py-2 font-medium">Required Qty</th>
+                            <th className="text-right px-3 py-2 font-medium">Required</th>
+                            <th className="text-right px-3 py-2 font-medium">Available</th>
+                            {detailWO.materialsIssued && <th className="text-right px-3 py-2 font-medium">Issued</th>}
+                            <th className="text-center px-3 py-2 font-medium">Status</th>
                             <th className="text-left px-3 py-2 font-medium">Unit</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y">
-                          {detailWO.materials.map((m, i) => (
-                            <tr key={i}>
-                              <td className="px-3 py-2 font-mono text-xs">{m.materialCode}</td>
-                              <td className="px-3 py-2">{m.materialName}</td>
-                              <td className="px-3 py-2 text-right font-medium">{m.requiredQty}</td>
-                              <td className="px-3 py-2 text-muted-foreground">{m.unit}</td>
-                            </tr>
-                          ))}
+                          {(detailWO.materials || []).map((m, i) => {
+                            const prod = (store.products || []).find((p) => p.code === m.materialCode);
+                            const available = prod ? (prod.stockQty ?? 0) : (m.availableStock ?? 0);
+                            const required = m.requiredQty ?? 0;
+                            const isSufficient = available >= required || detailWO.materialsIssued;
+                            return (
+                              <tr key={i} className={!isSufficient && !detailWO.materialsIssued ? "bg-red-50" : ""}>
+                                <td className="px-3 py-2 font-mono text-xs">{m.materialCode}</td>
+                                <td className="px-3 py-2">{m.materialName}</td>
+                                <td className="px-3 py-2 text-right font-medium">{required}</td>
+                                <td className="px-3 py-2 text-right font-medium">{available.toLocaleString()}</td>
+                                {detailWO.materialsIssued && <td className="px-3 py-2 text-right font-medium text-green-700">{m.issuedQty ?? required}</td>}
+                                <td className="px-3 py-2 text-center">
+                                  {detailWO.materialsIssued ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      <CheckCircle2 className="h-3 w-3" /> Issued
+                                    </span>
+                                  ) : isSufficient ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      <CheckCircle2 className="h-3 w-3" /> Sufficient
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                      <AlertTriangle className="h-3 w-3" /> Insufficient
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-muted-foreground">{m.unit}</td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
+                  </div>
+                )}
+                {/* Completion Summary (shown when WO is COMPLETED) */}
+                {detailWO.status === "COMPLETED" && (
+                  <div className="border rounded-lg p-4 bg-green-50">
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2 text-green-800">
+                      <CheckCircle className="h-4 w-4" /> Production Completed
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Finished Product</span>
+                        <p className="font-medium">{bom?.productName ?? detailWO.bomName}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Quantity Produced</span>
+                        <p className="font-medium">{(detailWO.quantity ?? 0).toLocaleString()}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Materials Consumed</span>
+                        <div className="mt-1 space-y-1">
+                          {(detailWO.materials || []).map((m, i) => (
+                            <div key={i} className="flex justify-between text-xs">
+                              <span>{m.materialName}</span>
+                              <span className="font-medium">{m.issuedQty ?? (m.requiredQty ?? 0)} {m.unit}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* Action buttons in detail view */}
+                {detailWO.status === "PLANNED" && (
+                  <div className="flex justify-end pt-2">
+                    <Button size="sm" onClick={() => handleStartProduction(detailWO)}>
+                      <Play className="h-3.5 w-3.5 mr-1.5" /> Start Production
+                    </Button>
+                  </div>
+                )}
+                {detailWO.status === "IN_PROGRESS" && (
+                  <div className="flex justify-end pt-2">
+                    <Button size="sm" onClick={() => handleCompleteProduction(detailWO)}>
+                      <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Mark Complete
+                    </Button>
                   </div>
                 )}
               </div>
@@ -784,6 +865,97 @@ export default function ManufacturingPage() {
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Stock Warning Dialog ── */}
+      <Dialog open={stockWarningOpen} onOpenChange={(open) => { if (!open) { setStockWarningOpen(false); setStockWarningWO(null); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-700">
+              <AlertTriangle className="h-5 w-5" /> Insufficient Stock Warning
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              The following materials have insufficient stock to fulfill this work order. Production may be delayed or incomplete.
+            </p>
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-orange-50">
+                    <th className="text-left px-3 py-2 font-medium">Material</th>
+                    <th className="text-right px-3 py-2 font-medium">Required</th>
+                    <th className="text-right px-3 py-2 font-medium">Available</th>
+                    <th className="text-right px-3 py-2 font-medium">Deficit</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {(stockWarningItems || []).map((item, i) => (
+                    <tr key={i} className="bg-red-50">
+                      <td className="px-3 py-2">{item.materialName}</td>
+                      <td className="px-3 py-2 text-right font-medium">{(item.required ?? 0).toLocaleString()} {item.unit}</td>
+                      <td className="px-3 py-2 text-right font-medium">{(item.available ?? 0).toLocaleString()} {item.unit}</td>
+                      <td className="px-3 py-2 text-right font-medium text-red-700">{((item.required ?? 0) - (item.available ?? 0)).toLocaleString()} {item.unit}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => { setStockWarningOpen(false); setStockWarningWO(null); }}>Cancel</Button>
+            <Button type="button" variant="destructive" onClick={() => { if (stockWarningWO) executeStartProduction(stockWarningWO); }}>
+              <AlertTriangle className="h-3.5 w-3.5 mr-1.5" /> Proceed Anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Completion Summary Dialog ── */}
+      <Dialog open={completionSummaryOpen} onOpenChange={(open) => { if (!open) { setCompletionSummaryOpen(false); setCompletionSummary(null); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-700">
+              <CheckCircle className="h-5 w-5" /> Work Order Completed
+            </DialogTitle>
+          </DialogHeader>
+          {completionSummary && (
+            <div className="space-y-4 py-2">
+              <div className="border rounded-lg p-4 bg-green-50">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Work Order</span>
+                    <p className="font-medium font-mono">{completionSummary.woId}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Product</span>
+                    <p className="font-medium">{completionSummary.productName}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Quantity Produced</span>
+                    <p className="font-semibold text-green-800 text-lg">+{(completionSummary.quantityProduced ?? 0).toLocaleString()} units added to inventory</p>
+                  </div>
+                </div>
+              </div>
+              {(completionSummary.materialsConsumed || []).length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">Materials Consumed</h4>
+                  <div className="border rounded-lg divide-y">
+                    {(completionSummary.materialsConsumed || []).map((m, i) => (
+                      <div key={i} className="flex justify-between px-3 py-2 text-sm">
+                        <span>{m.materialName}</span>
+                        <span className="font-medium">{m.issuedQty ?? (m.requiredQty ?? 0)} {m.unit}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" onClick={() => { setCompletionSummaryOpen(false); setCompletionSummary(null); }}>Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
