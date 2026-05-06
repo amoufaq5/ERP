@@ -389,8 +389,9 @@ export default function InventoryPage() {
   /* ─── Warehouse Products (drill-down) ─── */
   const warehouseProducts = useMemo(() => {
     if (!selectedWarehouse) return [];
+    const normalize = (s: string) => (s || "").toLowerCase().replace(/[\s-]+/g, "");
     return (store.products || []).filter(
-      (p) => p.warehouse === selectedWarehouse.name
+      (p) => normalize(p.warehouse ?? "") === normalize(selectedWarehouse.name)
     );
   }, [store.products, selectedWarehouse]);
 
@@ -1382,8 +1383,9 @@ export default function InventoryPage() {
           </DialogHeader>
           {detailWH && (() => {
             const pct = Math.round((detailWH.used / detailWH.capacity) * 100);
-            const rmInWH = rawMaterials.filter((r) => r.warehouse === detailWH.name);
-            const fpInWH = finishedProducts.filter((p) => p.warehouse === detailWH.name);
+            const normalizeWH = (s: string) => (s || "").toLowerCase().replace(/[\s-]+/g, "");
+            const rmInWH = rawMaterials.filter((r) => normalizeWH(r.warehouse) === normalizeWH(detailWH.name));
+            const fpInWH = finishedProducts.filter((p) => normalizeWH(p.warehouse) === normalizeWH(detailWH.name));
             return (
               <div className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">

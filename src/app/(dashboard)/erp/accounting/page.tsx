@@ -673,7 +673,7 @@ export default function AccountingPage() {
     { name: "subtotal", label: "Subtotal (EGP)", type: "number", required: true },
     { name: "tax", label: "Tax (EGP)", type: "number", required: true },
     { name: "total", label: "Total (EGP)", type: "number", required: true },
-    { name: "status", label: "Status", type: "select", defaultValue: "DRAFT", options: [{ label: "Draft", value: "DRAFT" }, { label: "Sent", value: "SENT" }, { label: "Partial", value: "PARTIAL" }, { label: "Paid", value: "PAID" }, { label: "Overdue", value: "OVERDUE" }, { label: "Void", value: "VOID" }] },
+    { name: "status", label: "Status", type: "select", defaultValue: "DRAFT", options: [{ label: "Draft", value: "DRAFT" }, { label: "Approved", value: "APPROVED" }, { label: "Sent", value: "SENT" }, { label: "Partial", value: "PARTIAL" }, { label: "Paid", value: "PAID" }, { label: "Overdue", value: "OVERDUE" }, { label: "Void", value: "VOID" }] },
     { name: "notes", label: "Notes", type: "textarea", fullWidth: true },
   ];
 
@@ -1165,6 +1165,15 @@ export default function AccountingPage() {
 
         {/* Invoices */}
         <TabsContent value="invoices" className="space-y-3">
+          {(() => {
+            const draftCount = store.invoices.filter((i) => i.status === "DRAFT").length;
+            return draftCount > 0 ? (
+              <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span className="font-medium">{draftCount} Draft Invoice{draftCount > 1 ? "s" : ""} pending approval</span>
+              </div>
+            ) : null;
+          })()}
           <FilterBar
             searchPlaceholder="Search invoices..."
             searchValue={invSearch}
@@ -1189,7 +1198,7 @@ export default function AccountingPage() {
                   { key: "dueDate", label: "Due Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
                   { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{(v ?? 0).toLocaleString()}</span> },
                   { key: "status", label: "Status", render: (v: string) => (
-                    <Badge variant={v === "PAID" ? "success" : v === "OVERDUE" ? "destructive" : v === "VOID" ? "secondary" : "warning"}>{v}</Badge>
+                    <Badge variant={v === "PAID" ? "success" : v === "APPROVED" ? "success" : v === "OVERDUE" ? "destructive" : v === "VOID" ? "secondary" : v === "DRAFT" ? "secondary" : "warning"}>{v}</Badge>
                   ) },
                   { key: "actions", label: "Actions", className: "text-right", render: (_: unknown, row: Record<string, unknown>) => {
                     const i = row as unknown as Invoice;
@@ -1218,6 +1227,15 @@ export default function AccountingPage() {
 
         {/* ═══ Journal Entries ═══ */}
         <TabsContent value="je" className="space-y-3">
+          {(() => {
+            const draftJECount = store.journalEntries.filter((j) => j.status === "DRAFT").length;
+            return draftJECount > 0 ? (
+              <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span className="font-medium">{draftJECount} Draft Journal Entr{draftJECount > 1 ? "ies" : "y"} pending posting</span>
+              </div>
+            ) : null;
+          })()}
           <FilterBar
             searchPlaceholder="Search journal entries..."
             searchValue={jeSearch}
