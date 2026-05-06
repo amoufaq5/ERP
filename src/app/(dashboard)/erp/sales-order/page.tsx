@@ -1238,6 +1238,7 @@ export default function SalesOrderPage() {
                       <th className="text-left px-3 py-2 font-medium">Product</th>
                       <th className="text-right px-3 py-2 font-medium w-24">Qty</th>
                       <th className="text-right px-3 py-2 font-medium w-28">Unit Price</th>
+                      <th className="text-right px-3 py-2 font-medium w-20">Disc %</th>
                       <th className="text-right px-3 py-2 font-medium w-28">Line Total</th>
                       <th className="w-10"></th>
                     </tr>
@@ -1245,7 +1246,8 @@ export default function SalesOrderPage() {
                   <tbody className="divide-y">
                     {soLines.map((line, idx) => {
                       const unitPrice = getLinePrice(line.productId);
-                      const lineTotal = line.quantity * unitPrice;
+                      const disc = line.discountPct ?? 0;
+                      const lineTotal = (line.quantity ?? 0) * unitPrice * (1 - disc / 100);
                       return (
                         <tr key={idx}>
                           <td className="px-3 py-2">
@@ -1264,6 +1266,9 @@ export default function SalesOrderPage() {
                           <td className="px-3 py-2 text-right text-xs text-muted-foreground">
                             {unitPrice > 0 ? `EGP ${unitPrice.toLocaleString()}` : "—"}
                           </td>
+                          <td className="px-3 py-2">
+                            <Input type="number" min={0} max={100} step={0.5} className="h-8 text-sm text-right" value={line.discountPct} onChange={(e) => setSOLines((prev) => prev.map((l, i) => i === idx ? { ...l, discountPct: Math.min(100, Math.max(0, Number(e.target.value))) } : l))} placeholder="0" />
+                          </td>
                           <td className="px-3 py-2 text-right text-xs font-medium">
                             {lineTotal > 0 ? `EGP ${lineTotal.toLocaleString()}` : "—"}
                           </td>
@@ -1280,12 +1285,13 @@ export default function SalesOrderPage() {
                   </tbody>
                 </table>
               </div>
+              <p className="text-[10px] text-muted-foreground mt-1">Enter discount % per product line (0-100). Tax is calculated on the discounted subtotal.</p>
             </div>
 
             {/* Totals */}
             <div className="border rounded-lg p-3 bg-muted/30 space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal</span>
+                <span className="text-muted-foreground">Subtotal (after discounts)</span>
                 <span className="font-medium">EGP {soSubtotal.toLocaleString()}</span>
               </div>
               {soTotalDiscountAmount > 0 && (
@@ -1335,11 +1341,8 @@ export default function SalesOrderPage() {
                 <div><span className="text-muted-foreground">Date</span><p>{detailSO.date?.slice(0, 10)}</p></div>
                 <div><span className="text-muted-foreground">Expected</span><p>{detailSO.expectedDate?.slice(0, 10)}</p></div>
                 <div><span className="text-muted-foreground">Subtotal</span><p>{egp(detailSO.subtotal)}</p></div>
-                {(detailSO.discountPct ?? 0) > 0 && (
-                  <>
-                    <div><span className="text-muted-foreground">Discount %</span><p className="text-orange-600 font-medium">{detailSO.discountPct}%</p></div>
-                    <div><span className="text-muted-foreground">Discount Amount</span><p className="text-orange-600 font-medium">- {egp(detailSO.discountAmount)}</p></div>
-                  </>
+                {(detailSO.discountAmount ?? 0) > 0 && (
+                  <div><span className="text-muted-foreground">Total Discount</span><p className="text-orange-600 font-medium">- {egp(detailSO.discountAmount)}</p></div>
                 )}
                 <div><span className="text-muted-foreground">Tax (14%)</span><p>{egp(detailSO.tax)}</p></div>
                 <div className="col-span-2"><span className="text-muted-foreground">Total</span><p className="text-lg font-bold">{egp(detailSO.total)}</p></div>
@@ -1348,7 +1351,7 @@ export default function SalesOrderPage() {
                 <span className="text-muted-foreground">Items</span>
                 <div className="mt-1 border rounded">
                   <table className="w-full text-xs">
-                    <thead><tr className="bg-muted/50"><th className="p-2 text-left">Product</th><th className="p-2 text-right">Qty</th><th className="p-2 text-right">Price</th><th className="p-2 text-right">Total</th><th className="p-2 text-center">Stock</th></tr></thead>
+                    <thead><tr className="bg-muted/50"><th className="p-2 text-left">Product</th><th className="p-2 text-right">Qty</th><th className="p-2 text-right">Price</th><th className="p-2 text-right">Disc %</th><th className="p-2 text-right">Total</th><th className="p-2 text-center">Stock</th></tr></thead>
                     <tbody>
                       {(detailSO.items || []).map((it, i) => {
                         const stock = getStockStatus(it.productId, it.quantity);
@@ -1357,6 +1360,7 @@ export default function SalesOrderPage() {
                             <td className="p-2">{it.description}</td>
                             <td className="p-2 text-right">{it.quantity}</td>
                             <td className="p-2 text-right">{egp(it.unitPrice)}</td>
+                            <td className="p-2 text-right">{(it.discountPct ?? 0) > 0 ? <span className="text-orange-600 font-medium">{it.discountPct}%</span> : <span className="text-muted-foreground">--</span>}</td>
                             <td className="p-2 text-right">{egp(it.total)}</td>
                             <td className="p-2 text-center">
                               <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${stock.sufficient ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
