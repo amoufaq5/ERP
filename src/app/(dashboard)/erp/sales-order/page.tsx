@@ -560,6 +560,14 @@ export default function SalesOrderPage() {
       status: "DRAFT", createdBy: "u-admin", createdAt: new Date().toISOString(),
     });
 
+    // Deduct stock for each SO line item
+    (so.items || []).forEach((item) => {
+      const product = store.products.find((p) => p.id === item.productId);
+      if (product) {
+        store.update("products", product.id, { stockQty: Math.max(0, (product.stockQty ?? 0) - item.quantity) });
+      }
+    });
+
     store.update("salesOrders", so.id, { status: "DELIVERED", jeId });
 
     addNotification({

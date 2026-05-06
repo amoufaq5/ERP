@@ -599,6 +599,14 @@ export default function ProcurementPage() {
       createdAt: new Date().toISOString(),
     });
 
+    // Increase stock for each PO line item
+    (po.items || []).forEach((item) => {
+      const product = store.products.find((p) => p.id === item.productId);
+      if (product) {
+        store.update("products", product.id, { stockQty: (product.stockQty ?? 0) + item.quantity });
+      }
+    });
+
     store.update("purchaseOrders", po.id, { jeId });
     logAction({
       userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
