@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { UserRole } from "./user-context";
 import { IMS_TERRITORIES } from "./ims-territory-data";
 
@@ -1347,20 +1347,24 @@ function persist(state: DataStoreState) {
 export function DataStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<DataStoreState>(SEED_DATA);
   const [ready, setReady] = useState(false);
+  const stateRef = useRef<DataStoreState>(state);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     const loaded = loadFromStorage();
     if (loaded) {
-      // Merge seed with stored so new keys get defaults
-      setState({
-        ...SEED_DATA,
-        ...loaded,
-      });
+      const merged = { ...SEED_DATA, ...loaded };
+      stateRef.current = merged;
+      setState(merged);
     }
     setReady(true);
   }, []);
 
   function mutate(next: DataStoreState) {
+    stateRef.current = next;
     setState(next);
     persist(next);
   }
@@ -1370,159 +1374,145 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
   }
 
   function generateInvoiceNumber(): string {
+    const s = stateRef.current;
     const year = new Date().getFullYear();
-    const seq = state.nextInvoiceSeq;
-    const next: DataStoreState = { ...state, nextInvoiceSeq: seq + 1 };
-    mutate(next);
+    const seq = s.nextInvoiceSeq;
+    mutate({ ...s, nextInvoiceSeq: seq + 1 });
     return `INV-${year}-${String(seq).padStart(4, "0")}`;
   }
 
   function generateJournalNumber(): string {
+    const s = stateRef.current;
     const year = new Date().getFullYear();
-    const seq = state.nextJournalSeq;
-    const next: DataStoreState = { ...state, nextJournalSeq: seq + 1 };
-    mutate(next);
+    const seq = s.nextJournalSeq;
+    mutate({ ...s, nextJournalSeq: seq + 1 });
     return `JE-${year}-${String(seq).padStart(4, "0")}`;
   }
 
   function generatePONumber(): string {
+    const s = stateRef.current;
     const year = new Date().getFullYear();
-    const seq = state.nextPOSeq;
-    const next: DataStoreState = { ...state, nextPOSeq: seq + 1 };
-    mutate(next);
+    const seq = s.nextPOSeq;
+    mutate({ ...s, nextPOSeq: seq + 1 });
     return `PO-${year}-${String(seq).padStart(4, "0")}`;
   }
 
   function generateSONumber(): string {
+    const s = stateRef.current;
     const year = new Date().getFullYear();
-    const seq = state.nextSOSeq;
-    const next: DataStoreState = { ...state, nextSOSeq: seq + 1 };
-    mutate(next);
+    const seq = s.nextSOSeq;
+    mutate({ ...s, nextSOSeq: seq + 1 });
     return `SO-${year}-${String(seq).padStart(4, "0")}`;
   }
 
   function generateRFQNumber(): string {
+    const s = stateRef.current;
     const year = new Date().getFullYear();
-    const seq = state.nextRFQSeq;
-    const next: DataStoreState = { ...state, nextRFQSeq: seq + 1 };
-    mutate(next);
+    const seq = s.nextRFQSeq;
+    mutate({ ...s, nextRFQSeq: seq + 1 });
     return `RFQ-${year}-${String(seq).padStart(4, "0")}`;
   }
 
   function generateGRNNumber(): string {
+    const s = stateRef.current;
     const year = new Date().getFullYear();
-    const seq = state.nextGRNSeq;
-    const next: DataStoreState = { ...state, nextGRNSeq: seq + 1 };
-    mutate(next);
+    const seq = s.nextGRNSeq;
+    mutate({ ...s, nextGRNSeq: seq + 1 });
     return `GRN-${year}-${String(seq).padStart(4, "0")}`;
   }
 
   function generateDNNumber(): string {
+    const s = stateRef.current;
     const year = new Date().getFullYear();
-    const seq = state.nextDNSeq;
-    const next: DataStoreState = { ...state, nextDNSeq: seq + 1 };
-    mutate(next);
+    const seq = s.nextDNSeq;
+    mutate({ ...s, nextDNSeq: seq + 1 });
     return `DN-${year}-${String(seq).padStart(4, "0")}`;
   }
 
   function generateCustomerCode(): string {
-    const seq = state.nextCustomerSeq;
-    const next: DataStoreState = { ...state, nextCustomerSeq: seq + 1 };
-    mutate(next);
+    const s = stateRef.current;
+    const seq = s.nextCustomerSeq;
+    mutate({ ...s, nextCustomerSeq: seq + 1 });
     return `CUST-${String(seq).padStart(4, "0")}`;
   }
 
   function generateVendorCode(): string {
-    const seq = state.nextVendorSeq;
-    const next: DataStoreState = { ...state, nextVendorSeq: seq + 1 };
-    mutate(next);
+    const s = stateRef.current;
+    const seq = s.nextVendorSeq;
+    mutate({ ...s, nextVendorSeq: seq + 1 });
     return `VEN-${String(seq).padStart(4, "0")}`;
   }
 
   function generateProductCode(): string {
-    const seq = state.nextProductSeq;
-    const next: DataStoreState = { ...state, nextProductSeq: seq + 1 };
-    mutate(next);
+    const s = stateRef.current;
+    const seq = s.nextProductSeq;
+    mutate({ ...s, nextProductSeq: seq + 1 });
     return `PRD-${String(seq).padStart(4, "0")}`;
   }
 
   function generateBankCode(): string {
-    const seq = state.nextBankSeq;
-    const next: DataStoreState = { ...state, nextBankSeq: seq + 1 };
-    mutate(next);
+    const s = stateRef.current;
+    const seq = s.nextBankSeq;
+    mutate({ ...s, nextBankSeq: seq + 1 });
     return `BNK-${String(seq).padStart(4, "0")}`;
   }
 
   function generateCostCenterCode(): string {
-    const seq = state.nextCostCenterSeq;
-    const next: DataStoreState = { ...state, nextCostCenterSeq: seq + 1 };
-    mutate(next);
+    const s = stateRef.current;
+    const seq = s.nextCostCenterSeq;
+    mutate({ ...s, nextCostCenterSeq: seq + 1 });
     return `CC-${String(seq).padStart(4, "0")}`;
   }
 
   function generatePaymentRef(): string {
+    const s = stateRef.current;
     const year = new Date().getFullYear();
-    const seq = state.nextPaymentSeq;
-    const next: DataStoreState = { ...state, nextPaymentSeq: seq + 1 };
-    mutate(next);
+    const seq = s.nextPaymentSeq;
+    mutate({ ...s, nextPaymentSeq: seq + 1 });
     return `PAY-${year}-${String(seq).padStart(4, "0")}`;
   }
 
   function generateChequeNumber(): string {
-    const seq = state.nextChequeSeq;
-    const next: DataStoreState = { ...state, nextChequeSeq: seq + 1 };
-    mutate(next);
+    const s = stateRef.current;
+    const seq = s.nextChequeSeq;
+    mutate({ ...s, nextChequeSeq: seq + 1 });
     return `CHQ-${String(seq).padStart(6, "0")}`;
   }
 
   function generateShipmentNumber(): string {
+    const s = stateRef.current;
     const year = new Date().getFullYear();
-    const seq = state.nextShipmentSeq;
-    const next: DataStoreState = { ...state, nextShipmentSeq: seq + 1 };
-    mutate(next);
+    const seq = s.nextShipmentSeq;
+    mutate({ ...s, nextShipmentSeq: seq + 1 });
     return `SHP-${year}-${String(seq).padStart(4, "0")}`;
   }
 
   function add<K extends EntityKey>(key: K, item: DataStoreState[K][number]) {
-    // We use a narrow local type because TS can't prove the array union matches the single-element union.
-    // The runtime is identical: just append.
-    const list = state[key] as DataStoreState[K];
-    const next: DataStoreState = {
-      ...state,
-      [key]: [...list, item],
-    };
-    mutate(next);
+    const s = stateRef.current;
+    const list = s[key] as DataStoreState[K];
+    mutate({ ...s, [key]: [...list, item] });
   }
 
   function bulkAdd<K extends EntityKey>(key: K, items: DataStoreState[K][number][]) {
-    const list = state[key] as DataStoreState[K];
-    const next: DataStoreState = {
-      ...state,
-      [key]: [...list, ...items],
-    };
-    mutate(next);
+    const s = stateRef.current;
+    const list = s[key] as DataStoreState[K];
+    mutate({ ...s, [key]: [...list, ...items] });
   }
 
   function update<K extends EntityKey>(key: K, id: string, patch: Partial<DataStoreState[K][number]>) {
-    const list = state[key] as Array<{ id: string }>;
+    const s = stateRef.current;
+    const list = s[key] as Array<{ id: string }>;
     const nextList = list.map((item) =>
       item.id === id ? ({ ...item, ...patch } as DataStoreState[K][number]) : (item as DataStoreState[K][number])
     );
-    const next: DataStoreState = {
-      ...state,
-      [key]: nextList,
-    };
-    mutate(next);
+    mutate({ ...s, [key]: nextList });
   }
 
   function remove<K extends EntityKey>(key: K, id: string) {
-    const list = state[key] as Array<{ id: string }>;
+    const s = stateRef.current;
+    const list = s[key] as Array<{ id: string }>;
     const nextList = list.filter((item) => item.id !== id) as DataStoreState[K];
-    const next: DataStoreState = {
-      ...state,
-      [key]: nextList,
-    };
-    mutate(next);
+    mutate({ ...s, [key]: nextList });
   }
 
   function reset() {
