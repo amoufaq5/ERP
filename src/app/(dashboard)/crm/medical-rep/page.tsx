@@ -10,6 +10,8 @@ import {
   Stethoscope,
   CheckCircle2,
   Target,
+  AlertTriangle,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +61,12 @@ export default function MedicalRepPage() {
   const [editDoctorFormOpen, setEditDoctorFormOpen] = useState(false);
   const [doctorBeingEdited, setDoctorBeingEdited] = useState<Doctor | null>(null);
 
+  const [unplannedPickerOpen, setUnplannedPickerOpen] = useState(false);
+  const [unplannedFormOpen, setUnplannedFormOpen] = useState(false);
+  const [unplannedSelectedDoctor, setUnplannedSelectedDoctor] = useState<Doctor | null>(null);
+  const [unplannedDoctorSearch, setUnplannedDoctorSearch] = useState("");
+  const [unplannedSpecialtyFilter, setUnplannedSpecialtyFilter] = useState<string>("all");
+
   const [newDoctorOpen, setNewDoctorOpen] = useState(false);
   const [viewDoctor, setViewDoctor] = useState<Doctor | null>(null);
 
@@ -81,9 +89,28 @@ export default function MedicalRepPage() {
     [store.marketRequests, store.businessUnits, user.role, user.id, repsUnderMe]
   );
 
-  // Filtered doctors
+  // All doctors in rep's area (assigned + same bricks) — for "All Doctors" tab
+  const allDoctorsInMyArea = useMemo(() => {
+    if (user.role !== "MEDICAL_REP") return myDoctors;
+    const myBricks = store.territories.filter(
+      (t) => t.level === "brick" && t.assignedRepIds.includes(user.id)
+    );
+    const myBrickIds = new Set(myBricks.map((b) => b.id));
+    const seen = new Set<string>();
+    const result: Doctor[] = [];
+    for (const d of store.doctors) {
+      if (seen.has(d.id)) continue;
+      if (d.assignedRepId === user.id || (d.brickId && myBrickIds.has(d.brickId))) {
+        result.push(d);
+        seen.add(d.id);
+      }
+    }
+    return result;
+  }, [store.doctors, store.territories, user.id, user.role, myDoctors]);
+
+  // Filtered doctors (for "All Doctors" tab — uses area-based scope)
   const filteredDoctors = useMemo(() => {
-    return myDoctors.filter((d) => {
+    return allDoctorsInMyArea.filter((d) => {
       if (search) {
         const q = search.toLowerCase();
         if (
@@ -101,7 +128,7 @@ export default function MedicalRepPage() {
       if (doctorFilters.specialty && d.specialty !== doctorFilters.specialty) return false;
       return true;
     });
-  }, [myDoctors, search, doctorFilters]);
+  }, [allDoctorsInMyArea, search, doctorFilters]);
 
   // Filtered visits
   const filteredVisits = useMemo(() => {
@@ -368,6 +395,38 @@ export default function MedicalRepPage() {
     store.update("visits", v.id, { status: "APPROVED" });
   }
 
+  function handleUnplannedVisitSubmit(data: EntityFormData) {
+    if (!unplannedSelectedDoctor) return;
+    const payload = {
+      repId: user.id,
+      doctorId: unplannedSelectedDoctor.id,
+      dateTime: String(data.dateTime),
+      type: data.type as "SINGLE" | "DOUBLE",
+      partnerId: data.partnerId ? String(data.partnerId) : undefined,
+      durationMin: Number(data.durationMin),
+      productIds: (data.productIds as string[]) ?? [],
+      samplesGiven: (data.samplesGiven as unknown as SampleGiven[]) ?? [],
+      samplesDistributed: Number(data.samplesDistributed ?? 0),
+      activityRequests: (data.activityRequests as unknown as ActivityRequest[]) ?? [],
+      buyingLadderBefore: data.buyingLadderBefore as Visit["buyingLadderBefore"],
+      buyingLadderAfter: data.buyingLadderAfter as Visit["buyingLadderAfter"],
+      notes: String(data.notes ?? ""),
+      feedback: data.feedback ? String(data.feedback) : undefined,
+      gpsVerified: !!data.gpsVerified,
+      status: "LOGGED" as const,
+      session: (data.session as "AM" | "PM") ?? "PM",
+      buId: unplannedSelectedDoctor.buId ?? null,
+      isUnplanned: true,
+    };
+    const id = store.genId("v");
+    store.add("visits", { id, ...payload });
+    store.update("doctors", unplannedSelectedDoctor.id, { lastVisitAt: payload.dateTime });
+    setUnplannedFormOpen(false);
+    setUnplannedSelectedDoctor(null);
+    setUnplannedDoctorSearch("");
+    setUnplannedSpecialtyFilter("all");
+  }
+
   function handleEditDoctor(d: Doctor) {
     setDoctorBeingEdited(d);
     setEditDoctorFormOpen(true);
@@ -445,8 +504,8 @@ export default function MedicalRepPage() {
     store.remove("doctors", d.id);
   }
 
-  const uniqueCities = Array.from(new Set(myDoctors.map((d) => d.city))).sort();
-  const uniqueSpecialties = Array.from(new Set(myDoctors.map((d) => d.specialty))).sort();
+  const uniqueCities = Array.from(new Set(allDoctorsInMyArea.map((d) => d.city))).sort();
+  const uniqueSpecialties = Array.from(new Set(allDoctorsInMyArea.map((d) => d.specialty))).sort();
 
   return (
     <div className="space-y-6">
@@ -469,6 +528,12 @@ export default function MedicalRepPage() {
               <Button variant="outline" onClick={() => setNewDoctorOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Doctor
+              </Button>
+            )}
+            {isRep && (
+              <Button variant="outline" onClick={() => setUnplannedPickerOpen(true)}>
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Unplanned Visit
               </Button>
             )}
             <Button onClick={handleLogVisit}>
@@ -700,11 +765,21 @@ export default function MedicalRepPage() {
                     const rep = allUsers.find((u) => u.id === v);
                     return <span className="text-xs">{rep?.name ?? "—"}</span>;
                   }},
-                  { key: "type", label: "Type", render: (v) => (
-                    <Badge variant={v === "DOUBLE" ? "default" : "outline"}>
-                      {v as string}
-                    </Badge>
-                  )},
+                  { key: "type", label: "Type", render: (v, row) => {
+                    const visit = row as unknown as Visit;
+                    return (
+                      <div className="flex items-center gap-1">
+                        <Badge variant={v === "DOUBLE" ? "default" : "outline"}>
+                          {v as string}
+                        </Badge>
+                        {visit.isUnplanned && (
+                          <Badge variant="warning" className="text-[10px]">
+                            Unplanned
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  }},
                   { key: "partnerId", label: "Partner", render: (v) => {
                     const partner = v ? allUsers.find((u) => u.id === v) : null;
                     return <span className="text-xs">{partner?.name ?? "—"}</span>;
@@ -1009,6 +1084,157 @@ export default function MedicalRepPage() {
         fields={doctorFields}
         onSubmit={handleDoctorSubmit}
         submitLabel="Create"
+        size="xl"
+      />
+
+      {/* Unplanned Visit — Step 1: Doctor Picker */}
+      <Dialog
+        open={unplannedPickerOpen}
+        onOpenChange={(open) => {
+          setUnplannedPickerOpen(open);
+          if (!open) {
+            setUnplannedDoctorSearch("");
+            setUnplannedSpecialtyFilter("all");
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Log Unplanned Visit
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Select a doctor from your area to log an unplanned visit. These are doctors in your assigned bricks.
+            </p>
+
+            {/* Search & specialty filter */}
+            <div className="flex gap-3 items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search doctors by name, hospital, city..."
+                  value={unplannedDoctorSearch}
+                  onChange={(e) => setUnplannedDoctorSearch(e.target.value)}
+                  className="pl-9 text-sm"
+                />
+              </div>
+              <select
+                className="rounded-md border px-3 py-2 text-sm"
+                value={unplannedSpecialtyFilter}
+                onChange={(e) => setUnplannedSpecialtyFilter(e.target.value)}
+              >
+                <option value="all">All Specialties</option>
+                {Array.from(new Set(allDoctorsInMyArea.map((d) => d.specialty)))
+                  .sort()
+                  .map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+              </select>
+            </div>
+
+            {/* Doctor list */}
+            <div className="border rounded-md max-h-[400px] overflow-y-auto divide-y">
+              {allDoctorsInMyArea
+                .filter((d) => {
+                  if (unplannedSpecialtyFilter !== "all" && d.specialty !== unplannedSpecialtyFilter) return false;
+                  if (unplannedDoctorSearch) {
+                    const q = unplannedDoctorSearch.toLowerCase();
+                    return (
+                      d.name.toLowerCase().includes(q) ||
+                      d.hospital.toLowerCase().includes(q) ||
+                      d.city.toLowerCase().includes(q) ||
+                      d.specialty.toLowerCase().includes(q)
+                    );
+                  }
+                  return true;
+                })
+                .map((d) => {
+                  const brick = store.territories.find((t) => t.id === d.brickId);
+                  const isAssigned = d.assignedRepId === user.id;
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      className="w-full text-left p-3 hover:bg-muted/50 transition-colors flex items-center justify-between gap-2"
+                      onClick={() => {
+                        setUnplannedSelectedDoctor(d);
+                        setUnplannedPickerOpen(false);
+                        setUnplannedFormOpen(true);
+                        setUnplannedDoctorSearch("");
+                        setUnplannedSpecialtyFilter("all");
+                      }}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{d.name}</span>
+                          <Badge
+                            className={
+                              d.classification === "A" ? "bg-green-100 text-green-800" :
+                              d.classification === "B" ? "bg-blue-100 text-blue-800" :
+                              d.classification === "C" ? "bg-amber-100 text-amber-800" :
+                              "bg-gray-100 text-gray-800"
+                            }
+                          >
+                            {d.classification}
+                          </Badge>
+                          {isAssigned && (
+                            <Badge variant="outline" className="text-[10px]">My List</Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {d.specialty} &middot; {d.hospital} &middot; {d.city}
+                          {brick ? ` · ${brick.name}` : ""}
+                        </p>
+                      </div>
+                      <Stethoscope className="h-4 w-4 text-muted-foreground shrink-0" />
+                    </button>
+                  );
+                })}
+              {allDoctorsInMyArea.filter((d) => {
+                if (unplannedSpecialtyFilter !== "all" && d.specialty !== unplannedSpecialtyFilter) return false;
+                if (unplannedDoctorSearch) {
+                  const q = unplannedDoctorSearch.toLowerCase();
+                  return (
+                    d.name.toLowerCase().includes(q) ||
+                    d.hospital.toLowerCase().includes(q) ||
+                    d.city.toLowerCase().includes(q) ||
+                    d.specialty.toLowerCase().includes(q)
+                  );
+                }
+                return true;
+              }).length === 0 && (
+                <div className="p-8 text-center text-muted-foreground">
+                  <Stethoscope className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">No doctors found matching your search.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unplanned Visit — Step 2: Visit Form */}
+      <EntityFormModal
+        open={unplannedFormOpen}
+        onOpenChange={(open) => {
+          setUnplannedFormOpen(open);
+          if (!open) {
+            setUnplannedSelectedDoctor(null);
+          }
+        }}
+        title={`Unplanned Visit${unplannedSelectedDoctor ? ` — ${unplannedSelectedDoctor.name}` : ""}`}
+        description={
+          unplannedSelectedDoctor
+            ? `Logging an unplanned visit for ${unplannedSelectedDoctor.name} (${unplannedSelectedDoctor.specialty} · ${unplannedSelectedDoctor.hospital}). This visit will be flagged as unplanned.`
+            : "Log an unplanned visit."
+        }
+        fields={visitFields.filter((f) => f.name !== "doctorId")}
+        onSubmit={handleUnplannedVisitSubmit}
+        submitLabel="Log Unplanned Visit"
         size="xl"
       />
     </div>

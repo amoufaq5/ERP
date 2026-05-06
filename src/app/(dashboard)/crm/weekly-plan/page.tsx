@@ -54,9 +54,11 @@ const MIN_VISIT_DURATION_MIN = 10;
 
 function startOfWeek(date: Date): Date {
   const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday as start
-  return new Date(d.setDate(diff));
+  const day = d.getDay(); // 0=Sun,1=Mon,...,6=Sat
+  // Saturday (6) as start of Egyptian work week
+  const diff = day >= 6 ? 0 : -(day + 1); // roll back to most recent Saturday
+  d.setDate(d.getDate() + diff);
+  return d;
 }
 
 function addDays(date: Date, days: number): Date {
@@ -91,7 +93,7 @@ function fmtDuration(mins: number | null): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_LABELS = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"]; // Egyptian work week (Sat–Thu working, Fri off)
 const SUSPICIOUS_THRESHOLD_MIN = 10;
 const EXTENDED_THRESHOLD_MIN = 120;
 const MAX_VISITS_PER_DAY = 8;
@@ -622,7 +624,7 @@ export default function WeeklyPlanPage() {
                   plan={plan}
                   store={store}
                   allUsers={allUsers}
-                  isRep={isRep}
+                  isRep={true}
                   isManager={false}
                   isAutoEscalated={autoEscalatedIds.has(plan.id)}
                   onEdit={() => setEditing(plan)}
@@ -702,7 +704,7 @@ export default function WeeklyPlanPage() {
           </DialogHeader>
           <div className="space-y-3 py-4">
             <div>
-              <label className="text-sm font-medium">Week Starting (Monday)</label>
+              <label className="text-sm font-medium">Week Starting (Saturday)</label>
               <Input
                 type="date"
                 value={fmtIsoDate(activeWeek)}

@@ -243,7 +243,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
     if (manager.role === "BUM") {
       return allUsers.filter(
-        (u) => u.role === "MARKETEER" || u.role === "DISTRICT_MANAGER" || u.role === "MEDICAL_REP"
+        (u) => u.role === "DISTRICT_MANAGER" || u.role === "MEDICAL_REP"
       );
     }
     return [];

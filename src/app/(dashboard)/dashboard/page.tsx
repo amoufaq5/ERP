@@ -1062,20 +1062,28 @@ function BUMDashboard() {
 
   // All people under BUM
   const allSubordinates = getReportsOf(user.id);
-  const marketeers = allSubordinates.filter((u) => u.role === "MARKETEER");
   const dms = allSubordinates.filter((u) => u.role === "DISTRICT_MANAGER");
   const reps = allSubordinates.filter((u) => u.role === "MEDICAL_REP");
   const repIds = new Set(reps.map((r) => r.id));
 
   const allInvoices = safeArr<any>(store.invoices);
-  const allDoctors = safeArr<any>(store.doctors);
-  const allVisits = safeArr<any>(store.visits);
-  const allTerritories = safeArr<any>(store.territories);
+  const allDoctorsRaw = safeArr<any>(store.doctors);
+  const allVisitsRaw = safeArr<any>(store.visits);
+  const allTerritoriesRaw = safeArr<any>(store.territories);
   const allMR = safeArr<any>(store.marketRequests);
   const allWP = safeArr<any>(store.weeklyPlans);
-  const allProducts = safeArr<any>(store.products);
+  const allProductsRaw = safeArr<any>(store.products);
   const allKpis = safeArr<any>(store.kpis);
-  const allBUs = safeArr<any>(store.businessUnits);
+
+  // BUM should only see their own BU(s)
+  const allBUs = safeArr<any>(store.businessUnits).filter((bu: any) => bu.managerId === user.id);
+  const myBuIds = new Set(allBUs.map((bu: any) => bu.id));
+
+  // Scope products, doctors, visits, and territories to BUM's BU(s)
+  const allProducts = allProductsRaw.filter((p: any) => myBuIds.has(p.buId));
+  const allDoctors = allDoctorsRaw.filter((d: any) => (d.assignedRepId && repIds.has(d.assignedRepId)) || myBuIds.has(d.buId));
+  const allVisits = allVisitsRaw.filter((v: any) => repIds.has(v.repId) || myBuIds.has(v.buId));
+  const allTerritories = allTerritoriesRaw.filter((t: any) => myBuIds.has(t.buId));
 
   // Revenue from invoices
   const buRevenue = allInvoices
@@ -1119,19 +1127,18 @@ function BUMDashboard() {
     return { ...p, sales };
   }).sort((a, b) => b.sales - a.sales);
 
-  // Marketeer performance from KPIs
-  const marketeerPerf = marketeers.map((m) => {
-    const kpis = allKpis.filter((k) => k.userId === m.id);
+  // District Manager performance from KPIs
+  const dmPerf = dms.map((dm) => {
+    const kpis = allKpis.filter((k) => k.userId === dm.id);
     const totalTarget = kpis.reduce((s, k) => s + (k.target || 0), 0);
     const totalActual = kpis.reduce((s, k) => s + (k.actual || 0), 0);
     const achievement = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0;
-    const mReports = getReportsOf(m.id);
+    const dmReports = getReportsOf(dm.id);
     return {
-      id: m.id,
-      name: `${m.name} — ${m.territory ?? "All"}`,
+      id: dm.id,
+      name: `${dm.name} — ${dm.territory ?? "All"}`,
       achievement,
-      dmCount: mReports.filter((u) => u.role === "DISTRICT_MANAGER").length,
-      repCount: mReports.filter((u) => u.role === "MEDICAL_REP").length,
+      repCount: dmReports.filter((u) => u.role === "MEDICAL_REP").length,
     };
   });
 
@@ -1248,19 +1255,19 @@ function BUMDashboard() {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Marketeer Performance */}
+        {/* District Manager Performance */}
         <Card>
-          <CardHeader><CardTitle className="text-base">Marketeer Performance</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">District Manager Performance</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
-            {marketeerPerf.length === 0 ? (
-              <p className="text-muted-foreground">No marketeers assigned yet.</p>
-            ) : marketeerPerf.map((m) => (
-              <div key={m.id} className="space-y-1">
-                <div className="flex justify-between"><span>{m.name}</span><span className="font-semibold">{m.achievement}%</span></div>
+            {dmPerf.length === 0 ? (
+              <p className="text-muted-foreground">No district managers assigned yet.</p>
+            ) : dmPerf.map((dm) => (
+              <div key={dm.id} className="space-y-1">
+                <div className="flex justify-between"><span>{dm.name}</span><span className="font-semibold">{dm.achievement}%</span></div>
                 <div className="h-2 bg-muted rounded-full">
-                  <div className={`h-full rounded-full ${m.achievement >= 100 ? "bg-green-500" : m.achievement >= 80 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${Math.min(m.achievement, 100)}%` }} />
+                  <div className={`h-full rounded-full ${dm.achievement >= 100 ? "bg-green-500" : dm.achievement >= 80 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${Math.min(dm.achievement, 100)}%` }} />
                 </div>
-                <div className="text-xs text-muted-foreground">{m.dmCount} DMs &middot; {m.repCount} reps</div>
+                <div className="text-xs text-muted-foreground">{dm.repCount} reps</div>
               </div>
             ))}
           </CardContent>
@@ -1300,7 +1307,6 @@ function BUMDashboard() {
             <div className="flex justify-between"><span>Compliance %</span><span className={`font-semibold ${compliancePct >= 80 ? "text-green-600" : "text-amber-600"}`}>{compliancePct}%</span></div>
             <div className="flex justify-between"><span>Doctors Covered</span><span className="font-semibold">{myDoctors.length}</span></div>
             <div className="flex justify-between"><span>District Managers</span><span className="font-semibold">{dms.length}</span></div>
-            <div className="flex justify-between"><span>Marketeers</span><span className="font-semibold">{marketeers.length}</span></div>
           </CardContent>
         </Card>
         <Card>
@@ -1338,7 +1344,31 @@ function BUMDashboard() {
         <TeamQuizResultsCard getReportsOf={getReportsOf} userId={user.id} />
       </div>
 
+      {/* My Weekly Plan */}
+      <Card>
+        <CardHeader><CardTitle className="text-base">My Weekly Plan</CardTitle></CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                <Calendar className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="font-medium">Weekly Plans</div>
+                <div className="text-xs text-muted-foreground">
+                  {pendingPlans.length > 0 ? `${pendingPlans.length} plan(s) pending your review` : "No plans pending review"}
+                </div>
+              </div>
+            </div>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/crm/weekly-plan">View Plans</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <QuickActions items={[
+        { label: "Weekly Plan", icon: Calendar, href: "/crm/weekly-plan" },
         { label: "CRM Reports", icon: TrendingUp, href: "/crm/reports" },
         { label: "GPS Tracking", icon: MapPin, href: "/crm/gps-tracking" },
         { label: "KPIs", icon: Target, href: "/crm/kpis" },

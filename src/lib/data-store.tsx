@@ -227,6 +227,7 @@ export interface Visit {
   buId?: string | null;
   planId?: string;
   session: "AM" | "PM";
+  isUnplanned?: boolean;
 }
 
 // ─── Weekly Plan & Daily Plan ───────────────────────────────────────────────
