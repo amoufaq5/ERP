@@ -399,6 +399,7 @@ export default function AccountingPage() {
   }, [store.cheques, chequeSearch, chequeFilters]);
 
   const filteredInvoices = useMemo(() => {
+    const statusOrder: Record<string, number> = { DRAFT: 0, APPROVED: 1, SENT: 2, PARTIAL: 3, OVERDUE: 4, PAID: 5, VOID: 6 };
     return store.invoices.filter((i) => {
       if (invSearch) {
         const q = invSearch.toLowerCase();
@@ -406,7 +407,7 @@ export default function AccountingPage() {
         if (!i.number.toLowerCase().includes(q) && !(cust?.name.toLowerCase().includes(q) ?? false)) return false;
       }
       return true;
-    });
+    }).sort((a, b) => (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99));
   }, [store.invoices, invSearch, store.customers]);
 
   // GL computed
@@ -1205,7 +1206,7 @@ export default function AccountingPage() {
                   { key: "dueDate", label: "Due Date", render: (v: string) => <span className="text-xs">{new Date(v).toLocaleDateString()}</span> },
                   { key: "total", label: "Total", className: "text-right", render: (v: number) => <span className="font-semibold">{(v ?? 0).toLocaleString()}</span> },
                   { key: "status", label: "Status", render: (v: string) => (
-                    <Badge variant={v === "PAID" ? "success" : v === "APPROVED" ? "success" : v === "OVERDUE" ? "destructive" : v === "VOID" ? "secondary" : v === "DRAFT" ? "secondary" : "warning"}>{v}</Badge>
+                    <Badge variant={v === "PAID" ? "success" : v === "APPROVED" ? "success" : v === "OVERDUE" ? "destructive" : v === "VOID" ? "secondary" : v === "DRAFT" ? "warning" : "warning"}>{v}</Badge>
                   ) },
                   { key: "actions", label: "Actions", className: "text-right", render: (_: unknown, row: Record<string, unknown>) => {
                     const i = row as unknown as Invoice;
@@ -1797,30 +1798,37 @@ export default function AccountingPage() {
           {approvalSubTab === "draft-invoices" && (
             <div className="space-y-4">
               {(() => {
-                const draftInvoices = (store.invoices || []).filter((inv) => inv.status === "DRAFT");
+                const soInvIds = new Set((store.salesOrders || []).map((s) => s.invoiceId).filter(Boolean));
+                const poInvIds = new Set((store.purchaseOrders || []).map((p) => p.invoiceId).filter(Boolean));
+                const relevantInvoices = (store.invoices || []).filter((inv) =>
+                  inv.status === "DRAFT" || (inv.status === "APPROVED" && (soInvIds.has(inv.id) || poInvIds.has(inv.id)))
+                );
                 const canApprove = ["ADMIN", "ACCOUNTANT"].includes(user.role);
-                if (draftInvoices.length === 0) {
+                if (relevantInvoices.length === 0) {
                   return (
                     <Card>
                       <CardContent className="py-12 text-center">
                         <CheckCircle className="h-10 w-10 mx-auto text-green-400 mb-3" />
-                        <p className="text-muted-foreground">No draft invoices pending approval.</p>
+                        <p className="text-muted-foreground">No draft or pending invoices.</p>
                       </CardContent>
                     </Card>
                   );
                 }
-                return draftInvoices.map((inv) => {
+                return relevantInvoices.map((inv) => {
                   const customer = store.customers.find((c) => c.id === inv.customerId);
                   const linkedSO = (store.salesOrders || []).find((s) => s.invoiceId === inv.id);
                   const linkedPO = (store.purchaseOrders || []).find((p) => p.invoiceId === inv.id);
+                  const isDraft = inv.status === "DRAFT";
+                  const isApproved = inv.status === "APPROVED";
                   return (
-                    <Card key={inv.id} className="border-purple-200">
+                    <Card key={inv.id} className={isDraft ? "border-purple-200" : "border-green-200"}>
                       <CardContent className="pt-4 space-y-3">
                         <div className="flex items-start justify-between">
                           <div className="space-y-1">
                             <p className="font-semibold text-sm flex items-center gap-2">
                               <span className="font-mono">{inv.number}</span>
-                              <Badge variant="outline" className="text-[10px]">DRAFT</Badge>
+                              {isDraft && <Badge variant="warning" className="text-[10px]">DRAFT</Badge>}
+                              {isApproved && <Badge variant="success" className="text-[10px]">APPROVED</Badge>}
                               {linkedSO && <span className="text-xs text-muted-foreground">from SO {linkedSO.number}</span>}
                               {linkedPO && <span className="text-xs text-muted-foreground">from PO {linkedPO.number}</span>}
                             </p>
@@ -1834,6 +1842,12 @@ export default function AccountingPage() {
                             <div className="font-bold text-sm">{egpFmt(inv.total ?? 0)}</div>
                           </div>
                         </div>
+                        {isApproved && (
+                          <div className="flex items-center gap-2 rounded-md border border-green-300 bg-green-50 px-3 py-1.5 text-xs text-green-800">
+                            <CheckCircle className="h-3.5 w-3.5" />
+                            <span>Invoice approved{linkedSO ? ` — SO ${linkedSO.number} sent to warehouse for shipment` : ""}. Now visible in the Invoices tab.</span>
+                          </div>
+                        )}
                         {(inv.items || []).length > 0 && (
                           <div className="border rounded text-xs overflow-hidden">
                             <table className="w-full">
@@ -1854,15 +1868,27 @@ export default function AccountingPage() {
                         <div className="flex items-center gap-2 justify-end">
                           {canApprove ? (
                             <>
-                              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setEditingInvoice(inv); setInvFormOpen(true); }}>
-                                <Settings className="h-3.5 w-3.5 mr-1" /> Edit
-                              </Button>
-                              <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700 text-xs" onClick={() => {
-                                store.update("invoices", inv.id, { status: "APPROVED" as Invoice["status"] });
-                                addNotification({ type: "SUCCESS", title: `Invoice ${inv.number} approved`, message: `Draft invoice ${inv.number} has been approved.`, module: "ACCOUNTING", entityType: "invoice", entityId: inv.id, actionUrl: "/erp/accounting" });
-                              }}>
-                                <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve Invoice
-                              </Button>
+                              {isDraft && (
+                                <>
+                                  <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setEditingInvoice(inv); setInvFormOpen(true); }}>
+                                    <Settings className="h-3.5 w-3.5 mr-1" /> Edit
+                                  </Button>
+                                  <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700 text-xs" onClick={() => {
+                                    store.update("invoices", inv.id, { status: "APPROVED" as Invoice["status"] });
+                                    addNotification({ type: "SUCCESS", title: `Invoice ${inv.number} approved`, message: `Draft invoice ${inv.number} has been approved and is now visible in the Invoices tab.`, module: "ACCOUNTING", entityType: "invoice", entityId: inv.id, actionUrl: "/erp/accounting" });
+                                  }}>
+                                    <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve Invoice
+                                  </Button>
+                                </>
+                              )}
+                              {isApproved && (
+                                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => {
+                                  store.update("invoices", inv.id, { status: "SENT" as Invoice["status"] });
+                                  addNotification({ type: "SUCCESS", title: `Invoice ${inv.number} sent`, message: `Invoice ${inv.number} marked as SENT.`, module: "ACCOUNTING", entityType: "invoice", entityId: inv.id, actionUrl: "/erp/accounting" });
+                                }}>
+                                  <Send className="h-3.5 w-3.5 mr-1" /> Mark as Sent
+                                </Button>
+                              )}
                             </>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500">
@@ -1882,26 +1908,34 @@ export default function AccountingPage() {
           {approvalSubTab === "draft-je" && (
             <div className="space-y-4">
               {(() => {
-                const draftJEs = (store.journalEntries || []).filter((j) => j.status === "DRAFT");
+                const soRefs = new Set((store.salesOrders || []).map((s) => s.number));
+                const poRefs = new Set((store.purchaseOrders || []).map((p) => p.number));
+                const relevantJEs = (store.journalEntries || []).filter((j) =>
+                  j.status === "DRAFT" || (j.status === "POSTED" && (soRefs.has(j.reference ?? "") || poRefs.has(j.reference ?? "")))
+                );
                 const canApprove = ["ADMIN", "ACCOUNTANT"].includes(user.role);
-                if (draftJEs.length === 0) {
+                if (relevantJEs.length === 0) {
                   return (
                     <Card>
                       <CardContent className="py-12 text-center">
                         <CheckCircle className="h-10 w-10 mx-auto text-green-400 mb-3" />
-                        <p className="text-muted-foreground">No draft journal entries.</p>
+                        <p className="text-muted-foreground">No draft or pending journal entries.</p>
                       </CardContent>
                     </Card>
                   );
                 }
-                return draftJEs.map((je) => (
-                  <Card key={je.id} className="border-green-200">
+                return relevantJEs.map((je) => {
+                  const isDraft = je.status === "DRAFT";
+                  const isPosted = je.status === "POSTED";
+                  return (
+                  <Card key={je.id} className={isDraft ? "border-amber-200" : "border-green-200"}>
                     <CardContent className="pt-4 space-y-3">
                       <div className="flex items-start justify-between">
                         <div className="space-y-1">
                           <p className="font-semibold text-sm flex items-center gap-2">
                             <span className="font-mono">{je.number}</span>
-                            <Badge variant="warning" className="text-[10px]">DRAFT</Badge>
+                            {isDraft && <Badge variant="warning" className="text-[10px]">DRAFT</Badge>}
+                            {isPosted && <Badge variant="success" className="text-[10px]">POSTED</Badge>}
                             {jeBadge(je.type)}
                           </p>
                           <p className="text-xs text-muted-foreground">Date: {je.date?.slice(0, 10)} | {je.description}</p>
@@ -1912,6 +1946,12 @@ export default function AccountingPage() {
                           <div className="text-xs text-muted-foreground">Total Credit: {((je.lines || []).reduce((s, l) => s + (l.credit ?? 0), 0)).toLocaleString()}</div>
                         </div>
                       </div>
+                      {isPosted && (
+                        <div className="flex items-center gap-2 rounded-md border border-green-300 bg-green-50 px-3 py-1.5 text-xs text-green-800">
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          <span>Journal entry posted successfully. Now visible in the Journal Entries tab.</span>
+                        </div>
+                      )}
                       {(je.lines || []).length > 0 && (
                         <div className="border rounded text-xs overflow-hidden">
                           <table className="w-full">
@@ -1930,7 +1970,7 @@ export default function AccountingPage() {
                         </div>
                       )}
                       <div className="flex items-center gap-2 justify-end">
-                        {canApprove ? (
+                        {canApprove && isDraft ? (
                           <>
                             <Button size="sm" variant="outline" className="h-8 text-red-600 border-red-200 hover:bg-red-50" onClick={() => {
                               store.update("journalEntries", je.id, { status: "VOID" as JournalEntry["status"] });
@@ -1942,20 +1982,21 @@ export default function AccountingPage() {
                             <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={() => {
                               store.update("journalEntries", je.id, { status: "POSTED" as JournalEntry["status"] });
                               logAction({ userId: user.id ?? "u-admin", userName: user.name ?? "Admin", userRole: user.role, action: "UPDATE", module: "ERP", entity: "JournalEntry", entityId: je.id, entityName: `JE ${je.number}`, details: `Journal entry posted from Approval Center: ${je.number}`, oldValues: { status: "DRAFT" }, newValues: { status: "POSTED" } });
-                              addNotification({ type: "SUCCESS", title: `JE ${je.number} posted`, message: `Journal entry ${je.number} has been posted.`, module: "ACCOUNTING", entityType: "journalEntry", entityId: je.id, actionUrl: "/erp/accounting" });
+                              addNotification({ type: "SUCCESS", title: `JE ${je.number} posted`, message: `Journal entry ${je.number} has been posted and is now visible in the Journal Entries tab.`, module: "ACCOUNTING", entityType: "journalEntry", entityId: je.id, actionUrl: "/erp/accounting" });
                             }}>
                               <CheckCircle className="h-3.5 w-3.5 mr-1" /> Post
                             </Button>
                           </>
-                        ) : (
+                        ) : !canApprove ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500">
                             <Lock className="h-3 w-3" /> Read-only
                           </span>
-                        )}
+                        ) : null}
                       </div>
                     </CardContent>
                   </Card>
-                ));
+                  );
+                });
               })()}
             </div>
           )}
