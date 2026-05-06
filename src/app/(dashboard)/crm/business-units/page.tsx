@@ -4,7 +4,7 @@ import { useMemo, useState, useCallback } from "react";
 import {
   Building, Plus, Users, Package, UserCog,
   MapPin, Pencil, Trash2, Eye, X, CheckCircle, Clock, Grid3x3,
-  ShieldCheck, FileText, ChevronRight, Search, Check, XCircle,
+  ShieldCheck, FileText, ChevronRight, ChevronDown, Search, Check, XCircle,
   Briefcase, BarChart3, DollarSign, Activity, AlertTriangle,
 } from "lucide-react";
 import { DataTable, type Column } from "@/components/shared/data-table";
@@ -212,6 +212,23 @@ export default function BusinessUnitsPage() {
   // ── Product/Territory Add Dialog ──
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [addTerritoryOpen, setAddTerritoryOpen] = useState(false);
+
+  // ── BU Creation Wizard State ──
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [wizardBasicInfo, setWizardBasicInfo] = useState<{
+    name: string; code: string; description: string; managerId: string; color: string; status: string;
+  }>({ name: "", code: "", description: "", managerId: "", color: "#3b82f6", status: "ACTIVE" });
+  const [wizardSelectedProducts, setWizardSelectedProducts] = useState<Set<string>>(new Set());
+  const [wizardSelectedTerritories, setWizardSelectedTerritories] = useState<Set<string>>(new Set());
+  const [wizardBrickAssignments, setWizardBrickAssignments] = useState<Record<string, string>>({});
+  const [wizardProductSearch, setWizardProductSearch] = useState("");
+  const [wizardTerritorySearch, setWizardTerritorySearch] = useState("");
+  const [wizardExpandedNodes, setWizardExpandedNodes] = useState<Set<string>>(new Set());
+  const [wizardErrors, setWizardErrors] = useState<Record<string, string>>({});
+
+  // ── Territory Hierarchy Expanded State (for detail view) ──
+  const [territoryExpandedNodes, setTerritoryExpandedNodes] = useState<Set<string>>(new Set());
 
   // ── Assignment Tab State ──
   const [assignmentBUId, setAssignmentBUId] = useState<string>(SEED_BUS[0]?.id || "");
@@ -555,6 +572,143 @@ export default function BusinessUnitsPage() {
     );
   }
 
+  // ── Wizard Helpers ──
+  function resetWizard() {
+    setWizardStep(1);
+    setWizardBasicInfo({ name: "", code: "", description: "", managerId: "", color: "#3b82f6", status: "ACTIVE" });
+    setWizardSelectedProducts(new Set());
+    setWizardSelectedTerritories(new Set());
+    setWizardBrickAssignments({});
+    setWizardProductSearch("");
+    setWizardTerritorySearch("");
+    setWizardExpandedNodes(new Set());
+    setWizardErrors({});
+  }
+
+  function validateWizardStep(step: number): boolean {
+    const errors: Record<string, string> = {};
+    if (step === 1) {
+      if (!wizardBasicInfo.name.trim()) errors.name = "Name is required";
+      if (!wizardBasicInfo.code.trim()) errors.code = "Code is required";
+      if (!wizardBasicInfo.managerId) errors.managerId = "Manager is required";
+    }
+    setWizardErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
+  function handleWizardCreate() {
+    const newId = `lbu-${Date.now().toString(36)}`;
+    const newBU: LocalBusinessUnit = {
+      id: newId,
+      name: wizardBasicInfo.name,
+      code: wizardBasicInfo.code,
+      description: wizardBasicInfo.description,
+      managerId: wizardBasicInfo.managerId,
+      color: wizardBasicInfo.color || "#3b82f6",
+      status: (wizardBasicInfo.status || "ACTIVE") as "ACTIVE" | "INACTIVE",
+      members: [],
+      productIds: Array.from(wizardSelectedProducts),
+      territoryIds: Array.from(wizardSelectedTerritories),
+    };
+    setBusinessUnits((prev) => [...prev, newBU]);
+    try {
+      logAction({ userId: user.id, userName: user.name, userRole: user.role, action: "CREATE", module: "CRM", entity: "BusinessUnit", entityId: newId, entityName: wizardBasicInfo.name, details: `${user.name} created Business Unit ${wizardBasicInfo.name} via wizard` });
+    } catch { /* ignore */ }
+    setWizardOpen(false);
+    resetWizard();
+  }
+
+  function toggleWizardTerritory(id: string) {
+    setWizardSelectedTerritories((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+        // Also remove assignment
+        setWizardBrickAssignments((ba) => {
+          const copy = { ...ba };
+          delete copy[id];
+          return copy;
+        });
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleWizardExpand(id: string) {
+    setWizardExpandedNodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // ── Territory Hierarchy Builder ──
+  interface TerritoryTreeNode {
+    territory: typeof store.territories[0];
+    children: TerritoryTreeNode[];
+    repCount: number;
+    doctorCount: number;
+  }
+
+  function buildTerritoryTree(
+    territoryIds: string[],
+    allTerritories: typeof store.territories,
+    doctors: typeof store.doctors
+  ): TerritoryTreeNode[] {
+    const idSet = new Set(territoryIds);
+    // Collect all ancestor IDs needed
+    const neededIds = new Set<string>();
+    function addAncestors(tid: string) {
+      const t = allTerritories.find((x) => x.id === tid);
+      if (!t) return;
+      neededIds.add(t.id);
+      if (t.parentId) addAncestors(t.parentId);
+    }
+    territoryIds.forEach((tid) => addAncestors(tid));
+
+    const relevantTerritories = allTerritories.filter((t) => neededIds.has(t.id));
+    const childrenMap = new Map<string | "root", typeof allTerritories>();
+    relevantTerritories.forEach((t) => {
+      const key = t.parentId ?? "root";
+      if (!childrenMap.has(key)) childrenMap.set(key, []);
+      childrenMap.get(key)!.push(t);
+    });
+
+    function buildNode(t: typeof allTerritories[0]): TerritoryTreeNode {
+      const kids = (childrenMap.get(t.id) || []).map(buildNode);
+      const directDoctors = doctors.filter((d) => d.brickId === t.id).length;
+      const directReps = t.assignedRepIds.length;
+      const childDoctors = kids.reduce((s, k) => s + k.doctorCount, 0);
+      const childReps = kids.reduce((s, k) => s + k.repCount, 0);
+      return {
+        territory: t,
+        children: kids,
+        repCount: directReps + childReps,
+        doctorCount: directDoctors + childDoctors,
+      };
+    }
+
+    return (childrenMap.get("root") || []).map(buildNode);
+  }
+
+  // Build hierarchy for selected BU territory tab
+  const selectedBUTerritoryTree = useMemo(() => {
+    if (!selectedBU) return [];
+    return buildTerritoryTree(selectedBU.territoryIds, store.territories, store.doctors);
+  }, [selectedBU, store.territories, store.doctors]);
+
+  function toggleTerritoryExpand(id: string) {
+    setTerritoryExpandedNodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   // ── DataTable Columns ──
   const buColumns: Column<LocalBusinessUnit>[] = [
     {
@@ -702,7 +856,7 @@ export default function BusinessUnitsPage() {
         description="Organize the sales force by Business Unit — assign managers, members, products, and territories."
         actions={
           canEdit && activeTab === "list" ? (
-            <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
+            <Button onClick={() => { resetWizard(); setWizardOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" /> New Business Unit
             </Button>
           ) : undefined
@@ -1118,75 +1272,118 @@ export default function BusinessUnitsPage() {
                 </div>
               )}
 
-              {/* ── Territories Sub-tab ── */}
+              {/* ── Territories Sub-tab (Hierarchical Tree View) ── */}
               {detailSubTab === "territories" && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold uppercase text-muted-foreground">
-                      Assigned Territories ({selectedBUTerritories.length})
+                      Territory Hierarchy ({selectedBUTerritories.length} assigned)
                     </h3>
-                    {canEdit && (
-                      <Button size="sm" onClick={() => setAddTerritoryOpen(true)}>
-                        <Plus className="h-3.5 w-3.5 mr-1" /> Add Territory
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <span className="inline-block w-2.5 h-2.5 rounded bg-rose-200" /> Region
+                        <span className="inline-block w-2.5 h-2.5 rounded bg-blue-200 ml-2" /> District
+                        <span className="inline-block w-2.5 h-2.5 rounded bg-green-200 ml-2" /> Brick
+                      </div>
+                      {canEdit && (
+                        <Button size="sm" onClick={() => setAddTerritoryOpen(true)}>
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Add Territory
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {selectedBUTerritories.map((territory) => {
-                      const repsInTerritory = territory.assignedRepIds.length;
-                      const doctorsInTerritory = store.doctors.filter((d) => d.brickId === territory.id).length;
-                      const hasNoRep = repsInTerritory === 0;
-                      return (
-                        <Card key={territory.id} className={hasNoRep ? "border-amber-300" : ""}>
-                          <CardContent className="pt-5">
-                            <div className="flex items-start justify-between mb-3">
-                              <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                                  <h4 className="font-semibold text-sm">{territory.name}</h4>
-                                  <span className="text-xs text-muted-foreground">{territory.nameAr}</span>
+                  {selectedBUTerritoryTree.length > 0 ? (
+                    <Card>
+                      <CardContent className="pt-4 pb-2">
+                        {(function renderHierarchyNodes(nodes: TerritoryTreeNode[], depth: number): React.ReactNode {
+                          return nodes.map((node) => {
+                            const t = node.territory;
+                            const hasChildren = node.children.length > 0;
+                            const isExpanded = territoryExpandedNodes.has(t.id);
+                            const isDirectlyAssigned = selectedBU!.territoryIds.includes(t.id);
+                            const levelColors = {
+                              region: { bg: "bg-rose-50", border: "border-rose-200", text: "text-rose-800", badge: "bg-rose-100 text-rose-800", icon: "text-rose-500" },
+                              governorate: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-800", badge: "bg-blue-100 text-blue-800", icon: "text-blue-500" },
+                              district: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-800", badge: "bg-blue-100 text-blue-800", icon: "text-blue-500" },
+                              brick: { bg: "bg-green-50", border: "border-green-200", text: "text-green-800", badge: "bg-green-100 text-green-800", icon: "text-green-500" },
+                            };
+                            const colors = levelColors[t.level] || levelColors.brick;
+
+                            return (
+                              <div key={t.id}>
+                                <div
+                                  className={`flex items-center gap-2 py-2 px-2 rounded-md hover:bg-muted/40 transition-colors cursor-pointer ${!isDirectlyAssigned ? "opacity-60" : ""}`}
+                                  style={{ paddingLeft: `${depth * 24 + 8}px` }}
+                                  onClick={() => hasChildren && toggleTerritoryExpand(t.id)}
+                                >
+                                  {/* Expand/Collapse */}
+                                  <div className="w-4 h-4 flex items-center justify-center shrink-0">
+                                    {hasChildren ? (
+                                      isExpanded ? <ChevronDown className={`h-3.5 w-3.5 ${colors.icon}`} /> : <ChevronRight className={`h-3.5 w-3.5 ${colors.icon}`} />
+                                    ) : (
+                                      <div className={`h-1.5 w-1.5 rounded-full ${colors.badge.split(" ")[0]}`} />
+                                    )}
+                                  </div>
+
+                                  {/* Territory Info */}
+                                  <Badge className={`text-[10px] ${colors.badge}`}>{t.level}</Badge>
+                                  <span className={`text-sm font-medium ${colors.text}`}>{t.name}</span>
+                                  <span className="text-xs text-muted-foreground">{t.nameAr}</span>
+                                  <Badge variant="outline" className="text-[9px] font-mono ml-1">{t.imsCode}</Badge>
+
+                                  {/* Spacer */}
+                                  <div className="flex-1" />
+
+                                  {/* Stats */}
+                                  <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+                                    <span className="flex items-center gap-1">
+                                      <Users className="h-3 w-3" /> {node.repCount}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Briefcase className="h-3 w-3" /> {node.doctorCount}
+                                    </span>
+                                  </div>
+
+                                  {/* Assigned reps for leaf nodes */}
+                                  {t.level === "brick" && isDirectlyAssigned && t.assignedRepIds.length > 0 && (
+                                    <div className="flex items-center gap-1 ml-2">
+                                      {t.assignedRepIds.slice(0, 2).map((repId) => {
+                                        const repUser = allUsers.find((u) => u.id === repId);
+                                        return (
+                                          <Badge key={repId} variant="outline" className="text-[9px] bg-green-50 text-green-700 border-green-200">
+                                            {repUser?.name ?? repId}
+                                          </Badge>
+                                        );
+                                      })}
+                                      {t.assignedRepIds.length > 2 && (
+                                        <Badge variant="outline" className="text-[9px]">+{t.assignedRepIds.length - 2}</Badge>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Remove button for directly assigned territories */}
+                                  {canEdit && isDirectlyAssigned && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 w-6 p-0 text-red-500 hover:text-red-700 shrink-0"
+                                      onClick={(e) => { e.stopPropagation(); handleRemoveTerritory(t.id); }}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  )}
                                 </div>
-                                <Badge variant="outline" className="text-[10px] font-mono">{territory.imsCode}</Badge>
-                              </div>
-                              {canEdit && (
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-600 hover:text-red-700" onClick={() => handleRemoveTerritory(territory.id)}>
-                                  <X className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                            </div>
-                            {hasNoRep && (
-                              <div className="flex items-center gap-1.5 mb-2 p-1.5 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
-                                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                                <span>No assigned rep — territory uncovered</span>
-                              </div>
-                            )}
-                            <div className="grid grid-cols-3 gap-2 text-xs">
-                              <div className="p-2 bg-muted/50 rounded text-center">
-                                <span className="text-muted-foreground block">Level</span>
-                                <Badge className={
-                                  territory.level === "region" ? "bg-red-100 text-red-800" :
-                                  territory.level === "governorate" ? "bg-blue-100 text-blue-800" :
-                                  territory.level === "district" ? "bg-amber-100 text-amber-800" :
-                                  "bg-green-100 text-green-800"
-                                }>{territory.level}</Badge>
-                              </div>
-                              <div className="p-2 bg-muted/50 rounded text-center">
-                                <span className="text-muted-foreground block">Reps</span>
-                                <span className={`font-semibold ${hasNoRep ? "text-amber-600" : ""}`}>{repsInTerritory}</span>
-                              </div>
-                              <div className="p-2 bg-muted/50 rounded text-center">
-                                <span className="text-muted-foreground block">Doctors</span>
-                                <span className="font-semibold">{doctorsInTerritory}</span>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
 
-                  {selectedBUTerritories.length === 0 && (
+                                {/* Children */}
+                                {hasChildren && isExpanded && renderHierarchyNodes(node.children, depth + 1)}
+                              </div>
+                            );
+                          });
+                        })(selectedBUTerritoryTree, 0)}
+                      </CardContent>
+                    </Card>
+                  ) : (
                     <Card className="p-8 text-center text-muted-foreground">
                       <MapPin className="h-12 w-12 mx-auto mb-3 opacity-30" />
                       <p className="text-sm">No territories assigned to this BU yet.</p>
@@ -1381,7 +1578,406 @@ export default function BusinessUnitsPage() {
           MODALS
          ═══════════════════════════════════════════════════════════════════════ */}
 
-      {/* Create/Edit BU Form */}
+      {/* ── BU Creation Wizard ── */}
+      <Dialog open={wizardOpen} onOpenChange={(open) => { setWizardOpen(open); if (!open) resetWizard(); }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building className="h-5 w-5" />
+              Create Business Unit — Step {wizardStep} of 4
+            </DialogTitle>
+            <DialogDescription>
+              {wizardStep === 1 && "Define basic information for the new Business Unit."}
+              {wizardStep === 2 && "Select products for this Business Unit portfolio."}
+              {wizardStep === 3 && "Select territories and bricks to assign to this BU."}
+              {wizardStep === 4 && "Assign representatives to each selected brick."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Step Indicator */}
+          <div className="flex items-center gap-1 mb-2">
+            {[
+              { num: 1, label: "Basic Info", icon: Building },
+              { num: 2, label: "Products", icon: Package },
+              { num: 3, label: "Territories", icon: MapPin },
+              { num: 4, label: "Assign People", icon: Users },
+            ].map(({ num, label, icon: StepIcon }, i) => (
+              <div key={num} className="flex items-center gap-1 flex-1">
+                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                  wizardStep === num ? "bg-primary text-primary-foreground" :
+                  wizardStep > num ? "bg-green-100 text-green-800" :
+                  "bg-muted text-muted-foreground"
+                }`}>
+                  {wizardStep > num ? <Check className="h-3 w-3" /> : <StepIcon className="h-3 w-3" />}
+                  {label}
+                </div>
+                {i < 3 && <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+              </div>
+            ))}
+          </div>
+
+          {/* ── Step 1: Basic Info ── */}
+          {wizardStep === 1 && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Business Unit Name <span className="text-red-500">*</span></label>
+                  <Input
+                    placeholder="e.g. Oncology BU"
+                    value={wizardBasicInfo.name}
+                    onChange={(e) => setWizardBasicInfo((prev) => ({ ...prev, name: e.target.value }))}
+                    className={wizardErrors.name ? "border-red-500" : ""}
+                  />
+                  {wizardErrors.name && <p className="text-xs text-red-500 mt-1">{wizardErrors.name}</p>}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Code <span className="text-red-500">*</span></label>
+                  <Input
+                    placeholder="e.g. BU-ONC"
+                    value={wizardBasicInfo.code}
+                    onChange={(e) => setWizardBasicInfo((prev) => ({ ...prev, code: e.target.value }))}
+                    className={wizardErrors.code ? "border-red-500" : ""}
+                  />
+                  {wizardErrors.code && <p className="text-xs text-red-500 mt-1">{wizardErrors.code}</p>}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Description</label>
+                <textarea
+                  className="w-full border rounded-md p-2 text-sm bg-background min-h-[80px] resize-y"
+                  placeholder="Therapeutic areas and coverage"
+                  value={wizardBasicInfo.description}
+                  onChange={(e) => setWizardBasicInfo((prev) => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Business Unit Manager <span className="text-red-500">*</span></label>
+                  <select
+                    className={`w-full border rounded-md p-2 text-sm bg-background ${wizardErrors.managerId ? "border-red-500" : ""}`}
+                    value={wizardBasicInfo.managerId}
+                    onChange={(e) => setWizardBasicInfo((prev) => ({ ...prev, managerId: e.target.value }))}
+                  >
+                    <option value="">Select manager...</option>
+                    {managerOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  {wizardErrors.managerId && <p className="text-xs text-red-500 mt-1">{wizardErrors.managerId}</p>}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Color</label>
+                  <select
+                    className="w-full border rounded-md p-2 text-sm bg-background"
+                    value={wizardBasicInfo.color}
+                    onChange={(e) => setWizardBasicInfo((prev) => ({ ...prev, color: e.target.value }))}
+                  >
+                    {BU_COLORS.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Status</label>
+                <select
+                  className="w-full border rounded-md p-2 text-sm bg-background"
+                  value={wizardBasicInfo.status}
+                  onChange={(e) => setWizardBasicInfo((prev) => ({ ...prev, status: e.target.value }))}
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 2: Select Products ── */}
+          {wizardStep === 2 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search products..."
+                    value={wizardProductSearch}
+                    onChange={(e) => setWizardProductSearch(e.target.value)}
+                    className="pl-9 h-8 text-sm"
+                  />
+                </div>
+                <Badge variant="outline" className="shrink-0">{wizardSelectedProducts.size} selected</Badge>
+              </div>
+              <div className="max-h-[400px] overflow-y-auto border rounded-md">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 sticky top-0 z-10">
+                    <tr>
+                      <th className="p-2 text-left w-10"></th>
+                      <th className="p-2 text-left font-medium text-muted-foreground">Product</th>
+                      <th className="p-2 text-left font-medium text-muted-foreground">Code</th>
+                      <th className="p-2 text-left font-medium text-muted-foreground">Therapeutic Area</th>
+                      <th className="p-2 text-left font-medium text-muted-foreground">Form</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {store.products
+                      .filter((p) => {
+                        if (!wizardProductSearch) return true;
+                        const q = wizardProductSearch.toLowerCase();
+                        return p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q) || p.therapeuticArea.toLowerCase().includes(q);
+                      })
+                      .map((product) => {
+                        const isSelected = wizardSelectedProducts.has(product.id);
+                        return (
+                          <tr
+                            key={product.id}
+                            className={`border-b cursor-pointer hover:bg-muted/30 transition-colors ${isSelected ? "bg-blue-50" : ""}`}
+                            onClick={() => {
+                              setWizardSelectedProducts((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(product.id)) next.delete(product.id);
+                                else next.add(product.id);
+                                return next;
+                              });
+                            }}
+                          >
+                            <td className="p-2 text-center">
+                              <div className={`h-5 w-5 rounded border-2 inline-flex items-center justify-center ${
+                                isSelected ? "border-blue-500 bg-blue-500 text-white" : "border-gray-300"
+                              }`}>
+                                {isSelected && <Check className="h-3 w-3" />}
+                              </div>
+                            </td>
+                            <td className="p-2">
+                              <span className="font-medium">{product.name}</span>
+                              <span className="text-xs text-muted-foreground ml-1">{product.strength}</span>
+                            </td>
+                            <td className="p-2"><Badge variant="outline" className="text-[10px] font-mono">{product.code}</Badge></td>
+                            <td className="p-2 text-muted-foreground">{product.therapeuticArea}</td>
+                            <td className="p-2 text-muted-foreground">{product.form}</td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 3: Select Territories/Bricks ── */}
+          {wizardStep === 3 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search territories..."
+                    value={wizardTerritorySearch}
+                    onChange={(e) => setWizardTerritorySearch(e.target.value)}
+                    className="pl-9 h-8 text-sm"
+                  />
+                </div>
+                <Badge variant="outline" className="shrink-0">{wizardSelectedTerritories.size} selected</Badge>
+              </div>
+              <div className="max-h-[400px] overflow-y-auto border rounded-md p-2">
+                {(() => {
+                  const searchQ = wizardTerritorySearch.toLowerCase();
+                  const regions = store.territories.filter((t) => t.level === "region");
+
+                  function matchesSearch(t: typeof store.territories[0]): boolean {
+                    if (!searchQ) return true;
+                    return t.name.toLowerCase().includes(searchQ) || t.nameAr.includes(searchQ) || t.imsCode.toLowerCase().includes(searchQ);
+                  }
+
+                  function hasMatchingDescendant(parentId: string): boolean {
+                    const children = store.territories.filter((t) => t.parentId === parentId);
+                    return children.some((c) => matchesSearch(c) || hasMatchingDescendant(c.id));
+                  }
+
+                  function renderTerritoryNode(t: typeof store.territories[0], depth: number): React.ReactNode {
+                    const children = store.territories.filter((c) => c.parentId === t.id);
+                    const hasChildren = children.length > 0;
+                    const isExpanded = wizardExpandedNodes.has(t.id);
+                    const isSelected = wizardSelectedTerritories.has(t.id);
+                    const selfMatch = matchesSearch(t);
+                    const descendantMatch = hasMatchingDescendant(t.id);
+                    if (searchQ && !selfMatch && !descendantMatch) return null;
+
+                    const levelColors: Record<string, string> = {
+                      region: "text-rose-700",
+                      governorate: "text-blue-700",
+                      district: "text-blue-700",
+                      brick: "text-green-700",
+                    };
+                    const levelBadgeColors: Record<string, string> = {
+                      region: "bg-rose-100 text-rose-800",
+                      governorate: "bg-blue-100 text-blue-800",
+                      district: "bg-blue-100 text-blue-800",
+                      brick: "bg-green-100 text-green-800",
+                    };
+
+                    return (
+                      <div key={t.id}>
+                        <div
+                          className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-muted/40 cursor-pointer"
+                          style={{ paddingLeft: `${depth * 20 + 4}px` }}
+                        >
+                          {/* Expand */}
+                          <button
+                            className="w-4 h-4 flex items-center justify-center shrink-0"
+                            onClick={(e) => { e.stopPropagation(); if (hasChildren) toggleWizardExpand(t.id); }}
+                          >
+                            {hasChildren ? (
+                              isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                            ) : null}
+                          </button>
+
+                          {/* Checkbox */}
+                          <button
+                            className={`h-4.5 w-4.5 rounded border-2 inline-flex items-center justify-center shrink-0 ${
+                              isSelected ? "border-blue-500 bg-blue-500 text-white" : "border-gray-300 bg-white"
+                            }`}
+                            onClick={(e) => { e.stopPropagation(); toggleWizardTerritory(t.id); }}
+                            style={{ width: "18px", height: "18px" }}
+                          >
+                            {isSelected && <Check className="h-2.5 w-2.5" />}
+                          </button>
+
+                          {/* Name */}
+                          <Badge className={`text-[9px] ${levelBadgeColors[t.level] || ""}`}>{t.level}</Badge>
+                          <span className={`text-sm font-medium ${levelColors[t.level] || ""}`}>{t.name}</span>
+                          <span className="text-xs text-muted-foreground">{t.nameAr}</span>
+                        </div>
+
+                        {/* Children */}
+                        {hasChildren && (isExpanded || (searchQ && descendantMatch)) && (
+                          children.map((child) => renderTerritoryNode(child, depth + 1))
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return regions
+                    .filter((r) => !searchQ || matchesSearch(r) || hasMatchingDescendant(r.id))
+                    .map((r) => renderTerritoryNode(r, 0));
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 4: Assign People per Brick ── */}
+          {wizardStep === 4 && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Assign a representative to each selected brick. You can also do this later from the BU detail view.
+              </p>
+              {(() => {
+                const selectedBricks = store.territories.filter(
+                  (t) => wizardSelectedTerritories.has(t.id) && t.level === "brick"
+                );
+                const selectedNonBricks = store.territories.filter(
+                  (t) => wizardSelectedTerritories.has(t.id) && t.level !== "brick"
+                );
+
+                return (
+                  <>
+                    {selectedNonBricks.length > 0 && (
+                      <div className="p-2 bg-muted/50 rounded-md text-xs text-muted-foreground">
+                        <span className="font-medium">{selectedNonBricks.length}</span> non-brick territories selected (regions/districts). Rep assignment is per brick.
+                      </div>
+                    )}
+                    {selectedBricks.length === 0 ? (
+                      <Card className="p-6 text-center text-muted-foreground">
+                        <MapPin className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">No bricks selected. Go back to step 3 to select brick-level territories for rep assignment.</p>
+                      </Card>
+                    ) : (
+                      <div className="max-h-[400px] overflow-y-auto border rounded-md">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted/50 sticky top-0 z-10">
+                            <tr>
+                              <th className="p-2 text-left font-medium text-muted-foreground">Brick</th>
+                              <th className="p-2 text-left font-medium text-muted-foreground">IMS Code</th>
+                              <th className="p-2 text-left font-medium text-muted-foreground">Assigned Rep</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedBricks.map((brick) => {
+                              const parentDistrict = store.territories.find((t) => t.id === brick.parentId);
+                              return (
+                                <tr key={brick.id} className="border-b hover:bg-muted/30">
+                                  <td className="p-2">
+                                    <div>
+                                      <span className="font-medium">{brick.name}</span>
+                                      {parentDistrict && (
+                                        <span className="text-xs text-muted-foreground ml-1">({parentDistrict.name})</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="p-2">
+                                    <Badge variant="outline" className="text-[10px] font-mono">{brick.imsCode}</Badge>
+                                  </td>
+                                  <td className="p-2">
+                                    <select
+                                      className="w-full border rounded-md p-1.5 text-sm bg-background"
+                                      value={wizardBrickAssignments[brick.id] || ""}
+                                      onChange={(e) => {
+                                        setWizardBrickAssignments((prev) => ({
+                                          ...prev,
+                                          [brick.id]: e.target.value,
+                                        }));
+                                      }}
+                                    >
+                                      <option value="">-- No rep --</option>
+                                      {allUsers
+                                        .filter((u) => u.role === "MEDICAL_REP" || u.role === "DISTRICT_MANAGER")
+                                        .map((u) => (
+                                          <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                                        ))}
+                                    </select>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* Wizard Footer */}
+          <DialogFooter className="flex items-center justify-between sm:justify-between">
+            <div>
+              {wizardStep > 1 && (
+                <Button variant="outline" onClick={() => setWizardStep((s) => s - 1)}>
+                  <ChevronRight className="h-3.5 w-3.5 mr-1 rotate-180" /> Previous
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={() => { setWizardOpen(false); resetWizard(); }}>Cancel</Button>
+              {wizardStep < 4 ? (
+                <Button onClick={() => {
+                  if (validateWizardStep(wizardStep)) {
+                    setWizardStep((s) => s + 1);
+                  }
+                }}>
+                  Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                </Button>
+              ) : (
+                <Button onClick={handleWizardCreate}>
+                  <Check className="h-3.5 w-3.5 mr-1" /> Create Business Unit
+                </Button>
+              )}
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit BU Form (EntityFormModal for editing only) */}
       <EntityFormModal
         open={formOpen}
         onOpenChange={(open) => { setFormOpen(open); if (!open) setEditing(null); }}
