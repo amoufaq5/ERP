@@ -24,6 +24,7 @@ import {
   Thermometer, Download, Plus, Package, BookOpen,
   Layers, TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown,
   Clock, ShieldAlert, BarChart3, ChevronLeft, Eye,
+  Truck, CheckCircle, FileText,
 } from "lucide-react";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
@@ -179,7 +180,7 @@ function computeForecasts(): ForecastRecord[] {
 
 const SEED_FORECASTS: ForecastRecord[] = computeForecasts();
 
-type Tab = "raw" | "finished" | "warehouses" | "catalog" | "batches" | "forecasting";
+type Tab = "raw" | "finished" | "warehouses" | "catalog" | "batches" | "forecasting" | "shipments";
 
 /* ─── Component ──────────────────────────────────────────────────── */
 
@@ -487,6 +488,12 @@ export default function InventoryPage() {
     return { rmValue, fgValue, lowStock, expiringSoon };
   }, [rawMaterials, finishedProducts, config]);
 
+  /* ─── Shipments (Sales Orders in PREPARING / SHIPPED / DELIVERED) ─── */
+  const preparingSOs = (store.salesOrders || []).filter((s) => s.status === "PREPARING");
+  const shippedSOs = (store.salesOrders || []).filter((s) => s.status === "SHIPPED");
+  const deliveredTodaySOs = (store.salesOrders || []).filter((s) => s.status === "DELIVERED" && s.date?.slice(0, 10) === new Date().toISOString().slice(0, 10));
+  const totalItemsToShip = preparingSOs.reduce((sum, so) => sum + (so.items || []).reduce((s, i) => s + i.quantity, 0), 0);
+
   /* ─── Catalog Product Classification (Raw vs Finished) ─── */
   const catalogClassification = useMemo(() => {
     const conversionFormulas = store.conversionFormulas;
@@ -728,11 +735,12 @@ export default function InventoryPage() {
               : tab === "catalog" ? downloadCSV("catalog-products.csv", filteredCatalogProducts as unknown as Record<string, unknown>[])
               : tab === "batches" ? downloadCSV("batch-tracking.csv", batches as unknown as Record<string, unknown>[])
               : tab === "forecasting" ? downloadCSV("demand-forecasts.csv", forecasts as unknown as Record<string, unknown>[])
+              : tab === "shipments" ? downloadCSV("shipments.csv", preparingSOs.concat(shippedSOs) as unknown as Record<string, unknown>[])
               : downloadCSV("warehouses.csv", warehouses as unknown as Record<string, unknown>[])
             }>
               <Download className="h-4 w-4 mr-2" /> Export
             </Button>
-            {tab !== "catalog" && tab !== "batches" && tab !== "forecasting" && (
+            {tab !== "catalog" && tab !== "batches" && tab !== "forecasting" && tab !== "shipments" && (
               <Button onClick={handleAdd}>
                 <Plus className="h-4 w-4 mr-2" /> Add {tab === "raw" ? "Material" : tab === "finished" ? "Product" : "Warehouse"}
               </Button>
@@ -758,6 +766,7 @@ export default function InventoryPage() {
             { key: "warehouses" as Tab, label: t("inv.warehouses"), icon: Warehouse },
             { key: "batches" as Tab, label: `Batch Tracking (${batches.length})`, icon: Layers },
             { key: "forecasting" as Tab, label: "Forecasting", icon: BarChart3 },
+            { key: "shipments" as Tab, label: `Shipments (${preparingSOs.length + shippedSOs.length})`, icon: Truck },
           ]).map((item) => {
             const Icon = item.icon;
             return (
@@ -1282,6 +1291,182 @@ export default function InventoryPage() {
             </CardContent>
           </Card>
         </>
+      )}
+
+      {tab === "shipments" && (
+        <div className="space-y-6">
+          {/* Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <StatsCard title="Pending Shipments" value={preparingSOs.length.toString()} subtitle="Approved, awaiting dispatch" icon={<Package className="h-5 w-5" />} iconColor="bg-amber-100 text-amber-700" />
+            <StatsCard title="In Transit" value={shippedSOs.length.toString()} subtitle="Shipped, awaiting delivery" icon={<Truck className="h-5 w-5" />} iconColor="bg-blue-100 text-blue-700" />
+            <StatsCard title="Delivered Today" value={deliveredTodaySOs.length.toString()} subtitle="Completed deliveries" icon={<CheckCircle className="h-5 w-5" />} iconColor="bg-green-100 text-green-700" />
+            <StatsCard title="Total Items to Ship" value={totalItemsToShip.toString()} subtitle="Across all pending" icon={<Layers className="h-5 w-5" />} iconColor="bg-purple-100 text-purple-700" />
+          </div>
+
+          {/* Pending Shipments - PREPARING SOs */}
+          <Card>
+            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Package className="h-4 w-4 text-amber-600" /> Pending Shipments — Approved Orders Awaiting Dispatch</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {preparingSOs.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  <Package className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p>No orders awaiting shipment.</p>
+                </div>
+              ) : preparingSOs.map((so) => {
+                const customer = store.customers.find((c) => c.id === so.customerId);
+                const linkedInvoice = so.invoiceId ? store.invoices.find((inv) => inv.id === so.invoiceId) : null;
+                return (
+                  <div key={so.id} className="border rounded-lg p-4 space-y-3 bg-amber-50/30">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <p className="font-semibold text-sm flex items-center gap-2">
+                          <span className="font-mono">{so.number}</span>
+                          <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200">PREPARING</Badge>
+                        </p>
+                        <p className="text-xs text-muted-foreground">Customer: {customer?.name ?? "Unknown"}</p>
+                        <p className="text-xs text-muted-foreground">Expected: {so.expectedDate?.slice(0, 10) ?? "N/A"}</p>
+                      </div>
+                      <div className="text-right text-sm">
+                        <div className="font-bold">EGP {(so.total ?? 0).toLocaleString()}</div>
+                        <div className="text-xs text-muted-foreground">{(so.items || []).length} item(s)</div>
+                      </div>
+                    </div>
+                    {/* Invoice Info */}
+                    {linkedInvoice && (
+                      <div className="bg-white border rounded p-3 text-xs space-y-1">
+                        <div className="flex items-center gap-2 font-semibold text-sm">
+                          <FileText className="h-3.5 w-3.5 text-blue-600" />
+                          Invoice: <span className="font-mono">{linkedInvoice.number}</span>
+                          <Badge variant={linkedInvoice.status === "APPROVED" ? "default" : "outline"} className="text-[10px]">{linkedInvoice.status}</Badge>
+                        </div>
+                        <p className="text-muted-foreground">Amount: EGP {(linkedInvoice.total ?? 0).toLocaleString()} | Due: {linkedInvoice.dueDate?.slice(0, 10)}</p>
+                      </div>
+                    )}
+                    {/* Items to ship */}
+                    <div className="border rounded text-xs overflow-hidden">
+                      <table className="w-full">
+                        <thead><tr className="bg-muted/50"><th className="p-2 text-left">Product</th><th className="p-2 text-right">Qty</th><th className="p-2 text-right">Stock Available</th><th className="p-2 text-center">Status</th></tr></thead>
+                        <tbody>
+                          {(so.items || []).map((item, idx) => {
+                            const product = store.products.find((p) => p.id === item.productId);
+                            const stockAvail = product?.stockQty ?? 0;
+                            const sufficient = stockAvail >= item.quantity;
+                            return (
+                              <tr key={idx} className="border-t">
+                                <td className="p-2">{item.description}</td>
+                                <td className="p-2 text-right">{item.quantity.toLocaleString()}</td>
+                                <td className="p-2 text-right">{stockAvail.toLocaleString()}</td>
+                                <td className="p-2 text-center">
+                                  {sufficient
+                                    ? <Badge variant="outline" className="text-[9px] bg-green-50 text-green-700 border-green-200">In Stock</Badge>
+                                    : <Badge variant="outline" className="text-[9px] bg-red-50 text-red-700 border-red-200">Low Stock</Badge>
+                                  }
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* Ship button */}
+                    <div className="flex justify-end">
+                      <Button size="sm" className="h-8 text-xs" onClick={() => {
+                        // Create delivery note
+                        const dnId = store.genId("dn");
+                        const dnNumber = store.generateDNNumber();
+                        store.add("deliveryNotes", {
+                          id: dnId,
+                          number: dnNumber,
+                          soId: so.id,
+                          customerId: so.customerId,
+                          date: new Date().toISOString(),
+                          items: (so.items || []).map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity })),
+                          status: "SHIPPED",
+                          createdAt: new Date().toISOString(),
+                        } as any);
+                        store.update("salesOrders", so.id, { status: "SHIPPED", dnId } as any);
+                      }}>
+                        <Truck className="h-3.5 w-3.5 mr-1" /> Mark as Shipped
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          {/* Shipped - Awaiting Delivery Confirmation */}
+          <Card>
+            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Truck className="h-4 w-4 text-blue-600" /> In Transit — Awaiting Delivery Confirmation</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {shippedSOs.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  <Truck className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p>No shipments in transit.</p>
+                </div>
+              ) : shippedSOs.map((so) => {
+                const customer = store.customers.find((c) => c.id === so.customerId);
+                const dn = store.deliveryNotes.find((d) => d.soId === so.id);
+                const linkedInvoice = so.invoiceId ? store.invoices.find((inv) => inv.id === so.invoiceId) : null;
+                return (
+                  <div key={so.id} className="border rounded-lg p-4 space-y-2 bg-blue-50/30">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-semibold text-sm flex items-center gap-2">
+                          <span className="font-mono">{so.number}</span>
+                          {dn && <span className="text-xs text-muted-foreground">DN: {dn.number}</span>}
+                          <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">SHIPPED</Badge>
+                        </p>
+                        <p className="text-xs text-muted-foreground">Customer: {customer?.name ?? "Unknown"} | Shipped: {dn?.date?.slice(0, 10) ?? "N/A"}</p>
+                        {linkedInvoice && <p className="text-xs text-muted-foreground">Invoice: <span className="font-mono">{linkedInvoice.number}</span> ({linkedInvoice.status})</p>}
+                      </div>
+                      <Button size="sm" variant="outline" className="h-8 text-xs text-green-700 border-green-200 hover:bg-green-50" onClick={() => {
+                        if (!dn) return;
+                        // Confirm delivery — mark as DELIVERED, create draft JE, deduct stock
+                        store.update("deliveryNotes", dn.id, { status: "DELIVERED" } as any);
+
+                        const totalDiscountAmount = so.discountAmount ?? 0;
+                        const jeLines = [
+                          { accountId: "gl-1100", description: "Accounts Receivable", debit: so.total, credit: 0 },
+                          { accountId: "gl-4000", description: "Product Sales Revenue", debit: 0, credit: so.subtotal },
+                          { accountId: "gl-2100", description: "VAT Payable", debit: 0, credit: so.tax },
+                        ];
+                        if (totalDiscountAmount > 0) {
+                          jeLines.push({ accountId: "gl-4900", description: "Sales Discount", debit: totalDiscountAmount, credit: 0 });
+                        }
+                        const jeId = store.genId("je");
+                        store.add("journalEntries", {
+                          id: jeId,
+                          number: store.generateJournalNumber(),
+                          date: new Date().toISOString().split("T")[0],
+                          description: `Sales revenue — SO ${so.number}`,
+                          reference: so.number,
+                          type: "GENERAL",
+                          lines: jeLines,
+                          status: "DRAFT",
+                          createdBy: "u-admin",
+                          createdAt: new Date().toISOString(),
+                        } as any);
+
+                        // Deduct stock
+                        (so.items || []).forEach((item) => {
+                          const product = store.products.find((p) => p.id === item.productId);
+                          if (product) {
+                            store.update("products", product.id, { stockQty: Math.max(0, (product.stockQty ?? 0) - item.quantity) });
+                          }
+                        });
+
+                        store.update("salesOrders", so.id, { status: "DELIVERED", jeId } as any);
+                      }}>
+                        <CheckCircle className="h-3.5 w-3.5 mr-1" /> Confirm Delivery
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* ── Modals ── */}

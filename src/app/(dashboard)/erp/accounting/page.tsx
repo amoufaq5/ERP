@@ -237,6 +237,9 @@ export default function AccountingPage() {
   const [jeDetailId, setJeDetailId] = useState<string | null>(null);
   const [jeNewLine, setJeNewLine] = useState({ accountId: "", description: "", debit: 0, credit: 0, costCenterId: "" });
 
+  // Main tab state (controlled for programmatic navigation)
+  const [activeTab, setActiveTab] = useState("customers");
+
   // Approval Center state
   const [approvalSubTab, setApprovalSubTab] = useState<"so-approvals" | "po-approvals" | "draft-invoices" | "draft-je">("so-approvals");
 
@@ -978,7 +981,7 @@ export default function AccountingPage() {
         </Card>
       )}
 
-      <Tabs defaultValue="customers">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex flex-wrap gap-1">
           <TabsTrigger value="customers">{t("acct.customers")} ({store.customers.length})</TabsTrigger>
           <TabsTrigger value="vendors">{t("acct.vendors")} ({store.vendors.length})</TabsTrigger>
@@ -1168,10 +1171,14 @@ export default function AccountingPage() {
           {(() => {
             const draftCount = store.invoices.filter((i) => i.status === "DRAFT").length;
             return draftCount > 0 ? (
-              <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800 cursor-pointer hover:bg-amber-100 transition-colors text-left"
+                onClick={() => { setActiveTab("sales-orders"); setApprovalSubTab("draft-invoices"); }}
+              >
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span className="font-medium">{draftCount} Draft Invoice{draftCount > 1 ? "s" : ""} pending approval</span>
-              </div>
+              </button>
             ) : null;
           })()}
           <FilterBar
@@ -1230,10 +1237,14 @@ export default function AccountingPage() {
           {(() => {
             const draftJECount = store.journalEntries.filter((j) => j.status === "DRAFT").length;
             return draftJECount > 0 ? (
-              <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800 cursor-pointer hover:bg-amber-100 transition-colors text-left"
+                onClick={() => { setActiveTab("sales-orders"); setApprovalSubTab("draft-je"); }}
+              >
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span className="font-medium">{draftJECount} Draft Journal Entr{draftJECount > 1 ? "ies" : "y"} pending posting</span>
-              </div>
+              </button>
             ) : null;
           })()}
           <FilterBar
@@ -1635,14 +1646,38 @@ export default function AccountingPage() {
                           </div>
                         </div>
                         {linkedInvoice && (
-                          <div className="text-xs bg-muted/30 rounded p-2 flex items-center gap-2">
-                            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>Linked Draft Invoice: <span className="font-mono font-semibold">{linkedInvoice.number}</span> — {egpFmt(linkedInvoice.total ?? 0)} ({linkedInvoice.status})</span>
+                          <div className="space-y-2">
+                            <div className="text-xs bg-muted/30 rounded p-2 flex items-center gap-2">
+                              <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="font-medium">Linked Draft Invoice: <span className="font-mono font-semibold">{linkedInvoice.number}</span> — {egpFmt(linkedInvoice.total ?? 0)} ({linkedInvoice.status})</span>
+                            </div>
+                            {linkedInvoice.status === "DRAFT" && (linkedInvoice.items || []).length > 0 && (
+                              <div className="border rounded text-xs overflow-hidden">
+                                <table className="w-full">
+                                  <thead><tr className="bg-muted/50"><th className="p-2 text-left">Item</th><th className="p-2 text-right">Qty</th><th className="p-2 text-right">Unit Price</th><th className="p-2 text-right">Total</th></tr></thead>
+                                  <tbody>
+                                    {(linkedInvoice.items || []).map((item, idx) => (
+                                      <tr key={idx} className="border-t">
+                                        <td className="p-2">{item.description}</td>
+                                        <td className="p-2 text-right">{(item.quantity ?? 0).toLocaleString()}</td>
+                                        <td className="p-2 text-right">{(item.unitPrice ?? 0).toLocaleString()}</td>
+                                        <td className="p-2 text-right font-medium">{(item.total ?? 0).toLocaleString()}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
                           </div>
                         )}
                         <div className="flex items-center gap-2 justify-end">
                           {canApprove ? (
                             <>
+                              {linkedInvoice && linkedInvoice.status === "DRAFT" && (
+                                <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setEditingInvoice(linkedInvoice); setInvFormOpen(true); }}>
+                                  <Settings className="h-3.5 w-3.5 mr-1" /> Edit Invoice
+                                </Button>
+                              )}
                               <Button size="sm" variant="outline" className="h-8 text-red-600 border-red-200 hover:bg-red-50" onClick={() => {
                                 store.update("salesOrders", so.id, { status: "DRAFT" });
                                 if (linkedInvoice) store.update("invoices", linkedInvoice.id, { status: "VOID" as Invoice["status"] });
@@ -1657,7 +1692,6 @@ export default function AccountingPage() {
                                 <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Escalate to Finance
                               </Button>
                               <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={() => {
-                                store.update("salesOrders", so.id, { status: "CONFIRMED" });
                                 if (linkedInvoice) store.update("invoices", linkedInvoice.id, { status: "APPROVED" as Invoice["status"] });
                                 store.update("salesOrders", so.id, { status: "PREPARING" });
                                 addNotification({ type: "SUCCESS", title: `SO ${so.number} approved`, message: `Sales order ${so.number} approved. Invoice ${linkedInvoice?.number ?? ""} approved. Sent to warehouse for preparation.`, module: "ACCOUNTING", entityType: "salesOrder", entityId: so.id, actionUrl: "/erp/accounting" });
@@ -1763,16 +1797,14 @@ export default function AccountingPage() {
           {approvalSubTab === "draft-invoices" && (
             <div className="space-y-4">
               {(() => {
-                const soIds = new Set((store.salesOrders || []).map((s) => s.invoiceId).filter(Boolean));
-                const poIds = new Set((store.purchaseOrders || []).map((p) => p.invoiceId).filter(Boolean));
-                const draftInvoices = (store.invoices || []).filter((inv) => inv.status === "DRAFT" && (soIds.has(inv.id) || poIds.has(inv.id)));
+                const draftInvoices = (store.invoices || []).filter((inv) => inv.status === "DRAFT");
                 const canApprove = ["ADMIN", "ACCOUNTANT"].includes(user.role);
                 if (draftInvoices.length === 0) {
                   return (
                     <Card>
                       <CardContent className="py-12 text-center">
                         <CheckCircle className="h-10 w-10 mx-auto text-green-400 mb-3" />
-                        <p className="text-muted-foreground">No draft invoices linked to SOs/POs.</p>
+                        <p className="text-muted-foreground">No draft invoices pending approval.</p>
                       </CardContent>
                     </Card>
                   );
