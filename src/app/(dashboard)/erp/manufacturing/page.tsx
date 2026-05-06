@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   Factory, ClipboardList, Play, CheckCircle, Plus, Package, Layers, Trash2,
+  AlertTriangle, CheckCircle2, ArrowRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -38,15 +39,17 @@ interface BOM {
   materials: BOMItem[];
 }
 
-interface WOMaterial { materialCode: string; materialName: string; requiredQty: number; unit: string; }
+interface WOMaterial { materialCode: string; materialName: string; requiredQty: number; unit: string; issuedQty?: number; availableStock?: number; }
 
 interface WorkOrder {
   id: string; bomId: string; bomName: string;
+  productCode: string;
   quantity: number; priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   status: "PLANNED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
   startDate: string; endDate: string;
   assignedTo: string; notes?: string;
   materials: WOMaterial[];
+  materialsIssued: boolean;
 }
 
 /* ─── Seed ─── */
@@ -88,16 +91,16 @@ function calcWOMaterials(bom: BOM, quantity: number): WOMaterial[] {
 }
 
 const SEED_WO: WorkOrder[] = [
-  { id: "wo-1", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", quantity: 500000, priority: "HIGH", status: "IN_PROGRESS", startDate: "2026-03-15", endDate: "2026-04-15", assignedTo: "Production Line A",
-    materials: calcWOMaterials(SEED_BOMS[0], 500000) },
-  { id: "wo-2", bomId: "bom-2", bomName: "Amoxicillin 250mg Capsule", quantity: 200000, priority: "MEDIUM", status: "PLANNED", startDate: "2026-04-01", endDate: "2026-05-01", assignedTo: "Production Line B",
-    materials: calcWOMaterials(SEED_BOMS[1], 200000) },
-  { id: "wo-3", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", quantity: 300000, priority: "HIGH", status: "COMPLETED", startDate: "2026-02-01", endDate: "2026-03-01", assignedTo: "Production Line A",
-    materials: calcWOMaterials(SEED_BOMS[0], 300000) },
-  { id: "wo-4", bomId: "bom-4", bomName: "Vitamin C Effervescent 1000mg", quantity: 50000, priority: "MEDIUM", status: "IN_PROGRESS", startDate: "2026-03-10", endDate: "2026-04-10", assignedTo: "Production Line C",
-    materials: calcWOMaterials(SEED_BOMS[3], 50000) },
-  { id: "wo-5", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", quantity: 250000, priority: "LOW", status: "PLANNED", startDate: "2026-05-01", endDate: "2026-05-30", assignedTo: "Production Line A",
-    materials: calcWOMaterials(SEED_BOMS[0], 250000) },
+  { id: "wo-1", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", productCode: "FG-PARA500-T", quantity: 500000, priority: "HIGH", status: "IN_PROGRESS", startDate: "2026-03-15", endDate: "2026-04-15", assignedTo: "Production Line A",
+    materials: calcWOMaterials(SEED_BOMS[0], 500000), materialsIssued: true },
+  { id: "wo-2", bomId: "bom-2", bomName: "Amoxicillin 250mg Capsule", productCode: "FG-AMOX250-C", quantity: 200000, priority: "MEDIUM", status: "PLANNED", startDate: "2026-04-01", endDate: "2026-05-01", assignedTo: "Production Line B",
+    materials: calcWOMaterials(SEED_BOMS[1], 200000), materialsIssued: false },
+  { id: "wo-3", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", productCode: "FG-PARA500-T", quantity: 300000, priority: "HIGH", status: "COMPLETED", startDate: "2026-02-01", endDate: "2026-03-01", assignedTo: "Production Line A",
+    materials: calcWOMaterials(SEED_BOMS[0], 300000), materialsIssued: true },
+  { id: "wo-4", bomId: "bom-4", bomName: "Vitamin C Effervescent 1000mg", productCode: "FG-VITC-EFF", quantity: 50000, priority: "MEDIUM", status: "IN_PROGRESS", startDate: "2026-03-10", endDate: "2026-04-10", assignedTo: "Production Line C",
+    materials: calcWOMaterials(SEED_BOMS[3], 50000), materialsIssued: true },
+  { id: "wo-5", bomId: "bom-1", bomName: "Paracetamol 500mg Tablet", productCode: "FG-PARA500-T", quantity: 250000, priority: "LOW", status: "PLANNED", startDate: "2026-05-01", endDate: "2026-05-30", assignedTo: "Production Line A",
+    materials: calcWOMaterials(SEED_BOMS[0], 250000), materialsIssued: false },
 ];
 
 const statusColor: Record<string, string> = {
@@ -193,6 +196,95 @@ export default function ManufacturingPage() {
     setMaterialsTarget(null);
   }
 
+  /* ─── Material Issue / Completion state ─── */
+  const [stockWarningOpen, setStockWarningOpen] = useState(false);
+  const [stockWarningWO, setStockWarningWO] = useState<WorkOrder | null>(null);
+  const [stockWarningItems, setStockWarningItems] = useState<Array<{ materialCode: string; materialName: string; required: number; available: number; unit: string }>>([]);
+  const [completionSummaryOpen, setCompletionSummaryOpen] = useState(false);
+  const [completionSummary, setCompletionSummary] = useState<{ woId: string; productName: string; quantityProduced: number; materialsConsumed: WOMaterial[] } | null>(null);
+
+  /** Find store product by material code */
+  function findProductByCode(code: string) {
+    return (store.products || []).find((p) => p.code === code);
+  }
+
+  /** Check stock availability for a WO's materials */
+  function checkStockForWO(wo: WorkOrder): Array<{ materialCode: string; materialName: string; required: number; available: number; unit: string }> {
+    return (wo.materials || []).map((m) => {
+      const prod = findProductByCode(m.materialCode);
+      const available = prod ? (prod.stockQty ?? 0) : 0;
+      return { materialCode: m.materialCode, materialName: m.materialName, required: m.requiredQty ?? 0, available, unit: m.unit };
+    }).filter((item) => item.available < item.required);
+  }
+
+  /** Deduct raw materials from inventory for a WO */
+  function issueMaterials(wo: WorkOrder): WOMaterial[] {
+    const issuedMats: WOMaterial[] = [];
+    for (const m of (wo.materials || [])) {
+      const prod = findProductByCode(m.materialCode);
+      if (prod) {
+        const currentStock = prod.stockQty ?? 0;
+        const deduction = m.requiredQty ?? 0;
+        const newQty = Math.max(0, currentStock - deduction);
+        store.update("products", prod.id, { stockQty: newQty });
+      }
+      issuedMats.push({ ...m, issuedQty: m.requiredQty ?? 0, availableStock: (findProductByCode(m.materialCode)?.stockQty ?? 0) });
+    }
+    return issuedMats;
+  }
+
+  /** Start production: check stock, issue materials, update WO status */
+  function handleStartProduction(wo: WorkOrder) {
+    const insufficientItems = checkStockForWO(wo);
+    if (insufficientItems.length > 0) {
+      setStockWarningWO(wo);
+      setStockWarningItems(insufficientItems);
+      setStockWarningOpen(true);
+      return;
+    }
+    executeStartProduction(wo);
+  }
+
+  function executeStartProduction(wo: WorkOrder) {
+    const issuedMats = issueMaterials(wo);
+    setWorkOrders((prev) => prev.map((x) =>
+      x.id === wo.id
+        ? { ...x, status: "IN_PROGRESS" as const, materialsIssued: true, materials: issuedMats }
+        : x
+    ));
+    // Refresh detail if open
+    if (detailWO?.id === wo.id) {
+      setDetailWO({ ...wo, status: "IN_PROGRESS", materialsIssued: true, materials: issuedMats });
+    }
+    setStockWarningOpen(false);
+    setStockWarningWO(null);
+  }
+
+  /** Complete production: add finished goods to inventory */
+  function handleCompleteProduction(wo: WorkOrder) {
+    const bom = boms.find((b) => b.id === wo.bomId);
+    // Add finished goods to inventory
+    const finishedProd = findProductByCode(wo.productCode);
+    if (finishedProd) {
+      const currentStock = finishedProd.stockQty ?? 0;
+      store.update("products", finishedProd.id, { stockQty: currentStock + (wo.quantity ?? 0) });
+    }
+    const completedWO = { ...wo, status: "COMPLETED" as const, endDate: new Date().toISOString().split("T")[0] };
+    setWorkOrders((prev) => prev.map((x) => x.id === wo.id ? completedWO : x));
+    // Show completion summary
+    setCompletionSummary({
+      woId: wo.id,
+      productName: bom?.productName ?? wo.bomName,
+      quantityProduced: wo.quantity ?? 0,
+      materialsConsumed: wo.materials || [],
+    });
+    setCompletionSummaryOpen(true);
+    // Refresh detail if open
+    if (detailWO?.id === wo.id) {
+      setDetailWO(completedWO);
+    }
+  }
+
   /* ─── WO CRUD ─── */
   const [woBomId, setWoBomId] = useState("");
   const [woQuantity, setWoQuantity] = useState(0);
@@ -234,9 +326,9 @@ export default function ManufacturingPage() {
     })) : [];
 
     if (editingWo) {
-      setWorkOrders((prev) => prev.map((w) => w.id === editingWo.id ? { ...w, bomId: woBomId, bomName: bom?.name || w.bomName, quantity: woQuantity, priority: woPriority, status: woStatus, startDate: woStartDate, endDate: woEndDate, assignedTo: woAssignedTo, notes: woNotes || undefined, materials } : w));
+      setWorkOrders((prev) => prev.map((w) => w.id === editingWo.id ? { ...w, bomId: woBomId, bomName: bom?.name || w.bomName, productCode: bom?.productCode || w.productCode, quantity: woQuantity, priority: woPriority, status: woStatus, startDate: woStartDate, endDate: woEndDate, assignedTo: woAssignedTo, notes: woNotes || undefined, materials, materialsIssued: w.materialsIssued } : w));
     } else {
-      setWorkOrders((prev) => [...prev, { id: genId("wo"), bomId: woBomId, bomName: bom?.name || "—", quantity: woQuantity, priority: woPriority, status: "PLANNED", startDate: woStartDate, endDate: woEndDate, assignedTo: woAssignedTo, notes: woNotes || undefined, materials }]);
+      setWorkOrders((prev) => [...prev, { id: genId("wo"), bomId: woBomId, bomName: bom?.name || "—", productCode: bom?.productCode || "", quantity: woQuantity, priority: woPriority, status: "PLANNED" as const, startDate: woStartDate, endDate: woEndDate, assignedTo: woAssignedTo, notes: woNotes || undefined, materials, materialsIssued: false }]);
     }
     setWoFormOpen(false); setEditingWo(null);
   }
@@ -334,8 +426,8 @@ export default function ManufacturingPage() {
                     return (
                       <EditDeleteMenu onEdit={() => handleEditWO(w)} onDelete={() => handleDeleteWO(w)} onView={() => setDetailWO(w)} canView itemLabel={`WO: ${w.bomName}`} compact
                         extraItems={[
-                          ...(w.status === "PLANNED" ? [{ label: "Start Production", onClick: () => setWorkOrders((prev) => prev.map((x) => x.id === w.id ? { ...x, status: "IN_PROGRESS" as const } : x)), icon: <Play className="h-3.5 w-3.5 text-orange-600" /> }] : []),
-                          ...(w.status === "IN_PROGRESS" ? [{ label: "Mark Complete", onClick: () => setWorkOrders((prev) => prev.map((x) => x.id === w.id ? { ...x, status: "COMPLETED" as const, endDate: new Date().toISOString().split("T")[0] } : x)), icon: <CheckCircle className="h-3.5 w-3.5 text-green-600" /> }] : []),
+                          ...(w.status === "PLANNED" ? [{ label: "Start Production", onClick: () => handleStartProduction(w), icon: <Play className="h-3.5 w-3.5 text-orange-600" /> }] : []),
+                          ...(w.status === "IN_PROGRESS" ? [{ label: "Mark Complete", onClick: () => handleCompleteProduction(w), icon: <CheckCircle className="h-3.5 w-3.5 text-green-600" /> }] : []),
                         ]} />
                     );
                   }},

@@ -23,7 +23,7 @@ import {
   FlaskConical, Pill, Warehouse, AlertTriangle,
   Thermometer, Download, Plus, Package, BookOpen,
   Layers, TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown,
-  Clock, ShieldAlert, BarChart3,
+  Clock, ShieldAlert, BarChart3, ChevronLeft, Eye,
 } from "lucide-react";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
@@ -58,6 +58,16 @@ interface WarehouseRec {
   type: "Raw Material" | "Finished Goods" | "Cold Chain" | "Quarantine";
   location: string; manager: string; tempRange: string;
   capacity: number; used: number;
+}
+
+interface StockMovement {
+  id: string;
+  date: string;
+  reference: string;
+  type: "IN" | "OUT";
+  quantity: number;
+  source: string;
+  runningBalance: number;
 }
 
 /* ─── Seed data ──────────────────────────────────────────────────── */
@@ -199,6 +209,10 @@ export default function InventoryPage() {
   const [detailFP, setDetailFP] = useState<FinishedProduct | null>(null);
   const [detailWH, setDetailWH] = useState<WarehouseRec | null>(null);
   const [detailBatch, setDetailBatch] = useState<BatchRecord | null>(null);
+
+  // Warehouse drill-down state
+  const [selectedWarehouse, setSelectedWarehouse] = useState<WarehouseRec | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<(typeof store.products)[number] | null>(null);
 
   // Auto-reorder PO suggestions state
   const [showPOSuggestions, setShowPOSuggestions] = useState(false);
@@ -371,6 +385,91 @@ export default function InventoryPage() {
   const reorderAlerts = useMemo(() => {
     return forecasts.filter((f) => f.currentStock <= f.reorderPoint);
   }, [forecasts]);
+
+  /* ─── Warehouse Products (drill-down) ─── */
+  const warehouseProducts = useMemo(() => {
+    if (!selectedWarehouse) return [];
+    return (store.products || []).filter(
+      (p) => p.warehouse === selectedWarehouse.name
+    );
+  }, [store.products, selectedWarehouse]);
+
+  /* ─── Stock Movements for selected product ─── */
+  const stockMovements = useMemo((): StockMovement[] => {
+    if (!selectedProduct) return [];
+    const movements: StockMovement[] = [];
+
+    // Inbound from Purchase Orders (RECEIVED)
+    (store.purchaseOrders || []).forEach((po) => {
+      if (po.status !== "RECEIVED") return;
+      (po.items || []).forEach((item) => {
+        if (item.productId === selectedProduct.id) {
+          movements.push({
+            id: `mv-po-${po.id}-${item.productId}`,
+            date: po.date,
+            reference: po.number,
+            type: "IN",
+            quantity: item.quantity ?? 0,
+            source: "Purchase Order",
+            runningBalance: 0,
+          });
+        }
+      });
+    });
+
+    // Outbound from Sales Orders (DELIVERED / INVOICED)
+    (store.salesOrders || []).forEach((so) => {
+      if (so.status !== "DELIVERED" && so.status !== "INVOICED") return;
+      (so.items || []).forEach((item) => {
+        if (item.productId === selectedProduct.id) {
+          movements.push({
+            id: `mv-so-${so.id}-${item.productId}`,
+            date: so.date,
+            reference: so.number,
+            type: "OUT",
+            quantity: item.quantity ?? 0,
+            source: "Sales Order",
+            runningBalance: 0,
+          });
+        }
+      });
+    });
+
+    // Sort by date ascending to compute running balance
+    movements.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Compute running balance
+    let balance = 0;
+    movements.forEach((m) => {
+      if (m.type === "IN") balance += m.quantity;
+      else balance -= m.quantity;
+      m.runningBalance = balance;
+    });
+
+    // Return descending for display
+    return movements.reverse();
+  }, [selectedProduct, store.purchaseOrders, store.salesOrders]);
+
+  const totalInbound = useMemo(() => {
+    return (stockMovements || [])
+      .filter((m) => m.type === "IN")
+      .reduce((s, m) => s + (m.quantity ?? 0), 0);
+  }, [stockMovements]);
+
+  const totalOutbound = useMemo(() => {
+    return (stockMovements || [])
+      .filter((m) => m.type === "OUT")
+      .reduce((s, m) => s + (m.quantity ?? 0), 0);
+  }, [stockMovements]);
+
+  const productStockStatus = useMemo(() => {
+    if (!selectedProduct) return "OK";
+    const qty = selectedProduct.stockQty ?? 0;
+    const reorder = selectedProduct.reorderLevel ?? 0;
+    if (qty === 0) return "Out of Stock";
+    if (qty <= reorder) return "Low Stock";
+    return "OK";
+  }, [selectedProduct]);
 
   /* ─── Stats ─── */
   const stats = useMemo(() => {
@@ -850,13 +949,13 @@ export default function InventoryPage() {
       )}
 
       {/* ── Warehouses ── */}
-      {tab === "warehouses" && (
+      {tab === "warehouses" && !selectedWarehouse && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {warehouses.map((w) => {
             const pct = Math.round((w.used / w.capacity) * 100);
             const colorByType: Record<string, string> = { "Raw Material": "bg-purple-100 text-purple-700", "Finished Goods": "bg-emerald-100 text-emerald-700", "Cold Chain": "bg-blue-100 text-blue-700", Quarantine: "bg-amber-100 text-amber-700" };
             return (
-              <Card key={w.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setDetailWH(w)}>
+              <Card key={w.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedWarehouse(w)}>
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
@@ -871,7 +970,7 @@ export default function InventoryPage() {
                 <CardContent className="space-y-3 text-sm">
                   <div className="flex items-center justify-between"><Badge variant="outline">{w.type}</Badge><span className="text-xs text-muted-foreground">{w.tempRange}</span></div>
                   <div>
-                    <div className="flex justify-between text-xs text-muted-foreground mb-1"><span>Capacity</span><span>{w.used.toLocaleString()} / {w.capacity.toLocaleString()} ({pct}%)</span></div>
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1"><span>Capacity</span><span>{(w.used ?? 0).toLocaleString()} / {(w.capacity ?? 0).toLocaleString()} ({pct}%)</span></div>
                     <div className="h-2 bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${pct > 85 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} /></div>
                   </div>
                   <div className="text-xs text-muted-foreground border-t pt-2">Manager: <span className="font-medium text-foreground">{w.manager}</span></div>
@@ -880,6 +979,95 @@ export default function InventoryPage() {
             );
           })}
         </div>
+      )}
+
+      {/* ── Warehouse Drill-down: Product List ── */}
+      {tab === "warehouses" && selectedWarehouse && (
+        <>
+          <div className="flex items-center gap-3 mb-2">
+            <Button variant="ghost" size="sm" onClick={() => { setSelectedWarehouse(null); setSelectedProduct(null); }}>
+              <ChevronLeft className="h-4 w-4 mr-1" /> Back to Warehouses
+            </Button>
+            <div className="flex items-center gap-2">
+              <Warehouse className="h-5 w-5 text-muted-foreground" />
+              <h3 className="text-lg font-semibold">{selectedWarehouse.name}</h3>
+              <Badge variant="outline">{selectedWarehouse.type}</Badge>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-blue-100 text-blue-700"><Package className="h-4 w-4" /></div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Products in Warehouse</p>
+                    <p className="text-lg font-bold">{(warehouseProducts || []).length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-emerald-100 text-emerald-700"><Layers className="h-4 w-4" /></div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Capacity Usage</p>
+                    <p className="text-lg font-bold">{(selectedWarehouse.used ?? 0).toLocaleString()} / {(selectedWarehouse.capacity ?? 0).toLocaleString()}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-amber-100 text-amber-700"><Thermometer className="h-4 w-4" /></div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Temperature Range</p>
+                    <p className="text-lg font-bold">{selectedWarehouse.tempRange}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardContent className="overflow-x-auto p-0">
+              <DataTable
+                columns={[
+                  { key: "code", label: "Code", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                  { key: "name", label: "Product Name", render: (_v, row) => {
+                    const p = row as unknown as (typeof store.products)[number];
+                    return (<div><div className="font-medium">{p.name}</div><div className="text-[11px] text-muted-foreground">{p.strength}</div></div>);
+                  }},
+                  { key: "form", label: "Form", render: (v) => <Badge variant="secondary">{v as string}</Badge> },
+                  { key: "stockQty", label: "Stock Qty", className: "text-right", render: (_v, row) => {
+                    const p = row as unknown as (typeof store.products)[number];
+                    const isLow = (p.stockQty ?? 0) <= (p.reorderLevel ?? 0);
+                    return (
+                      <div className={`font-medium ${isLow ? "text-red-600" : ""}`}>
+                        {(p.stockQty ?? 0).toLocaleString()}
+                        {isLow && <div className="text-[10px] text-red-500">below reorder</div>}
+                      </div>
+                    );
+                  }},
+                  { key: "reorderLevel", label: "Reorder Level", className: "text-right", render: (v) => <span className="text-sm">{((v as number) ?? 0).toLocaleString()}</span> },
+                  { key: "id", label: "", className: "text-right", render: (_v, row) => {
+                    const p = row as unknown as (typeof store.products)[number];
+                    return (
+                      <Button variant="ghost" size="sm" className="text-xs" onClick={(e) => { e.stopPropagation(); setSelectedProduct(p); }}>
+                        <Eye className="h-3.5 w-3.5 mr-1" /> Movements
+                      </Button>
+                    );
+                  }},
+                ] satisfies Column<Record<string, unknown>>[]}
+                data={warehouseProducts as unknown as Record<string, unknown>[]}
+                onRowClick={(row) => setSelectedProduct(row as unknown as (typeof store.products)[number])}
+                emptyMessage="No products found in this warehouse."
+              />
+            </CardContent>
+          </Card>
+        </>
       )}
 
       {/* ── Batch Tracking ── */}

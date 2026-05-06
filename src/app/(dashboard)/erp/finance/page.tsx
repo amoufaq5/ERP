@@ -15,7 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import type { Column } from "@/components/shared/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useApiDataStore } from "@/lib/api/use-api-store";
-import { type Invoice, type Payment, type Budget, type GLAccount, type JournalEntry, type SalesOrder, type BankAccount } from "@/lib/data-store";
+import { type Invoice, type Payment, type Budget, type GLAccount, type JournalEntry, type SalesOrder, type PurchaseOrder, type BankAccount } from "@/lib/data-store";
+import { useNotificationCenter } from "@/lib/notification-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -34,7 +35,7 @@ import { useTranslation } from "@/lib/i18n/i18n-context";
 
 const egp = (n: number) => `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-type Tab = "overview" | "invoices" | "payments" | "gl" | "vendors" | "budgets" | "trial" | "ratios" | "cashflow" | "sales-orders" | "banking" | "transactions" | "reconciliation" | "payment-gateway";
+type Tab = "overview" | "invoices" | "payments" | "gl" | "vendors" | "budgets" | "trial" | "ratios" | "cashflow" | "sales-orders" | "banking" | "transactions" | "reconciliation" | "payment-gateway" | "escalated";
 
 // ─── Banking interfaces & sample data ──────────────────────────
 interface BankingTransaction {
@@ -77,6 +78,8 @@ export default function FinancePage() {
   const store = useApiDataStore();
   const approvals = useApprovals();
   const { t } = useTranslation();
+  let addNotification: (n: Omit<import("@/lib/notification-context").Notification, "id" | "createdAt" | "isRead">) => void = () => {};
+  try { const nc = useNotificationCenter(); addNotification = nc.addNotification; } catch {}
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [invoiceFilters, setInvoiceFilters] = useState<FilterState>({ _search: "", status: "" });
   const [paymentFilters, setPaymentFilters] = useState<FilterState>({ _search: "", type: "", method: "" });
@@ -480,6 +483,7 @@ export default function FinancePage() {
     { key: "sales-orders", label: `${t("fin.salesOrders")} (${store.salesOrders.length})` },
     { key: "banking", label: "Banking" },
     { key: "payment-gateway", label: "Payment Gateway" },
+    { key: "escalated", label: `Escalated Approvals (${store.salesOrders.filter(so => so.escalatedToFinance && so.status === "PENDING_APPROVAL").length + store.purchaseOrders.filter(po => po.escalatedToFinance && po.status === "PENDING_APPROVAL").length})` },
   ];
 
   // ─── Budget CRUD ──────────────────────────────────────────────
@@ -1823,6 +1827,162 @@ export default function FinancePage() {
           </Card>
         </div>
       )}
+
+      {/* ─── Escalated Approvals Tab ─────────────────────────────── */}
+      {activeTab === "escalated" && (() => {
+        const escalatedSOs = store.salesOrders.filter(so => so.escalatedToFinance && so.status === "PENDING_APPROVAL");
+        const escalatedPOs = store.purchaseOrders.filter(po => po.escalatedToFinance && po.status === "PENDING_APPROVAL");
+        const egpF = (n: number) => `EGP ${(n ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+        function handleSOApprove(so: SalesOrder) {
+          const linkedInvoice = so.invoiceId ? store.invoices.find(inv => inv.id === so.invoiceId) : null;
+          store.update("salesOrders", so.id, { status: "CONFIRMED" });
+          if (linkedInvoice) store.update("invoices", linkedInvoice.id, { status: "APPROVED" as Invoice["status"] });
+          store.update("salesOrders", so.id, { status: "PREPARING", escalatedToFinance: false });
+          addNotification({ type: "SUCCESS", title: `Finance approved SO ${so.number}`, message: `Finance approved SO ${so.number}, sent to warehouse`, module: "FINANCE", entityType: "salesOrder", entityId: so.id, actionUrl: "/erp/finance" });
+        }
+
+        function handleSOReject(so: SalesOrder) {
+          const linkedInvoice = so.invoiceId ? store.invoices.find(inv => inv.id === so.invoiceId) : null;
+          store.update("salesOrders", so.id, { status: "DRAFT", escalatedToFinance: false });
+          if (linkedInvoice) store.update("invoices", linkedInvoice.id, { status: "VOID" as Invoice["status"] });
+          addNotification({ type: "WARNING", title: `Finance rejected SO ${so.number}`, message: `Finance rejected SO ${so.number}`, module: "FINANCE", entityType: "salesOrder", entityId: so.id, actionUrl: "/erp/finance" });
+        }
+
+        function handlePOApprove(po: PurchaseOrder) {
+          const linkedInvoice = po.invoiceId ? store.invoices.find(inv => inv.id === po.invoiceId) : null;
+          store.update("purchaseOrders", po.id, { status: "APPROVED", escalatedToFinance: false });
+          if (linkedInvoice) store.update("invoices", linkedInvoice.id, { status: "APPROVED" as Invoice["status"] });
+          addNotification({ type: "SUCCESS", title: `Finance approved PO ${po.number}`, message: `Finance approved PO ${po.number}`, module: "FINANCE", entityType: "purchaseOrder", entityId: po.id, actionUrl: "/erp/finance" });
+        }
+
+        function handlePOReject(po: PurchaseOrder) {
+          const linkedInvoice = po.invoiceId ? store.invoices.find(inv => inv.id === po.invoiceId) : null;
+          store.update("purchaseOrders", po.id, { status: "DRAFT", escalatedToFinance: false });
+          if (linkedInvoice) store.update("invoices", linkedInvoice.id, { status: "VOID" as Invoice["status"] });
+          addNotification({ type: "WARNING", title: `Finance rejected PO ${po.number}`, message: `Finance rejected PO ${po.number}`, module: "FINANCE", entityType: "purchaseOrder", entityId: po.id, actionUrl: "/erp/finance" });
+        }
+
+        return (
+          <div className="space-y-6">
+            {/* Escalated Sales Orders */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" /> Escalated Sales Orders
+                  <Badge variant="outline" className="ml-2">{escalatedSOs.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {escalatedSOs.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <CheckCircle className="h-10 w-10 mx-auto text-green-400 mb-3" />
+                    <p className="text-muted-foreground text-sm">No escalated sales orders pending.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {escalatedSOs.map(so => {
+                      const customer = store.customers.find(c => c.id === so.customerId);
+                      const linkedInvoice = so.invoiceId ? store.invoices.find(inv => inv.id === so.invoiceId) : null;
+                      return (
+                        <div key={so.id} className="border rounded-lg p-4 bg-white space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1">
+                              <p className="font-semibold text-sm flex items-center gap-2">
+                                <span className="font-mono">{so.number}</span>
+                                <span className="text-muted-foreground font-normal">— {customer?.name ?? "Unknown"}</span>
+                                <Badge variant="destructive" className="text-[10px]">Escalated</Badge>
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Date: {so.date?.slice(0, 10)} | Items: {(so.items || []).map(i => `${i.description} x${i.quantity}`).join(", ")}
+                              </p>
+                            </div>
+                            <div className="text-right text-sm">
+                              <div className="font-bold">{egpF(so.total ?? 0)}</div>
+                            </div>
+                          </div>
+                          {linkedInvoice && (
+                            <div className="text-xs bg-muted/30 rounded p-2 flex items-center gap-2">
+                              <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>Linked Draft Invoice: <span className="font-mono font-semibold">{linkedInvoice.number}</span> — {egpF(linkedInvoice.total ?? 0)} ({linkedInvoice.status})</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 justify-end">
+                            <Button size="sm" variant="outline" className="h-8 text-red-600 border-red-200 hover:bg-red-50" onClick={() => handleSOReject(so)}>
+                              <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                            </Button>
+                            <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={() => handleSOApprove(so)}>
+                              <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Escalated Purchase Orders */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-blue-500" /> Escalated Purchase Orders
+                  <Badge variant="outline" className="ml-2">{escalatedPOs.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {escalatedPOs.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <CheckCircle className="h-10 w-10 mx-auto text-green-400 mb-3" />
+                    <p className="text-muted-foreground text-sm">No escalated purchase orders pending.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {escalatedPOs.map(po => {
+                      const vendor = store.vendors.find(v => v.id === po.vendorId);
+                      const linkedInvoice = po.invoiceId ? store.invoices.find(inv => inv.id === po.invoiceId) : null;
+                      return (
+                        <div key={po.id} className="border rounded-lg p-4 bg-white space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1">
+                              <p className="font-semibold text-sm flex items-center gap-2">
+                                <span className="font-mono">{po.number}</span>
+                                <span className="text-muted-foreground font-normal">— {vendor?.name ?? "Unknown"}</span>
+                                <Badge variant="destructive" className="text-[10px]">Escalated</Badge>
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Date: {po.date?.slice(0, 10)} | Items: {(po.items || []).map(i => `${i.description} x${i.quantity}`).join(", ")}
+                              </p>
+                            </div>
+                            <div className="text-right text-sm">
+                              <div className="font-bold">{egpF(po.total ?? 0)}</div>
+                            </div>
+                          </div>
+                          {linkedInvoice && (
+                            <div className="text-xs bg-muted/30 rounded p-2 flex items-center gap-2">
+                              <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>Linked Draft Bill: <span className="font-mono font-semibold">{linkedInvoice.number}</span> — {egpF(linkedInvoice.total ?? 0)} ({linkedInvoice.status})</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 justify-end">
+                            <Button size="sm" variant="outline" className="h-8 text-red-600 border-red-200 hover:bg-red-50" onClick={() => handlePOReject(po)}>
+                              <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                            </Button>
+                            <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={() => handlePOApprove(po)}>
+                              <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* ─── Add Banking Account Dialog ───────────────────────────── */}
       <Dialog open={showAddBankingAccount} onOpenChange={setShowAddBankingAccount}>
