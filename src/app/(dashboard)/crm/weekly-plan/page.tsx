@@ -550,7 +550,7 @@ export default function WeeklyPlanPage() {
 
       <PageHeader
         title="Weekly Visit Plans"
-        description="Set, submit, and review weekly plans before starting field trips. Plans must be approved by a manager before execution."
+        description={isManager ? "Manage, review, and approve weekly field visit plans for your team. Create your own plans for field coaching visits." : "Set, submit, and review weekly plans before starting field trips. Plans must be approved by a manager before execution."}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setShowStartingPoints(true)}>
@@ -572,21 +572,21 @@ export default function WeeklyPlanPage() {
           icon={Calendar}
           title="Draft Plans"
           value={stats.draft}
-          subtitle="Not yet submitted"
+          subtitle={isManager ? "Yours + team" : "Not yet submitted"}
           iconColor="bg-slate-100 text-slate-600"
         />
         <StatsCard
           icon={Clock}
           title="Awaiting Approval"
           value={stats.submitted}
-          subtitle="Submitted, pending"
+          subtitle={isManager ? `${myPlans.filter((p) => p.status === "SUBMITTED" && p.repId !== user.id).length} need your review` : "Submitted, pending"}
           iconColor="bg-amber-100 text-amber-600"
         />
         <StatsCard
           icon={CheckCircle2}
           title="Approved"
           value={stats.approved}
-          subtitle="Ready to execute"
+          subtitle={isManager ? "Yours + team" : "Ready to execute"}
           iconColor="bg-emerald-100 text-emerald-600"
         />
         <StatsCard
@@ -598,9 +598,10 @@ export default function WeeklyPlanPage() {
         />
       </div>
 
-      <Tabs defaultValue="my">
+      <Tabs defaultValue={isManager ? "team" : "my"}>
         <TabsList>
           <TabsTrigger value="my">My Plans</TabsTrigger>
+          {isManager && <TabsTrigger value="team">Team Plans</TabsTrigger>}
           {isManager && <TabsTrigger value="approvals">Pending Approvals</TabsTrigger>}
           <TabsTrigger value="all">All Plans</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
@@ -636,6 +637,60 @@ export default function WeeklyPlanPage() {
               ))
           )}
         </TabsContent>
+
+        {isManager && (
+          <TabsContent value="team" className="space-y-3">
+            {(() => {
+              const teamPlans = myPlans.filter((p) => p.repId !== user.id);
+              if (teamPlans.length === 0) {
+                return (
+                  <Card><CardContent className="p-12 text-center text-muted-foreground">
+                    <Users className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No team plans found.</p>
+                    <p className="text-xs mt-1">Plans from your direct reports will appear here.</p>
+                  </CardContent></Card>
+                );
+              }
+              const grouped = new Map<string, WeeklyPlan[]>();
+              teamPlans.forEach((p) => {
+                const list = grouped.get(p.repId) || [];
+                list.push(p);
+                grouped.set(p.repId, list);
+              });
+              return Array.from(grouped.entries()).map(([repId, plans]) => {
+                const rep = allUsers.find((u) => u.id === repId);
+                const latest = plans.sort((a, b) => (b.weekStartDate > a.weekStartDate ? 1 : -1));
+                return (
+                  <div key={repId} className="space-y-2">
+                    <div className="flex items-center gap-2 pt-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-semibold">{rep?.name ?? repId}</span>
+                      <Badge variant="outline" className="text-[10px]">{rep?.role?.replace("_", " ") ?? ""}</Badge>
+                      <span className="text-xs text-muted-foreground ml-auto">{plans.length} plan{plans.length !== 1 ? "s" : ""}</span>
+                    </div>
+                    {latest.map((plan) => (
+                      <PlanCard
+                        key={plan.id}
+                        plan={plan}
+                        store={store}
+                        allUsers={allUsers}
+                        isRep={false}
+                        isManager
+                        isAutoEscalated={autoEscalatedIds.has(plan.id)}
+                        onEdit={() => setEditing(plan)}
+                        onSubmit={() => submitPlan(plan)}
+                        onApprove={() => approvePlan(plan)}
+                        onReject={() => setRejectingPlan(plan)}
+                        onDelete={() => deletePlan(plan)}
+                        onEscalate={() => escalatePlan(plan)}
+                      />
+                    ))}
+                  </div>
+                );
+              });
+            })()}
+          </TabsContent>
+        )}
 
         {isManager && (
           <TabsContent value="approvals" className="space-y-3">

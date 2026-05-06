@@ -847,6 +847,65 @@ const SEED_WEEKLY_PLANS: WeeklyPlan[] = [
     ],
     status: "APPROVED", submittedAt: daysAgo(10), approvedById: "u-dm-1", approvedAt: daysAgo(9), createdAt: daysAgo(10),
   },
+  {
+    id: "wp-002", repId: "u-dm-1", weekStartDate: daysAgo(7),
+    days: [
+      { date: daysAgo(7), visits: [
+        { amAccountId: "am-hosp-001", timeSlot: "09:00", session: "AM", visitType: "DOUBLE", partnerId: "u-rep-1", checkInTime: "09:00", checkOutTime: "09:45", category: "planned", outcome: "successful" },
+        { doctorId: "dr-001", timeSlot: "14:00", session: "PM", visitType: "DOUBLE", partnerId: "u-rep-1", checkInTime: "14:05", checkOutTime: "14:40", category: "planned", outcome: "successful" },
+      ]},
+      { date: daysAgo(6), visits: [
+        { amAccountId: "am-hosp-002", timeSlot: "10:00", session: "AM", visitType: "SINGLE", checkInTime: "10:05", checkOutTime: "10:35", category: "planned", outcome: "successful" },
+      ]},
+      { date: daysAgo(5), visits: [] },
+      { date: daysAgo(4), visits: [
+        { doctorId: "dr-005", timeSlot: "14:00", session: "PM", visitType: "DOUBLE", partnerId: "u-rep-1", checkInTime: "14:10", checkOutTime: "14:50", category: "planned", outcome: "follow-up needed" },
+      ]},
+      { date: daysAgo(3), visits: [
+        { amAccountId: "am-hosp-004", timeSlot: "09:00", session: "AM", visitType: "SINGLE", checkInTime: "09:00", checkOutTime: "09:30", category: "planned", outcome: "successful" },
+        { doctorId: "dr-003", timeSlot: "14:00", session: "PM", visitType: "SINGLE", checkInTime: "14:00", checkOutTime: "14:25", category: "follow-up", outcome: "successful" },
+      ]},
+    ],
+    status: "APPROVED", submittedAt: daysAgo(10), approvedById: "u-bum", approvedAt: daysAgo(9), createdAt: daysAgo(10),
+  },
+  {
+    id: "wp-003", repId: "u-bum", weekStartDate: daysAgo(7),
+    days: [
+      { date: daysAgo(7), visits: [
+        { amAccountId: "am-hosp-001", timeSlot: "09:00", session: "AM", visitType: "DOUBLE", partnerId: "u-dm-1", checkInTime: "09:00", checkOutTime: "10:00", category: "planned", outcome: "successful" },
+        { doctorId: "dr-001", timeSlot: "14:00", session: "PM", visitType: "DOUBLE", partnerId: "u-dm-1", checkInTime: "14:00", checkOutTime: "14:45", category: "planned", outcome: "successful" },
+      ]},
+      { date: daysAgo(6), visits: [
+        { amAccountId: "am-hosp-002", timeSlot: "10:00", session: "AM", visitType: "DOUBLE", partnerId: "u-rep-1", checkInTime: "10:00", checkOutTime: "10:50", category: "planned", outcome: "successful" },
+      ]},
+      { date: daysAgo(5), visits: [] },
+      { date: daysAgo(4), visits: [
+        { doctorId: "dr-002", timeSlot: "14:00", session: "PM", visitType: "DOUBLE", partnerId: "u-rep-1", checkInTime: "14:00", checkOutTime: "14:55", category: "planned", outcome: "follow-up needed" },
+      ]},
+      { date: daysAgo(3), visits: [] },
+    ],
+    status: "APPROVED", submittedAt: daysAgo(9), approvedAt: daysAgo(8), createdAt: daysAgo(10),
+  },
+  {
+    id: "wp-004", repId: "u-bum", weekStartDate: daysAgo(0),
+    days: [
+      { date: daysAgo(0), visits: [] },
+      { date: daysAhead(1), visits: [
+        { amAccountId: "am-hosp-001", timeSlot: "09:00", session: "AM", visitType: "DOUBLE", partnerId: "u-dm-1", category: "planned", outcome: "pending" },
+        { doctorId: "dr-001", timeSlot: "14:00", session: "PM", visitType: "DOUBLE", partnerId: "u-rep-1", category: "planned", outcome: "pending" },
+      ]},
+      { date: daysAhead(2), visits: [
+        { amAccountId: "am-hosp-002", timeSlot: "10:00", session: "AM", visitType: "DOUBLE", partnerId: "u-rep-1", category: "planned", outcome: "pending" },
+      ]},
+      { date: daysAhead(3), visits: [] },
+      { date: daysAhead(4), visits: [
+        { doctorId: "dr-005", timeSlot: "14:00", session: "PM", visitType: "DOUBLE", partnerId: "u-dm-1", category: "follow-up", outcome: "pending" },
+      ]},
+      { date: daysAhead(5), visits: [] },
+      { date: daysAhead(6), visits: [] },
+    ],
+    status: "DRAFT", createdAt: daysAgo(1),
+  },
 ];
 
 const SEED_DOCTORS: Doctor[] = [
