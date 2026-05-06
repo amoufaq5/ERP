@@ -263,16 +263,16 @@ const ROLE_SECTIONS: Record<string, RoleSectionDef[]> = {
   BUM: [
     { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
     {
-      title: "Business Unit", titleKey: "sidebar.businessUnit",
-      items: ["BUM Dashboard", "Business Units", "Territories (IMS)", "KPIs", "CRM Reports"],
+      title: "My BU", titleKey: "sidebar.businessUnit",
+      items: ["BUM Dashboard", "Territories (IMS)", "KPIs", "CRM Reports"],
     },
     {
-      title: "Teams", titleKey: "sidebar.teams",
-      items: ["Marketeer", "District Manager", "Medical Reps", "Weekly Plans"],
+      title: "Field Operations", titleKey: "sidebar.fieldOps",
+      items: ["Weekly Plans", "District Manager", "Medical Reps", "Doctor Directory", "Visit Tracking"],
     },
     {
-      title: "Sales & Marketing", titleKey: "sidebar.salesMarketing",
-      items: ["Marketing Hub", "Sales Pipeline", "Market Requests"],
+      title: "Requests & Reports", titleKey: "sidebar.salesMarketing",
+      items: ["Market Requests", "Expenses"],
     },
   ],
   ACCOUNTANT: [
