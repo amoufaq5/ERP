@@ -556,7 +556,7 @@ export default function WeeklyPlanPage() {
               <MapPin className="h-4 w-4 mr-2" />
               Starting Points
             </Button>
-            {isRep && (
+            {(isRep || isManager) && (
               <Button onClick={() => setShowCreateDialog(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 New Weekly Plan
