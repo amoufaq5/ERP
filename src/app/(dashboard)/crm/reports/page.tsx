@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback } from "react";
+import { useCurrentUser } from "@/lib/user-context";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { Button } from "@/components/ui/button";
@@ -460,6 +461,23 @@ function scaleMetrics(p: FieldForcePerson, days: number): FieldForcePerson {
 }
 
 export default function CRMReportsPage() {
+  const { user, getReportsOf } = useCurrentUser();
+
+  // ── Role-based filtering of fieldForce data ──
+  const myTeamFieldForce = useMemo(() => {
+    // ADMIN sees everything
+    if (user.role === "ADMIN") return fieldForce;
+
+    // Build a set of names the current user is allowed to see
+    const reportsUnderMe = getReportsOf(user.id);
+    const allowedNames = new Set<string>([
+      user.name,
+      ...reportsUnderMe.map((u) => u.name),
+    ]);
+
+    return fieldForce.filter((p) => allowedNames.has(p.name));
+  }, [user, getReportsOf]);
+
   const [activeTab, setActiveTab] = useState<"fieldforce" | "builder">("fieldforce");
   const [filter, setFilter] = useState<RoleFilter>("ALL");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -592,8 +610,8 @@ export default function CRMReportsPage() {
 
   // Scale metrics by range length
   const scaledFieldForce = useMemo(
-    () => fieldForce.map((p) => scaleMetrics(p, rangeDays)),
-    [rangeDays]
+    () => myTeamFieldForce.map((p) => scaleMetrics(p, rangeDays)),
+    [myTeamFieldForce, rangeDays]
   );
 
   const visible = useMemo(() => {
@@ -614,7 +632,7 @@ export default function CRMReportsPage() {
   }
 
   function selectAllPeople() {
-    const pool = filter === "ALL" ? fieldForce : fieldForce.filter((p) => p.role === filter);
+    const pool = filter === "ALL" ? myTeamFieldForce : myTeamFieldForce.filter((p) => p.role === filter);
     setSelectedPeople(new Set(pool.map((p) => p.id)));
   }
 
@@ -990,8 +1008,8 @@ export default function CRMReportsPage() {
                 <Label className="text-xs">
                   Select People ({selectedPeople.size} of{" "}
                   {filter === "ALL"
-                    ? fieldForce.length
-                    : fieldForce.filter((p) => p.role === filter).length}{" "}
+                    ? myTeamFieldForce.length
+                    : myTeamFieldForce.filter((p) => p.role === filter).length}{" "}
                   shown)
                 </Label>
                 <div className="flex gap-1">
@@ -1018,8 +1036,8 @@ export default function CRMReportsPage() {
               </div>
               <div className="max-h-56 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 p-2 bg-card rounded border">
                 {(filter === "ALL"
-                  ? fieldForce
-                  : fieldForce.filter((p) => p.role === filter)
+                  ? myTeamFieldForce
+                  : myTeamFieldForce.filter((p) => p.role === filter)
                 ).map((p) => {
                   const checked = selectedPeople.has(p.id);
                   return (
@@ -1322,7 +1340,7 @@ export default function CRMReportsPage() {
                     onChange={(e) => setBuilderRep(e.target.value)}
                   >
                     <option value="all">All Reps</option>
-                    {fieldForce.filter((p) => p.role === "MEDICAL_REP").map((p) => (
+                    {myTeamFieldForce.filter((p) => p.role === "MEDICAL_REP").map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>

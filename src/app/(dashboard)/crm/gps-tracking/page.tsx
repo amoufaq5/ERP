@@ -32,6 +32,7 @@ import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { useAppConfig } from "@/lib/config-context";
+import { useCurrentUser } from "@/lib/user-context";
 import type { Column } from "@/components/shared/data-table";
 
 const LeafletMap = dynamic(
@@ -43,6 +44,7 @@ type VisitStatus = "PLANNED" | "IN_PROGRESS" | "COMPLETED";
 
 interface FieldVisit {
   id: string;
+  repId: string;
   rep: string;
   account: string;
   checkIn: string;
@@ -56,6 +58,7 @@ interface FieldVisit {
 
 interface LiveLocation {
   id: string;
+  repId: string;
   rep: string;
   latitude: number;
   longitude: number;
@@ -75,20 +78,20 @@ interface Territory {
 }
 
 const FIELD_VISITS: FieldVisit[] = [
-  { id: "FV-001", rep: "Mohamed El-Sayed", account: "Dr. Ahmed El-Gamal — Cardiology Clinic", checkIn: "09:15 AM", checkOut: "10:40 AM", address: "123 Tahrir Square, Downtown, Cairo", status: "COMPLETED", distance: "3.2 km", lat: 30.0444, lng: 31.2357 },
-  { id: "FV-002", rep: "Nadia Hamdy", account: "Cleopatra Hospital", checkIn: "10:00 AM", checkOut: "11:30 AM", address: "Heliopolis, Cairo", status: "COMPLETED", distance: "8.7 km", lat: 30.0988, lng: 31.3413 },
-  { id: "FV-003", rep: "Youssef Rashad", account: "Dar Al Fouad Hospital", checkIn: "11:45 AM", checkOut: "—", address: "6th of October City, Giza", status: "IN_PROGRESS", distance: "5.1 km", lat: 29.9627, lng: 30.9373 },
-  { id: "FV-004", rep: "Mohamed El-Sayed", account: "Dr. Salma Ibrahim — Endocrinology", checkIn: "01:00 PM", checkOut: "—", address: "Mohandessin, Giza", status: "PLANNED", distance: "12.4 km", lat: 30.0619, lng: 31.2009 },
-  { id: "FV-005", rep: "Heba El-Gendy", account: "El-Ezaby Pharmacy — Maadi Branch", checkIn: "02:30 PM", checkOut: "—", address: "Road 9, Maadi, Cairo", status: "PLANNED", distance: "19.8 km", lat: 29.9603, lng: 31.2568 },
-  { id: "FV-006", rep: "Mostafa Kamal", account: "Ain Shams University Hospital", checkIn: "09:30 AM", checkOut: "11:00 AM", address: "Abbassia, Cairo", status: "COMPLETED", distance: "7.6 km", lat: 30.0725, lng: 31.2807 },
+  { id: "FV-001", repId: "u-rep-1", rep: "Mohamed El-Sayed", account: "Dr. Ahmed El-Gamal — Cardiology Clinic", checkIn: "09:15 AM", checkOut: "10:40 AM", address: "123 Tahrir Square, Downtown, Cairo", status: "COMPLETED", distance: "3.2 km", lat: 30.0444, lng: 31.2357 },
+  { id: "FV-002", repId: "u-rep-2", rep: "Nadia Hamdy", account: "Cleopatra Hospital", checkIn: "10:00 AM", checkOut: "11:30 AM", address: "Heliopolis, Cairo", status: "COMPLETED", distance: "8.7 km", lat: 30.0988, lng: 31.3413 },
+  { id: "FV-003", repId: "u-rep-3", rep: "Youssef Rashad", account: "Dar Al Fouad Hospital", checkIn: "11:45 AM", checkOut: "—", address: "6th of October City, Giza", status: "IN_PROGRESS", distance: "5.1 km", lat: 29.9627, lng: 30.9373 },
+  { id: "FV-004", repId: "u-rep-1", rep: "Mohamed El-Sayed", account: "Dr. Salma Ibrahim — Endocrinology", checkIn: "01:00 PM", checkOut: "—", address: "Mohandessin, Giza", status: "PLANNED", distance: "12.4 km", lat: 30.0619, lng: 31.2009 },
+  { id: "FV-005", repId: "u-rep-4", rep: "Heba El-Gendy", account: "El-Ezaby Pharmacy — Maadi Branch", checkIn: "02:30 PM", checkOut: "—", address: "Road 9, Maadi, Cairo", status: "PLANNED", distance: "19.8 km", lat: 29.9603, lng: 31.2568 },
+  { id: "FV-006", repId: "u-rep-5", rep: "Mostafa Kamal", account: "Ain Shams University Hospital", checkIn: "09:30 AM", checkOut: "11:00 AM", address: "Abbassia, Cairo", status: "COMPLETED", distance: "7.6 km", lat: 30.0725, lng: 31.2807 },
 ];
 
 const LIVE_LOCATIONS: LiveLocation[] = [
-  { id: "LL-001", rep: "Mohamed El-Sayed", latitude: 30.0444, longitude: 31.2357, lastUpdated: "2 min ago", battery: 78, accuracy: 8, color: "#3b82f6" },
-  { id: "LL-002", rep: "Nadia Hamdy", latitude: 30.0988, longitude: 31.3413, lastUpdated: "5 min ago", battery: 53, accuracy: 12, color: "#8b5cf6" },
-  { id: "LL-003", rep: "Youssef Rashad", latitude: 29.9627, longitude: 30.9373, lastUpdated: "1 min ago", battery: 91, accuracy: 5, color: "#10b981" },
-  { id: "LL-004", rep: "Heba El-Gendy", latitude: 29.9603, longitude: 31.2568, lastUpdated: "8 min ago", battery: 34, accuracy: 15, color: "#f97316" },
-  { id: "LL-005", rep: "Mostafa Kamal", latitude: 30.0725, longitude: 31.2807, lastUpdated: "3 min ago", battery: 67, accuracy: 9, color: "#ef4444" },
+  { id: "LL-001", repId: "u-rep-1", rep: "Mohamed El-Sayed", latitude: 30.0444, longitude: 31.2357, lastUpdated: "2 min ago", battery: 78, accuracy: 8, color: "#3b82f6" },
+  { id: "LL-002", repId: "u-rep-2", rep: "Nadia Hamdy", latitude: 30.0988, longitude: 31.3413, lastUpdated: "5 min ago", battery: 53, accuracy: 12, color: "#8b5cf6" },
+  { id: "LL-003", repId: "u-rep-3", rep: "Youssef Rashad", latitude: 29.9627, longitude: 30.9373, lastUpdated: "1 min ago", battery: 91, accuracy: 5, color: "#10b981" },
+  { id: "LL-004", repId: "u-rep-4", rep: "Heba El-Gendy", latitude: 29.9603, longitude: 31.2568, lastUpdated: "8 min ago", battery: 34, accuracy: 15, color: "#f97316" },
+  { id: "LL-005", repId: "u-rep-5", rep: "Mostafa Kamal", latitude: 30.0725, longitude: 31.2807, lastUpdated: "3 min ago", battery: 67, accuracy: 9, color: "#ef4444" },
 ];
 
 const TERRITORIES: Territory[] = [
@@ -208,6 +211,7 @@ interface GeofenceZone {
 
 interface GeofenceAlert {
   id: string;
+  repId: string;
   rep: string;
   zone: string;
   event: GeofenceEventType;
@@ -225,14 +229,14 @@ const GEOFENCE_ZONES: GeofenceZone[] = [
 ];
 
 const GEOFENCE_ALERTS: GeofenceAlert[] = [
-  { id: "GA-001", rep: "Mohamed El-Sayed", zone: "Qasr El Ainy Hospital", event: "ENTERED", timestamp: "2026-05-01 09:12 AM", duration: "47 min", compliant: true },
-  { id: "GA-002", rep: "Mohamed El-Sayed", zone: "Qasr El Ainy Hospital", event: "EXITED", timestamp: "2026-05-01 09:59 AM", duration: "—", compliant: true },
-  { id: "GA-003", rep: "Nadia Hamdy", zone: "Cleopatra Hospital — Heliopolis", event: "ENTERED", timestamp: "2026-05-01 10:05 AM", duration: "1h 22min", compliant: true },
-  { id: "GA-004", rep: "Nadia Hamdy", zone: "Cleopatra Hospital — Heliopolis", event: "EXITED", timestamp: "2026-05-01 11:27 AM", duration: "—", compliant: true },
-  { id: "GA-005", rep: "Youssef Rashad", zone: "Al Salam International Hospital", event: "ENTERED", timestamp: "2026-05-01 11:48 AM", duration: "Ongoing", compliant: true },
-  { id: "GA-006", rep: "Heba El-Gendy", zone: "Seif Pharmacy — Dokki", event: "ENTERED", timestamp: "2026-05-01 02:33 PM", duration: "18 min", compliant: false },
-  { id: "GA-007", rep: "Heba El-Gendy", zone: "Seif Pharmacy — Dokki", event: "EXITED", timestamp: "2026-05-01 02:51 PM", duration: "—", compliant: false },
-  { id: "GA-008", rep: "Mostafa Kamal", zone: "Dr. Hany Morcos — Neurology", event: "ENTERED", timestamp: "2026-05-01 01:15 PM", duration: "32 min", compliant: true },
+  { id: "GA-001", repId: "u-rep-1", rep: "Mohamed El-Sayed", zone: "Qasr El Ainy Hospital", event: "ENTERED", timestamp: "2026-05-01 09:12 AM", duration: "47 min", compliant: true },
+  { id: "GA-002", repId: "u-rep-1", rep: "Mohamed El-Sayed", zone: "Qasr El Ainy Hospital", event: "EXITED", timestamp: "2026-05-01 09:59 AM", duration: "—", compliant: true },
+  { id: "GA-003", repId: "u-rep-2", rep: "Nadia Hamdy", zone: "Cleopatra Hospital — Heliopolis", event: "ENTERED", timestamp: "2026-05-01 10:05 AM", duration: "1h 22min", compliant: true },
+  { id: "GA-004", repId: "u-rep-2", rep: "Nadia Hamdy", zone: "Cleopatra Hospital — Heliopolis", event: "EXITED", timestamp: "2026-05-01 11:27 AM", duration: "—", compliant: true },
+  { id: "GA-005", repId: "u-rep-3", rep: "Youssef Rashad", zone: "Al Salam International Hospital", event: "ENTERED", timestamp: "2026-05-01 11:48 AM", duration: "Ongoing", compliant: true },
+  { id: "GA-006", repId: "u-rep-4", rep: "Heba El-Gendy", zone: "Seif Pharmacy — Dokki", event: "ENTERED", timestamp: "2026-05-01 02:33 PM", duration: "18 min", compliant: false },
+  { id: "GA-007", repId: "u-rep-4", rep: "Heba El-Gendy", zone: "Seif Pharmacy — Dokki", event: "EXITED", timestamp: "2026-05-01 02:51 PM", duration: "—", compliant: false },
+  { id: "GA-008", repId: "u-rep-5", rep: "Mostafa Kamal", zone: "Dr. Hany Morcos — Neurology", event: "ENTERED", timestamp: "2026-05-01 01:15 PM", duration: "32 min", compliant: true },
 ];
 
 const GEOFENCE_EVENT_STYLES: Record<GeofenceEventType, string> = {
@@ -257,11 +261,32 @@ const VISIT_FILTER_FIELDS = [
   ]},
 ];
 
+/** Filter any array with a `repId` field based on the current user's role. */
+function scopeByRole<T extends { repId: string }>(
+  items: T[],
+  role: string,
+  userId: string,
+  repsUnderMe: string[],
+): T[] {
+  if (role === "ADMIN") return items;
+  if (role === "MEDICAL_REP") return items.filter((i) => i.repId === userId);
+  // DM, MARKETEER, BUM — show own + reports
+  return items.filter((i) => i.repId === userId || repsUnderMe.includes(i.repId));
+}
+
 export default function GpsTrackingPage() {
   const { config } = useAppConfig();
+  const { user, getReportsOf } = useCurrentUser();
+  const repsUnderMe = useMemo(() => getReportsOf(user.id).map((u) => u.id), [user.id, getReportsOf]);
+
   const [activeTab, setActiveTab] = useState("visits");
   const [mapView, setMapView] = useState<"live" | "visits">("live");
   const [visitFilters, setVisitFilters] = useState<FilterState>({ _search: "", status: "" });
+
+  // Scope data to the current user's role
+  const scopedVisits = useMemo(() => scopeByRole(FIELD_VISITS, user.role, user.id, repsUnderMe), [user.role, user.id, repsUnderMe]);
+  const scopedLocations = useMemo(() => scopeByRole(LIVE_LOCATIONS, user.role, user.id, repsUnderMe), [user.role, user.id, repsUnderMe]);
+  const scopedAlerts = useMemo(() => scopeByRole(GEOFENCE_ALERTS, user.role, user.id, repsUnderMe), [user.role, user.id, repsUnderMe]);
 
   // Route Planner state
   const [routeStops, setRouteStops] = useState<RouteStop[]>(ROUTE_STOPS);
@@ -296,10 +321,10 @@ export default function GpsTrackingPage() {
     return totalVisits > 0 ? Math.round((compliantVisits / totalVisits) * 100) : 0;
   }, []);
 
-  const completedVisits = FIELD_VISITS.filter((v) => v.status === "COMPLETED").length;
-  const inProgressVisits = FIELD_VISITS.filter((v) => v.status === "IN_PROGRESS").length;
+  const completedVisits = scopedVisits.filter((v) => v.status === "COMPLETED").length;
+  const inProgressVisits = scopedVisits.filter((v) => v.status === "IN_PROGRESS").length;
 
-  const filteredVisits = FIELD_VISITS.filter((v) => {
+  const filteredVisits = scopedVisits.filter((v) => {
     const q = (visitFilters._search || "").toLowerCase();
     const matchesSearch = !q || v.rep.toLowerCase().includes(q) || v.account.toLowerCase().includes(q) || v.address.toLowerCase().includes(q);
     const matchesStatus = !visitFilters.status || v.status === visitFilters.status;
@@ -308,17 +333,17 @@ export default function GpsTrackingPage() {
 
   const markers = useMemo(() => {
     if (mapView === "live") {
-      return LIVE_LOCATIONS.map((l) => ({
+      return scopedLocations.map((l) => ({
         id: l.id, lat: l.latitude, lng: l.longitude, label: l.rep,
         description: `Updated ${l.lastUpdated} · Battery ${l.battery}%`, color: l.color,
       }));
     }
-    return FIELD_VISITS.map((v) => ({
+    return scopedVisits.map((v) => ({
       id: v.id, lat: v.lat, lng: v.lng, label: `${v.account}`,
       description: `${v.rep} · ${v.status.replace(/_/g, " ")} · ${v.address}`,
       color: v.status === "COMPLETED" ? "#10b981" : v.status === "IN_PROGRESS" ? "#f59e0b" : "#3b82f6",
     }));
-  }, [mapView]);
+  }, [mapView, scopedLocations, scopedVisits]);
 
   const visitColumns: Column<Record<string, unknown>>[] = [
     { key: "rep", label: "Rep" },
@@ -366,8 +391,8 @@ export default function GpsTrackingPage() {
       </PageHeader>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Field Reps Active" value={LIVE_LOCATIONS.length} subtitle="Currently in the field" icon={Users} change={20} changeLabel="vs last week" />
-        <StatsCard title="Visits Today" value={FIELD_VISITS.length} subtitle={`${completedVisits} completed · ${inProgressVisits} in progress`} icon={CheckSquare} change={9} changeLabel="vs yesterday" />
+        <StatsCard title="Field Reps Active" value={scopedLocations.length} subtitle="Currently in the field" icon={Users} change={20} changeLabel="vs last week" />
+        <StatsCard title="Visits Today" value={scopedVisits.length} subtitle={`${completedVisits} completed · ${inProgressVisits} in progress`} icon={CheckSquare} change={9} changeLabel="vs yesterday" />
         <StatsCard title="Avg Distance" value="15.3 km" subtitle="Per rep today" icon={Route} change={-4} changeLabel="vs last week" />
         <StatsCard title="Territories" value={TERRITORIES.length} subtitle="Active coverage zones" icon={MapIcon} />
       </div>
@@ -428,10 +453,10 @@ export default function GpsTrackingPage() {
               <h3 className="text-sm font-semibold text-foreground">Live Rep Locations</h3>
               <Badge variant="outline" className="gap-1.5 text-xs">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />
-                {LIVE_LOCATIONS.length} active
+                {scopedLocations.length} active
               </Badge>
             </div>
-            <DataTable columns={locationColumns} data={LIVE_LOCATIONS as unknown as Record<string, unknown>[]} exportable exportFilename="crm-gps-tracking.csv" emptyMessage="No active locations." />
+            <DataTable columns={locationColumns} data={scopedLocations as unknown as Record<string, unknown>[]} exportable exportFilename="crm-gps-tracking.csv" emptyMessage="No active locations." />
           </div>
         </TabsContent>
 
@@ -658,7 +683,7 @@ export default function GpsTrackingPage() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Alerts Today</p>
-                      <p className="text-xl font-bold text-foreground">{GEOFENCE_ALERTS.length}</p>
+                      <p className="text-xl font-bold text-foreground">{scopedAlerts.length}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -671,7 +696,7 @@ export default function GpsTrackingPage() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Non-Compliant</p>
-                      <p className="text-xl font-bold text-foreground">{GEOFENCE_ALERTS.filter((a) => !a.compliant).length}</p>
+                      <p className="text-xl font-bold text-foreground">{scopedAlerts.filter((a) => !a.compliant).length}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -737,7 +762,7 @@ export default function GpsTrackingPage() {
                   <AlertTriangle className="h-4 w-4 text-amber-500" /> Geofence Alerts
                 </h3>
                 <Badge variant="outline" className="text-xs">
-                  {GEOFENCE_ALERTS.length} events today
+                  {scopedAlerts.length} events today
                 </Badge>
               </div>
               <DataTable
@@ -766,7 +791,7 @@ export default function GpsTrackingPage() {
                       ),
                   },
                 ] as Column<Record<string, unknown>>[]}
-                data={GEOFENCE_ALERTS as unknown as Record<string, unknown>[]}
+                data={scopedAlerts as unknown as Record<string, unknown>[]}
                 exportable
                 exportFilename="crm-geofence-alerts.csv"
                 emptyMessage="No geofence alerts."

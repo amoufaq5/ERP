@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
@@ -173,8 +173,8 @@ export default function FinancePage() {
     )},
   ];
 
-  const customerName = (id: string) => store.customers.find((c) => c.id === id)?.name ?? id;
-  const vendorName = (id: string) => store.vendors.find((v) => v.id === id)?.name ?? id;
+  const customerName = useCallback((id: string) => store.customers.find((c) => c.id === id)?.name ?? id, [store.customers]);
+  const vendorName = useCallback((id: string) => store.vendors.find((v) => v.id === id)?.name ?? id, [store.vendors]);
 
   // ─── Computed metrics ──────────────────────────────────────────
   const totalRevenue = store.invoices
@@ -258,7 +258,7 @@ export default function FinancePage() {
       const matchesStatus = !invoiceFilters.status || i.status === invoiceFilters.status;
       return matchesSearch && matchesStatus;
     });
-  }, [store.invoices, store.customers, invoiceFilters]);
+  }, [store.invoices, store.customers, invoiceFilters, customerName]);
 
   const filteredPayments = useMemo(() => {
     return store.payments.filter((p) => {
@@ -269,7 +269,7 @@ export default function FinancePage() {
       const matchesMethod = !paymentFilters.method || p.method === paymentFilters.method;
       return matchesSearch && matchesType && matchesMethod;
     });
-  }, [store.payments, store.customers, store.vendors, paymentFilters]);
+  }, [store.payments, store.customers, store.vendors, paymentFilters, customerName, vendorName]);
 
   // ─── Invoice CRUD ──────────────────────────────────────────────
   const invoiceFields: EntityField[] = [

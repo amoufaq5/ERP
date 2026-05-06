@@ -209,6 +209,135 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Role-specific sidebar section definitions
+// Each entry maps a custom section title to an array of nav-item labels drawn
+// from the master NAV_SECTIONS list. For ADMIN (or any unlisted role) we fall
+// back to the full NAV_SECTIONS unchanged.
+// ---------------------------------------------------------------------------
+
+interface RoleSectionDef {
+  title: string;
+  titleKey?: string;
+  items: string[]; // labels referencing NavItem.label in NAV_SECTIONS
+}
+
+const ROLE_SECTIONS: Record<string, RoleSectionDef[]> = {
+  MEDICAL_REP: [
+    { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
+    {
+      title: "My Field Work", titleKey: "sidebar.myFieldWork",
+      items: ["Doctor Directory", "Visit Tracking", "Weekly Plans", "GPS Tracking", "Expenses"],
+    },
+    {
+      title: "Market", titleKey: "sidebar.market",
+      items: ["Market Requests", "KPIs"],
+    },
+  ],
+  DISTRICT_MANAGER: [
+    { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
+    {
+      title: "Team Management", titleKey: "sidebar.teamManagement",
+      items: ["Weekly Plans", "Medical Reps", "Visit Tracking", "KPIs"],
+    },
+    {
+      title: "Field Operations", titleKey: "sidebar.fieldOps",
+      items: ["Doctor Directory", "Territories (IMS)", "Market Requests", "Expenses", "CRM Reports"],
+    },
+  ],
+  MARKETEER: [
+    { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
+    {
+      title: "Regional Overview", titleKey: "sidebar.regionalOverview",
+      items: ["Business Units", "District Manager", "Territories (IMS)", "KPIs", "CRM Reports"],
+    },
+    {
+      title: "Field Operations", titleKey: "sidebar.fieldOps",
+      items: ["Weekly Plans", "Medical Reps", "Doctor Directory", "Visit Tracking", "Market Requests", "Expenses"],
+    },
+    {
+      title: "Sales", titleKey: "nav.sales",
+      items: ["Marketing Hub", "Sales Pipeline"],
+    },
+  ],
+  BUM: [
+    { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
+    {
+      title: "Business Unit", titleKey: "sidebar.businessUnit",
+      items: ["BUM Dashboard", "Business Units", "Territories (IMS)", "KPIs", "CRM Reports"],
+    },
+    {
+      title: "Teams", titleKey: "sidebar.teams",
+      items: ["Marketeer", "District Manager", "Medical Reps", "Weekly Plans"],
+    },
+    {
+      title: "Sales & Marketing", titleKey: "sidebar.salesMarketing",
+      items: ["Marketing Hub", "Sales Pipeline", "Market Requests"],
+    },
+  ],
+  ACCOUNTANT: [
+    { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
+    {
+      title: "Finance & Accounting", titleKey: "nav.finance",
+      items: ["Finance & Banking", "Accounting", "Collections", "Partner Ledger"],
+    },
+    {
+      title: "Supply Chain", titleKey: "nav.supplyChain",
+      items: ["Procurement", "Sales Orders", "Inventory"],
+    },
+  ],
+  WAREHOUSE: [
+    { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
+    {
+      title: "Supply Chain", titleKey: "nav.supplyChain",
+      items: ["Inventory", "Products", "Procurement", "Sales Orders"],
+    },
+    {
+      title: "Operations", titleKey: "sidebar.operations",
+      items: ["Manufacturing"],
+    },
+  ],
+  HR: [
+    { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
+    {
+      title: "HR & Talent", titleKey: "nav.hr",
+      items: ["HR & Payroll", "Jobs", "Candidates", "Interviews", "Onboarding", "Training"],
+    },
+  ],
+};
+
+/** Build a flat lookup: item label -> NavItem (from the master list). */
+function buildItemIndex(): Map<string, NavItem> {
+  const idx = new Map<string, NavItem>();
+  for (const section of NAV_SECTIONS) {
+    for (const item of section.items) {
+      idx.set(item.label, item);
+    }
+  }
+  return idx;
+}
+
+const ITEM_INDEX = buildItemIndex();
+
+/**
+ * Return sidebar sections tailored to the given role.
+ * ADMIN (and any unknown role) gets the default NAV_SECTIONS.
+ */
+function getOrderedSections(role: string): NavSection[] {
+  const defs = ROLE_SECTIONS[role];
+  if (!defs) return NAV_SECTIONS; // ADMIN / fallback
+
+  return defs.map((def) => ({
+    title: def.title,
+    titleKey: def.titleKey,
+    items: def.items
+      .map((label) => ITEM_INDEX.get(label))
+      .filter((item): item is NavItem => item != null),
+  }));
+}
+
+// ---------------------------------------------------------------------------
+
 interface SidebarProps {
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
@@ -223,7 +352,7 @@ export function Sidebar({
   onMobileClose,
 }: SidebarProps) {
   const pathname = usePathname();
-  const { canAccess } = useCurrentUser();
+  const { user, canAccess } = useCurrentUser();
 
   function isActive(href: string): boolean {
     if (href === "/dashboard") return pathname === "/dashboard" || pathname === "/";
@@ -234,7 +363,9 @@ export function Sidebar({
     return section.items.some((item) => isActive(item.href));
   }
 
-  const visibleSections: NavSection[] = NAV_SECTIONS
+  const baseSections = getOrderedSections(user?.role ?? "ADMIN");
+
+  const visibleSections: NavSection[] = baseSections
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => canAccess(item.href)),
