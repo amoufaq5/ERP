@@ -250,10 +250,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return [];
   }
 
-  // Compute allowed routes — user's override takes precedence over role defaults
-  const override = navOverrides[user.id];
+  // Compute allowed routes — merge overrides with role defaults so new routes are never hidden
   const roleRoutes = ROLE_ROUTES[user.role] ?? [];
-  const allowedRoutes = override ?? roleRoutes;
+  const override = navOverrides[user.id];
+  const allowedRoutes = override
+    ? Array.from(new Set([...roleRoutes, ...override]))
+    : roleRoutes;
   const hasFullAccess = allowedRoutes.includes("*") || user.role === "ADMIN";
 
   function canAccess(href: string): boolean {
