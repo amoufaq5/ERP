@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#7c3aed" />
@@ -41,6 +41,13 @@ export default function RootLayout({
         <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.svg" />
       </head>
       <body className="antialiased min-h-screen font-sans">
+        <script
+          dangerouslySetInnerHTML={{ __html: `
+            (function(){try{var t=localStorage.getItem('pharma.theme');
+            if(t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme:dark)').matches))
+            document.documentElement.classList.add('dark')}catch{}})()
+          `}}
+        />
         <OfflineIndicator />
         {children}
         <InstallPrompt />

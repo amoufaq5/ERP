@@ -8,7 +8,7 @@ import { EnhancedNotificationProvider } from "@/lib/notification-context";
 import { AuditProvider } from "@/lib/audit-trail";
 import { AuditLoggerProvider } from "@/lib/audit-logger";
 import { AuditServiceProvider } from "@/lib/audit/audit-context";
-import { ThemeProvider } from "@/lib/theme-context";
+import { ThemeProvider } from "@/lib/theme/theme-provider";
 import { FavoritesProvider } from "@/lib/favorites";
 import { ApprovalProvider } from "@/lib/approval-workflow";
 import { KeyboardShortcutsInit } from "@/lib/keyboard-init";

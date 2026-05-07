@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Offline - Enterprise Suite</title>
+  <title>Offline - PharmaCRM</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background-color: #0f172a;
-      color: #e2e8f0;
+      background-color: #f0fdfa;
+      color: #134e4a;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -25,7 +25,7 @@
       height: 80px;
       margin: 0 auto 1.5rem;
       border-radius: 16px;
-      background-color: #1e293b;
+      background-color: #ccfbf1;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -33,7 +33,7 @@
     .icon svg {
       width: 48px;
       height: 48px;
-      stroke: #2563eb;
+      stroke: #0d9488;
       fill: none;
       stroke-width: 2;
       stroke-linecap: round;
@@ -43,18 +43,21 @@
       font-size: 1.5rem;
       font-weight: 700;
       margin-bottom: 0.75rem;
-      color: #f1f5f9;
+      color: #0f766e;
     }
     p {
       font-size: 1rem;
       line-height: 1.6;
-      color: #94a3b8;
+      color: #5eead4;
       margin-bottom: 2rem;
+    }
+    p.sub {
+      color: #115e59;
     }
     .btn {
       display: inline-block;
       padding: 0.75rem 1.5rem;
-      background-color: #2563eb;
+      background-color: #0d9488;
       color: #fff;
       border: none;
       border-radius: 8px;
@@ -64,8 +67,8 @@
       text-decoration: none;
       transition: background-color 0.2s;
     }
-    .btn:hover { background-color: #1d4ed8; }
-    .btn:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+    .btn:hover { background-color: #0f766e; }
+    .btn:focus-visible { outline: 2px solid #5eead4; outline-offset: 2px; }
   </style>
 </head>
 <body>
@@ -81,9 +84,9 @@
         <line x1="12" y1="20" x2="12.01" y2="20" />
       </svg>
     </div>
-    <h1>You are offline</h1>
-    <p>It looks like you have lost your internet connection. Please check your network settings and try again.</p>
-    <button class="btn" onclick="window.location.reload()">Try again</button>
+    <h1>You're offline</h1>
+    <p class="sub">It looks like you've lost your internet connection. Any changes you've made will be saved and synced when you reconnect.</p>
+    <button class="btn" onclick="window.location.reload()">Try to reconnect</button>
   </div>
 </body>
 </html>

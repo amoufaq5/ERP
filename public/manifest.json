@@ -1,20 +1,20 @@
 {
-  "name": "Enterprise Suite - Pharma ERP",
-  "short_name": "EnterpriseSuite",
-  "description": "Comprehensive Pharma ERP/CRM/ATS System",
+  "name": "PharmaCRM Field Force",
+  "short_name": "PharmaCRM",
+  "description": "Pharmaceutical CRM and Field Force Automation",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#7c3aed",
+  "theme_color": "#0d9488",
   "orientation": "any",
   "icons": [
-    { "src": "/icons/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml" },
-    { "src": "/icons/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
   ],
   "categories": ["business", "productivity"],
   "shortcuts": [
     { "name": "Dashboard", "url": "/dashboard" },
-    { "name": "Sales Orders", "url": "/erp/sales-order" },
-    { "name": "CRM", "url": "/crm/leads" }
+    { "name": "Doctors", "url": "/crm/doctors" },
+    { "name": "Weekly Plan", "url": "/crm/weekly-plan" }
   ]
 }

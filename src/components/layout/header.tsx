@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 import { useCurrentUser, ROLE_LABEL, type UserRole } from "@/lib/user-context";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 import type { Locale } from "@/lib/i18n/translations";
-import { useTheme } from "@/lib/theme-context";
+import { useTheme } from "@/lib/theme/theme-provider";
 import { useNotifications, type NotificationType } from "@/lib/notifications";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { NotificationCenter } from "@/components/shared/notification-center";
