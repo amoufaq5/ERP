@@ -1,23 +1,23 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { InstallPrompt } from "@/components/pwa/install-prompt";
-import { OfflineIndicator } from "@/components/pwa/offline-indicator";
+import { OfflineIndicator } from "@/components/shared/offline-indicator";
+import { PwaInstall } from "@/components/shared/pwa-install";
 
 export const metadata: Metadata = {
-  title: "Enterprise Suite - ERP | CRM | ATS",
+  title: "PharmaCRM Field Force",
   description:
-    "Integrated enterprise platform combining ERP, CRM, and ATS functionality for modern businesses.",
-  keywords: ["ERP", "CRM", "ATS", "enterprise", "management"],
+    "Pharmaceutical CRM and Field Force Automation",
+  keywords: ["ERP", "CRM", "pharma", "field force", "automation"],
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "EnterpriseSuite",
+    title: "PharmaCRM",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#7c3aed",
+  themeColor: "#0d9488",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -32,10 +32,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#7c3aed" />
+        <meta name="theme-color" content="#0d9488" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="EnterpriseSuite" />
+        <meta name="apple-mobile-web-app-title" content="PharmaCRM" />
         <link rel="icon" href="/icons/icon-192.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
         <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.svg" />
@@ -50,7 +50,7 @@ export default function RootLayout({
         />
         <OfflineIndicator />
         {children}
-        <InstallPrompt />
+        <PwaInstall />
         <script
           dangerouslySetInnerHTML={{
             __html: `
