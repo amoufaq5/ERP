@@ -6,6 +6,7 @@ import {
   MapPin, Pencil, Trash2, Eye, X, CheckCircle, Clock, Grid3x3,
   ShieldCheck, FileText, ChevronRight, ChevronDown, Search, Check, XCircle,
   Briefcase, BarChart3, DollarSign, Activity, AlertTriangle,
+  Network, UserPlus, ExternalLink, Merge, GripVertical,
 } from "lucide-react";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import PageHeader from "@/components/shared/page-header";
@@ -202,7 +203,15 @@ export default function BusinessUnitsPage() {
   // ── Detail State ──
   const [selectedBU, setSelectedBU] = useState<LocalBusinessUnit | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-  const [detailSubTab, setDetailSubTab] = useState<"overview" | "members" | "products" | "territories" | "approvals">("overview");
+  const [detailSubTab, setDetailSubTab] = useState<"overview" | "members" | "products" | "territories" | "team-structure" | "approvals">("overview");
+
+  // ── Team Structure (Org Chart) State ──
+  const [vacancyAssignOpen, setVacancyAssignOpen] = useState(false);
+  const [vacancyRole, setVacancyRole] = useState<string>("");
+  const [vacancyParentId, setVacancyParentId] = useState<string>("");
+  const [vacancyAssignUserId, setVacancyAssignUserId] = useState<string>("");
+  const [personDetailOpen, setPersonDetailOpen] = useState(false);
+  const [selectedPersonId, setSelectedPersonId] = useState<string>("");
 
   // ── Member Add Dialog ──
   const [addMemberOpen, setAddMemberOpen] = useState(false);
@@ -226,6 +235,14 @@ export default function BusinessUnitsPage() {
   const [wizardTerritorySearch, setWizardTerritorySearch] = useState("");
   const [wizardExpandedNodes, setWizardExpandedNodes] = useState<Set<string>>(new Set());
   const [wizardErrors, setWizardErrors] = useState<Record<string, string>>({});
+
+  // ── Brick Management State (for wizard step 3 enhancements) ──
+  const [brickMergeMode, setBrickMergeMode] = useState(false);
+  const [brickMergeSelection, setBrickMergeSelection] = useState<Set<string>>(new Set());
+  const [brickMergeName, setBrickMergeName] = useState("");
+  const [brickMergeDialogOpen, setBrickMergeDialogOpen] = useState(false);
+  const [mergedBricks, setMergedBricks] = useState<Array<{ id: string; name: string; sourceIds: string[]; parentId: string }>>([]);
+  const [brickTerritoryAssignments, setBrickTerritoryAssignments] = useState<Record<string, string>>({});
 
   // ── Territory Hierarchy Expanded State (for detail view) ──
   const [territoryExpandedNodes, setTerritoryExpandedNodes] = useState<Set<string>>(new Set());
@@ -446,6 +463,57 @@ export default function BusinessUnitsPage() {
     } catch { /* ignore */ }
   }
 
+  // ── Vacancy Assignment Handler ──
+  function handleAssignVacancy() {
+    if (!selectedBU || !vacancyAssignUserId || !vacancyRole) return;
+    const memberUser = allUsers.find((u) => u.id === vacancyAssignUserId);
+    setBusinessUnits((prev) =>
+      prev.map((bu) =>
+        bu.id === selectedBU.id
+          ? { ...bu, members: [...bu.members.filter((m) => m.userId !== vacancyAssignUserId), { userId: vacancyAssignUserId, role: vacancyRole }] }
+          : bu
+      )
+    );
+    setSelectedBU((prev) =>
+      prev ? { ...prev, members: [...prev.members.filter((m) => m.userId !== vacancyAssignUserId), { userId: vacancyAssignUserId, role: vacancyRole }] } : prev
+    );
+    try {
+      addNotification({ type: "INFO", title: "Vacancy filled", message: `${memberUser?.name ?? vacancyAssignUserId} assigned as ${ROLE_LABELS[vacancyRole] ?? vacancyRole} in ${selectedBU.name}.`, module: "CRM", entityType: "BusinessUnit", entityId: selectedBU.id, actionUrl: "/crm/business-units" });
+    } catch { /* ignore */ }
+    try {
+      logAction({ userId: user.id, userName: user.name, userRole: user.role, action: "UPDATE", module: "CRM", entity: "BusinessUnit", entityId: selectedBU.id, entityName: selectedBU.name, details: `${user.name} filled vacancy: ${memberUser?.name ?? vacancyAssignUserId} as ${ROLE_LABELS[vacancyRole] ?? vacancyRole}` });
+    } catch { /* ignore */ }
+    setVacancyAssignOpen(false);
+    setVacancyAssignUserId("");
+    setVacancyRole("");
+    setVacancyParentId("");
+  }
+
+  // ── Brick Merge Handler ──
+  function handleBrickMerge() {
+    if (brickMergeSelection.size < 2 || !brickMergeName.trim()) return;
+    const sourceIds = Array.from(brickMergeSelection);
+    const firstBrick = store.territories.find((t) => t.id === sourceIds[0]);
+    const newMergedBrick = {
+      id: `merged-${Date.now().toString(36)}`,
+      name: brickMergeName.trim(),
+      sourceIds,
+      parentId: firstBrick?.parentId ?? "",
+    };
+    setMergedBricks((prev) => [...prev, newMergedBrick]);
+    // Auto-select the merged brick and deselect sources
+    setWizardSelectedTerritories((prev) => {
+      const next = new Set(prev);
+      sourceIds.forEach((id) => next.delete(id));
+      next.add(newMergedBrick.id);
+      return next;
+    });
+    setBrickMergeSelection(new Set());
+    setBrickMergeName("");
+    setBrickMergeDialogOpen(false);
+    setBrickMergeMode(false);
+  }
+
   // ── Product Handlers ──
   function handleAddProduct(productId: string) {
     if (!selectedBU) return;
@@ -583,6 +651,12 @@ export default function BusinessUnitsPage() {
     setWizardTerritorySearch("");
     setWizardExpandedNodes(new Set());
     setWizardErrors({});
+    setBrickMergeMode(false);
+    setBrickMergeSelection(new Set());
+    setBrickMergeName("");
+    setBrickMergeDialogOpen(false);
+    setMergedBricks([]);
+    setBrickTerritoryAssignments({});
   }
 
   function validateWizardStep(step: number): boolean {
@@ -947,9 +1021,10 @@ export default function BusinessUnitsPage() {
           {selectedBU ? (
             <>
               {/* Detail Sub-tabs */}
-              <div className="flex gap-1 border-b pb-0">
+              <div className="flex gap-1 border-b pb-0 flex-wrap">
                 {([
                   { key: "overview", label: "Overview", icon: BarChart3 },
+                  { key: "team-structure", label: "Team Structure", icon: Network },
                   { key: "members", label: "Members", icon: Users },
                   { key: "products", label: "Products", icon: Package },
                   { key: "territories", label: "Territories", icon: MapPin },
@@ -1100,6 +1175,219 @@ export default function BusinessUnitsPage() {
                       </div>
                     </CardContent>
                   </Card>
+                </div>
+              )}
+
+              {/* ── Team Structure Sub-tab (Org Chart) ── */}
+              {detailSubTab === "team-structure" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold uppercase text-muted-foreground flex items-center gap-2">
+                      <Network className="h-4 w-4" />
+                      Organizational Hierarchy
+                    </h3>
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-purple-200 inline-block" /> BUM</span>
+                      <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-blue-200 inline-block" /> Marketeer</span>
+                      <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-amber-200 inline-block" /> District Mgr</span>
+                      <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-green-200 inline-block" /> Med Rep</span>
+                    </div>
+                  </div>
+
+                  {/* Org Chart Tree */}
+                  <Card>
+                    <CardContent className="pt-6 pb-4">
+                      {(() => {
+                        // Build org chart hierarchy from BU members
+                        const bum = selectedBU.members.find((m) => m.role === "BUM");
+                        const marketeers = selectedBU.members.filter((m) => m.role === "MARKETEER");
+                        const dms = selectedBU.members.filter((m) => m.role === "DISTRICT_MANAGER");
+                        const reps = selectedBU.members.filter((m) => m.role === "MEDICAL_REP");
+
+                        // Determine vacancies: each BU should have at least 1 BUM, 1 Marketeer, 1 DM, and reps
+                        const expectedRoles: Array<{ role: string; min: number }> = [
+                          { role: "BUM", min: 1 },
+                          { role: "MARKETEER", min: 1 },
+                          { role: "DISTRICT_MANAGER", min: 1 },
+                          { role: "MEDICAL_REP", min: 2 },
+                        ];
+
+                        const vacancies: Array<{ role: string; parentRole: string }> = [];
+                        if (!bum) vacancies.push({ role: "BUM", parentRole: "" });
+                        if (marketeers.length === 0) vacancies.push({ role: "MARKETEER", parentRole: "BUM" });
+                        if (dms.length === 0) vacancies.push({ role: "DISTRICT_MANAGER", parentRole: "MARKETEER" });
+                        if (reps.length < (expectedRoles.find((e) => e.role === "MEDICAL_REP")?.min ?? 2)) {
+                          const need = (expectedRoles.find((e) => e.role === "MEDICAL_REP")?.min ?? 2) - reps.length;
+                          for (let i = 0; i < need; i++) {
+                            vacancies.push({ role: "MEDICAL_REP", parentRole: "DISTRICT_MANAGER" });
+                          }
+                        }
+
+                        function renderOrgNode(
+                          member: BUMember | null,
+                          role: string,
+                          depth: number,
+                          isVacant: boolean,
+                          parentUserId: string,
+                        ) {
+                          const u = member ? allUsers.find((usr) => usr.id === member.userId) : null;
+                          const nodeColor = ROLE_COLORS[role] || "bg-gray-100 text-gray-800";
+                          const borderClass = isVacant ? "border-dashed border-2 border-amber-400" : "border";
+
+                          return (
+                            <div
+                              key={isVacant ? `vacant-${role}-${depth}-${parentUserId}` : member?.userId}
+                              className={`relative p-3 rounded-lg ${borderClass} ${isVacant ? "bg-amber-50/50" : "bg-card hover:bg-muted/30"} transition-colors cursor-pointer group`}
+                              style={{ marginLeft: `${depth * 32}px` }}
+                              onClick={() => {
+                                if (isVacant && canEdit) {
+                                  setVacancyRole(role);
+                                  setVacancyParentId(parentUserId);
+                                  setVacancyAssignUserId("");
+                                  setVacancyAssignOpen(true);
+                                } else if (u) {
+                                  setSelectedPersonId(u.id);
+                                  setPersonDetailOpen(true);
+                                }
+                              }}
+                            >
+                              {/* Connector line */}
+                              {depth > 0 && (
+                                <div className="absolute -left-4 top-1/2 w-4 border-t border-muted-foreground/30" style={{ left: `-16px` }} />
+                              )}
+                              <div className="flex items-center gap-3">
+                                {isVacant ? (
+                                  <div className="h-10 w-10 rounded-full border-2 border-dashed border-amber-400 bg-amber-50 flex items-center justify-center shrink-0">
+                                    <UserPlus className="h-5 w-5 text-amber-500" />
+                                  </div>
+                                ) : (
+                                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-xs font-bold shrink-0">
+                                    {u?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "??"}
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    {isVacant ? (
+                                      <span className="text-sm font-medium text-amber-700">Vacant Position</span>
+                                    ) : (
+                                      <span className="text-sm font-medium">{u?.name || member?.userId}</span>
+                                    )}
+                                    <Badge className={`text-[9px] ${nodeColor}`}>{ROLE_LABELS[role] || role}</Badge>
+                                    {isVacant && (
+                                      <Badge className="text-[9px] bg-amber-100 text-amber-800 border-amber-300">
+                                        VACANT
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {u && (
+                                    <p className="text-xs text-muted-foreground">{u.email}{u.territory ? ` | ${u.territory}` : ""}</p>
+                                  )}
+                                  {isVacant && canEdit && (
+                                    <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
+                                      <UserPlus className="h-3 w-3" /> Click to assign someone
+                                    </p>
+                                  )}
+                                </div>
+                                {!isVacant && u && (
+                                  <a
+                                    href="/crm/my-team"
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-3">
+                            {/* BUM Level */}
+                            {bum ? renderOrgNode(bum, "BUM", 0, false, "") : renderOrgNode(null, "BUM", 0, true, "")}
+
+                            {/* Connector */}
+                            {(bum || vacancies.some((v) => v.role === "BUM")) && (
+                              <div className="ml-5 h-3 border-l border-muted-foreground/30" />
+                            )}
+
+                            {/* Marketeer Level */}
+                            {marketeers.length > 0 ? (
+                              marketeers.map((m) => (
+                                <div key={m.userId}>
+                                  {renderOrgNode(m, "MARKETEER", 1, false, bum?.userId || "")}
+                                  <div className="ml-[52px] h-3 border-l border-muted-foreground/30" />
+                                </div>
+                              ))
+                            ) : (
+                              <div>
+                                {renderOrgNode(null, "MARKETEER", 1, true, bum?.userId || "")}
+                                <div className="ml-[52px] h-3 border-l border-muted-foreground/30" />
+                              </div>
+                            )}
+
+                            {/* District Manager Level */}
+                            {dms.length > 0 ? (
+                              dms.map((m) => (
+                                <div key={m.userId}>
+                                  {renderOrgNode(m, "DISTRICT_MANAGER", 2, false, marketeers[0]?.userId || "")}
+                                  <div className="ml-[84px] h-3 border-l border-muted-foreground/30" />
+                                </div>
+                              ))
+                            ) : (
+                              <div>
+                                {renderOrgNode(null, "DISTRICT_MANAGER", 2, true, marketeers[0]?.userId || "")}
+                                <div className="ml-[84px] h-3 border-l border-muted-foreground/30" />
+                              </div>
+                            )}
+
+                            {/* Medical Rep Level */}
+                            {reps.map((m) => (
+                              <div key={m.userId}>
+                                {renderOrgNode(m, "MEDICAL_REP", 3, false, dms[0]?.userId || "")}
+                              </div>
+                            ))}
+                            {/* Vacant rep slots */}
+                            {vacancies
+                              .filter((v) => v.role === "MEDICAL_REP")
+                              .map((v, i) => (
+                                <div key={`vacant-rep-${i}`}>
+                                  {renderOrgNode(null, "MEDICAL_REP", 3, true, dms[0]?.userId || "")}
+                                </div>
+                              ))}
+
+                            {selectedBU.members.length === 0 && vacancies.length === 0 && (
+                              <div className="text-center py-8 text-muted-foreground">
+                                <Network className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                                <p className="text-sm">No team members or positions defined yet.</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+
+                  {/* Quick Stats Summary */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {ROLE_HIERARCHY_ORDER.map((role) => {
+                      const filled = selectedBU.members.filter((m) => m.role === role).length;
+                      const expected = role === "MEDICAL_REP" ? Math.max(2, filled) : 1;
+                      const vacantCount = Math.max(0, expected - filled);
+                      return (
+                        <div key={role} className={`p-3 rounded-lg border ${vacantCount > 0 ? "border-amber-300 bg-amber-50/50" : ""}`}>
+                          <Badge className={`text-[9px] mb-1 ${ROLE_COLORS[role]}`}>{ROLE_LABELS[role]}</Badge>
+                          <div className="flex items-center justify-between">
+                            <span className="text-lg font-bold">{filled}</span>
+                            {vacantCount > 0 && (
+                              <Badge className="text-[9px] bg-amber-100 text-amber-700">{vacantCount} vacant</Badge>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -1763,25 +2051,92 @@ export default function BusinessUnitsPage() {
             </div>
           )}
 
-          {/* ── Step 3: Select Territories/Bricks ── */}
+          {/* ── Step 3: Select Territories/Bricks (Enhanced) ── */}
           {wizardStep === 3 && (
             <div className="space-y-3">
+              {/* Search + Actions Bar */}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
-                    placeholder="Search territories..."
+                    placeholder="Search territories and bricks..."
                     value={wizardTerritorySearch}
                     onChange={(e) => setWizardTerritorySearch(e.target.value)}
                     className="pl-9 h-8 text-sm"
                   />
                 </div>
                 <Badge variant="outline" className="shrink-0">{wizardSelectedTerritories.size} selected</Badge>
+                <Button
+                  size="sm"
+                  variant={brickMergeMode ? "default" : "outline"}
+                  className="h-8 text-xs gap-1"
+                  onClick={() => {
+                    setBrickMergeMode(!brickMergeMode);
+                    setBrickMergeSelection(new Set());
+                  }}
+                >
+                  <Merge className="h-3.5 w-3.5" />
+                  {brickMergeMode ? "Cancel Merge" : "Merge Bricks"}
+                </Button>
               </div>
-              <div className="max-h-[400px] overflow-y-auto border rounded-md p-2">
+
+              {/* Brick merge info bar */}
+              {brickMergeMode && (
+                <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-md text-xs">
+                  <Merge className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                  <span className="text-blue-700 flex-1">
+                    Click brick-level checkboxes to select bricks to merge. Select 2 or more, then click &quot;Merge Selected&quot;.
+                  </span>
+                  {brickMergeSelection.size >= 2 && (
+                    <Button
+                      size="sm"
+                      className="h-6 text-[10px] gap-1"
+                      onClick={() => setBrickMergeDialogOpen(true)}
+                    >
+                      <Merge className="h-3 w-3" /> Merge {brickMergeSelection.size} Bricks
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* Merged bricks display */}
+              {mergedBricks.length > 0 && (
+                <div className="p-2 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-xs font-medium text-green-800 mb-1.5">Merged Bricks:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {mergedBricks.map((mb) => (
+                      <Badge key={mb.id} className="text-[10px] bg-green-100 text-green-800 gap-1">
+                        <Merge className="h-3 w-3" />
+                        {mb.name} ({mb.sourceIds.length} bricks)
+                        <button
+                          className="ml-1 hover:text-red-600"
+                          onClick={() => {
+                            setMergedBricks((prev) => prev.filter((m) => m.id !== mb.id));
+                            setWizardSelectedTerritories((prev) => {
+                              const next = new Set(prev);
+                              next.delete(mb.id);
+                              // Re-add source bricks
+                              mb.sourceIds.forEach((sid) => next.add(sid));
+                              return next;
+                            });
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Territory Tree */}
+              <div className="max-h-[350px] overflow-y-auto border rounded-md p-2">
                 {(() => {
                   const searchQ = wizardTerritorySearch.toLowerCase();
                   const regions = store.territories.filter((t) => t.level === "region");
+
+                  // Check if a brick was consumed by a merge
+                  const mergedSourceIds = new Set(mergedBricks.flatMap((m) => m.sourceIds));
 
                   function matchesSearch(t: typeof store.territories[0]): boolean {
                     if (!searchQ) return true;
@@ -1794,10 +2149,14 @@ export default function BusinessUnitsPage() {
                   }
 
                   function renderTerritoryNode(t: typeof store.territories[0], depth: number): React.ReactNode {
+                    // Hide bricks that were merged into another
+                    if (mergedSourceIds.has(t.id)) return null;
+
                     const children = store.territories.filter((c) => c.parentId === t.id);
                     const hasChildren = children.length > 0;
                     const isExpanded = wizardExpandedNodes.has(t.id);
                     const isSelected = wizardSelectedTerritories.has(t.id);
+                    const isMergeSelected = brickMergeSelection.has(t.id);
                     const selfMatch = matchesSearch(t);
                     const descendantMatch = hasMatchingDescendant(t.id);
                     if (searchQ && !selfMatch && !descendantMatch) return null;
@@ -1815,10 +2174,13 @@ export default function BusinessUnitsPage() {
                       brick: "bg-green-100 text-green-800",
                     };
 
+                    // In merge mode, only bricks can be merge-selected
+                    const isBrick = t.level === "brick";
+
                     return (
                       <div key={t.id}>
                         <div
-                          className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-muted/40 cursor-pointer"
+                          className={`flex items-center gap-2 py-1.5 px-1 rounded hover:bg-muted/40 cursor-pointer ${isMergeSelected ? "bg-blue-50 ring-1 ring-blue-300" : ""}`}
                           style={{ paddingLeft: `${depth * 20 + 4}px` }}
                         >
                           {/* Expand */}
@@ -1831,21 +2193,68 @@ export default function BusinessUnitsPage() {
                             ) : null}
                           </button>
 
-                          {/* Checkbox */}
-                          <button
-                            className={`h-4.5 w-4.5 rounded border-2 inline-flex items-center justify-center shrink-0 ${
-                              isSelected ? "border-blue-500 bg-blue-500 text-white" : "border-gray-300 bg-white"
-                            }`}
-                            onClick={(e) => { e.stopPropagation(); toggleWizardTerritory(t.id); }}
-                            style={{ width: "18px", height: "18px" }}
-                          >
-                            {isSelected && <Check className="h-2.5 w-2.5" />}
-                          </button>
+                          {/* Checkbox: merge mode uses different selection for bricks */}
+                          {brickMergeMode && isBrick ? (
+                            <button
+                              className={`rounded border-2 inline-flex items-center justify-center shrink-0 ${
+                                isMergeSelected ? "border-blue-500 bg-blue-500 text-white" : "border-orange-300 bg-white"
+                              }`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setBrickMergeSelection((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(t.id)) next.delete(t.id);
+                                  else next.add(t.id);
+                                  return next;
+                                });
+                              }}
+                              style={{ width: "18px", height: "18px" }}
+                            >
+                              {isMergeSelected && <Merge className="h-2.5 w-2.5" />}
+                            </button>
+                          ) : (
+                            <button
+                              className={`rounded border-2 inline-flex items-center justify-center shrink-0 ${
+                                isSelected ? "border-blue-500 bg-blue-500 text-white" : "border-gray-300 bg-white"
+                              }`}
+                              onClick={(e) => { e.stopPropagation(); toggleWizardTerritory(t.id); }}
+                              style={{ width: "18px", height: "18px" }}
+                            >
+                              {isSelected && <Check className="h-2.5 w-2.5" />}
+                            </button>
+                          )}
+
+                          {/* Drag handle indicator for bricks */}
+                          {isBrick && !brickMergeMode && (
+                            <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+                          )}
 
                           {/* Name */}
                           <Badge className={`text-[9px] ${levelBadgeColors[t.level] || ""}`}>{t.level}</Badge>
                           <span className={`text-sm font-medium ${levelColors[t.level] || ""}`}>{t.name}</span>
                           <span className="text-xs text-muted-foreground">{t.nameAr}</span>
+
+                          {/* Brick territory assignment dropdown (inline) */}
+                          {isBrick && isSelected && !brickMergeMode && (
+                            <select
+                              className="ml-auto text-[10px] border rounded p-0.5 bg-background max-w-[120px]"
+                              value={brickTerritoryAssignments[t.id] || ""}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                setBrickTerritoryAssignments((prev) => ({
+                                  ...prev,
+                                  [t.id]: e.target.value,
+                                }));
+                              }}
+                            >
+                              <option value="">Territory...</option>
+                              {store.territories
+                                .filter((tt) => tt.level === "district" && wizardSelectedTerritories.has(tt.id))
+                                .map((tt) => (
+                                  <option key={tt.id} value={tt.id}>{tt.name}</option>
+                                ))}
+                            </select>
+                          )}
                         </div>
 
                         {/* Children */}
@@ -1861,6 +2270,35 @@ export default function BusinessUnitsPage() {
                     .map((r) => renderTerritoryNode(r, 0));
                 })()}
               </div>
+
+              {/* Quick summary of selected bricks */}
+              {(() => {
+                const selectedBrickCount = Array.from(wizardSelectedTerritories).filter((id) => {
+                  const t = store.territories.find((tt) => tt.id === id);
+                  return t?.level === "brick";
+                }).length + mergedBricks.filter((mb) => wizardSelectedTerritories.has(mb.id)).length;
+
+                const selectedDistrictCount = Array.from(wizardSelectedTerritories).filter((id) => {
+                  const t = store.territories.find((tt) => tt.id === id);
+                  return t?.level === "district";
+                }).length;
+
+                const selectedRegionCount = Array.from(wizardSelectedTerritories).filter((id) => {
+                  const t = store.territories.find((tt) => tt.id === id);
+                  return t?.level === "region";
+                }).length;
+
+                return (
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground p-2 bg-muted/30 rounded-md">
+                    <span className="flex items-center gap-1"><span className="font-medium text-rose-700">{selectedRegionCount}</span> Regions</span>
+                    <span className="flex items-center gap-1"><span className="font-medium text-blue-700">{selectedDistrictCount}</span> Districts</span>
+                    <span className="flex items-center gap-1"><span className="font-medium text-green-700">{selectedBrickCount}</span> Bricks</span>
+                    {mergedBricks.length > 0 && (
+                      <span className="flex items-center gap-1"><span className="font-medium text-purple-700">{mergedBricks.length}</span> Merged</span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -2119,6 +2557,184 @@ export default function BusinessUnitsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddTerritoryOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Vacancy Assignment Dialog */}
+      <Dialog open={vacancyAssignOpen} onOpenChange={setVacancyAssignOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-amber-600" />
+              Fill Vacant Position
+            </DialogTitle>
+            <DialogDescription>
+              Assign a user to the vacant {ROLE_LABELS[vacancyRole] || vacancyRole} position in {selectedBU?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Position Role</label>
+              <div className="p-2.5 rounded-lg border bg-muted/50">
+                <Badge className={`${ROLE_COLORS[vacancyRole] || "bg-gray-100 text-gray-800"}`}>
+                  {ROLE_LABELS[vacancyRole] || vacancyRole}
+                </Badge>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Assign User</label>
+              <select
+                className="w-full border rounded-md p-2 text-sm bg-background"
+                value={vacancyAssignUserId}
+                onChange={(e) => setVacancyAssignUserId(e.target.value)}
+              >
+                <option value="">Select a user...</option>
+                {allUsers
+                  .filter((u) => {
+                    // Filter by matching role or unassigned users
+                    const isCorrectRole = u.role === vacancyRole || u.role === "ADMIN";
+                    const isNotAlreadyMember = !selectedBU?.members.some((m) => m.userId === u.id);
+                    return isCorrectRole && isNotAlreadyMember;
+                  })
+                  .map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.role}){u.territory ? ` - ${u.territory}` : ""}
+                    </option>
+                  ))}
+              </select>
+              {allUsers.filter((u) => {
+                const isCorrectRole = u.role === vacancyRole || u.role === "ADMIN";
+                const isNotAlreadyMember = !selectedBU?.members.some((m) => m.userId === u.id);
+                return isCorrectRole && isNotAlreadyMember;
+              }).length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">No available users with the {ROLE_LABELS[vacancyRole] || vacancyRole} role. You can assign any user from the dropdown above.</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVacancyAssignOpen(false)}>Cancel</Button>
+            <Button onClick={handleAssignVacancy} disabled={!vacancyAssignUserId}>
+              <UserPlus className="h-3.5 w-3.5 mr-1" /> Assign to Position
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Person Detail Dialog */}
+      <Dialog open={personDetailOpen} onOpenChange={setPersonDetailOpen}>
+        <DialogContent className="max-w-md">
+          {(() => {
+            const person = allUsers.find((u) => u.id === selectedPersonId);
+            if (!person) return null;
+            const memberEntry = selectedBU?.members.find((m) => m.userId === person.id);
+            const buRole = memberEntry?.role || person.role;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold shrink-0">
+                      {person.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                    </div>
+                    {person.name}
+                  </DialogTitle>
+                  <DialogDescription>{person.email}</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-lg border">
+                      <p className="text-xs text-muted-foreground mb-1">Role in BU</p>
+                      <Badge className={`${ROLE_COLORS[buRole] || "bg-gray-100 text-gray-800"}`}>
+                        {ROLE_LABELS[buRole] || buRole}
+                      </Badge>
+                    </div>
+                    <div className="p-3 rounded-lg border">
+                      <p className="text-xs text-muted-foreground mb-1">System Role</p>
+                      <Badge variant="outline">{person.role}</Badge>
+                    </div>
+                    <div className="p-3 rounded-lg border">
+                      <p className="text-xs text-muted-foreground mb-1">Department</p>
+                      <p className="text-sm font-medium">{person.department}</p>
+                    </div>
+                    <div className="p-3 rounded-lg border">
+                      <p className="text-xs text-muted-foreground mb-1">Territory</p>
+                      <p className="text-sm font-medium">{person.territory || "Not assigned"}</p>
+                    </div>
+                  </div>
+                  {buRole === "MEDICAL_REP" && (
+                    <div className="p-3 rounded-lg border">
+                      <p className="text-xs text-muted-foreground mb-1">Assigned Products</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {getRepProducts(person.id).filter((pid) => selectedBU?.productIds.includes(pid)).length > 0 ? (
+                          getRepProducts(person.id).filter((pid) => selectedBU?.productIds.includes(pid)).map((pid) => {
+                            const prod = store.products.find((p) => p.id === pid);
+                            return (
+                              <Badge key={pid} variant="outline" className="text-[9px] bg-blue-50 text-blue-700 border-blue-200">
+                                {prod?.name ?? pid}
+                              </Badge>
+                            );
+                          })
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No products assigned in this BU</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setPersonDetailOpen(false)}>Close</Button>
+                  <Button asChild variant="default">
+                    <a href="/crm/my-team">
+                      <ExternalLink className="h-3.5 w-3.5 mr-1" /> View in My Team
+                    </a>
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Brick Merge Dialog */}
+      <Dialog open={brickMergeDialogOpen} onOpenChange={setBrickMergeDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Merge className="h-5 w-5 text-blue-600" />
+              Merge Bricks
+            </DialogTitle>
+            <DialogDescription>
+              Combine {brickMergeSelection.size} selected bricks into a single merged brick.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Selected Bricks</label>
+              <div className="flex flex-wrap gap-1.5 p-2 rounded-lg border bg-muted/30">
+                {Array.from(brickMergeSelection).map((brickId) => {
+                  const brick = store.territories.find((t) => t.id === brickId);
+                  return (
+                    <Badge key={brickId} className="text-[10px] bg-green-100 text-green-800">
+                      {brick?.name ?? brickId}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Merged Brick Name <span className="text-red-500">*</span></label>
+              <Input
+                placeholder="e.g. Heliopolis Combined"
+                value={brickMergeName}
+                onChange={(e) => setBrickMergeName(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBrickMergeDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleBrickMerge} disabled={!brickMergeName.trim() || brickMergeSelection.size < 2}>
+              <Merge className="h-3.5 w-3.5 mr-1" /> Merge Bricks
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

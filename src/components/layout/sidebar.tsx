@@ -158,6 +158,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Visit Tracking", labelKey: "sidebar.visitTracking", href: "/crm/gps-tracking", icon: MapPin },
       { label: "Market Requests", labelKey: "sidebar.marketRequests", href: "/crm/market-requests", icon: ClipboardList },
       { label: "KPIs", labelKey: "sidebar.kpis", href: "/crm/kpis", icon: Target },
+      { label: "Call Analysis", labelKey: "sidebar.callAnalysis", href: "/crm/call-analysis", icon: BarChart3 },
       { label: "Expenses", labelKey: "sidebar.expenses", href: "/crm/expenses", icon: Banknote },
       { label: "CRM Reports", labelKey: "sidebar.crmReports", href: "/crm/reports", icon: BarChart3 },
     ],
@@ -239,7 +240,7 @@ const ROLE_SECTIONS: Record<string, RoleSectionDef[]> = {
     { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
     {
       title: "Team Management", titleKey: "sidebar.teamManagement",
-      items: ["Weekly Plans", "Medical Reps", "Visit Tracking", "KPIs"],
+      items: ["Weekly Plans", "Medical Reps", "Visit Tracking", "KPIs", "Call Analysis"],
     },
     {
       title: "Field Operations", titleKey: "sidebar.fieldOps",
@@ -250,7 +251,7 @@ const ROLE_SECTIONS: Record<string, RoleSectionDef[]> = {
     { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
     {
       title: "Regional Overview", titleKey: "sidebar.regionalOverview",
-      items: ["Business Units", "District Manager", "Territories (IMS)", "KPIs", "CRM Reports"],
+      items: ["Business Units", "District Manager", "Territories (IMS)", "KPIs", "Call Analysis", "CRM Reports"],
     },
     {
       title: "Field Operations", titleKey: "sidebar.fieldOps",
@@ -265,7 +266,7 @@ const ROLE_SECTIONS: Record<string, RoleSectionDef[]> = {
     { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
     {
       title: "My BU", titleKey: "sidebar.businessUnit",
-      items: ["BUM Dashboard", "Territories (IMS)", "KPIs", "CRM Reports"],
+      items: ["BUM Dashboard", "Territories (IMS)", "KPIs", "Call Analysis", "CRM Reports"],
     },
     {
       title: "Team & Field", titleKey: "sidebar.teamField",
@@ -438,10 +439,7 @@ function SidebarContent({
   const { t } = useTranslation();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
     const initial = new Set<string>();
-    sections.forEach((s) => {
-      if (sectionHasActive(s)) initial.add(s.title);
-    });
-    if (initial.size === 0) initial.add("Main");
+    sections.forEach((s) => initial.add(s.title));
     return initial;
   });
 

@@ -1,12 +1,13 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Receipt, Upload, Plus, Check, X, Download, Eye, Camera, DollarSign, Clock, BookOpen, ScanLine, Loader2, FileImage, Percent, AlertTriangle, ArrowUpRight, RotateCcw, TrendingUp, BarChart3, PieChart, Timer } from "lucide-react";
+import { Receipt, Upload, Plus, Check, X, Download, Eye, Camera, DollarSign, Clock, BookOpen, ScanLine, Loader2, FileImage, Percent, AlertTriangle, ArrowUpRight, RotateCcw, TrendingUp, BarChart3, PieChart, Timer, Car } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import PageHeader from "@/components/shared/page-header";
@@ -21,7 +22,7 @@ import { useAuditLogger } from "@/lib/audit-logger";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type ExpenseType = "Transport" | "Meals" | "Accommodation" | "Hotel" | "Office Supplies" | "Other";
+type ExpenseType = "Transport" | "Meals" | "Accommodation" | "Hotel" | "Office Supplies" | "Other" | "Kilometrage";
 type ExpenseStatus = "PENDING" | "APPROVED" | "REJECTED" | "DRAFT";
 
 interface ApprovalEntry {
@@ -38,6 +39,9 @@ const MONTHLY_BUDGET_PER_REP = 5000;
 const HARD_BUDGET_LIMIT = MONTHLY_BUDGET_PER_REP * 1.2; // 6000 EGP — absolute cap (20% over)
 const RECEIPT_REQUIRED_THRESHOLD = 500; // EGP — receipt mandatory above this
 const OCR_TOLERANCE = 0.10; // 10% tolerance for OCR amount matching
+
+// ─── Kilometrage (Mileage) Constants ──────────────────────────────────────
+const DEFAULT_RATE_PER_KM = 2.50; // EGP per kilometer — configurable by admin
 
 // ─── Approval Level Logic ──────────────────────────────────────────────────
 function getApprovalLevel(amount: number): { level: number; approver: string } {
@@ -75,6 +79,7 @@ const OCR_DESCRIPTIONS: Record<ExpenseType, string[]> = {
   Hotel: ["Conference hotel booking", "Regional meeting stay", "Training overnight"],
   "Office Supplies": ["Printer cartridges", "Presentation folders", "Business cards printing", "Promotional brochures"],
   Other: ["Conference registration", "Medical samples packaging", "Courier service", "Phone recharge for work"],
+  Kilometrage: ["Daily field visit mileage", "Hospital route kilometrage", "Territory coverage trip", "Regional sales tour mileage"],
 };
 
 interface Expense {
@@ -92,9 +97,15 @@ interface Expense {
   journalEntryId?: string;
   createdAt: string;
   approvalHistory: ApprovalEntry[];
+  // Kilometrage (mileage) fields
+  hasCar?: boolean;
+  startOdometer?: number;
+  endOdometer?: number;
+  totalKm?: number;
+  ratePerKm?: number;
 }
 
-const EXPENSE_TYPES: ExpenseType[] = ["Transport", "Meals", "Accommodation", "Hotel", "Office Supplies", "Other"];
+const EXPENSE_TYPES: ExpenseType[] = ["Transport", "Meals", "Accommodation", "Hotel", "Office Supplies", "Other", "Kilometrage"];
 const STORAGE_KEY = "pharma.expenses";
 
 function genId() {
@@ -229,6 +240,19 @@ export default function ExpensesPage() {
   const [formDescription, setFormDescription] = useState("");
   const [formPhoto, setFormPhoto] = useState<string | undefined>(undefined);
   const [formPhotoName, setFormPhotoName] = useState("");
+
+  // Kilometrage form state
+  const [formHasCar, setFormHasCar] = useState(false);
+  const [formStartOdometer, setFormStartOdometer] = useState("");
+  const [formEndOdometer, setFormEndOdometer] = useState("");
+  const [formRatePerKm, setFormRatePerKm] = useState(DEFAULT_RATE_PER_KM.toString());
+
+  // Derived kilometrage calculations
+  const kmStart = parseFloat(formStartOdometer || "0");
+  const kmEnd = parseFloat(formEndOdometer || "0");
+  const totalKm = kmEnd > kmStart ? kmEnd - kmStart : 0;
+  const kmRate = parseFloat(formRatePerKm || "0");
+  const kmAmount = totalKm * kmRate;
 
   // OCR state
   const [ocrDialogOpen, setOcrDialogOpen] = useState(false);
@@ -451,6 +475,10 @@ export default function ExpensesPage() {
     setFormPhoto(undefined);
     setFormPhotoName("");
     setFormErrors([]);
+    setFormHasCar(false);
+    setFormStartOdometer("");
+    setFormEndOdometer("");
+    setFormRatePerKm(DEFAULT_RATE_PER_KM.toString());
   }
 
   // ─── Receipt Validation ──────────────────────────────────────────────────
@@ -522,8 +550,12 @@ export default function ExpensesPage() {
   }
 
   function handleCreateExpense() {
-    if (!formDate || !formAmount || !formDescription) return;
-    const amt = parseFloat(formAmount);
+    const isKilometrage = formType === "Kilometrage" && formHasCar;
+    // For kilometrage, auto-calculate amount from odometer readings
+    const effectiveAmount = isKilometrage ? kmAmount.toFixed(2) : formAmount;
+    if (!formDate || !effectiveAmount || !formDescription) return;
+    if (isKilometrage && (kmStart <= 0 || kmEnd <= 0 || kmEnd <= kmStart)) return;
+    const amt = parseFloat(effectiveAmount);
 
     // ── Receipt validation ──
     const receiptErrors = validateReceipt(amt);
@@ -567,7 +599,9 @@ export default function ExpensesPage() {
       date: formDate,
       type: formType,
       amount: amt,
-      description: formDescription,
+      description: isKilometrage
+        ? `${formDescription} [${totalKm} km @ ${kmRate} EGP/km]`
+        : formDescription,
       receiptPhoto: formPhoto,
       status: "PENDING",
       createdAt: nowISO,
@@ -581,6 +615,14 @@ export default function ExpensesPage() {
           level: approvalLevel.level,
         },
       ],
+      // Kilometrage fields (only for mileage expenses)
+      ...(isKilometrage ? {
+        hasCar: true,
+        startOdometer: kmStart,
+        endOdometer: kmEnd,
+        totalKm,
+        ratePerKm: kmRate,
+      } : {}),
     };
     persist([newExp, ...expenses]);
 
@@ -815,7 +857,17 @@ export default function ExpensesPage() {
       key: "amount",
       label: "Amount (EGP)",
       sortable: true,
-      render: (v: number) => <span className="font-semibold">{(v ?? 0).toLocaleString()}</span>,
+      render: (v: number, row: Expense) => (
+        <div>
+          <span className="font-semibold">{(v ?? 0).toLocaleString()}</span>
+          {row.type === "Kilometrage" && row.totalKm != null && (
+            <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1">
+              <Car className="h-3 w-3" />
+              {row.totalKm} km @ {row.ratePerKm ?? DEFAULT_RATE_PER_KM} EGP/km
+            </div>
+          )}
+        </div>
+      ),
     },
     {
       key: "description",
@@ -866,12 +918,18 @@ export default function ExpensesPage() {
       key: "amount",
       label: "Amount (EGP)",
       sortable: true,
-      render: (v: number) => (
+      render: (v: number, row: Expense) => (
         <div>
           <span className="font-semibold">{(v ?? 0).toLocaleString()}</span>
           <div className="text-[10px] text-slate-500 mt-0.5">
             Level {getApprovalLevel(v).level}: {getApprovalLevel(v).approver}
           </div>
+          {row.type === "Kilometrage" && row.totalKm != null && (
+            <div className="text-[10px] text-blue-600 mt-0.5 flex items-center gap-1">
+              <Car className="h-3 w-3" />
+              {row.totalKm} km @ {row.ratePerKm ?? DEFAULT_RATE_PER_KM} EGP/km
+            </div>
+          )}
         </div>
       ),
     },
@@ -978,6 +1036,10 @@ export default function ExpensesPage() {
       Status: e.status,
       RejectionReason: e.rejectionReason ?? "",
       ApprovedBy: e.approvedBy ?? "",
+      StartOdometer: e.startOdometer ?? "",
+      EndOdometer: e.endOdometer ?? "",
+      TotalKm: e.totalKm ?? "",
+      RatePerKm: e.ratePerKm ?? "",
     }));
     downloadCSV("expenses-report.csv", rows);
   }
@@ -1290,6 +1352,82 @@ export default function ExpensesPage() {
                 </SelectContent>
               </Select>
             </div>
+            {/* Kilometrage: hasCar checkbox */}
+            {formType === "Kilometrage" && (
+              <div className="col-span-2 flex items-center gap-2 p-3 rounded-lg border border-slate-200 bg-slate-50">
+                <Checkbox
+                  id="hasCar"
+                  checked={formHasCar}
+                  onCheckedChange={(checked) => setFormHasCar(checked === true)}
+                />
+                <Label htmlFor="hasCar" className="text-sm font-medium cursor-pointer flex items-center gap-1.5">
+                  <Car className="h-4 w-4 text-slate-600" />
+                  I have a company car
+                </Label>
+              </div>
+            )}
+            {/* Kilometrage: Odometer fields */}
+            {formType === "Kilometrage" && formHasCar && (
+              <>
+                <div className="space-y-2">
+                  <Label>Start Odometer (km)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="1"
+                    placeholder="e.g. 45200"
+                    value={formStartOdometer}
+                    onChange={(e) => setFormStartOdometer(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>End Odometer (km)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="1"
+                    placeholder="e.g. 45350"
+                    value={formEndOdometer}
+                    onChange={(e) => setFormEndOdometer(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Rate per KM (EGP)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={formRatePerKm}
+                    onChange={(e) => setFormRatePerKm(e.target.value)}
+                  />
+                  {isManager && (
+                    <p className="text-[10px] text-blue-600">Admin: you can adjust the rate per km</p>
+                  )}
+                </div>
+                {/* Kilometrage calculation summary */}
+                <div className="col-span-2 p-3 rounded-lg bg-blue-50 border border-blue-200">
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <p className="text-[10px] text-blue-600 font-medium">Total KM</p>
+                      <p className="text-lg font-bold text-blue-800">{totalKm > 0 ? totalKm : "--"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-blue-600 font-medium">Rate / KM</p>
+                      <p className="text-lg font-bold text-blue-800">{kmRate > 0 ? `${kmRate}` : "--"} EGP</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-blue-600 font-medium">Total Amount</p>
+                      <p className="text-lg font-bold text-green-700">{kmAmount > 0 ? `${kmAmount.toLocaleString()}` : "--"} EGP</p>
+                    </div>
+                  </div>
+                  {kmEnd > 0 && kmEnd <= kmStart && (
+                    <p className="text-xs text-red-600 mt-2 text-center">End odometer must be greater than start odometer</p>
+                  )}
+                </div>
+              </>
+            )}
+            {/* Amount field — hidden for Kilometrage (auto-calculated), shown for all other types */}
+            {!(formType === "Kilometrage" && formHasCar) && (
             <div className="space-y-2">
               <Label>Amount (EGP)</Label>
               <Input type="number" min={0} step="0.01" placeholder="0.00" value={formAmount} onChange={(e) => setFormAmount(e.target.value)} />
@@ -1299,6 +1437,7 @@ export default function ExpensesPage() {
                 </p>
               )}
             </div>
+            )}
             <div className="space-y-2 col-span-2">
               <Label>Description / Notes</Label>
               <Input placeholder="What was this expense for?" value={formDescription} onChange={(e) => setFormDescription(e.target.value)} />
@@ -1338,7 +1477,15 @@ export default function ExpensesPage() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setNewDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateExpense} disabled={!formDate || !formAmount || !formDescription}>
+            <Button
+              onClick={handleCreateExpense}
+              disabled={
+                !formDate || !formDescription ||
+                (formType === "Kilometrage" && formHasCar
+                  ? (kmStart <= 0 || kmEnd <= 0 || kmEnd <= kmStart || kmRate <= 0)
+                  : !formAmount)
+              }
+            >
               <Plus className="h-4 w-4 mr-2" /> Submit Expense
             </Button>
           </DialogFooter>
@@ -1391,6 +1538,38 @@ export default function ExpensesPage() {
                   </div>
                 )}
               </div>
+              {/* Kilometrage Breakdown */}
+              {selectedExpense.type === "Kilometrage" && selectedExpense.totalKm != null && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-slate-600 text-xs font-semibold mb-2 flex items-center gap-1.5">
+                    <Car className="h-4 w-4" /> Kilometrage Breakdown
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-blue-600 text-xs">Start Odometer</p>
+                      <p className="font-medium">{(selectedExpense.startOdometer ?? 0).toLocaleString()} km</p>
+                    </div>
+                    <div>
+                      <p className="text-blue-600 text-xs">End Odometer</p>
+                      <p className="font-medium">{(selectedExpense.endOdometer ?? 0).toLocaleString()} km</p>
+                    </div>
+                    <div>
+                      <p className="text-blue-600 text-xs">Total Distance</p>
+                      <p className="font-bold text-blue-800">{selectedExpense.totalKm.toLocaleString()} km</p>
+                    </div>
+                    <div>
+                      <p className="text-blue-600 text-xs">Rate per KM</p>
+                      <p className="font-medium">{selectedExpense.ratePerKm ?? DEFAULT_RATE_PER_KM} EGP/km</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-blue-200 text-center">
+                    <p className="text-xs text-blue-600">Calculated Amount</p>
+                    <p className="text-lg font-bold text-green-700">
+                      {selectedExpense.totalKm} km x {selectedExpense.ratePerKm ?? DEFAULT_RATE_PER_KM} = {(selectedExpense.amount ?? 0).toLocaleString()} EGP
+                    </p>
+                  </div>
+                </div>
+              )}
               {/* Approval Level Indicator */}
               <div className="p-3 bg-slate-50 rounded-lg">
                 <p className="text-slate-500 text-xs mb-1">Required Approval</p>
