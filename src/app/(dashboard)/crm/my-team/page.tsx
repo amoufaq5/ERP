@@ -25,6 +25,7 @@ import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { useCurrentUser, ROLE_LABEL, type AppUser } from "@/lib/user-context";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 import type {
   Visit,
   WeeklyPlan,
@@ -145,6 +146,7 @@ interface DMGroup {
 export default function MyTeamPage() {
   const store = useApiDataStore();
   const { user, allUsers, getReportsOf } = useCurrentUser();
+  const { t } = useTranslation();
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<Record<string, string>>({});
@@ -354,35 +356,35 @@ export default function MyTeamPage() {
           <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs">
             <Activity className="h-3.5 w-3.5 text-blue-500" />
             <div>
-              <p className="text-muted-foreground">Visits (month)</p>
+              <p className="text-muted-foreground">{t("myTeam.visitsMonth")}</p>
               <p className="font-semibold">{stats.visitCountThisMonth}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs">
             <Calendar className="h-3.5 w-3.5 text-purple-500" />
             <div>
-              <p className="text-muted-foreground">Active Plans</p>
+              <p className="text-muted-foreground">{t("myTeam.activePlans")}</p>
               <p className="font-semibold">{stats.activePlans.length}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs">
             <Target className="h-3.5 w-3.5 text-amber-500" />
             <div>
-              <p className="text-muted-foreground">Compliance</p>
+              <p className="text-muted-foreground">{t("myTeam.compliance")}</p>
               <p className="font-semibold">{stats.planCompliancePct}%</p>
             </div>
           </div>
           <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs">
             <Stethoscope className="h-3.5 w-3.5 text-emerald-500" />
             <div>
-              <p className="text-muted-foreground">Doctors</p>
+              <p className="text-muted-foreground">{t("myTeam.doctors")}</p>
               <p className="font-semibold">{stats.doctors.length}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs">
             <ClipboardList className="h-3.5 w-3.5 text-red-500" />
             <div>
-              <p className="text-muted-foreground">Pending Req.</p>
+              <p className="text-muted-foreground">{t("myTeam.pendingReq")}</p>
               <p className="font-semibold">{stats.pendingRequests.length}</p>
             </div>
           </div>
@@ -396,19 +398,19 @@ export default function MyTeamPage() {
           <TabsList className="h-8">
             <TabsTrigger value="visits" className="text-xs h-7">
               <MapPin className="h-3 w-3 mr-1" />
-              Recent Visits
+              {t("tab.recentVisits")}
             </TabsTrigger>
             <TabsTrigger value="plans" className="text-xs h-7">
               <Calendar className="h-3 w-3 mr-1" />
-              Weekly Plans
+              {t("tab.weeklyPlans")}
             </TabsTrigger>
             <TabsTrigger value="requests" className="text-xs h-7">
               <ClipboardList className="h-3 w-3 mr-1" />
-              Market Requests
+              {t("tab.marketRequests")}
             </TabsTrigger>
             <TabsTrigger value="kpis" className="text-xs h-7">
               <BarChart3 className="h-3 w-3 mr-1" />
-              KPIs
+              {t("tab.kpis")}
             </TabsTrigger>
           </TabsList>
 
@@ -416,7 +418,7 @@ export default function MyTeamPage() {
           <TabsContent value="visits" className="mt-3">
             {recentVisits.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
-                No visits recorded.
+                {t("empty.noVisits")}
               </p>
             ) : (
               <div className="rounded-md border overflow-hidden">
@@ -424,14 +426,14 @@ export default function MyTeamPage() {
                   <thead>
                     <tr className="bg-muted/50 text-muted-foreground">
                       <th className="text-left px-3 py-2 font-medium">
-                        Doctor
+                        {t("table.doctor")}
                       </th>
-                      <th className="text-left px-3 py-2 font-medium">Date</th>
+                      <th className="text-left px-3 py-2 font-medium">{t("table.date")}</th>
                       <th className="text-left px-3 py-2 font-medium">
-                        Status
+                        {t("table.status")}
                       </th>
                       <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">
-                        Notes
+                        {t("table.notes")}
                       </th>
                     </tr>
                   </thead>
@@ -465,7 +467,7 @@ export default function MyTeamPage() {
           <TabsContent value="plans" className="mt-3">
             {stats.allPlans.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
-                No weekly plans found.
+                {t("empty.noWeeklyPlans")}
               </p>
             ) : (
               <div className="space-y-2">
@@ -509,25 +511,25 @@ export default function MyTeamPage() {
           <TabsContent value="requests" className="mt-3">
             {stats.allRequests.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
-                No market requests.
+                {t("empty.noMarketRequests")}
               </p>
             ) : (
               <div className="rounded-md border overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-muted/50 text-muted-foreground">
-                      <th className="text-left px-3 py-2 font-medium">Type</th>
+                      <th className="text-left px-3 py-2 font-medium">{t("table.type")}</th>
                       <th className="text-left px-3 py-2 font-medium">
-                        Description
+                        {t("table.description")}
                       </th>
                       <th className="text-left px-3 py-2 font-medium">
-                        Priority
+                        {t("table.priority")}
                       </th>
                       <th className="text-left px-3 py-2 font-medium">
-                        Status
+                        {t("table.status")}
                       </th>
                       <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">
-                        Date
+                        {t("table.date")}
                       </th>
                     </tr>
                   </thead>
@@ -569,7 +571,7 @@ export default function MyTeamPage() {
           <TabsContent value="kpis" className="mt-3">
             {stats.kpis.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
-                No KPIs assigned.
+                {t("empty.noKPIs")}
               </p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -631,34 +633,34 @@ export default function MyTeamPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="My Team"
-        description={`Hierarchical view of your team: ${dms.length} District Manager${dms.length !== 1 ? "s" : ""}, ${allReps.length} Medical Rep${allReps.length !== 1 ? "s" : ""}`}
+        title={t("page.myTeam.title")}
+        description={`${t("page.myTeam.description")}: ${dms.length} District Manager${dms.length !== 1 ? "s" : ""}, ${allReps.length} Medical Rep${allReps.length !== 1 ? "s" : ""}`}
       />
 
       {/* Aggregate stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           icon={Users}
-          title="Team Members"
+          title={t("stats.teamMembers")}
           value={totalMembers}
           subtitle={`${dms.length} DMs, ${allReps.length} Reps`}
           iconColor="bg-blue-100 text-blue-600"
         />
         <StatsCard
           icon={Activity}
-          title="Visits This Month"
+          title={t("stats.visitsThisMonth")}
           value={totalVisitsThisMonth}
           iconColor="bg-purple-100 text-purple-600"
         />
         <StatsCard
           icon={Calendar}
-          title="Active Plans"
+          title={t("stats.activePlans")}
           value={totalActivePlans}
           iconColor="bg-emerald-100 text-emerald-600"
         />
         <StatsCard
           icon={ClipboardList}
-          title="Pending Requests"
+          title={t("stats.pendingRequests")}
           value={totalPendingRequests}
           iconColor="bg-amber-100 text-amber-600"
         />
@@ -677,7 +679,7 @@ export default function MyTeamPage() {
               <div className="border-t">
                 <div className="px-4 py-1.5 bg-muted/20">
                   <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                    Medical Reps under {group.dm.name} ({group.reps.length})
+                    {t("myTeam.medicalRepsUnder")} {group.dm.name} ({group.reps.length})
                   </span>
                 </div>
                 {group.reps.map((repStats) => (
@@ -696,7 +698,7 @@ export default function MyTeamPage() {
             <div className="px-4 py-2 bg-muted/30 border-b">
               <span className="text-xs font-medium text-muted-foreground">
                 <Users className="h-3.5 w-3.5 inline mr-1.5" />
-                Direct Reports - Medical Reps ({unattachedReps.length})
+                {t("myTeam.directReports")} ({unattachedReps.length})
               </span>
             </div>
             {unattachedReps.map((repStats, idx) => (
@@ -714,8 +716,7 @@ export default function MyTeamPage() {
           <Card className="p-8 text-center">
             <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground">
-              No team members found. Add District Managers or Medical Reps to see
-              them here.
+              {t("empty.noTeamMembers")}
             </p>
           </Card>
         )}
@@ -727,19 +728,20 @@ export default function MyTeamPage() {
 // ─── Status badge sub-components ────────────────────────────────────────────
 
 function VisitStatusBadge({ status }: { status: string }) {
+  const { t } = useTranslation();
   switch (status) {
     case "APPROVED":
       return (
         <Badge variant="success" className="text-[10px]">
           <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
-          Approved
+          {t("common.approved")}
         </Badge>
       );
     case "REJECTED":
       return (
         <Badge variant="destructive" className="text-[10px]">
           <XCircle className="h-2.5 w-2.5 mr-0.5" />
-          Rejected
+          {t("common.rejected")}
         </Badge>
       );
     default:
@@ -753,56 +755,59 @@ function VisitStatusBadge({ status }: { status: string }) {
 }
 
 function PlanStatusBadge({ status }: { status: string }) {
+  const { t } = useTranslation();
   switch (status) {
     case "APPROVED":
       return (
         <Badge variant="success" className="text-[10px]">
-          Approved
+          {t("common.approved")}
         </Badge>
       );
     case "SUBMITTED":
       return (
         <Badge variant="warning" className="text-[10px]">
-          Submitted
+          {t("common.submitted")}
         </Badge>
       );
     case "REJECTED":
       return (
         <Badge variant="destructive" className="text-[10px]">
-          Rejected
+          {t("common.rejected")}
         </Badge>
       );
     default:
       return (
         <Badge variant="secondary" className="text-[10px]">
-          Draft
+          {t("common.draft")}
         </Badge>
       );
   }
 }
 
 function RequestStatusBadge({ status }: { status: string }) {
+  const { t } = useTranslation();
   switch (status) {
     case "APPROVED":
-      return <Badge variant="success" className="text-[10px]">Approved</Badge>;
+      return <Badge variant="success" className="text-[10px]">{t("common.approved")}</Badge>;
     case "REJECTED":
-      return <Badge variant="destructive" className="text-[10px]">Rejected</Badge>;
+      return <Badge variant="destructive" className="text-[10px]">{t("common.rejected")}</Badge>;
     case "FULFILLED":
-      return <Badge variant="default" className="text-[10px]">Fulfilled</Badge>;
+      return <Badge variant="default" className="text-[10px]">{t("common.fulfilled")}</Badge>;
     default:
-      return <Badge variant="warning" className="text-[10px]">Pending</Badge>;
+      return <Badge variant="warning" className="text-[10px]">{t("common.pending")}</Badge>;
   }
 }
 
 function PriorityBadge({ priority }: { priority: string }) {
+  const { t } = useTranslation();
   switch (priority) {
     case "URGENT":
-      return <Badge variant="destructive" className="text-[10px]">Urgent</Badge>;
+      return <Badge variant="destructive" className="text-[10px]">{t("priority.urgent")}</Badge>;
     case "HIGH":
-      return <Badge variant="warning" className="text-[10px]">High</Badge>;
+      return <Badge variant="warning" className="text-[10px]">{t("priority.high")}</Badge>;
     case "MEDIUM":
-      return <Badge variant="secondary" className="text-[10px]">Medium</Badge>;
+      return <Badge variant="secondary" className="text-[10px]">{t("priority.medium")}</Badge>;
     default:
-      return <Badge variant="outline" className="text-[10px]">Low</Badge>;
+      return <Badge variant="outline" className="text-[10px]">{t("priority.low")}</Badge>;
   }
 }

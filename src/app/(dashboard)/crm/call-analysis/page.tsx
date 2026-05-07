@@ -11,6 +11,7 @@ import type { Column } from "@/components/shared/data-table";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { useCurrentUser } from "@/lib/user-context";
 import { downloadCSV } from "@/lib/download";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -76,6 +77,7 @@ const CRM_ROLES = ["MEDICAL_REP", "DISTRICT_MANAGER", "MARKETEER", "BUM"];
 export default function CallAnalysisPage() {
   const store = useApiDataStore();
   const { allUsers } = useCurrentUser();
+  const { t } = useTranslation();
 
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
   const [selectedBU, setSelectedBU] = useState("ALL");
@@ -256,33 +258,33 @@ export default function CallAnalysisPage() {
   // Columns
   const columns: Column<EmployeeRow>[] = useMemo(
     () => [
-      { key: "name", label: "Employee Name", sortable: true },
-      { key: "role", label: "Role", sortable: true },
-      { key: "bu", label: "BU", sortable: true },
+      { key: "name", label: t("callAnalysis.employeeName"), sortable: true },
+      { key: "role", label: t("callAnalysis.role"), sortable: true },
+      { key: "bu", label: t("callAnalysis.businessUnit"), sortable: true },
       {
         key: "callFrequency",
-        label: "Call Frequency",
+        label: t("crm.callFrequency"),
         sortable: true,
         render: (v: number) => v.toFixed(2),
       },
       {
         key: "callRate",
-        label: "Call Rate",
+        label: t("crm.callRate"),
         sortable: true,
         render: (v: number) => v.toFixed(2),
       },
-      { key: "amVisits", label: "AM Visits", sortable: true },
-      { key: "pmVisits", label: "PM Visits", sortable: true },
+      { key: "amVisits", label: t("callAnalysis.amVisits"), sortable: true },
+      { key: "pmVisits", label: t("callAnalysis.pmVisits"), sortable: true },
       {
         key: "totalVisits",
-        label: "Total Visits",
+        label: t("stats.totalVisits"),
         sortable: true,
         className: "font-semibold",
       },
-      { key: "uniqueDoctors", label: "Unique Doctors", sortable: true },
+      { key: "uniqueDoctors", label: t("callAnalysis.uniqueDoctors"), sortable: true },
       {
         key: "coveragePct",
-        label: "Coverage %",
+        label: t("callAnalysis.coveragePct"),
         sortable: true,
         render: (v: number) => (
           <span className={v >= 80 ? "text-green-600" : v >= 50 ? "text-amber-600" : "text-red-600"}>
@@ -292,7 +294,7 @@ export default function CallAnalysisPage() {
       },
       {
         key: "planCompliancePct",
-        label: "Plan Compliance %",
+        label: t("callAnalysis.planCompliancePct"),
         sortable: true,
         render: (v: number, row: EmployeeRow) => (
           <span className={v >= 80 ? "text-green-600" : v >= 50 ? "text-amber-600" : "text-red-600"}>
@@ -301,7 +303,7 @@ export default function CallAnalysisPage() {
         ),
       },
     ],
-    []
+    [t]
   );
 
   // Role filter options
@@ -328,12 +330,12 @@ export default function CallAnalysisPage() {
   return (
     <div className="space-y-6 p-6">
       <PageHeader
-        title="Call Analysis"
-        description="Comprehensive performance metrics for all CRM field employees"
+        title={t("page.callAnalysis.title")}
+        description={t("page.callAnalysis.description")}
         actions={
           <Button variant="outline" size="sm" onClick={handleExport} disabled={filteredRows.length === 0}>
             <Download className="h-4 w-4 mr-2" />
-            Export CSV
+            {t("callAnalysis.exportCsv")}
           </Button>
         }
       />
@@ -342,13 +344,13 @@ export default function CallAnalysisPage() {
       <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4">
         {/* BU Filter */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">Business Unit</label>
+          <label className="text-xs font-medium text-muted-foreground">{t("callAnalysis.businessUnit")}</label>
           <Select value={selectedBU} onValueChange={setSelectedBU}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="All BUs" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All BUs</SelectItem>
+              <SelectItem value="ALL">{t("callAnalysis.allBUs")}</SelectItem>
               {buOptions.map((bu) => (
                 <SelectItem key={bu.value} value={bu.value}>
                   {bu.label}
@@ -360,13 +362,13 @@ export default function CallAnalysisPage() {
 
         {/* DM Filter */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">District Manager</label>
+          <label className="text-xs font-medium text-muted-foreground">{t("callAnalysis.districtManager")}</label>
           <Select value={selectedDM} onValueChange={setSelectedDM}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="All DMs" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All DMs</SelectItem>
+              <SelectItem value="ALL">{t("callAnalysis.allDMs")}</SelectItem>
               {dmUsers.map((dm) => (
                 <SelectItem key={dm.id} value={dm.id}>
                   {dm.name}
@@ -378,7 +380,7 @@ export default function CallAnalysisPage() {
 
         {/* Month Picker */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">Month</label>
+          <label className="text-xs font-medium text-muted-foreground">{t("callAnalysis.month")}</label>
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="Select month" />
@@ -395,13 +397,13 @@ export default function CallAnalysisPage() {
 
         {/* Role Filter */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">Role</label>
+          <label className="text-xs font-medium text-muted-foreground">{t("callAnalysis.role")}</label>
           <Select value={selectedRole} onValueChange={setSelectedRole}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="All Roles" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All Roles</SelectItem>
+              <SelectItem value="ALL">{t("callAnalysis.allRoles")}</SelectItem>
               {roleOptions.map((role) => (
                 <SelectItem key={role} value={role}>
                   {role}
@@ -416,30 +418,30 @@ export default function CallAnalysisPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           icon={Phone}
-          title="Total Calls"
+          title={t("stats.totalCalls")}
           value={stats.totalCalls.toLocaleString()}
           subtitle={`In ${monthOptions.find((m) => m.value === selectedMonth)?.label ?? selectedMonth}`}
           iconColor="bg-blue-100 text-blue-600"
         />
         <StatsCard
           icon={TrendingUp}
-          title="Avg Call Rate"
+          title={t("stats.avgCallRate")}
           value={stats.avgCallRate.toFixed(2)}
-          subtitle="Visits per working day"
+          subtitle={t("callAnalysis.visitsPerWorkingDay")}
           iconColor="bg-green-100 text-green-600"
         />
         <StatsCard
           icon={Target}
-          title="Avg Coverage"
+          title={t("stats.avgCoverage")}
           value={`${stats.avgCoverage}%`}
-          subtitle="Doctors visited vs assigned"
+          subtitle={t("callAnalysis.doctorsVisitedVsAssigned")}
           iconColor="bg-amber-100 text-amber-600"
         />
         <StatsCard
           icon={Users}
-          title="Total Reps"
+          title={t("stats.totalReps")}
           value={stats.totalReps}
-          subtitle="Field employees shown"
+          subtitle={t("callAnalysis.fieldEmployeesShown")}
           iconColor="bg-purple-100 text-purple-600"
         />
       </div>
@@ -452,7 +454,7 @@ export default function CallAnalysisPage() {
         searchKeys={["name", "role", "bu"]}
         pagination
         exportable={false}
-        emptyMessage="No employee data found for the selected filters."
+        emptyMessage={t("empty.noEmployeeData")}
       />
     </div>
   );

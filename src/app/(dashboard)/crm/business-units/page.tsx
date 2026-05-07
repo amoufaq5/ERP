@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import {
   Building, Plus, Users, Package, UserCog,
   MapPin, Pencil, Trash2, Eye, X, CheckCircle, Clock, Grid3x3,
@@ -250,18 +250,27 @@ export default function BusinessUnitsPage() {
   // ── Assignment Tab State ──
   const [assignmentBUId, setAssignmentBUId] = useState<string>(SEED_BUS[0]?.id || "");
 
+  // ── Role-Based BU Filtering ──
+  const roleFilteredBUs = useMemo(() => {
+    if (user.role === "ADMIN" || user.role === "NSM") return businessUnits;
+    if (user.role === "BUM") return businessUnits.filter((bu) => bu.managerId === user.id);
+    if (user.role === "MARKETEER") return businessUnits.filter((bu) => bu.members.some((m) => m.userId === user.id));
+    // DISTRICT_MANAGER, MEDICAL_REP, and others: see BUs they're assigned to
+    return businessUnits.filter((bu) => bu.members.some((m) => m.userId === user.id));
+  }, [businessUnits, user.role, user.id]);
+
   // ── Derived Data ──
-  const activeBUs = useMemo(() => businessUnits.filter((bu) => bu.status === "ACTIVE"), [businessUnits]);
+  const activeBUs = useMemo(() => roleFilteredBUs.filter((bu) => bu.status === "ACTIVE"), [roleFilteredBUs]);
   const totalMembers = useMemo(() => {
     const ids = new Set<string>();
-    businessUnits.forEach((bu) => bu.members.forEach((m) => ids.add(m.userId)));
+    roleFilteredBUs.forEach((bu) => bu.members.forEach((m) => ids.add(m.userId)));
     return ids.size;
-  }, [businessUnits]);
+  }, [roleFilteredBUs]);
   const totalProducts = useMemo(() => {
     const ids = new Set<string>();
-    businessUnits.forEach((bu) => bu.productIds.forEach((pid) => ids.add(pid)));
+    roleFilteredBUs.forEach((bu) => bu.productIds.forEach((pid) => ids.add(pid)));
     return ids.size;
-  }, [businessUnits]);
+  }, [roleFilteredBUs]);
 
   // ── getRepProducts: returns product IDs assigned to a given rep ──
   const getRepProducts = useCallback(
@@ -327,15 +336,23 @@ export default function BusinessUnitsPage() {
 
   // ── Filtered BUs for main table ──
   const filteredBUs = useMemo(() => {
-    if (!search) return businessUnits;
+    if (!search) return roleFilteredBUs;
     const q = search.toLowerCase();
-    return businessUnits.filter(
+    return roleFilteredBUs.filter(
       (bu) =>
         bu.name.toLowerCase().includes(q) ||
         bu.code.toLowerCase().includes(q) ||
         bu.description.toLowerCase().includes(q)
     );
-  }, [businessUnits, search]);
+  }, [roleFilteredBUs, search]);
+
+  // ── Auto-select when only 1 BU visible (e.g. BUM with single unit) ──
+  useEffect(() => {
+    if (roleFilteredBUs.length === 1) {
+      setSelectedBU(roleFilteredBUs[0]);
+      setActiveTab("detail");
+    }
+  }, [roleFilteredBUs]);
 
   // ── Form Fields ──
   const managerOptions = allUsers
@@ -943,8 +960,8 @@ export default function BusinessUnitsPage() {
           <Building className="h-4 w-4" /> Business Units
         </Button>
         <Button variant={activeTab === "detail" ? "default" : "ghost"} onClick={() => {
-          if (businessUnits.length > 0 && !selectedBU) {
-            setSelectedBU(businessUnits[0]);
+          if (roleFilteredBUs.length > 0 && !selectedBU) {
+            setSelectedBU(roleFilteredBUs[0]);
           }
           setActiveTab("detail");
         }} className="gap-2">
@@ -962,8 +979,8 @@ export default function BusinessUnitsPage() {
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatsCard icon={Building} title="Total Business Units" value={businessUnits.length} subtitle="All registered BUs" iconColor="bg-blue-100 text-blue-600" />
-            <StatsCard icon={CheckCircle} title="Active BUs" value={activeBUs.length} subtitle={`${businessUnits.length - activeBUs.length} inactive`} iconColor="bg-green-100 text-green-600" />
+            <StatsCard icon={Building} title="Total Business Units" value={roleFilteredBUs.length} subtitle="All registered BUs" iconColor="bg-blue-100 text-blue-600" />
+            <StatsCard icon={CheckCircle} title="Active BUs" value={activeBUs.length} subtitle={`${roleFilteredBUs.length - activeBUs.length} inactive`} iconColor="bg-green-100 text-green-600" />
             <StatsCard icon={Users} title="Total Members" value={totalMembers} subtitle="Across all BUs" iconColor="bg-purple-100 text-purple-600" />
             <StatsCard icon={Package} title="Products Assigned" value={totalProducts} subtitle="Unique products in BUs" iconColor="bg-orange-100 text-orange-600" />
           </div>
@@ -1004,7 +1021,7 @@ export default function BusinessUnitsPage() {
         <>
           {/* BU Selector */}
           <div className="flex items-center gap-3 flex-wrap">
-            {businessUnits.map((bu) => (
+            {roleFilteredBUs.map((bu) => (
               <Button
                 key={bu.id}
                 variant={selectedBU?.id === bu.id ? "default" : "outline"}
@@ -1754,7 +1771,7 @@ export default function BusinessUnitsPage() {
           {/* BU Selector for Assignment */}
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-sm font-medium text-muted-foreground">Select BU:</span>
-            {businessUnits.map((bu) => (
+            {roleFilteredBUs.map((bu) => (
               <Button
                 key={bu.id}
                 variant={assignmentBUId === bu.id ? "default" : "outline"}

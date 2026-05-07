@@ -49,6 +49,7 @@ import {
 import { useCurrentUser } from "@/lib/user-context";
 import { useNotificationCenter } from "@/lib/notification-context";
 import { useAuditLogger } from "@/lib/audit-logger";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 const MIN_VISIT_DURATION_MIN = 10;
 
@@ -211,6 +212,7 @@ function isPendingEscalation(plan: WeeklyPlan): boolean {
 export default function WeeklyPlanPage() {
   const store = useApiDataStore();
   const { user, allUsers, getReportsOf } = useCurrentUser();
+  const { t } = useTranslation();
 
   const [activeWeek, setActiveWeek] = useState<Date>(startOfWeek(new Date()));
   const [editing, setEditing] = useState<WeeklyPlan | null>(null);
@@ -549,18 +551,18 @@ export default function WeeklyPlanPage() {
       )}
 
       <PageHeader
-        title="Weekly Visit Plans"
-        description={isManager ? "Manage, review, and approve weekly field visit plans for your team. Create your own plans for field coaching visits." : "Set, submit, and review weekly plans before starting field trips. Plans must be approved by a manager before execution."}
+        title={t("page.weeklyPlan.title")}
+        description={isManager ? t("page.weeklyPlan.description.manager") : t("page.weeklyPlan.description.rep")}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setShowStartingPoints(true)}>
               <MapPin className="h-4 w-4 mr-2" />
-              Starting Points
+              {t("crm.startingPoints")}
             </Button>
             {(isRep || isManager) && (
               <Button onClick={() => setShowCreateDialog(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                New Weekly Plan
+                {t("crm.newWeeklyPlan")}
               </Button>
             )}
           </div>
@@ -570,49 +572,49 @@ export default function WeeklyPlanPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           icon={Calendar}
-          title="Draft Plans"
+          title={t("stats.draft")}
           value={stats.draft}
-          subtitle={isManager ? "Yours + team" : "Not yet submitted"}
+          subtitle={isManager ? t("weeklyPlan.yoursPlusTeam") : t("weeklyPlan.notYetSubmitted")}
           iconColor="bg-slate-100 text-slate-600"
         />
         <StatsCard
           icon={Clock}
-          title="Awaiting Approval"
+          title={t("stats.awaitingApproval")}
           value={stats.submitted}
-          subtitle={isManager ? `${myPlans.filter((p) => p.status === "SUBMITTED" && p.repId !== user.id).length} need your review` : "Submitted, pending"}
+          subtitle={isManager ? `${myPlans.filter((p) => p.status === "SUBMITTED" && p.repId !== user.id).length} ${t("weeklyPlan.needYourReview")}` : t("weeklyPlan.submittedPending")}
           iconColor="bg-amber-100 text-amber-600"
         />
         <StatsCard
           icon={CheckCircle2}
-          title="Approved"
+          title={t("stats.approved")}
           value={stats.approved}
-          subtitle={isManager ? "Yours + team" : "Ready to execute"}
+          subtitle={isManager ? t("weeklyPlan.yoursPlusTeam") : t("weeklyPlan.readyToExecute")}
           iconColor="bg-emerald-100 text-emerald-600"
         />
         <StatsCard
           icon={XCircle}
-          title="Rejected"
+          title={t("stats.rejected")}
           value={stats.rejected}
-          subtitle="Needs revision"
+          subtitle={t("weeklyPlan.needsRevision")}
           iconColor="bg-red-100 text-red-600"
         />
       </div>
 
       <Tabs defaultValue={isManager ? "team" : "my"}>
         <TabsList>
-          <TabsTrigger value="my">My Plans</TabsTrigger>
-          {isManager && <TabsTrigger value="team">Team Plans</TabsTrigger>}
-          {isManager && <TabsTrigger value="approvals">Pending Approvals</TabsTrigger>}
-          <TabsTrigger value="all">All Plans</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="my">{t("tab.myPlans")}</TabsTrigger>
+          {isManager && <TabsTrigger value="team">{t("tab.teamPlans")}</TabsTrigger>}
+          {isManager && <TabsTrigger value="approvals">{t("tab.pendingApprovals")}</TabsTrigger>}
+          <TabsTrigger value="all">{t("tab.allPlans")}</TabsTrigger>
+          <TabsTrigger value="analytics">{t("tab.analytics")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="my" className="space-y-3">
           {myPlans.filter((p) => p.repId === user.id).length === 0 ? (
             <Card><CardContent className="p-12 text-center text-muted-foreground">
               <Calendar className="h-12 w-12 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">You haven&apos;t created any weekly plans yet.</p>
-              <p className="text-xs mt-1">Click &quot;New Weekly Plan&quot; to start.</p>
+              <p className="text-sm">{t("empty.noPlans")}</p>
+              <p className="text-xs mt-1">{t("empty.noPlansHint")}</p>
             </CardContent></Card>
           ) : (
             myPlans
@@ -646,7 +648,7 @@ export default function WeeklyPlanPage() {
                 return (
                   <Card><CardContent className="p-12 text-center text-muted-foreground">
                     <Users className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">No team plans found.</p>
+                    <p className="text-sm">{t("empty.noTeamPlans")}</p>
                     <p className="text-xs mt-1">Plans from your direct reports will appear here.</p>
                   </CardContent></Card>
                 );
@@ -697,7 +699,7 @@ export default function WeeklyPlanPage() {
             {myPlans.filter((p) => p.status === "SUBMITTED" && p.repId !== user.id).length === 0 ? (
               <Card><CardContent className="p-12 text-center text-muted-foreground">
                 <CheckCircle2 className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No plans awaiting your approval.</p>
+                <p className="text-sm">{t("empty.noPendingApprovals")}</p>
               </CardContent></Card>
             ) : (
               myPlans
@@ -904,6 +906,7 @@ function PlanCard({
 }) {
   const [showAuditTrail, setShowAuditTrail] = useState(false);
 
+  const { t } = useTranslation();
   const rep = allUsers.find((u) => u.id === plan.repId);
   const approver = plan.approvedById ? allUsers.find((u) => u.id === plan.approvedById) : null;
   const totalVisits = plan.days.reduce((sum, d) => sum + d.visits.length, 0);
@@ -928,10 +931,10 @@ function PlanCard({
   const canEscalate = plan.status === "SUBMITTED" && currentEscalationLevel < ESCALATION_CHAIN.length - 1;
 
   const statusBadge: Record<typeof plan.status, { label: string; color: string }> = {
-    DRAFT: { label: "Draft", color: "bg-slate-100 text-slate-700" },
-    SUBMITTED: { label: "Awaiting Approval", color: "bg-amber-100 text-amber-700" },
-    APPROVED: { label: "Approved", color: "bg-emerald-100 text-emerald-700" },
-    REJECTED: { label: "Rejected", color: "bg-red-100 text-red-700" },
+    DRAFT: { label: t("common.draft"), color: "bg-slate-100 text-slate-700" },
+    SUBMITTED: { label: t("weeklyPlan.awaitingApproval"), color: "bg-amber-100 text-amber-700" },
+    APPROVED: { label: t("common.approved"), color: "bg-emerald-100 text-emerald-700" },
+    REJECTED: { label: t("common.rejected"), color: "bg-red-100 text-red-700" },
   };
 
   return (

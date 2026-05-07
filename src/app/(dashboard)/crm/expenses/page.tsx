@@ -19,6 +19,7 @@ import { useApiDataStore } from "@/lib/api/use-api-store";
 import { downloadCSV } from "@/lib/download";
 import { useNotificationCenter } from "@/lib/notification-context";
 import { useAuditLogger } from "@/lib/audit-logger";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -201,6 +202,7 @@ function seedExpenses(): Expense[] {
 export default function ExpensesPage() {
   const { user, allUsers } = useCurrentUser();
   const store = useApiDataStore();
+  const { t } = useTranslation();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -1049,15 +1051,15 @@ export default function ExpensesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Expenses"
-        description="Submit, track, and approve field expenses. Upload receipt photos for verification."
+        title={t("page.expenses.title")}
+        description={t("page.expenses.description")}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => { setOcrResult(null); setOcrImagePreview(null); setOcrDialogOpen(true); }}>
-              <ScanLine className="h-4 w-4 mr-2" /> Scan Receipt
+              <ScanLine className="h-4 w-4 mr-2" /> {t("crm.scanReceipt")}
             </Button>
             <Button onClick={() => { resetForm(); setNewDialogOpen(true); }}>
-              <Plus className="h-4 w-4 mr-2" /> New Expense
+              <Plus className="h-4 w-4 mr-2" /> {t("crm.newExpense")}
             </Button>
           </div>
         }
@@ -1065,47 +1067,47 @@ export default function ExpensesPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard icon={DollarSign} title="Total Expenses (MTD)" value={`${totalMTD.toLocaleString()} EGP`} subtitle="Current month" iconColor="bg-blue-100 text-blue-600" />
-        <StatsCard icon={Clock} title="Pending Approval" value={`${pendingAmount.toLocaleString()} EGP`} subtitle={`${expenses.filter((e) => e.status === "PENDING").length} expenses`} iconColor="bg-yellow-100 text-yellow-600" />
-        <StatsCard icon={Check} title="Approved" value={`${approvedAmount.toLocaleString()} EGP`} subtitle={`${expenses.filter((e) => e.status === "APPROVED").length} expenses`} iconColor="bg-green-100 text-green-600" />
-        <StatsCard icon={X} title="Rejected" value={`${rejectedAmount.toLocaleString()} EGP`} subtitle={`${expenses.filter((e) => e.status === "REJECTED").length} expenses`} iconColor="bg-red-100 text-red-600" />
+        <StatsCard icon={DollarSign} title={t("stats.totalExpensesMTD")} value={`${totalMTD.toLocaleString()} EGP`} subtitle={t("expense.currentMonth")} iconColor="bg-blue-100 text-blue-600" />
+        <StatsCard icon={Clock} title={t("stats.pendingApproval")} value={`${pendingAmount.toLocaleString()} EGP`} subtitle={`${expenses.filter((e) => e.status === "PENDING").length} ${t("crm.expenses").toLowerCase()}`} iconColor="bg-yellow-100 text-yellow-600" />
+        <StatsCard icon={Check} title={t("stats.approved")} value={`${approvedAmount.toLocaleString()} EGP`} subtitle={`${expenses.filter((e) => e.status === "APPROVED").length} ${t("crm.expenses").toLowerCase()}`} iconColor="bg-green-100 text-green-600" />
+        <StatsCard icon={X} title={t("stats.rejected")} value={`${rejectedAmount.toLocaleString()} EGP`} subtitle={`${expenses.filter((e) => e.status === "REJECTED").length} ${t("crm.expenses").toLowerCase()}`} iconColor="bg-red-100 text-red-600" />
       </div>
 
       {/* Budget Controls */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" /> Monthly Budget Overview
+            <BarChart3 className="h-4 w-4" /> {t("expense.monthlyBudgetOverview")}
           </CardTitle>
-          <CardDescription>Your personal expense budget for this month</CardDescription>
+          <CardDescription>{t("expense.personalBudget")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="text-center p-3 rounded-lg bg-slate-50">
-              <p className="text-xs text-slate-500">Monthly Budget</p>
+              <p className="text-xs text-slate-500">{t("expense.monthlyBudget")}</p>
               <p className="text-lg font-bold text-slate-800">{MONTHLY_BUDGET_PER_REP.toLocaleString()} EGP</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-green-50">
-              <p className="text-xs text-green-600">Approved This Month</p>
+              <p className="text-xs text-green-600">{t("expense.approvedThisMonth")}</p>
               <p className="text-lg font-bold text-green-700">{myApprovedThisMonth.toLocaleString()} EGP</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-yellow-50">
-              <p className="text-xs text-yellow-600">Pending</p>
+              <p className="text-xs text-yellow-600">{t("common.pending")}</p>
               <p className="text-lg font-bold text-yellow-700">{myPendingThisMonth.toLocaleString()} EGP</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-blue-50">
-              <p className="text-xs text-blue-600">Remaining</p>
+              <p className="text-xs text-blue-600">{t("expense.remaining")}</p>
               <p className={`text-lg font-bold ${budgetRemaining < 0 ? "text-red-700" : "text-blue-700"}`}>{budgetRemaining.toLocaleString()} EGP</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-purple-50">
-              <p className="text-xs text-purple-600">Utilization</p>
+              <p className="text-xs text-purple-600">{t("expense.utilization")}</p>
               <p className={`text-lg font-bold ${budgetUtilization > 90 ? "text-red-700" : "text-purple-700"}`}>{budgetUtilization}%</p>
             </div>
           </div>
           {/* Budget progress bar */}
           <div>
             <div className="flex items-center justify-between text-xs mb-1">
-              <span className="text-slate-500">Budget Used</span>
+              <span className="text-slate-500">{t("expense.budgetUsed")}</span>
               <span className={`font-semibold ${budgetUtilization > 90 ? "text-red-600" : "text-slate-700"}`}>
                 {myApprovedThisMonth.toLocaleString()} / {MONTHLY_BUDGET_PER_REP.toLocaleString()} EGP
               </span>
@@ -1131,9 +1133,9 @@ export default function ExpensesPage() {
       {/* Tabs */}
       <Tabs defaultValue="my-expenses">
         <TabsList>
-          <TabsTrigger value="my-expenses">My Expenses</TabsTrigger>
-          {isManager && <TabsTrigger value="approve">Approve Expenses</TabsTrigger>}
-          <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="my-expenses">{t("tab.myExpenses")}</TabsTrigger>
+          {isManager && <TabsTrigger value="approve">{t("tab.approveExpenses")}</TabsTrigger>}
+          <TabsTrigger value="reports">{t("tab.reports")}</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: My Expenses */}
@@ -1144,7 +1146,7 @@ export default function ExpensesPage() {
             searchable
             searchKeys={["date", "type", "description"]}
             pagination
-            emptyMessage="You have not submitted any expenses yet."
+            emptyMessage={t("empty.noExpenses")}
             onRowClick={(row) => { setSelectedExpense(row); setViewDialogOpen(true); }}
           />
         </TabsContent>
@@ -1164,7 +1166,7 @@ export default function ExpensesPage() {
                 searchable
                 searchKeys={["userName", "date", "type", "description"]}
                 pagination
-                emptyMessage="No pending expenses from team members."
+                emptyMessage={t("empty.noPendingExpenses")}
               />
             )}
           </TabsContent>

@@ -63,6 +63,7 @@ import {
   Code2,
   GitBranch,
   Pill,
+  BookOpen,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -161,6 +162,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Call Analysis", labelKey: "sidebar.callAnalysis", href: "/crm/call-analysis", icon: BarChart3 },
       { label: "Expenses", labelKey: "sidebar.expenses", href: "/crm/expenses", icon: Banknote },
       { label: "CRM Reports", labelKey: "sidebar.crmReports", href: "/crm/reports", icon: BarChart3 },
+      { label: "Product Guide", labelKey: "sidebar.productGuide", href: "/crm/product-guide", icon: BookOpen },
     ],
   },
   {
@@ -262,11 +264,26 @@ const ROLE_SECTIONS: Record<string, RoleSectionDef[]> = {
       items: ["Marketing Hub", "Sales Pipeline"],
     },
   ],
+  NSM: [
+    { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
+    {
+      title: "National Overview",
+      items: ["Business Units", "Territories (IMS)", "KPIs", "Call Analysis", "CRM Reports", "Product Guide"],
+    },
+    {
+      title: "Team & Field",
+      items: ["My Team", "Weekly Plans", "Doctor Directory", "Visit Tracking"],
+    },
+    {
+      title: "Requests & Reports",
+      items: ["Market Requests", "Expenses"],
+    },
+  ],
   BUM: [
     { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
     {
       title: "My BU", titleKey: "sidebar.businessUnit",
-      items: ["BUM Dashboard", "Territories (IMS)", "KPIs", "Call Analysis", "CRM Reports"],
+      items: ["BUM Dashboard", "Territories (IMS)", "KPIs", "Call Analysis", "CRM Reports", "Product Guide"],
     },
     {
       title: "Team & Field", titleKey: "sidebar.teamField",

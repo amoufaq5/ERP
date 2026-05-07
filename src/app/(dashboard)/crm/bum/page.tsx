@@ -15,67 +15,39 @@ import { EntityFormModal, type EntityField } from "@/components/shared/entity-fo
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { useCurrentUser, ROLE_LABEL, type AppUser } from "@/lib/user-context";
+import type {
+  Visit,
+  WeeklyPlan,
+  MarketRequest,
+  Doctor,
+  KPIRecord,
+  BusinessUnit,
+} from "@/lib/data-store";
 
-const HIERARCHY = [
-  {
-    marketeer: "Khaled Sherif", region: "North Region",
-    dms: [
-      { name: "Hany Mansour", district: "Greater Cairo", reps: 8, doctors: 320 },
-      { name: "Lina Habib", district: "Alexandria & Coast", reps: 7, doctors: 240 },
-    ],
-  },
-  {
-    marketeer: "Mariam Adly", region: "South Region",
-    dms: [
-      { name: "Tamer Wahid", district: "Upper Egypt", reps: 5, doctors: 168 },
-      { name: "Sameh Helmy", district: "Red Sea Zone", reps: 4, doctors: 110 },
-    ],
-  },
-  {
-    marketeer: "Hossam Bahgat", region: "East Region",
-    dms: [
-      { name: "Reem Saleh", district: "Delta Region", reps: 6, doctors: 215 },
-      { name: "Adel Mounir", district: "Canal Cities", reps: 4, doctors: 95 },
-    ],
-  },
-  {
-    marketeer: "Yasmine Galal", region: "West Region",
-    dms: [
-      { name: "Walid Anwar", district: "Marsa & Oases", reps: 3, doctors: 75 },
-      { name: "Hala Lotfy", district: "New Cities", reps: 5, doctors: 130 },
-    ],
-  },
-];
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-const PERFORMANCE = [
-  { marketeer: "Khaled Sherif", region: "North Region", teamSize: 15, callRate: "89%", compliance: "92%", sales: "98%", budget: "66%", rating: "A" },
-  { marketeer: "Mariam Adly", region: "South Region", teamSize: 9, callRate: "78%", compliance: "81%", sales: "85%", budget: "48%", rating: "B" },
-  { marketeer: "Hossam Bahgat", region: "East Region", teamSize: 10, callRate: "85%", compliance: "88%", sales: "94%", budget: "61%", rating: "A" },
-  { marketeer: "Yasmine Galal", region: "West Region", teamSize: 8, callRate: "76%", compliance: "79%", sales: "82%", budget: "44%", rating: "B" },
-];
+function thisMonthISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
-const STRATEGIC_APPROVALS = [
-  { id: "SREQ-001", from: "Khaled Sherif (Marketeer)", type: "Doctor Sponsorship", description: "Dr. Walid Fathy Int'l Oncology Congress - Tokyo", value: "EGP 8,500", justification: "Top KOL, 40% market influence", decision: "Approved", date: "2026-03-25" },
-  { id: "SREQ-002", from: "Hossam Bahgat (Marketeer)", type: "Strategic Investment", description: "New product launch event - Cairo", value: "EGP 25,000", justification: "Q2 launch critical", decision: "Approved", date: "2026-03-22" },
-  { id: "SREQ-003", from: "Mariam Adly (Marketeer)", type: "Conference Booth", description: "International Pharma Expo", value: "EGP 12,000", justification: "Brand visibility", decision: "Pending", date: "2026-03-20" },
-  { id: "SREQ-004", from: "Yasmine Galal (Marketeer)", type: "KOL Program", description: "Annual KOL summit West region", value: "EGP 18,000", justification: "10 top KOLs engagement", decision: "Pending", date: "2026-03-18" },
-  { id: "SREQ-005", from: "Khaled Sherif (Marketeer)", type: "Strategic Investment", description: "Cardiology Clinical Study Sponsorship", value: "EGP 45,000", justification: "Real-world evidence", decision: "Pending", date: "2026-03-15" },
-  { id: "SREQ-006", from: "Hossam Bahgat (Marketeer)", type: "Doctor Sponsorship", description: "Multi-doctor international conference", value: "EGP 15,000", justification: "Build prescriber base", decision: "Rejected", date: "2026-03-12" },
-];
+function isThisMonth(iso: string): boolean {
+  return iso.startsWith(thisMonthISO());
+}
 
-const FIELD_VISITS = [
-  { id: "BV-001", region: "North Region", accompanied: "Khaled Sherif (Marketeer)", doctor: "Dr. Tarek Hamdy", date: "2026-03-15", purpose: "KOL Management", notes: "Strategic relationship building - top cardiologist", actions: "Quarterly reviews, conference invites" },
-  { id: "BV-002", region: "East Region", accompanied: "Hossam Bahgat (Marketeer)", doctor: "Dr. Nada Hussein", date: "2026-03-08", purpose: "Strategic Account", notes: "University hospital expansion plan", actions: "Increase coverage 50%" },
-  { id: "BV-003", region: "South Region", accompanied: "Mariam Adly (Marketeer)", doctor: "Dr. Khaled Adham", date: "2026-02-28", purpose: "Performance Review", notes: "Reviewed underperforming territory", actions: "Restructure rep allocation" },
-  { id: "BV-004", region: "North Region", accompanied: "Khaled Sherif (Marketeer)", doctor: "Dr. Walid Fathy", date: "2026-02-20", purpose: "Launch Event", notes: "Presented new oncology line", actions: "Personal sponsorship approved" },
-];
-
-const REGIONAL_COMPARISON = [
-  { region: "North Region", sales: 98, compliance: 92, callRate: 89 },
-  { region: "South Region", sales: 85, compliance: 81, callRate: 78 },
-  { region: "East Region", sales: 94, compliance: 88, callRate: 85 },
-  { region: "West Region", sales: 82, compliance: 79, callRate: 76 },
-];
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
 
 // ─── P&L Seed Data (Pharmaceutical BU in EGP) ──────────────────────────────
 
@@ -679,10 +651,19 @@ function PLTab() {
 
 // ─── Shared config ──────────────────────────────────────────────────────────
 
+interface FieldVisitRecord {
+  id: string;
+  repName: string;
+  doctorName: string;
+  date: string;
+  purpose: string;
+  notes: string;
+  actions: string;
+}
+
 const visitFields: EntityField[] = [
-  { name: "region", label: "Region", type: "select", options: ["North", "South", "East", "West"].map(r => ({ label: `${r} Region`, value: `${r} Region` })) },
-  { name: "accompanied", label: "Accompanied", type: "text", required: true },
-  { name: "doctor", label: "Doctor/KOL", type: "text", required: true },
+  { name: "repName", label: "Accompanied Rep", type: "text", required: true },
+  { name: "doctorName", label: "Doctor/KOL", type: "text", required: true },
   { name: "date", label: "Date", type: "date", required: true },
   { name: "purpose", label: "Purpose", type: "select", options: [
     "KOL Management", "Strategic Account", "Launch Event", "Performance Review",
@@ -691,240 +672,598 @@ const visitFields: EntityField[] = [
   { name: "actions", label: "Action Items", type: "textarea" },
 ];
 
+// ─── Main Page ──────────────────────────────────────────────────────────────
+
 export default function BUMPage() {
-  const [approvals, setApprovals] = useState(STRATEGIC_APPROVALS);
-  const [visits, setVisits] = useState(FIELD_VISITS);
-  const [editingVisit, setEditingVisit] = useState<typeof FIELD_VISITS[0] | null>(null);
+  const store = useApiDataStore();
+  const { user, allUsers, getReportsOf } = useCurrentUser();
+
+  // ── Identify BUM's own business unit ──────────────────────────────────
+  const myBU = useMemo(() => {
+    return (store.businessUnits as BusinessUnit[]).find(
+      (bu) => bu.managerId === user.id
+    ) ?? null;
+  }, [store.businessUnits, user.id]);
+
+  // ── Team members: all direct reports ──────────────────────────────────
+  const teamMembers = useMemo(() => getReportsOf(user.id), [user.id, getReportsOf]);
+  const teamMemberIds = useMemo(() => new Set(teamMembers.map((m) => m.id)), [teamMembers]);
+
+  const dms = useMemo(() => teamMembers.filter((u) => u.role === "DISTRICT_MANAGER"), [teamMembers]);
+  const reps = useMemo(() => teamMembers.filter((u) => u.role === "MEDICAL_REP"), [teamMembers]);
+
+  // ── Filtered store data scoped to this BU's team ─────────────────────
+  const teamVisits = useMemo(
+    () => (store.visits as Visit[]).filter((v) => teamMemberIds.has(v.repId)),
+    [store.visits, teamMemberIds]
+  );
+
+  const visitsThisMonth = useMemo(
+    () => teamVisits.filter((v) => isThisMonth(v.dateTime)),
+    [teamVisits]
+  );
+
+  const teamPlans = useMemo(
+    () => (store.weeklyPlans as WeeklyPlan[]).filter((p) => teamMemberIds.has(p.repId)),
+    [store.weeklyPlans, teamMemberIds]
+  );
+
+  const activePlans = useMemo(
+    () => teamPlans.filter((p) => p.status === "SUBMITTED" || p.status === "APPROVED"),
+    [teamPlans]
+  );
+
+  const teamRequests = useMemo(
+    () => (store.marketRequests as MarketRequest[]).filter(
+      (r) => teamMemberIds.has(r.requestedById) || (myBU && r.buId === myBU.id)
+    ),
+    [store.marketRequests, teamMemberIds, myBU]
+  );
+
+  const pendingRequests = useMemo(
+    () => teamRequests.filter((r) => r.status === "PENDING"),
+    [teamRequests]
+  );
+
+  const buDoctors = useMemo(
+    () => (store.doctors as Doctor[]).filter(
+      (d) =>
+        (myBU && d.buId === myBU.id) ||
+        (d.assignedRepId && teamMemberIds.has(d.assignedRepId))
+    ),
+    [store.doctors, myBU, teamMemberIds]
+  );
+
+  const teamKpis = useMemo(
+    () => (store.kpis as KPIRecord[]).filter((k) => teamMemberIds.has(k.userId)),
+    [store.kpis, teamMemberIds]
+  );
+
+  // ── Computed stats ────────────────────────────────────────────────────
+  const totalForce = teamMembers.length;
+  const totalDoctors = buDoctors.length;
+
+  // Visit compliance: approved visits this month / total visits this month
+  const approvedVisitsThisMonth = visitsThisMonth.filter((v) => v.status === "APPROVED").length;
+  const visitCompliancePct = visitsThisMonth.length > 0
+    ? Math.round((approvedVisitsThisMonth / visitsThisMonth.length) * 100)
+    : 0;
+
+  // Plan compliance: approved plans / total active plans
+  const approvedPlans = teamPlans.filter((p) => p.status === "APPROVED").length;
+  const planCompliancePct = teamPlans.length > 0
+    ? Math.round((approvedPlans / teamPlans.length) * 100)
+    : 0;
+
+  // KPI achievement this month
+  const thisMonthKpis = teamKpis.filter((k) => k.period === thisMonthISO());
+  const avgKpiAchievement = thisMonthKpis.length > 0
+    ? Math.round(
+        thisMonthKpis.reduce((sum, k) => sum + (k.target > 0 ? (k.actual / k.target) * 100 : 0), 0) /
+        thisMonthKpis.length
+      )
+    : 0;
+
+  // ── Doctor name lookup ────────────────────────────────────────────────
+  const doctorMap = useMemo(() => {
+    const m = new Map<string, string>();
+    (store.doctors as Doctor[]).forEach((d) => m.set(d.id, d.name));
+    return m;
+  }, [store.doctors]);
+
+  const userMap = useMemo(() => {
+    const m = new Map<string, string>();
+    allUsers.forEach((u) => m.set(u.id, u.name));
+    return m;
+  }, [allUsers]);
+
+  // ── Per-DM performance data ───────────────────────────────────────────
+  const dmPerformance = useMemo(() => {
+    return dms.map((dm) => {
+      const dmReps = getReportsOf(dm.id).filter((u) => u.role === "MEDICAL_REP");
+      const dmRepIds = new Set(dmReps.map((r) => r.id));
+      const dmVisitsMonth = visitsThisMonth.filter((v) => dmRepIds.has(v.repId) || v.repId === dm.id);
+      const dmApprovedMonth = dmVisitsMonth.filter((v) => v.status === "APPROVED").length;
+      const dmPlans = teamPlans.filter((p) => dmRepIds.has(p.repId) || p.repId === dm.id);
+      const dmApprovedPlans = dmPlans.filter((p) => p.status === "APPROVED").length;
+      const dmKpis = thisMonthKpis.filter((k) => dmRepIds.has(k.userId) || k.userId === dm.id);
+      const dmKpiAvg = dmKpis.length > 0
+        ? Math.round(dmKpis.reduce((s, k) => s + (k.target > 0 ? (k.actual / k.target) * 100 : 0), 0) / dmKpis.length)
+        : 0;
+
+      return {
+        id: dm.id,
+        name: dm.name,
+        territory: dm.territory ?? "-",
+        teamSize: dmReps.length,
+        callRate: dmVisitsMonth.length > 0
+          ? `${Math.round((dmApprovedMonth / dmVisitsMonth.length) * 100)}%`
+          : "0%",
+        compliance: dmPlans.length > 0
+          ? `${Math.round((dmApprovedPlans / dmPlans.length) * 100)}%`
+          : "0%",
+        kpiAchievement: `${dmKpiAvg}%`,
+        visitsThisMonth: dmVisitsMonth.length,
+        rating: dmKpiAvg >= 80 ? "A" : dmKpiAvg >= 50 ? "B" : "C",
+      };
+    });
+  }, [dms, getReportsOf, visitsThisMonth, teamPlans, thisMonthKpis]);
+
+  // ── Market request list for approval table ────────────────────────────
+  const [approvalFilters, setApprovalFilters] = useState<FilterState>({ _search: "", status: "" });
+
+  const filteredRequests = useMemo(() => {
+    return teamRequests.filter((r) => {
+      if (approvalFilters.status && r.status !== approvalFilters.status) return false;
+      if (approvalFilters._search) {
+        const q = approvalFilters._search.toLowerCase();
+        return (
+          r.id.toLowerCase().includes(q) ||
+          r.description.toLowerCase().includes(q) ||
+          r.type.toLowerCase().includes(q) ||
+          (userMap.get(r.requestedById) ?? "").toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [teamRequests, approvalFilters, userMap]);
+
+  // ── Field visit data from real visits (BUM's own accompanied visits) ──
+  // We show the most recent team visits as "field visits" overview
+  const recentTeamVisits = useMemo(() => {
+    return [...teamVisits]
+      .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
+      .slice(0, 20)
+      .map((v) => ({
+        id: v.id,
+        repName: userMap.get(v.repId) ?? v.repId,
+        doctorName: doctorMap.get(v.doctorId) ?? v.doctorId,
+        date: v.dateTime.split("T")[0],
+        status: v.status,
+        notes: v.notes || "-",
+        session: v.session,
+      }));
+  }, [teamVisits, userMap, doctorMap]);
+
+  // ── Custom field visits (BUM's own strategic visits) ──────────────────
+  const [bumVisits, setBumVisits] = useState<FieldVisitRecord[]>([]);
+  const [editingVisit, setEditingVisit] = useState<FieldVisitRecord | null>(null);
   const [showVisit, setShowVisit] = useState(false);
-  const [approvalFilters, setApprovalFilters] = useState<FilterState>({ _search: "", decision: "" });
-  const [visitFilters, setVisitFilters] = useState<FilterState>({ _search: "", region: "" });
-  const [viewApproval, setViewApproval] = useState<(typeof STRATEGIC_APPROVALS)[0] | null>(null);
-  const [viewVisit, setViewVisit] = useState<(typeof FIELD_VISITS)[0] | null>(null);
+  const [visitFilters, setVisitFilters] = useState<FilterState>({ _search: "" });
+  const [viewVisit, setViewVisit] = useState<FieldVisitRecord | null>(null);
 
-  const filteredApprovals = approvals.filter((a) => {
-    if (approvalFilters.decision && a.decision !== approvalFilters.decision) return false;
-    if (approvalFilters._search) {
-      const q = approvalFilters._search.toLowerCase();
-      return a.id.toLowerCase().includes(q) || a.from.toLowerCase().includes(q) || a.description.toLowerCase().includes(q);
+  const filteredBumVisits = useMemo(() => {
+    const all = bumVisits;
+    if (!visitFilters._search) return all;
+    const q = visitFilters._search.toLowerCase();
+    return all.filter(
+      (v) =>
+        v.repName.toLowerCase().includes(q) ||
+        v.doctorName.toLowerCase().includes(q)
+    );
+  }, [bumVisits, visitFilters]);
+
+  // ── Hierarchy for Org tab ─────────────────────────────────────────────
+  const hierarchy = useMemo(() => {
+    return dms.map((dm) => {
+      const dmReps = getReportsOf(dm.id).filter((u) => u.role === "MEDICAL_REP");
+      const dmDoctors = buDoctors.filter(
+        (d) => d.assignedRepId && (dmReps.some((r) => r.id === d.assignedRepId) || d.assignedRepId === dm.id)
+      );
+      return {
+        dm,
+        reps: dmReps,
+        doctorCount: dmDoctors.length,
+      };
+    });
+  }, [dms, getReportsOf, buDoctors]);
+
+  // Reps not under any DM
+  const unattachedReps = useMemo(() => {
+    const attachedRepIds = new Set<string>();
+    for (const dm of dms) {
+      for (const rep of getReportsOf(dm.id).filter((u) => u.role === "MEDICAL_REP")) {
+        attachedRepIds.add(rep.id);
+      }
     }
-    return true;
-  });
-
-  const filteredVisits = visits.filter((v) => {
-    if (visitFilters.region && v.region !== visitFilters.region) return false;
-    if (visitFilters._search) {
-      const q = visitFilters._search.toLowerCase();
-      return v.accompanied.toLowerCase().includes(q) || v.doctor.toLowerCase().includes(q);
-    }
-    return true;
-  });
-
-  const totalForce = HIERARCHY.reduce((s, m) => s + m.dms.reduce((ss, d) => ss + d.reps, 0), 0);
-  const totalDoctors = HIERARCHY.reduce((s, m) => s + m.dms.reduce((ss, d) => ss + d.doctors, 0), 0);
-  const pendingStrategic = approvals.filter(a => a.decision === "Pending").length;
+    return reps.filter((r) => !attachedRepIds.has(r.id));
+  }, [dms, reps, getReportsOf]);
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Business Unit Manager (BUM) Dashboard" description="National field force oversight, strategic decisions, and performance management" />
+      <PageHeader
+        title={`Business Unit Manager Dashboard${myBU ? ` - ${myBU.name}` : ""}`}
+        description="Field force oversight, strategic decisions, and performance management"
+      />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatsCard icon={Users} title="Total Field Force" value={totalForce} subtitle={`${totalDoctors} doctors`} iconColor="bg-blue-100 text-blue-700" />
-        <StatsCard icon={TrendingUp} title="National Call Rate" value="83%" subtitle="Average compliance" iconColor="bg-green-100 text-green-700" />
-        <StatsCard icon={DollarSign} title="Budget Utilization" value="55%" subtitle="YTD" iconColor="bg-purple-100 text-purple-700" />
-        <StatsCard icon={Crown} title="YTD Sales Achievement" value="92%" subtitle="vs target" iconColor="bg-amber-100 text-amber-700" />
+        <StatsCard
+          icon={Users}
+          title="Total Field Force"
+          value={totalForce}
+          subtitle={`${dms.length} DMs, ${reps.length} Reps - ${totalDoctors} doctors`}
+          iconColor="bg-blue-100 text-blue-700"
+        />
+        <StatsCard
+          icon={TrendingUp}
+          title="Visit Compliance"
+          value={`${visitCompliancePct}%`}
+          subtitle={`${visitsThisMonth.length} visits this month`}
+          iconColor="bg-green-100 text-green-700"
+        />
+        <StatsCard
+          icon={DollarSign}
+          title="Plan Compliance"
+          value={`${planCompliancePct}%`}
+          subtitle={`${activePlans.length} active plans`}
+          iconColor="bg-purple-100 text-purple-700"
+        />
+        <StatsCard
+          icon={Crown}
+          title="KPI Achievement"
+          value={avgKpiAchievement > 0 ? `${avgKpiAchievement}%` : "-"}
+          subtitle={`${thisMonthKpis.length} KPIs tracked`}
+          iconColor="bg-amber-100 text-amber-700"
+        />
       </div>
 
       <Tabs defaultValue="org">
         <TabsList>
           <TabsTrigger value="org">Organization Overview</TabsTrigger>
           <TabsTrigger value="performance">Performance Dashboard</TabsTrigger>
-          <TabsTrigger value="strategic">Strategic Approvals</TabsTrigger>
+          <TabsTrigger value="requests">
+            Market Requests
+            {pendingRequests.length > 0 && (
+              <Badge variant="destructive" className="ml-2 text-[10px]">{pendingRequests.length}</Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="visits">Field Visits</TabsTrigger>
-          <TabsTrigger value="analytics">National Analytics</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="pnl">P&L</TabsTrigger>
         </TabsList>
 
+        {/* ── Organization Overview ──────────────────────────────────────── */}
         <TabsContent value="org">
           <div className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Organization Hierarchy</CardTitle>
-                <CardDescription>BUM → Marketeers → District Managers → Medical Reps</CardDescription>
+                <CardDescription>
+                  BUM {myBU ? `(${myBU.name})` : ""} - District Managers - Medical Reps
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="rounded-lg border p-4 bg-amber-50 dark:bg-amber-900/10">
-                  <div className="flex items-center gap-2"><Crown className="h-5 w-5 text-amber-600" /><span className="font-semibold">BUM (You)</span></div>
-                  <div className="text-sm text-muted-foreground mt-1">Total Force: {totalForce} reps • {totalDoctors} doctors • 4 regions</div>
+                  <div className="flex items-center gap-2">
+                    <Crown className="h-5 w-5 text-amber-600" />
+                    <span className="font-semibold">BUM (You) - {user.name}</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    Total Force: {totalForce} members - {totalDoctors} doctors - {dms.length} DMs
+                    {myBU && <span> - {myBU.name}</span>}
+                  </div>
                 </div>
-                {HIERARCHY.map((m, i) => (
-                  <div key={i} className="ml-4 border-l-2 pl-4 space-y-3">
+
+                {hierarchy.length === 0 && unattachedReps.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No team members found. Add District Managers or Medical Reps to see the hierarchy.
+                  </div>
+                )}
+
+                {hierarchy.map((group) => (
+                  <div key={group.dm.id} className="ml-4 border-l-2 pl-4 space-y-3">
                     <div className="rounded-lg border p-3 bg-blue-50 dark:bg-blue-900/10">
-                      <div className="font-medium">{m.marketeer} <span className="text-xs text-muted-foreground">— Marketeer • {m.region}</span></div>
-                      <div className="text-xs text-muted-foreground">{m.dms.length} DMs • {m.dms.reduce((s, d) => s + d.reps, 0)} reps</div>
+                      <div className="font-medium">
+                        {group.dm.name}{" "}
+                        <span className="text-xs text-muted-foreground">
+                          - DM{group.dm.territory ? ` - ${group.dm.territory}` : ""}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {group.reps.length} reps - {group.doctorCount} doctors
+                      </div>
+                    </div>
+                    {group.reps.length > 0 && (
+                      <div className="ml-4 grid gap-2 md:grid-cols-2">
+                        {group.reps.map((rep) => (
+                          <div key={rep.id} className="rounded border p-2 text-sm">
+                            <div className="font-medium">{rep.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Medical Rep{rep.territory ? ` - ${rep.territory}` : ""}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {unattachedReps.length > 0 && (
+                  <div className="ml-4 border-l-2 pl-4 space-y-3">
+                    <div className="rounded-lg border p-3 bg-gray-50 dark:bg-gray-900/10">
+                      <div className="font-medium text-sm text-muted-foreground">
+                        Direct Reports (not under a DM) - {unattachedReps.length} reps
+                      </div>
                     </div>
                     <div className="ml-4 grid gap-2 md:grid-cols-2">
-                      {m.dms.map((dm, j) => (
-                        <div key={j} className="rounded border p-2 text-sm">
-                          <div className="font-medium">{dm.name}</div>
-                          <div className="text-xs text-muted-foreground">DM • {dm.district} • {dm.reps} reps • {dm.doctors} doctors</div>
+                      {unattachedReps.map((rep) => (
+                        <div key={rep.id} className="rounded border p-2 text-sm">
+                          <div className="font-medium">{rep.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Medical Rep{rep.territory ? ` - ${rep.territory}` : ""}
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
-                ))}
+                )}
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
+        {/* ── Performance Dashboard ──────────────────────────────────────── */}
         <TabsContent value="performance">
           <Card>
-            <CardHeader><CardTitle>Marketeer Performance</CardTitle><CardDescription>Regional KPIs</CardDescription></CardHeader>
+            <CardHeader>
+              <CardTitle>District Manager Performance</CardTitle>
+              <CardDescription>
+                {dms.length > 0 ? "KPIs per District Manager" : "No District Managers in your team yet"}
+              </CardDescription>
+            </CardHeader>
             <CardContent>
-              <DataTable
-                columns={[
-                  { key: "marketeer", label: "Marketeer", render: (v) => <span className="font-medium">{v as string}</span> },
-                  { key: "region", label: "Region" },
-                  { key: "teamSize", label: "Team Size" },
-                  { key: "callRate", label: "Call Rate" },
-                  { key: "compliance", label: "Compliance" },
-                  { key: "sales", label: "Sales Achievement", render: (v) => <span className="font-semibold">{v as string}</span> },
-                  { key: "budget", label: "Budget Used" },
-                  { key: "rating", label: "Rating", render: (_v, row) => <StatusBadge status={(row as unknown as (typeof PERFORMANCE)[0]).rating === "A" ? "Excellent" : "Good"} /> },
-                ] as Column<Record<string, unknown>>[]}
-                data={PERFORMANCE as unknown as Record<string, unknown>[]}
-
-                exportable exportFilename="crm-bum.csv" emptyMessage="No performance data available."
-              />
+              {dms.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  No District Managers found in your team.
+                </div>
+              ) : (
+                <DataTable
+                  columns={[
+                    { key: "name", label: "District Manager", render: (v) => <span className="font-medium">{v as string}</span> },
+                    { key: "territory", label: "Territory" },
+                    { key: "teamSize", label: "Team Size" },
+                    { key: "visitsThisMonth", label: "Visits (Month)" },
+                    { key: "callRate", label: "Call Rate" },
+                    { key: "compliance", label: "Plan Compliance" },
+                    { key: "kpiAchievement", label: "KPI Achievement", render: (v) => <span className="font-semibold">{v as string}</span> },
+                    { key: "rating", label: "Rating", render: (_v, row) => {
+                      const r = row as unknown as (typeof dmPerformance)[0];
+                      return <StatusBadge status={r.rating === "A" ? "Excellent" : r.rating === "B" ? "Good" : "Needs Improvement"} />;
+                    }},
+                  ] as Column<Record<string, unknown>>[]}
+                  data={dmPerformance as unknown as Record<string, unknown>[]}
+                  exportable exportFilename="crm-bum-performance.csv" emptyMessage="No performance data available."
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="strategic">
+        {/* ── Market Requests (replacing Strategic Approvals) ────────────── */}
+        <TabsContent value="requests">
           <Card>
             <CardHeader>
-              <CardTitle>Strategic Approvals</CardTitle>
-              <CardDescription>High-value requests escalated from Marketeers — {pendingStrategic} pending</CardDescription>
+              <CardTitle>Market Requests</CardTitle>
+              <CardDescription>
+                {pendingRequests.length > 0
+                  ? `${pendingRequests.length} pending request${pendingRequests.length !== 1 ? "s" : ""} from your team`
+                  : "All requests handled"}
+              </CardDescription>
               <FilterBar
                 searchValue={approvalFilters._search}
                 onSearchChange={(v) => setApprovalFilters((f) => ({ ...f, _search: v }))}
-                fields={[{ key: "decision", label: "Decision", type: "select", options: [
-                  { label: "Pending", value: "Pending" }, { label: "Approved", value: "Approved" }, { label: "Rejected", value: "Rejected" },
+                fields={[{ key: "status", label: "Status", type: "select", options: [
+                  { label: "Pending", value: "PENDING" },
+                  { label: "Approved", value: "APPROVED" },
+                  { label: "Rejected", value: "REJECTED" },
+                  { label: "Fulfilled", value: "FULFILLED" },
                 ]}]}
                 values={approvalFilters}
                 onChange={(k, v) => setApprovalFilters((f) => ({ ...f, [k]: v }))}
               />
             </CardHeader>
             <CardContent>
-              <DataTable
-                columns={[
-                  { key: "id", label: "Request#", render: (v) => <span className="font-mono">{v as string}</span> },
-                  { key: "from", label: "From" },
-                  { key: "type", label: "Type" },
-                  { key: "description", label: "Description", className: "max-w-xs truncate" },
-                  { key: "value", label: "Value", render: (v) => <span className="font-bold">{v as string}</span> },
-                  { key: "justification", label: "Justification", className: "max-w-xs truncate", render: (v) => <span className="text-muted-foreground">{v as string}</span> },
-                  { key: "decision", label: "Decision", render: (v) => <StatusBadge status={v as string} /> },
-                  { key: "_actions", label: "", render: (_v, row) => {
-                    const a = row as unknown as (typeof STRATEGIC_APPROVALS)[0];
-                    return (
-                      <EditDeleteMenu
-                        onView={() => setViewApproval(a)}
-                        onDelete={() => setApprovals(prev => prev.filter(x => x.id !== a.id))}
-                        itemLabel={a.id}
-                        canEdit={false}
-                        extraItems={a.decision === "Pending" ? [
-                          { label: "Approve", onClick: () => setApprovals(prev => prev.map(x => x.id === a.id ? { ...x, decision: "Approved" } : x)) },
-                          { label: "Reject", onClick: () => setApprovals(prev => prev.map(x => x.id === a.id ? { ...x, decision: "Rejected" } : x)), destructive: true },
-                        ] : []}
-                      />
-                    );
-                  }},
-                ] as Column<Record<string, unknown>>[]}
-                data={filteredApprovals as unknown as Record<string, unknown>[]}
-
-                exportable exportFilename="crm-bum.csv" emptyMessage="No strategic approvals."
-              />
+              {filteredRequests.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  No market requests to display.
+                </div>
+              ) : (
+                <DataTable
+                  columns={[
+                    { key: "id", label: "Request#", render: (v) => <span className="font-mono text-xs">{v as string}</span> },
+                    { key: "requestedById", label: "From", render: (v) => <span>{userMap.get(v as string) ?? (v as string)}</span> },
+                    { key: "type", label: "Type" },
+                    { key: "description", label: "Description", className: "max-w-xs truncate" },
+                    { key: "priority", label: "Priority", render: (v) => <StatusBadge status={v as string} /> },
+                    { key: "status", label: "Status", render: (v) => <StatusBadge status={v as string} /> },
+                    { key: "createdAt", label: "Date", render: (v) => <span className="text-sm">{formatDate(v as string)}</span> },
+                  ] as Column<Record<string, unknown>>[]}
+                  data={filteredRequests as unknown as Record<string, unknown>[]}
+                  exportable exportFilename="crm-bum-requests.csv" emptyMessage="No market requests."
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* ── Field Visits ────────────────────────────────────────────────── */}
         <TabsContent value="visits">
-          <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <div>
-                <CardTitle>BUM Field Visits</CardTitle>
-                <CardDescription>Strategic visits and KOL management</CardDescription>
-              </div>
-              <Button size="sm" onClick={() => { setEditingVisit(null); setShowVisit(true); }}><Plus className="mr-2 h-4 w-4" />Register Visit</Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FilterBar
-                searchValue={visitFilters._search}
-                onSearchChange={(v) => setVisitFilters((f) => ({ ...f, _search: v }))}
-                fields={[{ key: "region", label: "Region", type: "select", options: ["North", "South", "East", "West"].map(r => ({ label: `${r} Region`, value: `${r} Region` })) }]}
-                values={visitFilters}
-                onChange={(k, v) => setVisitFilters((f) => ({ ...f, [k]: v }))}
-              />
-              <DataTable
-                columns={[
-                  { key: "id", label: "Visit#", render: (v) => <span className="font-mono">{v as string}</span> },
-                  { key: "region", label: "Region" },
-                  { key: "accompanied", label: "Accompanied", render: (v) => <span className="font-medium">{v as string}</span> },
-                  { key: "doctor", label: "Doctor/KOL" },
-                  { key: "date", label: "Date" },
-                  { key: "purpose", label: "Purpose", render: (v) => <StatusBadge status={v as string} /> },
-                  { key: "notes", label: "Notes", className: "max-w-xs truncate" },
-                  { key: "_actions", label: "", render: (_v, row) => {
-                    const v = row as unknown as (typeof FIELD_VISITS)[0];
-                    return (
-                      <EditDeleteMenu
-                        onView={() => setViewVisit(v)}
-                        onEdit={() => { setEditingVisit(v); setShowVisit(true); }}
-                        onDelete={() => setVisits(prev => prev.filter(x => x.id !== v.id))}
-                        itemLabel={v.id}
-                      />
-                    );
-                  }},
-                ] as Column<Record<string, unknown>>[]}
-                data={filteredVisits as unknown as Record<string, unknown>[]}
+          <div className="space-y-4">
+            {/* Recent team visits */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Team Visits</CardTitle>
+                <CardDescription>Latest visits by your field force</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {recentTeamVisits.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No visits recorded by team members yet.
+                  </div>
+                ) : (
+                  <DataTable
+                    columns={[
+                      { key: "repName", label: "Rep", render: (v) => <span className="font-medium">{v as string}</span> },
+                      { key: "doctorName", label: "Doctor" },
+                      { key: "date", label: "Date", render: (v) => <span>{formatDate(v as string)}</span> },
+                      { key: "session", label: "Session" },
+                      { key: "status", label: "Status", render: (v) => <StatusBadge status={v as string} /> },
+                      { key: "notes", label: "Notes", className: "max-w-xs truncate" },
+                    ] as Column<Record<string, unknown>>[]}
+                    data={recentTeamVisits as unknown as Record<string, unknown>[]}
+                    exportable exportFilename="crm-bum-team-visits.csv" emptyMessage="No visits found."
+                  />
+                )}
+              </CardContent>
+            </Card>
 
-                exportable exportFilename="crm-bum.csv" emptyMessage="No field visits found."
-              />
-            </CardContent>
-          </Card>
+            {/* BUM's own strategic visits */}
+            <Card>
+              <CardHeader className="flex-row items-center justify-between">
+                <div>
+                  <CardTitle>BUM Strategic Visits</CardTitle>
+                  <CardDescription>Your own field visits and KOL management</CardDescription>
+                </div>
+                <Button size="sm" onClick={() => { setEditingVisit(null); setShowVisit(true); }}>
+                  <Plus className="mr-2 h-4 w-4" />Register Visit
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FilterBar
+                  searchValue={visitFilters._search}
+                  onSearchChange={(v) => setVisitFilters((f) => ({ ...f, _search: v }))}
+                  fields={[]}
+                  values={visitFilters}
+                  onChange={(k, v) => setVisitFilters((f) => ({ ...f, [k]: v }))}
+                />
+                {filteredBumVisits.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No strategic visits registered. Click &quot;Register Visit&quot; to add one.
+                  </div>
+                ) : (
+                  <DataTable
+                    columns={[
+                      { key: "id", label: "Visit#", render: (v) => <span className="font-mono">{v as string}</span> },
+                      { key: "repName", label: "Accompanied", render: (v) => <span className="font-medium">{v as string}</span> },
+                      { key: "doctorName", label: "Doctor/KOL" },
+                      { key: "date", label: "Date", render: (v) => <span>{formatDate(v as string)}</span> },
+                      { key: "purpose", label: "Purpose", render: (v) => <StatusBadge status={v as string} /> },
+                      { key: "notes", label: "Notes", className: "max-w-xs truncate" },
+                      { key: "_actions", label: "", render: (_v, row) => {
+                        const v = row as unknown as FieldVisitRecord;
+                        return (
+                          <EditDeleteMenu
+                            onView={() => setViewVisit(v)}
+                            onEdit={() => { setEditingVisit(v); setShowVisit(true); }}
+                            onDelete={() => setBumVisits(prev => prev.filter(x => x.id !== v.id))}
+                            itemLabel={v.id}
+                          />
+                        );
+                      }},
+                    ] as Column<Record<string, unknown>>[]}
+                    data={filteredBumVisits as unknown as Record<string, unknown>[]}
+                    exportable exportFilename="crm-bum-strategic-visits.csv" emptyMessage="No strategic visits."
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
+        {/* ── Analytics ───────────────────────────────────────────────────── */}
         <TabsContent value="analytics">
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
-              <CardHeader><CardTitle>Regional Performance</CardTitle><CardDescription>Sales achievement by region</CardDescription></CardHeader>
+              <CardHeader>
+                <CardTitle>Team Performance</CardTitle>
+                <CardDescription>KPI achievement by team member</CardDescription>
+              </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {REGIONAL_COMPARISON.map((r, i) => (
-                    <div key={i}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium">{r.region}</span>
-                        <span>{r.sales}%</span>
-                      </div>
-                      <div className="h-3 w-full rounded bg-muted overflow-hidden">
-                        <div className={`h-full ${r.sales >= 90 ? "bg-green-500" : r.sales >= 80 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${r.sales}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {dmPerformance.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No performance data available.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {dmPerformance.map((dm) => {
+                      const achievement = parseInt(dm.kpiAchievement) || 0;
+                      return (
+                        <div key={dm.id}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="font-medium">{dm.name}</span>
+                            <span>{dm.kpiAchievement}</span>
+                          </div>
+                          <div className="h-3 w-full rounded bg-muted overflow-hidden">
+                            <div
+                              className={`h-full ${achievement >= 80 ? "bg-green-500" : achievement >= 50 ? "bg-amber-500" : "bg-red-500"}`}
+                              style={{ width: `${Math.min(achievement, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle>National KPIs</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Business Unit KPIs</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Total Headcount</span><span className="font-bold">{totalForce + 4 + 8} (incl. mgmt)</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Vacancy Rate</span><span className="font-bold">3.2%</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Avg Tenure</span><span className="font-bold">3.8 yrs</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Top Region</span><span className="font-bold text-green-600">North</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Bottom Region</span><span className="font-bold text-red-600">West</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">YTD Sales</span><span className="font-bold">EGP 4.2M</span></div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Headcount</span>
+                    <span className="font-bold">{totalForce}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">District Managers</span>
+                    <span className="font-bold">{dms.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Medical Reps</span>
+                    <span className="font-bold">{reps.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Doctors</span>
+                    <span className="font-bold">{totalDoctors}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Visits This Month</span>
+                    <span className="font-bold">{visitsThisMonth.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Active Plans</span>
+                    <span className="font-bold">{activePlans.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Pending Requests</span>
+                    <span className="font-bold text-amber-600">{pendingRequests.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">KPI Achievement (avg)</span>
+                    <span className={`font-bold ${avgKpiAchievement >= 80 ? "text-green-600" : avgKpiAchievement >= 50 ? "text-amber-600" : "text-red-600"}`}>
+                      {avgKpiAchievement > 0 ? `${avgKpiAchievement}%` : "-"}
+                    </span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -936,43 +1275,21 @@ export default function BUMPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Strategic Approval Detail Dialog */}
-      <Dialog open={!!viewApproval} onOpenChange={(open) => { if (!open) setViewApproval(null); }}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{viewApproval?.id} — {viewApproval?.type}</DialogTitle>
-          </DialogHeader>
-          {viewApproval && (
-            <div className="grid grid-cols-2 gap-4 py-4">
-              <div><span className="text-sm text-muted-foreground">Request ID</span><p className="font-medium">{viewApproval.id}</p></div>
-              <div><span className="text-sm text-muted-foreground">From</span><p className="font-medium">{viewApproval.from}</p></div>
-              <div><span className="text-sm text-muted-foreground">Type</span><p className="font-medium">{viewApproval.type}</p></div>
-              <div><span className="text-sm text-muted-foreground">Value</span><p className="font-medium">{viewApproval.value}</p></div>
-              <div className="col-span-2"><span className="text-sm text-muted-foreground">Description</span><p className="font-medium">{viewApproval.description}</p></div>
-              <div className="col-span-2"><span className="text-sm text-muted-foreground">Justification</span><p className="font-medium">{viewApproval.justification}</p></div>
-              <div><span className="text-sm text-muted-foreground">Decision</span><p className="font-medium">{viewApproval.decision}</p></div>
-              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewApproval.date}</p></div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
       {/* Field Visit Detail Dialog */}
       <Dialog open={!!viewVisit} onOpenChange={(open) => { if (!open) setViewVisit(null); }}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{viewVisit?.id} — {viewVisit?.doctor}</DialogTitle>
+            <DialogTitle>{viewVisit?.id} - {viewVisit?.doctorName}</DialogTitle>
           </DialogHeader>
           {viewVisit && (
             <div className="grid grid-cols-2 gap-4 py-4">
               <div><span className="text-sm text-muted-foreground">Visit ID</span><p className="font-medium">{viewVisit.id}</p></div>
-              <div><span className="text-sm text-muted-foreground">Region</span><p className="font-medium">{viewVisit.region}</p></div>
-              <div><span className="text-sm text-muted-foreground">Accompanied</span><p className="font-medium">{viewVisit.accompanied}</p></div>
-              <div><span className="text-sm text-muted-foreground">Doctor/KOL</span><p className="font-medium">{viewVisit.doctor}</p></div>
-              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{viewVisit.date}</p></div>
+              <div><span className="text-sm text-muted-foreground">Accompanied</span><p className="font-medium">{viewVisit.repName}</p></div>
+              <div><span className="text-sm text-muted-foreground">Doctor/KOL</span><p className="font-medium">{viewVisit.doctorName}</p></div>
+              <div><span className="text-sm text-muted-foreground">Date</span><p className="font-medium">{formatDate(viewVisit.date)}</p></div>
               <div><span className="text-sm text-muted-foreground">Purpose</span><p className="font-medium">{viewVisit.purpose}</p></div>
-              <div className="col-span-2"><span className="text-sm text-muted-foreground">Notes</span><p className="font-medium">{viewVisit.notes}</p></div>
-              <div className="col-span-2"><span className="text-sm text-muted-foreground">Action Items</span><p className="font-medium">{viewVisit.actions}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Notes</span><p className="font-medium">{viewVisit.notes || "-"}</p></div>
+              <div className="col-span-2"><span className="text-sm text-muted-foreground">Action Items</span><p className="font-medium">{viewVisit.actions || "-"}</p></div>
             </div>
           )}
         </DialogContent>
@@ -983,12 +1300,35 @@ export default function BUMPage() {
         onOpenChange={(open) => { if (!open) { setShowVisit(false); setEditingVisit(null); } }}
         title={editingVisit ? "Edit Visit" : "Register BUM Visit"}
         fields={visitFields}
-        initialData={editingVisit ? { region: editingVisit.region, accompanied: editingVisit.accompanied, doctor: editingVisit.doctor, date: editingVisit.date, purpose: editingVisit.purpose, notes: editingVisit.notes, actions: editingVisit.actions } : undefined}
+        initialData={editingVisit ? {
+          repName: editingVisit.repName,
+          doctorName: editingVisit.doctorName,
+          date: editingVisit.date,
+          purpose: editingVisit.purpose,
+          notes: editingVisit.notes,
+          actions: editingVisit.actions,
+        } : undefined}
         onSubmit={(d) => {
           if (editingVisit) {
-            setVisits(prev => prev.map(v => v.id === editingVisit.id ? { ...v, region: (d.region as string) || v.region, accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || v.purpose, notes: (d.notes as string) || "", actions: (d.actions as string) || "" } : v));
+            setBumVisits(prev => prev.map(v => v.id === editingVisit.id ? {
+              ...v,
+              repName: d.repName as string,
+              doctorName: d.doctorName as string,
+              date: d.date as string,
+              purpose: (d.purpose as string) || v.purpose,
+              notes: (d.notes as string) || "",
+              actions: (d.actions as string) || "",
+            } : v));
           } else {
-            setVisits(prev => [{ id: `BV-${Date.now().toString(36)}`, region: (d.region as string) || "North Region", accompanied: d.accompanied as string, doctor: d.doctor as string, date: d.date as string, purpose: (d.purpose as string) || "KOL Management", notes: (d.notes as string) || "", actions: (d.actions as string) || "" }, ...prev]);
+            setBumVisits(prev => [{
+              id: `BV-${Date.now().toString(36)}`,
+              repName: d.repName as string,
+              doctorName: d.doctorName as string,
+              date: d.date as string,
+              purpose: (d.purpose as string) || "KOL Management",
+              notes: (d.notes as string) || "",
+              actions: (d.actions as string) || "",
+            }, ...prev]);
           }
           setShowVisit(false);
           setEditingVisit(null);

@@ -22,6 +22,7 @@ import {
   type Doctor,
 } from "@/lib/data-store";
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 // ─── Specialty → Product Matching ─────────────────────────────────────────────
 const SPECIALTY_PRODUCT_MAP: Record<string, string[]> = {
@@ -45,6 +46,7 @@ function getSuggestedProductNames(specialty: string): string[] | "ALL" {
 export default function DoctorsPage() {
   const store = useApiDataStore();
   const { user, allUsers, getReportsOf } = useCurrentUser();
+  const { t } = useTranslation();
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
@@ -236,11 +238,11 @@ export default function DoctorsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Doctor Directory"
-        description={`Showing ${scoped.length} doctors visible to you (${ROLE_LABEL[user.role]}).`}
+        title={t("page.doctors.title")}
+        description={`${t("page.doctors.description")} — ${scoped.length} (${ROLE_LABEL[user.role]})`}
         actions={
           <Button onClick={handleCreate}>
-            <Plus className="h-4 w-4 mr-2" /> Add Doctor
+            <Plus className="h-4 w-4 mr-2" /> {t("common.add")} {t("crm.doctors")}
           </Button>
         }
       />
@@ -395,7 +397,7 @@ export default function DoctorsPage() {
           },
         ] as Column<Record<string, unknown>>[]}
         data={filtered as unknown as Record<string, unknown>[]}
-        emptyMessage="No doctors match your filters."
+        emptyMessage={t("empty.noDoctors")}
         exportable
         exportFilename="doctors.csv"
       />

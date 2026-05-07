@@ -89,6 +89,7 @@ const ALL_ROUTES: { href: string; label: string; group: string }[] = [
   { group: "CRM", href: "/crm/weekly-plan", label: "Weekly Plans" },
   { group: "CRM", href: "/crm/my-team", label: "My Team" },
   { group: "CRM", href: "/crm/call-analysis", label: "Call Analysis" },
+  { group: "CRM", href: "/crm/product-guide", label: "Product Guide" },
   { group: "CRM", href: "/crm/accounts", label: "Accounts" },
   { group: "CRM", href: "/crm/contacts", label: "Contacts" },
   { group: "CRM", href: "/crm/leads", label: "Sales Pipeline" },

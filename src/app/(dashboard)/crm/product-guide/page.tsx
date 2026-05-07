@@ -38,7 +38,7 @@ const PRINT_CSS = `
 
 const AT_A_GLANCE = [
   { label: "Modules", value: "20+", color: "border-teal-500" },
-  { label: "User Roles", value: "8", color: "border-blue-500" },
+  { label: "User Roles", value: "9", color: "border-blue-500" },
   { label: "IMS Specialties", value: "32", color: "border-purple-500" },
   { label: "KPI Metrics", value: "12", color: "border-emerald-500" },
   { label: "Buying Ladder Stages", value: "5", color: "border-amber-500" },
@@ -176,23 +176,23 @@ const KPI_METRICS: { name: string; measures: string; roles: string[]; target: st
   { name: "Market Share %", measures: "Product market share in territory", roles: ["BUM"], target: "Growth YoY" },
 ];
 
-const ROLE_ACCESS: { module: string; admin: string; bum: string; marketeer: string; dm: string; rep: string }[] = [
-  { module: "Doctor Directory", admin: "full", bum: "full", marketeer: "full", dm: "full", rep: "read" },
-  { module: "Visit Management", admin: "full", bum: "read", marketeer: "read", dm: "scoped", rep: "scoped" },
-  { module: "Weekly Plans", admin: "full", bum: "read", marketeer: "scoped", dm: "scoped", rep: "scoped" },
-  { module: "GPS Tracking", admin: "full", bum: "full", marketeer: "full", dm: "scoped", rep: "scoped" },
-  { module: "Territories", admin: "full", bum: "full", marketeer: "full", dm: "read", rep: "read" },
-  { module: "Leads & Pipeline", admin: "full", bum: "full", marketeer: "full", dm: "read", rep: "read" },
-  { module: "Accounts", admin: "full", bum: "full", marketeer: "full", dm: "read", rep: "read" },
-  { module: "Campaigns", admin: "full", bum: "full", marketeer: "full", dm: "read", rep: "none" },
-  { module: "Loyalty Programs", admin: "full", bum: "full", marketeer: "full", dm: "read", rep: "none" },
-  { module: "Expenses", admin: "full", bum: "full", marketeer: "scoped", dm: "scoped", rep: "scoped" },
-  { module: "Market Requests", admin: "full", bum: "full", marketeer: "scoped", dm: "scoped", rep: "scoped" },
-  { module: "Business Units", admin: "full", bum: "full", marketeer: "read", dm: "read", rep: "none" },
-  { module: "Support Tickets", admin: "full", bum: "full", marketeer: "full", dm: "scoped", rep: "scoped" },
-  { module: "KPI Dashboard", admin: "full", bum: "full", marketeer: "scoped", dm: "scoped", rep: "scoped" },
-  { module: "Reports", admin: "full", bum: "full", marketeer: "scoped", dm: "scoped", rep: "scoped" },
-  { module: "Role Dashboard", admin: "full", bum: "full", marketeer: "full", dm: "full", rep: "full" },
+const ROLE_ACCESS: { module: string; admin: string; nsm: string; bum: string; marketeer: string; dm: string; rep: string }[] = [
+  { module: "Doctor Directory", admin: "full", nsm: "full", bum: "full", marketeer: "full", dm: "full", rep: "read" },
+  { module: "Visit Management", admin: "full", nsm: "full", bum: "read", marketeer: "read", dm: "scoped", rep: "scoped" },
+  { module: "Weekly Plans", admin: "full", nsm: "full", bum: "read", marketeer: "scoped", dm: "scoped", rep: "scoped" },
+  { module: "GPS Tracking", admin: "full", nsm: "full", bum: "full", marketeer: "full", dm: "scoped", rep: "scoped" },
+  { module: "Territories", admin: "full", nsm: "full", bum: "full", marketeer: "full", dm: "read", rep: "read" },
+  { module: "Leads & Pipeline", admin: "full", nsm: "full", bum: "full", marketeer: "full", dm: "read", rep: "read" },
+  { module: "Accounts", admin: "full", nsm: "full", bum: "full", marketeer: "full", dm: "read", rep: "read" },
+  { module: "Campaigns", admin: "full", nsm: "full", bum: "full", marketeer: "full", dm: "read", rep: "none" },
+  { module: "Loyalty Programs", admin: "full", nsm: "full", bum: "full", marketeer: "full", dm: "read", rep: "none" },
+  { module: "Expenses", admin: "full", nsm: "full", bum: "full", marketeer: "scoped", dm: "scoped", rep: "scoped" },
+  { module: "Market Requests", admin: "full", nsm: "full", bum: "full", marketeer: "scoped", dm: "scoped", rep: "scoped" },
+  { module: "Business Units", admin: "full", nsm: "full", bum: "scoped", marketeer: "read", dm: "read", rep: "none" },
+  { module: "Support Tickets", admin: "full", nsm: "full", bum: "full", marketeer: "full", dm: "scoped", rep: "scoped" },
+  { module: "KPI Dashboard", admin: "full", nsm: "full", bum: "full", marketeer: "scoped", dm: "scoped", rep: "scoped" },
+  { module: "Reports", admin: "full", nsm: "full", bum: "full", marketeer: "scoped", dm: "scoped", rep: "scoped" },
+  { module: "Role Dashboard", admin: "full", nsm: "full", bum: "full", marketeer: "full", dm: "full", rep: "full" },
 ];
 
 const EFFECTIVENESS: { title: string; icon: LucideIcon; before: string; after: string; metric: string }[] = [
@@ -352,7 +352,7 @@ export default function ProductGuidePage() {
               and integrates seamlessly with ERP inventory, accounting, and HR modules.
             </p>
             <p>
-              Designed for <strong>8 distinct roles</strong> from Medical Representatives to Business Unit Managers,
+              Designed for <strong>9 distinct roles</strong> from Medical Representatives to the National Sales Manager,
               the system supports the full hierarchy of pharma field operations. Each role has a tailored dashboard
               with real-time KPIs, pending approvals, and quick actions relevant to their responsibilities.
             </p>
@@ -401,6 +401,8 @@ export default function ProductGuidePage() {
             <div className="flex flex-col items-center gap-0">
               {/* Role Hierarchy */}
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Role Hierarchy</p>
+              <DiagramNode icon={Crown} label="NSM" variant="role" sub="National Sales Manager" />
+              <VLine />
               <DiagramNode icon={Crown} label="BUM" variant="role" sub="Business Unit Manager" />
               <VLine />
               <div className="flex items-start gap-12">
@@ -695,12 +697,13 @@ export default function ProductGuidePage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50">
-                  <TableHead className="w-48">Module</TableHead>
-                  <TableHead className="text-center w-20"><div className="flex flex-col items-center"><Crown className="h-3.5 w-3.5 text-amber-600 mb-0.5" /><span className="text-[10px]">Admin</span></div></TableHead>
-                  <TableHead className="text-center w-20"><div className="flex flex-col items-center"><Crown className="h-3.5 w-3.5 text-purple-600 mb-0.5" /><span className="text-[10px]">BUM</span></div></TableHead>
-                  <TableHead className="text-center w-20"><div className="flex flex-col items-center"><Users className="h-3.5 w-3.5 text-blue-600 mb-0.5" /><span className="text-[10px]">Marketeer</span></div></TableHead>
-                  <TableHead className="text-center w-20"><div className="flex flex-col items-center"><UserCheck className="h-3.5 w-3.5 text-teal-600 mb-0.5" /><span className="text-[10px]">DM</span></div></TableHead>
-                  <TableHead className="text-center w-20"><div className="flex flex-col items-center"><Activity className="h-3.5 w-3.5 text-gray-600 mb-0.5" /><span className="text-[10px]">Med Rep</span></div></TableHead>
+                  <TableHead className="w-44">Module</TableHead>
+                  <TableHead className="text-center w-16"><div className="flex flex-col items-center"><Crown className="h-3.5 w-3.5 text-amber-600 mb-0.5" /><span className="text-[9px]">Admin</span></div></TableHead>
+                  <TableHead className="text-center w-16"><div className="flex flex-col items-center"><Crown className="h-3.5 w-3.5 text-rose-600 mb-0.5" /><span className="text-[9px]">NSM</span></div></TableHead>
+                  <TableHead className="text-center w-16"><div className="flex flex-col items-center"><Crown className="h-3.5 w-3.5 text-purple-600 mb-0.5" /><span className="text-[9px]">BUM</span></div></TableHead>
+                  <TableHead className="text-center w-16"><div className="flex flex-col items-center"><Users className="h-3.5 w-3.5 text-blue-600 mb-0.5" /><span className="text-[9px]">Marketeer</span></div></TableHead>
+                  <TableHead className="text-center w-16"><div className="flex flex-col items-center"><UserCheck className="h-3.5 w-3.5 text-teal-600 mb-0.5" /><span className="text-[9px]">DM</span></div></TableHead>
+                  <TableHead className="text-center w-16"><div className="flex flex-col items-center"><Activity className="h-3.5 w-3.5 text-gray-600 mb-0.5" /><span className="text-[9px]">Med Rep</span></div></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -708,6 +711,7 @@ export default function ProductGuidePage() {
                   <TableRow key={row.module}>
                     <TableCell className="font-medium text-sm">{row.module}</TableCell>
                     <TableCell className="text-center"><AccessIcon level={row.admin} /></TableCell>
+                    <TableCell className="text-center"><AccessIcon level={row.nsm} /></TableCell>
                     <TableCell className="text-center"><AccessIcon level={row.bum} /></TableCell>
                     <TableCell className="text-center"><AccessIcon level={row.marketeer} /></TableCell>
                     <TableCell className="text-center"><AccessIcon level={row.dm} /></TableCell>

@@ -50,6 +50,7 @@ import {
   type MarketRequest,
   type PurchaseOrder,
 } from "@/lib/data-store";
+import { useTranslation } from "@/lib/i18n/i18n-context";
 
 // ─── Analytics seed data ─────────────────────────────────────────────────────
 
@@ -247,6 +248,7 @@ import { useAuditLogger } from "@/lib/audit-logger";
 export default function MarketRequestsPage() {
   const store = useApiDataStore();
   const { user, allUsers, getReportsOf } = useCurrentUser();
+  const { t } = useTranslation();
 
   // ─── Notification & Audit hooks ──────────────────────────────────────────
   const { addNotification } = useNotificationCenter();
@@ -1134,11 +1136,11 @@ export default function MarketRequestsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Market Requests & Approvals"
-        description="Submit, track, and approve market requests through the hierarchy chain."
+        title={t("page.marketRequests.title")}
+        description={t("page.marketRequests.description")}
         actions={
           <Button onClick={handleCreate} disabled={quotaReached} title={quotaReached ? `Monthly request quota reached (${monthlyRequestCount}/${monthlyQuotaLimit})` : undefined}>
-            <Plus className="h-4 w-4 mr-2" /> New Request
+            <Plus className="h-4 w-4 mr-2" /> {t("crm.newRequest")}
           </Button>
         }
       />
@@ -1175,40 +1177,40 @@ export default function MarketRequestsPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           icon={ClipboardList}
-          title="Total Requests"
+          title={t("stats.totalRequests")}
           value={myRequests.length}
           iconColor="bg-blue-100 text-blue-700"
         />
         <StatsCard
           icon={Clock}
-          title="Pending Approval"
+          title={t("stats.pendingApproval")}
           value={pending}
           iconColor="bg-amber-100 text-amber-700"
         />
         <StatsCard
           icon={CheckCircle2}
-          title="Approved / Fulfilled"
+          title={t("stats.approvedFulfilled")}
           value={approved}
           iconColor="bg-green-100 text-green-700"
         />
         <StatsCard
           icon={DollarSign}
-          title="Total Amount"
+          title={t("stats.totalAmount")}
           value={`EGP ${(totalAmount ?? 0).toLocaleString()}`}
-          subtitle={`${rejected} rejected`}
+          subtitle={`${rejected} ${t("common.rejected").toLowerCase()}`}
           iconColor="bg-purple-100 text-purple-700"
         />
       </div>
 
       <Tabs defaultValue="all">
         <TabsList>
-          <TabsTrigger value="all">All Requests</TabsTrigger>
+          <TabsTrigger value="all">{t("tab.allRequests")}</TabsTrigger>
           <TabsTrigger value="pending">
-            Pending ({pending})
+            {t("tab.pending")} ({pending})
           </TabsTrigger>
-          <TabsTrigger value="chain">Approval Chain</TabsTrigger>
+          <TabsTrigger value="chain">{t("tab.approvalChain")}</TabsTrigger>
           <TabsTrigger value="analytics">
-            <BarChart3 className="h-3.5 w-3.5 mr-1" /> Analytics
+            <BarChart3 className="h-3.5 w-3.5 mr-1" /> {t("tab.analytics")}
           </TabsTrigger>
         </TabsList>
 
@@ -1458,7 +1460,7 @@ export default function MarketRequestsPage() {
                 .slice()
                 .sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1)) as unknown as Record<string, unknown>[]
             }
-            emptyMessage="No requests match your filters."
+            emptyMessage={t("empty.noRequests")}
             exportable
             exportFilename="market-requests.csv"
           />

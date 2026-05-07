@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type UserRole = "ADMIN" | "BUM" | "MARKETEER" | "DISTRICT_MANAGER" | "MEDICAL_REP" | "ACCOUNTANT" | "WAREHOUSE" | "HR";
+export type UserRole = "ADMIN" | "NSM" | "BUM" | "MARKETEER" | "DISTRICT_MANAGER" | "MEDICAL_REP" | "ACCOUNTANT" | "WAREHOUSE" | "HR";
 
 export interface AppUser {
   id: string;
@@ -16,6 +16,7 @@ export interface AppUser {
 // Default demo users — admin can edit per-user nav overrides via settings
 export const DEMO_USERS: AppUser[] = [
   { id: "u-admin", name: "System Administrator", email: "admin@pharma.com", role: "ADMIN", department: "IT" },
+  { id: "u-nsm", name: "Eng. Tarek Mansour", email: "tarek@pharma.com", role: "NSM", department: "Sales & Marketing" },
   { id: "u-bum", name: "Dr. Hossam Tarek", email: "hossam@pharma.com", role: "BUM", department: "Executive" },
   { id: "u-mkt-1", name: "Dr. Yasmin Salem", email: "yasmin@pharma.com", role: "MARKETEER", department: "Marketing", territory: "North Region" },
   { id: "u-dm-1", name: "Ahmed Mostafa", email: "ahmed.m@pharma.com", role: "DISTRICT_MANAGER", department: "Sales", territory: "Cairo North" },
@@ -29,13 +30,25 @@ export const DEMO_USERS: AppUser[] = [
 // ADMIN always has full access and can override per-user in settings.
 export const ROLE_ROUTES: Record<UserRole, string[]> = {
   ADMIN: ["*"],
+  NSM: [
+    "/dashboard", "/messages", "/tasks",
+    "/hubs/crm",
+    "/crm/accounts", "/crm/contacts", "/crm/leads", "/crm/opportunities",
+    "/crm/campaigns", "/crm/tickets", "/crm/loyalty",
+    "/crm/bum", "/crm/my-team", "/crm/district-manager", "/crm/medical-rep",
+    "/crm/business-units", "/crm/territories", "/crm/weekly-plan", "/crm/doctors",
+    "/crm/gps-tracking", "/crm/market-requests", "/crm/reports", "/crm/kpis",
+    "/crm/call-analysis", "/crm/expenses", "/crm/product-guide",
+    "/ats/training",
+    "/reports", "/settings", "/settings/profile",
+  ],
   BUM: [
     "/dashboard", "/messages", "/tasks",
     "/hubs/crm",
     "/crm/accounts", "/crm/contacts", "/crm/leads", "/crm/opportunities",
     "/crm/campaigns", "/crm/tickets", "/crm/loyalty",
     "/crm/bum", "/crm/my-team", "/crm/district-manager", "/crm/medical-rep",
-    "/crm/territories", "/crm/weekly-plan", "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests", "/crm/reports", "/crm/kpis", "/crm/call-analysis", "/crm/expenses",
+    "/crm/territories", "/crm/weekly-plan", "/crm/doctors", "/crm/gps-tracking", "/crm/market-requests", "/crm/reports", "/crm/kpis", "/crm/call-analysis", "/crm/expenses", "/crm/product-guide",
     "/ats/training",
     "/reports", "/settings", "/settings/profile",
   ],
@@ -92,6 +105,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
 
 export const ROLE_LABEL: Record<UserRole, string> = {
   ADMIN: "Administrator",
+  NSM: "National Sales Manager",
   BUM: "Business Unit Manager",
   MARKETEER: "Marketeer",
   DISTRICT_MANAGER: "District Manager",
@@ -233,7 +247,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (!manager) return [];
     // Simple hierarchy: DM manages reps in same territory/region;
     // Marketeer manages DMs; BUM manages marketeers & DMs in their BU.
-    // For now, return users whose role is one rank below.
+    // NSM oversees all BUMs, DMs, and reps.
+    if (manager.role === "NSM") {
+      return allUsers.filter(
+        (u) => u.role === "BUM" || u.role === "DISTRICT_MANAGER" || u.role === "MEDICAL_REP"
+      );
+    }
     if (manager.role === "DISTRICT_MANAGER") {
       return allUsers.filter((u) => u.role === "MEDICAL_REP" && u.department === manager.department);
     }
