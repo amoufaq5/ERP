@@ -460,7 +460,199 @@ async function main() {
     ]
   })
 
-  console.log("Seeding completed! Egyptian Pharma ERP database ready.")
+  // ==================== PHARMA CRM ENTITIES ====================
+
+  // ─── Additional users matching DEMO_USERS from user-context ────────
+  const nsm = await prisma.user.upsert({
+    where: { email: "tarek.mansour@pharmaerp.eg" },
+    update: {},
+    create: { name: "Eng. Tarek Mansour", email: "tarek.mansour@pharmaerp.eg", passwordHash: hashSync("nsm123", 10), role: "MANAGER", department: "Sales & Marketing", territory: "National" },
+  })
+  const dm1 = await prisma.user.upsert({
+    where: { email: "ahmed.mostafa@pharmaerp.eg" },
+    update: {},
+    create: { name: "Ahmed Mostafa", email: "ahmed.mostafa@pharmaerp.eg", passwordHash: hashSync("dm123", 10), role: "EMPLOYEE", department: "Sales", territory: "Cairo North" },
+  })
+  const rep2 = await prisma.user.upsert({
+    where: { email: "mohamed.elsayed@pharmaerp.eg" },
+    update: {},
+    create: { name: "Mohamed El-Sayed", email: "mohamed.elsayed@pharmaerp.eg", passwordHash: hashSync("rep123", 10), role: "EMPLOYEE", department: "Sales", territory: "Giza" },
+  })
+
+  // ─── Doctors ────────────────────────────────────────────────────────
+  const doctors = await Promise.all([
+    prisma.doctor.create({ data: { name: "Dr. Ahmed El-Sayed", specialty: "Cardiology", hospital: "Ain Shams University Hospital", city: "Cairo", phone: "+20 100 111 2233", classification: "A", potentialRevenue: 25000, isKOL: true, buyingLadderStage: "CHAMPION", visitFrequency: 4, assignedRepId: medRep1.id, buId: bu1.id, lat: 30.0761, lng: 31.2832 } }),
+    prisma.doctor.create({ data: { name: "Dr. Fatima Hassan", specialty: "Internal Medicine", hospital: "Dar Al Fouad Hospital", city: "Giza", phone: "+20 100 222 3344", classification: "A", potentialRevenue: 20000, isKOL: true, buyingLadderStage: "REGULAR", visitFrequency: 4, assignedRepId: medRep1.id, buId: bu3.id, lat: 30.0210, lng: 31.0135 } }),
+    prisma.doctor.create({ data: { name: "Dr. Mohamed Nabil", specialty: "Endocrinology", hospital: "Kasr El Aini Hospital", city: "Cairo", phone: "+20 100 333 4455", classification: "A", potentialRevenue: 18000, isKOL: false, buyingLadderStage: "REGULAR", visitFrequency: 3, assignedRepId: medRep1.id, buId: bu3.id, lat: 30.0291, lng: 31.2272 } }),
+    prisma.doctor.create({ data: { name: "Dr. Hanan Kamel", specialty: "General Practice", hospital: "Heliopolis Medical Center", city: "Cairo", phone: "+20 100 444 5566", classification: "B", potentialRevenue: 12000, isKOL: false, buyingLadderStage: "TRIAL", visitFrequency: 2, assignedRepId: medRep2.id, buId: bu2.id, lat: 30.0889, lng: 31.3312 } }),
+    prisma.doctor.create({ data: { name: "Dr. Youssef Tarek", specialty: "Cardiology", hospital: "Saudi German Hospital", city: "Cairo", phone: "+20 100 555 6677", classification: "A", potentialRevenue: 30000, isKOL: true, buyingLadderStage: "CHAMPION", visitFrequency: 4, assignedRepId: medRep1.id, buId: bu1.id, lat: 30.0082, lng: 31.4092 } }),
+    prisma.doctor.create({ data: { name: "Dr. Laila Mostafa", specialty: "Gastroenterology", hospital: "Ain Shams University Hospital", city: "Cairo", phone: "+20 100 666 7788", classification: "B", potentialRevenue: 15000, isKOL: false, buyingLadderStage: "AWARE", visitFrequency: 2, assignedRepId: medRep2.id, buId: bu3.id, lat: 30.0761, lng: 31.2828 } }),
+    prisma.doctor.create({ data: { name: "Dr. Khaled Adel", specialty: "Pulmonology", hospital: "As-Salam International Hospital", city: "Cairo", phone: "+20 100 777 8899", classification: "B", potentialRevenue: 14000, isKOL: false, buyingLadderStage: "TRIAL", visitFrequency: 2, assignedRepId: medRep2.id, buId: bu2.id, lat: 29.9672, lng: 31.2390 } }),
+    prisma.doctor.create({ data: { name: "Dr. Samira Ezzat", specialty: "Pediatrics", hospital: "Cairo Children's Hospital", city: "Cairo", phone: "+20 100 888 9900", classification: "B", potentialRevenue: 10000, isKOL: false, buyingLadderStage: "REGULAR", visitFrequency: 2, assignedRepId: medRep1.id, buId: bu2.id, lat: 30.0500, lng: 31.2400 } }),
+    prisma.doctor.create({ data: { name: "Dr. Omar Sherif", specialty: "Neurology", hospital: "Dar Al Fouad Hospital", city: "Giza", phone: "+20 100 999 0011", classification: "C", potentialRevenue: 8000, isKOL: false, buyingLadderStage: "AWARE", visitFrequency: 1, assignedRepId: medRep2.id, buId: bu1.id, lat: 30.0210, lng: 31.0135 } }),
+    prisma.doctor.create({ data: { name: "Dr. Rania Ibrahim", specialty: "Dermatology", hospital: "Heliopolis Medical Center", city: "Cairo", phone: "+20 101 000 1122", classification: "C", potentialRevenue: 6000, isKOL: false, buyingLadderStage: "UNAWARE", visitFrequency: 1, assignedRepId: medRep2.id, lat: 30.0889, lng: 31.3312 } }),
+    // Additional doctors to reach 50+
+    prisma.doctor.create({ data: { name: "Dr. Tarek Fawzy", specialty: "Cardiology", hospital: "National Heart Institute", city: "Cairo", phone: "+20 101 111 2233", classification: "A", potentialRevenue: 22000, isKOL: true, buyingLadderStage: "CHAMPION", visitFrequency: 4, assignedRepId: medRep1.id, buId: bu1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Mona El-Naggar", specialty: "Endocrinology", hospital: "Alexandria University Hospital", city: "Alexandria", phone: "+20 101 222 3344", classification: "A", potentialRevenue: 19000, isKOL: true, buyingLadderStage: "REGULAR", visitFrequency: 3, assignedRepId: medRep2.id, buId: bu3.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Ashraf Nour", specialty: "Orthopedics", hospital: "Ain Shams University Hospital", city: "Cairo", phone: "+20 101 333 4455", classification: "B", potentialRevenue: 11000, isKOL: false, buyingLadderStage: "TRIAL", visitFrequency: 2, assignedRepId: medRep1.id, buId: bu2.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Dina Samir", specialty: "Obstetrics & Gynecology", hospital: "Kasr El Aini Hospital", city: "Cairo", phone: "+20 101 444 5566", classification: "B", potentialRevenue: 13000, isKOL: false, buyingLadderStage: "AWARE", visitFrequency: 2, assignedRepId: medRep2.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Amr Hassan", specialty: "General Surgery", hospital: "Nasser Institute", city: "Cairo", phone: "+20 101 555 6677", classification: "C", potentialRevenue: 7000, isKOL: false, buyingLadderStage: "TRIAL", visitFrequency: 1, assignedRepId: medRep1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Nadia Kamel", specialty: "Rheumatology", hospital: "Cairo University Hospital", city: "Cairo", phone: "+20 101 666 7788", classification: "B", potentialRevenue: 14000, isKOL: false, buyingLadderStage: "REGULAR", visitFrequency: 2, assignedRepId: medRep2.id, buId: bu1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Hazem Ali", specialty: "Urology", hospital: "Saudi German Hospital", city: "Cairo", phone: "+20 101 777 8899", classification: "C", potentialRevenue: 9000, isKOL: false, buyingLadderStage: "AWARE", visitFrequency: 1, assignedRepId: medRep1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Sahar Mahmoud", specialty: "Nephrology", hospital: "Dar Al Fouad Hospital", city: "Giza", phone: "+20 101 888 9900", classification: "B", potentialRevenue: 16000, isKOL: false, buyingLadderStage: "REGULAR", visitFrequency: 2, assignedRepId: medRep2.id, buId: bu3.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Wael Abdel-Fattah", specialty: "Oncology", hospital: "National Cancer Institute", city: "Cairo", phone: "+20 101 999 0011", classification: "A", potentialRevenue: 28000, isKOL: true, buyingLadderStage: "REGULAR", visitFrequency: 3, assignedRepId: medRep1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Iman Zaki", specialty: "Hematology", hospital: "Ain Shams University Hospital", city: "Cairo", phone: "+20 102 000 1122", classification: "B", potentialRevenue: 12000, isKOL: false, buyingLadderStage: "TRIAL", visitFrequency: 2, assignedRepId: medRep2.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Hossam Barakat", specialty: "Psychiatry", hospital: "Abbassia Mental Hospital", city: "Cairo", phone: "+20 102 111 2233", classification: "C", potentialRevenue: 5000, isKOL: false, buyingLadderStage: "UNAWARE", visitFrequency: 1, assignedRepId: medRep1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Ghada Osman", specialty: "ENT", hospital: "As-Salam International Hospital", city: "Cairo", phone: "+20 102 222 3344", classification: "C", potentialRevenue: 6000, isKOL: false, buyingLadderStage: "AWARE", visitFrequency: 1, assignedRepId: medRep2.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Adel Rashwan", specialty: "Cardiothoracic Surgery", hospital: "National Heart Institute", city: "Cairo", phone: "+20 102 333 4455", classification: "A", potentialRevenue: 35000, isKOL: true, buyingLadderStage: "CHAMPION", visitFrequency: 4, assignedRepId: medRep1.id, buId: bu1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Noha Saad", specialty: "Family Medicine", hospital: "Helwan General Hospital", city: "Cairo", phone: "+20 102 444 5566", classification: "C", potentialRevenue: 4000, isKOL: false, buyingLadderStage: "UNAWARE", visitFrequency: 1, assignedRepId: medRep2.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Mahmoud Tawfik", specialty: "Geriatrics", hospital: "Cairo University Hospital", city: "Cairo", phone: "+20 102 555 6677", classification: "C", potentialRevenue: 5500, isKOL: false, buyingLadderStage: "AWARE", visitFrequency: 1, assignedRepId: medRep1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Heba Shaker", specialty: "Internal Medicine", hospital: "Ain Shams University Hospital", city: "Cairo", phone: "+20 102 666 7788", classification: "A", potentialRevenue: 21000, isKOL: false, buyingLadderStage: "REGULAR", visitFrequency: 3, assignedRepId: medRep2.id, buId: bu3.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Tamer Galal", specialty: "Ophthalmology", hospital: "Research Institute of Ophthalmology", city: "Cairo", phone: "+20 102 777 8899", classification: "B", potentialRevenue: 10000, isKOL: false, buyingLadderStage: "TRIAL", visitFrequency: 2, assignedRepId: medRep1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Asmaa Fahmy", specialty: "Infectious Disease", hospital: "Abbassia Fever Hospital", city: "Cairo", phone: "+20 102 888 9900", classification: "B", potentialRevenue: 11000, isKOL: false, buyingLadderStage: "AWARE", visitFrequency: 2, assignedRepId: medRep2.id, buId: bu2.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Sherif Gamal", specialty: "Anesthesiology", hospital: "Dar Al Fouad Hospital", city: "Giza", phone: "+20 102 999 0011", classification: "C", potentialRevenue: 7500, isKOL: false, buyingLadderStage: "TRIAL", visitFrequency: 1, assignedRepId: medRep1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Yasmin Helmy", specialty: "Clinical Pathology", hospital: "Ain Shams University Hospital", city: "Cairo", phone: "+20 103 000 1122", classification: "D", potentialRevenue: 3000, isKOL: false, buyingLadderStage: "UNAWARE", visitFrequency: 1, assignedRepId: medRep2.id } }),
+    // Additional doctors from Delta & Alexandria
+    prisma.doctor.create({ data: { name: "Dr. Alaa El-Din", specialty: "Cardiology", hospital: "Alexandria University Hospital", city: "Alexandria", phone: "+20 103 111 2233", classification: "A", potentialRevenue: 24000, isKOL: true, buyingLadderStage: "REGULAR", visitFrequency: 3, assignedRepId: medRep2.id, buId: bu1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Magdy Amin", specialty: "General Practice", hospital: "Tanta University Hospital", city: "Tanta", phone: "+20 103 222 3344", classification: "B", potentialRevenue: 9000, isKOL: false, buyingLadderStage: "TRIAL", visitFrequency: 2, assignedRepId: medRep2.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Salwa Nasr", specialty: "Pediatrics", hospital: "Mansoura Children's Hospital", city: "Mansoura", phone: "+20 103 333 4455", classification: "B", potentialRevenue: 11000, isKOL: false, buyingLadderStage: "AWARE", visitFrequency: 2, assignedRepId: medRep2.id, buId: bu2.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Fady Rizk", specialty: "Neurosurgery", hospital: "Ain Shams University Hospital", city: "Cairo", phone: "+20 103 444 5566", classification: "A", potentialRevenue: 32000, isKOL: true, buyingLadderStage: "TRIAL", visitFrequency: 3, assignedRepId: medRep1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Nesreen Fouad", specialty: "Dermatology", hospital: "Cairo University Hospital", city: "Cairo", phone: "+20 103 555 6677", classification: "C", potentialRevenue: 5000, isKOL: false, buyingLadderStage: "UNAWARE", visitFrequency: 1, assignedRepId: medRep1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Ehab Saeed", specialty: "Internal Medicine", hospital: "Suez Canal University Hospital", city: "Ismailia", phone: "+20 103 666 7788", classification: "B", potentialRevenue: 13000, isKOL: false, buyingLadderStage: "REGULAR", visitFrequency: 2, assignedRepId: medRep2.id, buId: bu3.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Manal Hosny", specialty: "Endocrinology", hospital: "Assiut University Hospital", city: "Assiut", phone: "+20 103 777 8899", classification: "B", potentialRevenue: 10000, isKOL: false, buyingLadderStage: "AWARE", visitFrequency: 2, assignedRepId: medRep1.id, buId: bu3.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Bassem Wahba", specialty: "Cardiology", hospital: "Luxor International Hospital", city: "Luxor", phone: "+20 103 888 9900", classification: "C", potentialRevenue: 7000, isKOL: false, buyingLadderStage: "TRIAL", visitFrequency: 1, assignedRepId: medRep2.id, buId: bu1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Lamia Abdou", specialty: "Gastroenterology", hospital: "Alexandria University Hospital", city: "Alexandria", phone: "+20 103 999 0011", classification: "B", potentialRevenue: 14000, isKOL: false, buyingLadderStage: "REGULAR", visitFrequency: 2, assignedRepId: medRep2.id, buId: bu3.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Hisham Galal", specialty: "Pulmonology", hospital: "Chest Diseases Hospital", city: "Cairo", phone: "+20 104 000 1122", classification: "A", potentialRevenue: 20000, isKOL: true, buyingLadderStage: "CHAMPION", visitFrequency: 4, assignedRepId: medRep1.id, buId: bu2.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Sonia Mikhail", specialty: "Rheumatology", hospital: "Cairo University Hospital", city: "Cairo", phone: "+20 104 111 2233", classification: "B", potentialRevenue: 12000, isKOL: false, buyingLadderStage: "TRIAL", visitFrequency: 2, assignedRepId: medRep2.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Karim Abdel-Aziz", specialty: "General Practice", hospital: "Port Said General Hospital", city: "Port Said", phone: "+20 104 222 3344", classification: "C", potentialRevenue: 6000, isKOL: false, buyingLadderStage: "AWARE", visitFrequency: 1, assignedRepId: medRep2.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Amira Selim", specialty: "Nephrology", hospital: "Mansoura Kidney Center", city: "Mansoura", phone: "+20 104 333 4455", classification: "A", potentialRevenue: 26000, isKOL: true, buyingLadderStage: "REGULAR", visitFrequency: 3, assignedRepId: medRep2.id, buId: bu3.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Reda Hamdy", specialty: "Orthopedics", hospital: "Nasser Institute", city: "Cairo", phone: "+20 104 444 5566", classification: "B", potentialRevenue: 11000, isKOL: false, buyingLadderStage: "TRIAL", visitFrequency: 2, assignedRepId: medRep1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Nevine Fathi", specialty: "Pediatrics", hospital: "Abu El-Reesh Children's Hospital", city: "Cairo", phone: "+20 104 555 6677", classification: "A", potentialRevenue: 17000, isKOL: true, buyingLadderStage: "CHAMPION", visitFrequency: 3, assignedRepId: medRep1.id, buId: bu2.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Mostafa Kamal", specialty: "Cardiology", hospital: "Kobri El-Kobba Military Hospital", city: "Cairo", phone: "+20 104 666 7788", classification: "A", potentialRevenue: 23000, isKOL: false, buyingLadderStage: "REGULAR", visitFrequency: 3, assignedRepId: medRep1.id, buId: bu1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Hala Sami", specialty: "Internal Medicine", hospital: "Beni Suef University Hospital", city: "Beni Suef", phone: "+20 104 777 8899", classification: "C", potentialRevenue: 6500, isKOL: false, buyingLadderStage: "AWARE", visitFrequency: 1, assignedRepId: medRep2.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Waleed Saad", specialty: "Emergency Medicine", hospital: "As-Salam International Hospital", city: "Cairo", phone: "+20 104 888 9900", classification: "C", potentialRevenue: 5000, isKOL: false, buyingLadderStage: "UNAWARE", visitFrequency: 1, assignedRepId: medRep1.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Sawsan Helal", specialty: "Obstetrics & Gynecology", hospital: "Galaa Military Hospital", city: "Cairo", phone: "+20 104 999 0011", classification: "B", potentialRevenue: 12000, isKOL: false, buyingLadderStage: "TRIAL", visitFrequency: 2, assignedRepId: medRep2.id } }),
+    prisma.doctor.create({ data: { name: "Dr. Ayman Reda", specialty: "Plastic Surgery", hospital: "Dar Al Fouad Hospital", city: "Giza", phone: "+20 105 000 1122", classification: "C", potentialRevenue: 8000, isKOL: false, buyingLadderStage: "AWARE", visitFrequency: 1, assignedRepId: medRep1.id } }),
+  ])
+  console.log(`  Created ${doctors.length} doctors`)
+
+  // ─── Sample Visits ──────────────────────────────────────────────────
+  const now = new Date()
+  const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000)
+
+  await prisma.visit.createMany({
+    data: [
+      { repId: medRep1.id, doctorId: doctors[0].id, dateTime: daysAgo(1), session: "AM", type: "SINGLE", status: "LOGGED", gpsVerified: true, lat: 30.0761, lng: 31.2832, durationMin: 25, notes: "Discussed Cardioprex efficacy data", products: JSON.stringify(["prod-cv-001"]), samplesGiven: JSON.stringify([{ productId: "prod-cv-001", quantity: 5 }]), samplesDistributed: 5, buId: bu1.id },
+      { repId: medRep1.id, doctorId: doctors[1].id, dateTime: daysAgo(1), session: "PM", type: "SINGLE", status: "LOGGED", gpsVerified: true, lat: 30.0210, lng: 31.0135, durationMin: 20, notes: "Follow-up on Diabetex prescription feedback", products: JSON.stringify(["prod-dm-001"]), samplesGiven: JSON.stringify([]), samplesDistributed: 0, buId: bu3.id },
+      { repId: medRep2.id, doctorId: doctors[3].id, dateTime: daysAgo(1), session: "AM", type: "SINGLE", status: "LOGGED", gpsVerified: true, lat: 30.0889, lng: 31.3312, durationMin: 15, notes: "Introduced Antibio-Z to GP practice", products: JSON.stringify(["prod-ai-001"]), samplesGiven: JSON.stringify([{ productId: "prod-ai-001", quantity: 10 }]), samplesDistributed: 10, buId: bu2.id },
+      { repId: medRep1.id, doctorId: doctors[4].id, dateTime: daysAgo(2), session: "AM", type: "DOUBLE", partnerId: medRep2.id, status: "APPROVED", gpsVerified: true, lat: 30.0082, lng: 31.4092, durationMin: 30, notes: "Joint call - presented new clinical trial results", products: JSON.stringify(["prod-cv-001", "prod-cv-002"]), samplesGiven: JSON.stringify([{ productId: "prod-cv-001", quantity: 3 }]), samplesDistributed: 3, buId: bu1.id },
+      { repId: medRep2.id, doctorId: doctors[5].id, dateTime: daysAgo(2), session: "PM", type: "SINGLE", status: "LOGGED", gpsVerified: false, durationMin: 18, notes: "Doctor interested in GI portfolio samples", buId: bu3.id },
+      { repId: medRep1.id, doctorId: doctors[2].id, dateTime: daysAgo(3), session: "AM", type: "SINGLE", status: "APPROVED", gpsVerified: true, lat: 30.0291, lng: 31.2272, durationMin: 22, notes: "Reviewed latest A1C data for Diabetex", buId: bu3.id },
+      { repId: medRep2.id, doctorId: doctors[6].id, dateTime: daysAgo(3), session: "PM", type: "SINGLE", status: "LOGGED", gpsVerified: true, lat: 29.9672, lng: 31.2390, durationMin: 20, notes: "Discussed respiratory product line expansion", buId: bu2.id },
+      { repId: medRep1.id, doctorId: doctors[7].id, dateTime: daysAgo(5), session: "AM", type: "SINGLE", status: "APPROVED", gpsVerified: true, durationMin: 15, notes: "Pediatric formulation discussion", buId: bu2.id },
+      { repId: medRep2.id, doctorId: doctors[8].id, dateTime: daysAgo(5), session: "PM", type: "SINGLE", status: "REJECTED", gpsVerified: false, durationMin: 10, notes: "Short visit - doctor was busy", buId: bu1.id },
+      { repId: medRep1.id, doctorId: doctors[9].id, dateTime: daysAgo(7), session: "AM", type: "SINGLE", status: "LOGGED", gpsVerified: true, durationMin: 12, notes: "Initial introduction visit", isUnplanned: true },
+    ],
+  })
+  console.log("  Created 10 sample visits")
+
+  // ─── Weekly Plans ───────────────────────────────────────────────────
+  const weekStart = new Date()
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay()) // start of current week (Sunday)
+  weekStart.setHours(0, 0, 0, 0)
+
+  const lastWeekStart = new Date(weekStart)
+  lastWeekStart.setDate(lastWeekStart.getDate() - 7)
+
+  const sampleDays = JSON.stringify([
+    { date: new Date(weekStart.getTime()).toISOString().split("T")[0], visits: [{ doctorId: doctors[0].id, timeSlot: "09:00", session: "AM", visitType: "SINGLE" }, { doctorId: doctors[1].id, timeSlot: "11:00", session: "AM", visitType: "SINGLE" }, { doctorId: doctors[2].id, timeSlot: "14:00", session: "PM", visitType: "SINGLE" }] },
+    { date: new Date(weekStart.getTime() + 86400000).toISOString().split("T")[0], visits: [{ doctorId: doctors[4].id, timeSlot: "09:30", session: "AM", visitType: "DOUBLE", partnerId: medRep2.id }, { doctorId: doctors[7].id, timeSlot: "14:30", session: "PM", visitType: "SINGLE" }] },
+    { date: new Date(weekStart.getTime() + 2 * 86400000).toISOString().split("T")[0], visits: [{ doctorId: doctors[0].id, timeSlot: "10:00", session: "AM", visitType: "SINGLE" }] },
+  ])
+
+  await prisma.weeklyPlan.createMany({
+    data: [
+      { repId: medRep1.id, weekStartDate: weekStart, days: sampleDays, status: "SUBMITTED", submittedAt: new Date(), approvalLevel: 1 },
+      { repId: medRep2.id, weekStartDate: weekStart, days: JSON.stringify([{ date: new Date(weekStart.getTime()).toISOString().split("T")[0], visits: [{ doctorId: doctors[3].id, timeSlot: "09:00", session: "AM", visitType: "SINGLE" }] }]), status: "DRAFT" },
+      { repId: medRep1.id, weekStartDate: lastWeekStart, days: sampleDays, status: "APPROVED", submittedAt: new Date(lastWeekStart.getTime() + 86400000), approvedById: bum.id, approvedAt: new Date(lastWeekStart.getTime() + 2 * 86400000), approvalLevel: 3 },
+    ],
+  })
+  console.log("  Created 3 weekly plans")
+
+  // ─── Market Requests ────────────────────────────────────────────────
+  await prisma.marketRequest.createMany({
+    data: [
+      { type: "SAMPLE", requestedById: medRep1.id, doctorId: doctors[0].id, description: "Dr. Ahmed requested Cardioprex samples for clinical evaluation", quantity: 20, priority: "HIGH", status: "APPROVED", approvedById: bum.id, approvedAt: daysAgo(3), buId: bu1.id },
+      { type: "EVENT", requestedById: medRep1.id, description: "Request sponsorship for Cardiology CME at Ain Shams - 50 doctors expected", amount: 25000, priority: "HIGH", status: "PENDING", buId: bu1.id },
+      { type: "LITERATURE", requestedById: medRep2.id, doctorId: doctors[3].id, description: "Dr. Hanan requested product brochures for Antibio-Z", quantity: 50, priority: "MEDIUM", status: "APPROVED", approvedById: manager.id, approvedAt: daysAgo(5), buId: bu2.id },
+      { type: "DISCOUNT", requestedById: medRep2.id, description: "Special pricing request for El Ezaby chain - 500 boxes Omepak", amount: 5000, priority: "MEDIUM", status: "PENDING", buId: bu3.id },
+      { type: "DOCTOR_EDIT", requestedById: medRep1.id, doctorId: doctors[8].id, description: "Update Dr. Omar Sherif classification from C to B based on prescription volume increase", priority: "LOW", status: "PENDING", proposedChanges: JSON.stringify({ classification: "B" }), targetEntityId: doctors[8].id },
+      { type: "OTHER", requestedById: medRep1.id, description: "Request for additional promotional materials for Ramadan campaign", priority: "LOW", status: "REJECTED", approvedById: bum.id, rejectionReason: "Budget exhausted for Q1", buId: bu1.id },
+    ],
+  })
+  console.log("  Created 6 market requests")
+
+  // ─── Expenses ───────────────────────────────────────────────────────
+  await prisma.expense.createMany({
+    data: [
+      { type: "TRAVEL", amount: 350, date: daysAgo(1), description: "Cairo to Giza round trip - doctor visits", status: "SUBMITTED", submittedById: medRep1.id, startOdometer: 45230, endOdometer: 45310, totalKm: 80, ratePerKm: 4.375 },
+      { type: "TRAVEL", amount: 520, date: daysAgo(2), description: "Heliopolis to 6th October - hospital visits", status: "APPROVED", submittedById: medRep2.id, approvedById: dm1.id, startOdometer: 32100, endOdometer: 32220, totalKm: 120, ratePerKm: 4.333 },
+      { type: "MEALS", amount: 180, date: daysAgo(3), description: "Lunch meeting with Dr. Youssef Tarek at Saudi German Hospital", status: "APPROVED", submittedById: medRep1.id, approvedById: bum.id },
+      { type: "CONFERENCE", amount: 2500, date: daysAgo(10), description: "Registration fee - Egyptian Cardiology Society Annual Meeting", status: "APPROVED", submittedById: medRep1.id, approvedById: bum.id },
+      { type: "SAMPLES", amount: 800, date: daysAgo(5), description: "Sample courier delivery to Alexandria", status: "SUBMITTED", submittedById: medRep2.id },
+      { type: "TRAVEL", amount: 1200, date: daysAgo(7), description: "Alexandria trip - 2 day field visit", status: "DRAFT", submittedById: medRep2.id, startOdometer: 32220, endOdometer: 32520, totalKm: 300, ratePerKm: 4.0 },
+    ],
+  })
+  console.log("  Created 6 expenses")
+
+  // ─── KPIs ───────────────────────────────────────────────────────────
+  const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  const lastPeriod = now.getMonth() === 0
+    ? `${now.getFullYear() - 1}-12`
+    : `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0")}`
+
+  await prisma.kPI.createMany({
+    data: [
+      { userId: medRep1.id, metric: "Visits", value: 42, target: 60, period: currentPeriod, setById: bum.id },
+      { userId: medRep1.id, metric: "New Doctors", value: 3, target: 5, period: currentPeriod, setById: bum.id },
+      { userId: medRep1.id, metric: "Samples Distributed", value: 180, target: 250, period: currentPeriod, setById: bum.id },
+      { userId: medRep2.id, metric: "Visits", value: 38, target: 60, period: currentPeriod, setById: bum.id },
+      { userId: medRep2.id, metric: "New Doctors", value: 2, target: 5, period: currentPeriod, setById: bum.id },
+      { userId: medRep2.id, metric: "Samples Distributed", value: 150, target: 250, period: currentPeriod, setById: bum.id },
+      // Last month (completed)
+      { userId: medRep1.id, metric: "Visits", value: 58, target: 60, period: lastPeriod, setById: bum.id },
+      { userId: medRep1.id, metric: "New Doctors", value: 4, target: 5, period: lastPeriod, setById: bum.id },
+      { userId: medRep2.id, metric: "Visits", value: 55, target: 60, period: lastPeriod, setById: bum.id },
+      { userId: medRep2.id, metric: "New Doctors", value: 6, target: 5, period: lastPeriod, setById: bum.id },
+    ],
+  })
+  console.log("  Created 10 KPI records")
+
+  // ─── Standalone Tasks ───────────────────────────────────────────────
+  await prisma.standaloneTask.createMany({
+    data: [
+      { title: "Submit weekly visit report", description: "Compile and submit last week's visit summary", assignedById: bum.id, assignedToId: medRep1.id, dueDate: daysAgo(-2), status: "IN_PROGRESS", priority: "HIGH", kpiMetric: "Visits", buId: bu1.id },
+      { title: "Update doctor database for Nasr City", description: "Verify contact info for all assigned doctors in Nasr City district", assignedById: dm1.id, assignedToId: medRep2.id, dueDate: daysAgo(-5), status: "TODO", priority: "MEDIUM" },
+      { title: "Prepare CME presentation", description: "Create 20-slide presentation on Cardioprex clinical data for CME event", assignedById: bum.id, assignedToId: medRep1.id, dueDate: daysAgo(-14), status: "TODO", priority: "HIGH", buId: bu1.id },
+      { title: "Follow up with Dr. Laila on sample feedback", description: "Get feedback on Omepak samples provided last week", assignedById: manager.id, assignedToId: medRep2.id, dueDate: daysAgo(-3), status: "DONE", priority: "LOW", buId: bu3.id },
+      { title: "Attend product training - Diabetes module", description: "Complete online training module for new Diabetex XR formulation", assignedById: bum.id, assignedToId: medRep1.id, dueDate: daysAgo(-7), status: "TODO", priority: "MEDIUM", buId: bu3.id },
+    ],
+  })
+  console.log("  Created 5 standalone tasks")
+
+  // ─── Messages ───────────────────────────────────────────────────────
+  await prisma.message.createMany({
+    data: [
+      { subject: "Weekly Plan Reminder", body: "Please submit your weekly plan for next week by Thursday EOD.", senderId: bum.id, recipientId: medRep1.id, isRead: true },
+      { subject: "Re: Weekly Plan Reminder", body: "Noted, will submit today. I have 3 double visits planned with Dr. Youssef.", senderId: medRep1.id, recipientId: bum.id, isRead: true },
+      { subject: "New Product Launch - Cardioprex Plus", body: "Launching next month. Training session scheduled for April 15. Please confirm attendance.", senderId: manager.id, recipientId: medRep1.id, isRead: false },
+      { subject: "Sample Inventory Low", body: "Antibio-Z samples running low. Please reorder from warehouse.", senderId: medRep2.id, recipientId: employee.id, isRead: false },
+      { subject: "Congratulations - Top Rep Q1", body: "Great performance this quarter! You achieved 97% of visit target. Keep it up!", senderId: nsm.id, recipientId: medRep1.id, isRead: false },
+    ],
+  })
+  console.log("  Created 5 messages")
+
+  console.log("\nSeeding completed! Egyptian Pharma ERP database ready.")
 }
 
 main()
