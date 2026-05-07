@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Search,
   Bell,
   Menu,
   ChevronRight,
@@ -35,6 +34,7 @@ import { useTheme } from "@/lib/theme-context";
 import { useNotifications, type NotificationType } from "@/lib/notifications";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { NotificationCenter } from "@/components/shared/notification-center";
+import { GlobalSearch } from "@/components/shared/global-search";
 
 interface BreadcrumbSegment {
   label: string;
@@ -281,7 +281,6 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, setUser, allUsers } = useCurrentUser();
-  const [searchValue, setSearchValue] = useState("");
 
   const handleLogout = useCallback(() => {
     try {
@@ -343,17 +342,8 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
 
       {/* Right side controls */}
       <div className="flex items-center gap-2 shrink-0">
-        {/* Search */}
-        <div className="relative hidden md:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <input
-            type="search"
-            placeholder="Search..."
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            className="h-9 w-56 pl-9 pr-4 text-sm rounded-md border border-input bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 transition-shadow"
-          />
-        </div>
+        {/* Global Search */}
+        <GlobalSearch />
 
         {/* Role switcher — admin only */}
         {user.role === "ADMIN" && (

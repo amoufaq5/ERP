@@ -14,6 +14,7 @@ import { ApprovalProvider } from "@/lib/approval-workflow";
 import { KeyboardShortcutsInit } from "@/lib/keyboard-init";
 import { QueryProvider } from "@/lib/api/query-provider";
 import { AuthSessionProvider } from "@/lib/auth/session-provider";
+import { SearchProvider } from "@/lib/search/search-provider";
 
 export default function DashboardLayout({
   children,
@@ -35,10 +36,12 @@ export default function DashboardLayout({
                     <AuditServiceProvider>
                     <ApprovalProvider>
                       <FavoritesProvider>
-                        <DashboardShell>
-                          <KeyboardShortcutsInit />
-                          {children}
-                        </DashboardShell>
+                        <SearchProvider>
+                          <DashboardShell>
+                            <KeyboardShortcutsInit />
+                            {children}
+                          </DashboardShell>
+                        </SearchProvider>
                       </FavoritesProvider>
                     </ApprovalProvider>
                     </AuditServiceProvider>
