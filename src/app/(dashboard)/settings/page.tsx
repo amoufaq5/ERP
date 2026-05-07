@@ -18,6 +18,19 @@ import {
   Plus,
   Pencil,
   Trash2,
+  Upload,
+  KeyRound,
+  UserX,
+  Search,
+  Download,
+  ChevronDown,
+  ChevronUp,
+  Building2,
+  Calendar,
+  Car,
+  Monitor,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +45,7 @@ import {
   type UserRole,
 } from "@/lib/user-context";
 import { useAppConfig } from "@/lib/config-context";
+import { useAuditLogger, type AuditFilters } from "@/lib/audit-logger";
 import {
   EntityFormModal,
   type EntityField,
@@ -110,6 +124,80 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
+// Role badge color map
+const ROLE_COLORS: Record<string, string> = {
+  ADMIN: "bg-red-100 text-red-800 border-red-200",
+  BUM: "bg-purple-100 text-purple-800 border-purple-200",
+  MARKETEER: "bg-pink-100 text-pink-800 border-pink-200",
+  DISTRICT_MANAGER: "bg-blue-100 text-blue-800 border-blue-200",
+  MEDICAL_REP: "bg-teal-100 text-teal-800 border-teal-200",
+  ACCOUNTANT: "bg-amber-100 text-amber-800 border-amber-200",
+  WAREHOUSE: "bg-orange-100 text-orange-800 border-orange-200",
+  HR: "bg-green-100 text-green-800 border-green-200",
+};
+
+// Company profile stored in localStorage
+interface CompanyProfile {
+  name: string;
+  logo: string; // base64
+  address: string;
+  phone: string;
+  taxId: string;
+  commercialRegister: string;
+}
+
+const COMPANY_PROFILE_KEY = "pharma.companyProfile";
+const GENERAL_SETTINGS_KEY = "pharma.generalSettings";
+
+interface GeneralSettings {
+  fiscalYearStartMonth: number; // 1-12
+  workingDays: string[]; // e.g. ["Saturday","Sunday","Monday","Tuesday","Wednesday","Thursday"]
+  ratePerKm: number;
+}
+
+const DEFAULT_COMPANY: CompanyProfile = {
+  name: "Pharma Egypt S.A.E.",
+  logo: "",
+  address: "6th of October City, Giza Governorate, Egypt",
+  phone: "+20 2 3456 7890",
+  taxId: "123-456-789",
+  commercialRegister: "CR-2020-54321",
+};
+
+const DEFAULT_GENERAL: GeneralSettings = {
+  fiscalYearStartMonth: 1,
+  workingDays: ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
+  ratePerKm: 2.50,
+};
+
+const ALL_WEEKDAYS = ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+// IP whitelist stored separately
+const IP_WHITELIST_KEY = "pharma.ipWhitelist";
+
+// Notification event types for granular control
+const NOTIFICATION_EVENTS = [
+  { key: "planSubmitted", label: "Weekly plan submitted for approval", group: "CRM" },
+  { key: "planApproved", label: "Weekly plan approved", group: "CRM" },
+  { key: "expenseSubmitted", label: "Expense report submitted", group: "CRM" },
+  { key: "expenseApproved", label: "Expense report approved/rejected", group: "CRM" },
+  { key: "visitCompleted", label: "Visit completed", group: "CRM" },
+  { key: "invoiceCreated", label: "New invoice created", group: "Finance" },
+  { key: "paymentReceived", label: "Payment received", group: "Finance" },
+  { key: "lowStock", label: "Low stock alert", group: "Inventory" },
+  { key: "batchExpiry", label: "Batch nearing expiry", group: "Inventory" },
+  { key: "coldChainAlert", label: "Cold chain temperature breach", group: "Inventory" },
+  { key: "leaveRequested", label: "Leave request submitted", group: "HR" },
+  { key: "newHireOnboarded", label: "New hire onboarded", group: "HR" },
+  { key: "marketRequest", label: "New market request", group: "CRM" },
+  { key: "ticketEscalated", label: "Support ticket escalated", group: "CRM" },
+];
+
 export default function SettingsPage() {
   const {
     user,
@@ -138,11 +226,55 @@ export default function SettingsPage() {
     resetConfig,
   } = useAppConfig();
 
+  const { logs, getAuditLogs } = useAuditLogger();
+
   const [tab, setTab] = useState<TabId>("general");
   const [selectedUserId, setSelectedUserId] = useState<string>(allUsers[0]?.id ?? "");
   const [userFormOpen, setUserFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+
+  // Company profile state
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(() => {
+    try {
+      const raw = localStorage.getItem(COMPANY_PROFILE_KEY);
+      return raw ? { ...DEFAULT_COMPANY, ...JSON.parse(raw) } : DEFAULT_COMPANY;
+    } catch { return DEFAULT_COMPANY; }
+  });
+
+  // General settings state
+  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(() => {
+    try {
+      const raw = localStorage.getItem(GENERAL_SETTINGS_KEY);
+      return raw ? { ...DEFAULT_GENERAL, ...JSON.parse(raw) } : DEFAULT_GENERAL;
+    } catch { return DEFAULT_GENERAL; }
+  });
+
+  // IP whitelist
+  const [ipWhitelist, setIpWhitelist] = useState<string>(() => {
+    try {
+      return localStorage.getItem(IP_WHITELIST_KEY) || "";
+    } catch { return ""; }
+  });
+
+  // Notification event toggles
+  const [notifEvents, setNotifEvents] = useState<Record<string, { email: boolean; inApp: boolean; escalation: boolean }>>(() => {
+    try {
+      const raw = localStorage.getItem("pharma.notifEvents");
+      return raw ? JSON.parse(raw) : Object.fromEntries(
+        NOTIFICATION_EVENTS.map((e) => [e.key, { email: true, inApp: true, escalation: false }])
+      );
+    } catch {
+      return Object.fromEntries(
+        NOTIFICATION_EVENTS.map((e) => [e.key, { email: true, inApp: true, escalation: false }])
+      );
+    }
+  });
+
+  // Audit log filters
+  const [auditFilters, setAuditFilters] = useState<AuditFilters>({});
+  const [auditPage, setAuditPage] = useState(0);
+  const AUDIT_PAGE_SIZE = 15;
 
   // Custom roles
   const [customRoles, setCustomRoles] = useState<{ id: string; name: string; description: string; routes: string[] }[]>(() => {
@@ -156,10 +288,58 @@ export default function SettingsPage() {
   const [newRoleDesc, setNewRoleDesc] = useState("");
   const [newRoleRoutes, setNewRoleRoutes] = useState<string[]>([]);
 
+  // General tab: section collapse state
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    companyProfile: true,
+    systemDefaults: true,
+    workingWeek: false,
+    kilometrage: false,
+  });
+
+  function toggleSection(key: string) {
+    setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
   function deleteCustomRole(id: string) {
     const next = customRoles.filter((r) => r.id !== id);
     setCustomRoles(next);
     try { localStorage.setItem("pharma.customRoles", JSON.stringify(next)); } catch {}
+  }
+
+  function saveCompanyProfile(patch: Partial<CompanyProfile>) {
+    const next = { ...companyProfile, ...patch };
+    setCompanyProfile(next);
+    try { localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify(next)); } catch {}
+  }
+
+  function saveGeneralSettings(patch: Partial<GeneralSettings>) {
+    const next = { ...generalSettings, ...patch };
+    setGeneralSettings(next);
+    try { localStorage.setItem(GENERAL_SETTINGS_KEY, JSON.stringify(next)); } catch {}
+  }
+
+  function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      saveCompanyProfile({ logo: reader.result as string });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function saveIpWhitelist(value: string) {
+    setIpWhitelist(value);
+    try { localStorage.setItem(IP_WHITELIST_KEY, value); } catch {}
+  }
+
+  function toggleNotifEvent(key: string, channel: "email" | "inApp" | "escalation") {
+    const updated = {
+      ...notifEvents,
+      [key]: { ...notifEvents[key], [channel]: !notifEvents[key]?.[channel] },
+    };
+    setNotifEvents(updated);
+    try { localStorage.setItem("pharma.notifEvents", JSON.stringify(updated)); } catch {}
   }
 
   const userFormFields: EntityField[] = [
@@ -255,6 +435,10 @@ export default function SettingsPage() {
     setDeleteUserId(null);
   }
 
+  function getInitials(name: string): string {
+    return name.split(" ").map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+  }
+
   const isAdmin = user.role === "ADMIN";
   const selectedUser = allUsers.find((u) => u.id === selectedUserId);
   const selectedOverride = selectedUser ? navOverrides[selectedUser.id] : null;
@@ -285,6 +469,34 @@ export default function SettingsPage() {
     });
     return out;
   }, []);
+
+  // Filtered audit logs
+  const filteredAuditLogs = useMemo(() => {
+    return getAuditLogs(auditFilters);
+  }, [getAuditLogs, auditFilters]);
+
+  const pagedAuditLogs = useMemo(() => {
+    const start = auditPage * AUDIT_PAGE_SIZE;
+    return filteredAuditLogs.slice(start, start + AUDIT_PAGE_SIZE);
+  }, [filteredAuditLogs, auditPage]);
+
+  const auditTotalPages = Math.max(1, Math.ceil(filteredAuditLogs.length / AUDIT_PAGE_SIZE));
+
+  // Unique modules/actions for filter dropdowns
+  const auditModules = useMemo(() => {
+    const set = new Set(logs.map((l) => l.module));
+    return ["All", ...Array.from(set).sort()];
+  }, [logs]);
+
+  const auditActions = useMemo(() => {
+    const set = new Set(logs.map((l) => l.action));
+    return ["All", ...Array.from(set).sort()];
+  }, [logs]);
+
+  const auditUsers = useMemo(() => {
+    const set = new Set(logs.map((l) => l.userName));
+    return ["All", ...Array.from(set).sort()];
+  }, [logs]);
 
   return (
     <div className="p-6 space-y-6">
@@ -329,83 +541,324 @@ export default function SettingsPage() {
         </nav>
       </div>
 
-      {/* General */}
+      {/* ═══════════════════════ General Tab ═══════════════════════ */}
       {tab === "general" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Company Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
-              <div className="space-y-1.5">
-                <Label>Company Name</Label>
-                <Input defaultValue="Pharma Egypt S.A.E." disabled={!isAdmin} />
+        <div className="space-y-4">
+          {/* Company Profile Section */}
+          <Card>
+            <CardHeader
+              className="cursor-pointer select-none"
+              onClick={() => toggleSection("companyProfile")}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-base">Company Profile</CardTitle>
+                </div>
+                {expandedSections.companyProfile ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
               </div>
-              <div className="space-y-1.5">
-                <Label>Industry</Label>
-                <Input defaultValue="Pharmaceutical" disabled />
+            </CardHeader>
+            {expandedSections.companyProfile && (
+              <CardContent className="space-y-4">
+                <div className="flex items-start gap-6">
+                  {/* Logo Upload */}
+                  <div className="space-y-2">
+                    <Label>Company Logo</Label>
+                    <div className="w-24 h-24 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden">
+                      {companyProfile.logo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={companyProfile.logo}
+                          alt="Company Logo"
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <Building2 className="h-8 w-8 text-slate-400" />
+                      )}
+                    </div>
+                    {isAdmin && (
+                      <label className="flex items-center gap-1 text-xs text-blue-600 cursor-pointer hover:underline">
+                        <Upload className="h-3 w-3" />
+                        Upload Logo
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleLogoUpload}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Company Fields */}
+                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Company Name</Label>
+                      <Input
+                        value={companyProfile.name}
+                        onChange={(e) => saveCompanyProfile({ name: e.target.value })}
+                        disabled={!isAdmin}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Industry</Label>
+                      <Input defaultValue="Pharmaceutical" disabled />
+                    </div>
+                    <div className="space-y-1.5 md:col-span-2">
+                      <Label>Address</Label>
+                      <Input
+                        value={companyProfile.address}
+                        onChange={(e) => saveCompanyProfile({ address: e.target.value })}
+                        disabled={!isAdmin}
+                        placeholder="Full company address"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Phone</Label>
+                      <Input
+                        value={companyProfile.phone}
+                        onChange={(e) => saveCompanyProfile({ phone: e.target.value })}
+                        disabled={!isAdmin}
+                        placeholder="+20 2 XXXX XXXX"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Tax ID</Label>
+                      <Input
+                        value={companyProfile.taxId}
+                        onChange={(e) => saveCompanyProfile({ taxId: e.target.value })}
+                        disabled={!isAdmin}
+                        placeholder="Tax identification number"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Commercial Register Number</Label>
+                      <Input
+                        value={companyProfile.commercialRegister}
+                        onChange={(e) => saveCompanyProfile({ commercialRegister: e.target.value })}
+                        disabled={!isAdmin}
+                        placeholder="CR number"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Country</Label>
+                      <Input defaultValue="Egypt" disabled />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            )}
+          </Card>
+
+          {/* System Defaults Section */}
+          <Card>
+            <CardHeader
+              className="cursor-pointer select-none"
+              onClick={() => toggleSection("systemDefaults")}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Settings className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-base">System Defaults</CardTitle>
+                </div>
+                {expandedSections.systemDefaults ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
               </div>
-              <div className="space-y-1.5">
-                <Label>Country</Label>
-                <Input defaultValue="Egypt" disabled={!isAdmin} />
+            </CardHeader>
+            {expandedSections.systemDefaults && (
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl">
+                  <div className="space-y-1.5">
+                    <Label>Default Currency</Label>
+                    <select
+                      className="w-full rounded-md border px-3 py-2 text-sm"
+                      value={config.finance.currency}
+                      onChange={(e) => updateFinance({ currency: e.target.value })}
+                      disabled={!isAdmin}
+                    >
+                      <option value="EGP">EGP (Egyptian Pound)</option>
+                      <option value="USD">USD (US Dollar)</option>
+                      <option value="EUR">EUR (Euro)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Date Format</Label>
+                    <select
+                      className="w-full rounded-md border px-3 py-2 text-sm"
+                      value={config.finance.dateFormat}
+                      onChange={(e) =>
+                        updateFinance({ dateFormat: e.target.value as "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD" })
+                      }
+                      disabled={!isAdmin}
+                    >
+                      <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                      <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                      <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Fiscal Year Start Month</Label>
+                    <select
+                      className="w-full rounded-md border px-3 py-2 text-sm"
+                      value={generalSettings.fiscalYearStartMonth}
+                      onChange={(e) => saveGeneralSettings({ fiscalYearStartMonth: Number(e.target.value) })}
+                      disabled={!isAdmin}
+                    >
+                      {MONTHS.map((m, i) => (
+                        <option key={m} value={i + 1}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>VAT Rate (%)</Label>
+                    <Input
+                      type="number"
+                      value={config.finance.taxRate}
+                      onChange={(e) => updateFinance({ taxRate: Number(e.target.value) })}
+                      disabled={!isAdmin}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Approval Threshold ({config.finance.currency})</Label>
+                    <Input
+                      type="number"
+                      value={config.finance.approvalThreshold}
+                      onChange={(e) => updateFinance({ approvalThreshold: Number(e.target.value) })}
+                      disabled={!isAdmin}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            )}
+          </Card>
+
+          {/* Working Week Configuration */}
+          <Card>
+            <CardHeader
+              className="cursor-pointer select-none"
+              onClick={() => toggleSection("workingWeek")}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-base">Working Week Configuration</CardTitle>
+                  <Badge variant="secondary" className="text-[10px]">Egyptian Standard: Sat-Thu</Badge>
+                </div>
+                {expandedSections.workingWeek ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
               </div>
-              <div className="space-y-1.5">
-                <Label>Currency</Label>
-                <select
-                  className="w-full rounded-md border px-3 py-2 text-sm"
-                  value={config.finance.currency}
-                  onChange={(e) => updateFinance({ currency: e.target.value })}
-                  disabled={!isAdmin}
-                >
-                  <option value="EGP">EGP (£)</option>
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR (€)</option>
-                </select>
+            </CardHeader>
+            {expandedSections.workingWeek && (
+              <CardContent>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Select which days are working days. Off-days (unchecked) are treated as weekends for scheduling and leave calculations.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {ALL_WEEKDAYS.map((day) => {
+                    const isWorking = generalSettings.workingDays.includes(day);
+                    return (
+                      <button
+                        key={day}
+                        disabled={!isAdmin}
+                        onClick={() => {
+                          const next = isWorking
+                            ? generalSettings.workingDays.filter((d) => d !== day)
+                            : [...generalSettings.workingDays, day];
+                          saveGeneralSettings({ workingDays: next });
+                        }}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                          isWorking
+                            ? "bg-blue-100 border-blue-300 text-blue-800"
+                            : "bg-slate-100 border-slate-200 text-slate-500"
+                        } ${isAdmin ? "cursor-pointer hover:border-blue-400" : "cursor-not-allowed opacity-70"}`}
+                      >
+                        {day}
+                        <span className="block text-[10px] font-normal">
+                          {isWorking ? "Working" : "Off"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            )}
+          </Card>
+
+          {/* Rate per KM */}
+          <Card>
+            <CardHeader
+              className="cursor-pointer select-none"
+              onClick={() => toggleSection("kilometrage")}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Car className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-base">Kilometrage Rate</CardTitle>
+                </div>
+                {expandedSections.kilometrage ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
               </div>
-              <div className="space-y-1.5">
-                <Label>Date Format</Label>
-                <select
-                  className="w-full rounded-md border px-3 py-2 text-sm"
-                  value={config.finance.dateFormat}
-                  onChange={(e) =>
-                    updateFinance({ dateFormat: e.target.value as "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD" })
-                  }
-                  disabled={!isAdmin}
-                >
-                  <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                  <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                  <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>VAT Rate (%)</Label>
-                <Input
-                  type="number"
-                  value={config.finance.taxRate}
-                  onChange={(e) => updateFinance({ taxRate: Number(e.target.value) })}
-                  disabled={!isAdmin}
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 pt-2">
-              <Button disabled={!isAdmin}>
-                <Save className="h-4 w-4 mr-2" /> Save Changes
-              </Button>
-              <Button variant="outline" onClick={resetConfig} disabled={!isAdmin}>
-                <RotateCcw className="h-4 w-4 mr-2" /> Reset to Defaults
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            {expandedSections.kilometrage && (
+              <CardContent>
+                <div className="max-w-sm space-y-2">
+                  <Label>Rate per KM ({config.finance.currency})</Label>
+                  <Input
+                    type="number"
+                    step="0.10"
+                    min="0"
+                    value={generalSettings.ratePerKm}
+                    onChange={(e) => saveGeneralSettings({ ratePerKm: Number(e.target.value) })}
+                    disabled={!isAdmin}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Used to calculate kilometrage expenses for field force representatives.
+                    Currently {generalSettings.ratePerKm.toFixed(2)} {config.finance.currency}/km.
+                  </p>
+                </div>
+              </CardContent>
+            )}
+          </Card>
+
+          <div className="flex gap-2">
+            <Button disabled={!isAdmin}>
+              <Save className="h-4 w-4 mr-2" /> Save Changes
+            </Button>
+            <Button variant="outline" onClick={() => {
+              resetConfig();
+              setCompanyProfile(DEFAULT_COMPANY);
+              setGeneralSettings(DEFAULT_GENERAL);
+              try {
+                localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify(DEFAULT_COMPANY));
+                localStorage.setItem(GENERAL_SETTINGS_KEY, JSON.stringify(DEFAULT_GENERAL));
+              } catch {}
+            }} disabled={!isAdmin}>
+              <RotateCcw className="h-4 w-4 mr-2" /> Reset to Defaults
+            </Button>
+          </div>
+        </div>
       )}
 
-      {/* Users & Access */}
+      {/* ═══════════════════════ Users & Access Tab ═══════════════════════ */}
       {tab === "users" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* User list */}
           <Card className="lg:col-span-1">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Users</CardTitle>
+              <CardTitle className="text-base">Users ({allUsers.length})</CardTitle>
               {isAdmin && (
                 <Button size="sm" onClick={handleCreateUser}>
                   <Plus className="h-3 w-3 mr-1" /> Add
@@ -414,44 +867,74 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="p-0 max-h-[560px] overflow-y-auto">
               <ul className="divide-y">
-                {allUsers.map((u) => (
-                  <li
-                    key={u.id}
-                    className={`p-3 cursor-pointer hover:bg-slate-50 ${
-                      selectedUserId === u.id ? "bg-blue-50" : ""
-                    }`}
-                    onClick={() => setSelectedUserId(u.id)}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{u.name}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">
-                          {ROLE_LABEL[u.role]}
-                          {u.territory ? ` · ${u.territory}` : ""}
-                        </p>
-                        {getUserCredential(u.id) && (
-                          <p className="text-[10px] text-blue-500 font-mono truncate">
-                            @{getUserCredential(u.id)!.username}
+                {allUsers.map((u) => {
+                  const cred = getUserCredential(u.id);
+                  const hasCredentials = !!cred;
+                  const roleColor = ROLE_COLORS[u.role] || "bg-slate-100 text-slate-800 border-slate-200";
+                  return (
+                    <li
+                      key={u.id}
+                      className={`p-3 cursor-pointer hover:bg-slate-50 transition-colors ${
+                        selectedUserId === u.id ? "bg-blue-50 border-l-2 border-l-blue-500" : ""
+                      }`}
+                      onClick={() => setSelectedUserId(u.id)}
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* Avatar with initials */}
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${roleColor}`}>
+                          {getInitials(u.name)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium truncate">{u.name}</p>
+                            {hasCredentials ? (
+                              <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" title="Credentials set" />
+                            ) : (
+                              <span className="h-2 w-2 rounded-full bg-slate-300 shrink-0" title="No credentials" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] font-medium ${roleColor}`}>
+                              {ROLE_LABEL[u.role]}
+                            </span>
+                            {navOverrides[u.id] && (
+                              <Badge variant="warning" className="text-[10px]">
+                                Custom
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                            {u.department || "No department"}
+                            {u.territory ? ` | ${u.territory}` : ""}
                           </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {navOverrides[u.id] && (
-                          <Badge variant="warning" className="text-[10px]">
-                            Custom
-                          </Badge>
-                        )}
+                          {hasCredentials && (
+                            <p className="text-[10px] text-blue-500 font-mono truncate">
+                              @{cred!.username}
+                            </p>
+                          )}
+                        </div>
+                        {/* Quick actions */}
                         {isAdmin && (
-                          <>
+                          <div className="flex flex-col items-center gap-0.5 shrink-0">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleEditUser(u);
                               }}
-                              className="p-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                              className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
                               title="Edit user"
                             >
                               <Pencil className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditUser(u);
+                              }}
+                              className="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded"
+                              title="Reset password"
+                            >
+                              <KeyRound className="h-3 w-3" />
                             </button>
                             {u.id !== "u-admin" && (
                               <button
@@ -459,18 +942,18 @@ export default function SettingsPage() {
                                   e.stopPropagation();
                                   setDeleteUserId(u.id);
                                 }}
-                                className="p-1 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded"
-                                title="Delete user"
+                                className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                title="Deactivate user"
                               >
-                                <Trash2 className="h-3 w-3" />
+                                <UserX className="h-3 w-3" />
                               </button>
                             )}
-                          </>
+                          </div>
                         )}
                       </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </CardContent>
           </Card>
@@ -480,11 +963,11 @@ export default function SettingsPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-base">
-                  Interface for {selectedUser?.name ?? "—"}
+                  Interface for {selectedUser?.name ?? "---"}
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-1">
                   Toggle which menu items this user can see. {selectedOverride
-                    ? "Currently using custom overrides."
+                    ? <>Currently using <Badge variant="warning" className="text-[10px] mx-0.5">custom overrides</Badge>.</>
                     : `Inheriting defaults from role: ${selectedUser ? ROLE_LABEL[selectedUser.role] : ""}.`}
                 </p>
               </div>
@@ -547,9 +1030,66 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Module Config */}
+      {/* ═══════════════════════ Module Config Tab ═══════════════════════ */}
       {tab === "modules" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* CRM */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">CRM (Field Force)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <ToggleRow
+                label="Require GPS for Visits"
+                value={config.crm.requireGPSForVisits}
+                onChange={(v) => updateCRM({ requireGPSForVisits: v })}
+                disabled={!isAdmin}
+              />
+              <div className="space-y-1.5">
+                <Label>GPS Validation Radius (m)</Label>
+                <Input
+                  type="number"
+                  value={config.crm.visitValidationRadius}
+                  onChange={(e) => updateCRM({ visitValidationRadius: Number(e.target.value) })}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Max Visits Per Day / Rep</Label>
+                <Input
+                  type="number"
+                  value={config.crm.dailyVisitTarget}
+                  onChange={(e) => updateCRM({ dailyVisitTarget: Number(e.target.value) })}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Coverage Target (%)</Label>
+                <Input
+                  type="number"
+                  value={config.crm.coverageTarget}
+                  onChange={(e) => updateCRM({ coverageTarget: Number(e.target.value) })}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Doctor Segmentation Model</Label>
+                <select
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={config.crm.doctorSegmentation}
+                  onChange={(e) =>
+                    updateCRM({ doctorSegmentation: e.target.value as "ABC" | "ABCD" | "VIP" })
+                  }
+                  disabled={!isAdmin}
+                >
+                  <option value="ABC">ABC (3-tier)</option>
+                  <option value="ABCD">ABCD (4-tier)</option>
+                  <option value="VIP">VIP (Priority-based)</option>
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Finance */}
           <Card>
             <CardHeader>
@@ -557,7 +1097,20 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1.5">
-                <Label>Approval Threshold</Label>
+                <Label>Default Currency</Label>
+                <select
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={config.finance.currency}
+                  onChange={(e) => updateFinance({ currency: e.target.value })}
+                  disabled={!isAdmin}
+                >
+                  <option value="EGP">EGP (Egyptian Pound)</option>
+                  <option value="USD">USD (US Dollar)</option>
+                  <option value="EUR">EUR (Euro)</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Approval Threshold ({config.finance.currency})</Label>
                 <Input
                   type="number"
                   value={config.finance.approvalThreshold}
@@ -566,10 +1119,20 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Fiscal Year Start (DD-MM)</Label>
+                <Label>Fiscal Year Start</Label>
                 <Input
                   value={config.finance.fiscalYearStart}
                   onChange={(e) => updateFinance({ fiscalYearStart: e.target.value })}
+                  disabled={!isAdmin}
+                  placeholder="DD-MM"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>VAT Rate (%)</Label>
+                <Input
+                  type="number"
+                  value={config.finance.taxRate}
+                  onChange={(e) => updateFinance({ taxRate: Number(e.target.value) })}
                   disabled={!isAdmin}
                 />
               </div>
@@ -629,6 +1192,57 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* HR */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">HR & Payroll</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Probation Period (months)</Label>
+                <Input
+                  type="number"
+                  value={config.hr.probationMonths}
+                  onChange={(e) => updateHR({ probationMonths: Number(e.target.value) })}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Annual Leave (days)</Label>
+                <Input
+                  type="number"
+                  value={config.hr.annualLeaveDays}
+                  onChange={(e) => updateHR({ annualLeaveDays: Number(e.target.value) })}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <ToggleRow
+                label="Enable GMP Training"
+                value={config.hr.enableGMPTraining}
+                onChange={(v) => updateHR({ enableGMPTraining: v })}
+                disabled={!isAdmin}
+              />
+              <ToggleRow
+                label="Enable Performance Reviews"
+                value={config.hr.enablePerformanceReviews}
+                onChange={(v) => updateHR({ enablePerformanceReviews: v })}
+                disabled={!isAdmin}
+              />
+              <div className="space-y-1.5">
+                <Label>Payroll Cycle</Label>
+                <select
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={config.hr.payrollCycle}
+                  onChange={(e) => updateHR({ payrollCycle: e.target.value as "Monthly" | "Bi-Weekly" })}
+                  disabled={!isAdmin}
+                >
+                  <option>Monthly</option>
+                  <option>Bi-Weekly</option>
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Inventory */}
           <Card>
             <CardHeader>
@@ -636,7 +1250,19 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1.5">
-                <Label>Expiry Alert (days)</Label>
+                <Label>Low Stock Threshold (%)</Label>
+                <Input
+                  type="number"
+                  value={config.inventory.lowStockThreshold}
+                  onChange={(e) => updateInventory({ lowStockThreshold: Number(e.target.value) })}
+                  disabled={!isAdmin}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Alert when stock falls below this % of reorder level
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Expiry Alert (days before)</Label>
                 <Input
                   type="number"
                   value={config.inventory.expiryAlertDays}
@@ -656,6 +1282,14 @@ export default function SettingsPage() {
                 onChange={(v) => updateInventory({ enableColdChain: v })}
                 disabled={!isAdmin}
               />
+              <div className="space-y-1.5">
+                <Label>Default Warehouse</Label>
+                <Input
+                  value={config.inventory.defaultWarehouse}
+                  onChange={(e) => updateInventory({ defaultWarehouse: e.target.value })}
+                  disabled={!isAdmin}
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -692,91 +1326,16 @@ export default function SettingsPage() {
                   disabled={!isAdmin}
                 />
               </div>
-            </CardContent>
-          </Card>
-
-          {/* CRM */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">CRM (Field Force)</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <ToggleRow
-                label="Require GPS for Visits"
-                value={config.crm.requireGPSForVisits}
-                onChange={(v) => updateCRM({ requireGPSForVisits: v })}
-                disabled={!isAdmin}
-              />
               <div className="space-y-1.5">
-                <Label>GPS Validation Radius (m)</Label>
-                <Input
-                  type="number"
-                  value={config.crm.visitValidationRadius}
-                  onChange={(e) => updateCRM({ visitValidationRadius: Number(e.target.value) })}
-                  disabled={!isAdmin}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Daily Visit Target / Rep</Label>
-                <Input
-                  type="number"
-                  value={config.crm.dailyVisitTarget}
-                  onChange={(e) => updateCRM({ dailyVisitTarget: Number(e.target.value) })}
-                  disabled={!isAdmin}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Coverage Target (%)</Label>
-                <Input
-                  type="number"
-                  value={config.crm.coverageTarget}
-                  onChange={(e) => updateCRM({ coverageTarget: Number(e.target.value) })}
-                  disabled={!isAdmin}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* HR */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">HR & Payroll</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>Probation Period (months)</Label>
-                <Input
-                  type="number"
-                  value={config.hr.probationMonths}
-                  onChange={(e) => updateHR({ probationMonths: Number(e.target.value) })}
-                  disabled={!isAdmin}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Annual Leave (days)</Label>
-                <Input
-                  type="number"
-                  value={config.hr.annualLeaveDays}
-                  onChange={(e) => updateHR({ annualLeaveDays: Number(e.target.value) })}
-                  disabled={!isAdmin}
-                />
-              </div>
-              <ToggleRow
-                label="Enable GMP Training"
-                value={config.hr.enableGMPTraining}
-                onChange={(v) => updateHR({ enableGMPTraining: v })}
-                disabled={!isAdmin}
-              />
-              <div className="space-y-1.5">
-                <Label>Payroll Cycle</Label>
+                <Label>Supplier Rating Scale</Label>
                 <select
                   className="w-full rounded-md border px-3 py-2 text-sm"
-                  value={config.hr.payrollCycle}
-                  onChange={(e) => updateHR({ payrollCycle: e.target.value as "Monthly" | "Bi-Weekly" })}
+                  value={config.procurement.supplierRatingScale}
+                  onChange={(e) => updateProcurement({ supplierRatingScale: Number(e.target.value) as 5 | 10 })}
                   disabled={!isAdmin}
                 >
-                  <option>Monthly</option>
-                  <option>Bi-Weekly</option>
+                  <option value={5}>1-5 Stars</option>
+                  <option value={10}>1-10 Scale</option>
                 </select>
               </div>
             </CardContent>
@@ -784,7 +1343,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Security */}
+      {/* ═══════════════════════ Security Tab ═══════════════════════ */}
       {tab === "security" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
@@ -814,7 +1373,7 @@ export default function SettingsPage() {
                 disabled={!isAdmin}
               />
               <ToggleRow
-                label="Require Symbol"
+                label="Require Special Character"
                 value={config.security.passwordRequireSymbol}
                 onChange={(v) => updateSecurity({ passwordRequireSymbol: v })}
                 disabled={!isAdmin}
@@ -828,8 +1387,20 @@ export default function SettingsPage() {
                   disabled={!isAdmin}
                 />
               </div>
+              {/* Password strength preview */}
+              <div className="rounded-lg bg-slate-50 border p-3 text-xs space-y-1.5">
+                <p className="font-medium text-slate-700">Current Policy Summary:</p>
+                <ul className="space-y-0.5 text-muted-foreground">
+                  <li>Min {config.security.passwordMinLength} characters</li>
+                  {config.security.passwordRequireUppercase && <li>At least 1 uppercase letter</li>}
+                  {config.security.passwordRequireNumber && <li>At least 1 number</li>}
+                  {config.security.passwordRequireSymbol && <li>At least 1 special character (!@#$...)</li>}
+                  <li>Expires every {config.security.passwordExpiryDays} days</li>
+                </ul>
+              </div>
             </CardContent>
           </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Session & Authentication</CardTitle>
@@ -843,34 +1414,64 @@ export default function SettingsPage() {
                   onChange={(e) => updateSecurity({ sessionTimeoutMinutes: Number(e.target.value) })}
                   disabled={!isAdmin}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Users will be logged out after {config.security.sessionTimeoutMinutes} minutes of inactivity
+                </p>
               </div>
               <div className="space-y-1.5">
-                <Label>Max Login Attempts</Label>
+                <Label>Login Attempt Lockout After N Failures</Label>
                 <Input
                   type="number"
                   value={config.security.maxLoginAttempts}
                   onChange={(e) => updateSecurity({ maxLoginAttempts: Number(e.target.value) })}
                   disabled={!isAdmin}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Account locks after {config.security.maxLoginAttempts} failed login attempts
+                </p>
               </div>
-              <ToggleRow
-                label="Enable Two-Factor Authentication"
-                value={config.security.enableTwoFactor}
-                onChange={(v) => updateSecurity({ enableTwoFactor: v })}
-                disabled={!isAdmin}
-              />
+              <div className="border-t pt-3">
+                <ToggleRow
+                  label="Two-Factor Authentication (2FA)"
+                  value={config.security.enableTwoFactor}
+                  onChange={(v) => updateSecurity({ enableTwoFactor: v })}
+                  disabled={!isAdmin}
+                />
+                {config.security.enableTwoFactor && (
+                  <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded p-2 mt-2">
+                    2FA is enabled. Users will be prompted to configure TOTP on next login. (Demo mode - no actual 2FA enforced)
+                  </p>
+                )}
+              </div>
               <ToggleRow
                 label="Enforce Single Sign-On (SSO)"
                 value={config.security.enforceSSO}
                 onChange={(v) => updateSecurity({ enforceSSO: v })}
                 disabled={!isAdmin}
               />
-              <ToggleRow
-                label="IP Whitelist Enabled"
-                value={config.security.ipWhitelistEnabled}
-                onChange={(v) => updateSecurity({ ipWhitelistEnabled: v })}
-                disabled={!isAdmin}
-              />
+              <div className="border-t pt-3 space-y-2">
+                <ToggleRow
+                  label="IP Whitelist Enabled"
+                  value={config.security.ipWhitelistEnabled}
+                  onChange={(v) => updateSecurity({ ipWhitelistEnabled: v })}
+                  disabled={!isAdmin}
+                />
+                {config.security.ipWhitelistEnabled && (
+                  <div className="space-y-1.5">
+                    <Label>Allowed IP Addresses (one per line)</Label>
+                    <textarea
+                      className="w-full rounded-md border px-3 py-2 text-sm font-mono min-h-[80px]"
+                      placeholder={"10.0.0.0/24\n192.168.1.0/24\n197.50.0.0/16"}
+                      value={ipWhitelist}
+                      onChange={(e) => saveIpWhitelist(e.target.value)}
+                      disabled={!isAdmin}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      CIDR notation supported. Only these IPs can access the system.
+                    </p>
+                  </div>
+                )}
+              </div>
               <div className="space-y-1.5">
                 <Label>Audit Log Retention (days)</Label>
                 <Input
@@ -885,99 +1486,176 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Notifications */}
+      {/* ═══════════════════════ Notifications Tab ═══════════════════════ */}
       {tab === "notifications" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Channels</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <ToggleRow
-                label="Email Notifications"
-                value={config.notifications.emailEnabled}
-                onChange={(v) => updateNotifications({ emailEnabled: v })}
-                disabled={!isAdmin}
-              />
-              <ToggleRow
-                label="SMS Notifications"
-                value={config.notifications.smsEnabled}
-                onChange={(v) => updateNotifications({ smsEnabled: v })}
-                disabled={!isAdmin}
-              />
-              <ToggleRow
-                label="Push Notifications"
-                value={config.notifications.pushEnabled}
-                onChange={(v) => updateNotifications({ pushEnabled: v })}
-                disabled={!isAdmin}
-              />
-              <div className="space-y-1.5">
-                <Label>Sender Email Address</Label>
-                <Input
-                  type="email"
-                  value={config.notifications.emailFromAddress}
-                  onChange={(e) => updateNotifications({ emailFromAddress: e.target.value })}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Channels</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <ToggleRow
+                  label="Email Notifications"
+                  value={config.notifications.emailEnabled}
+                  onChange={(v) => updateNotifications({ emailEnabled: v })}
                   disabled={!isAdmin}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Digest Frequency</Label>
-                <select
-                  className="w-full rounded-md border px-3 py-2 text-sm"
-                  value={config.notifications.digestFrequency}
-                  onChange={(e) =>
-                    updateNotifications({ digestFrequency: e.target.value as "Off" | "Daily" | "Weekly" })
-                  }
+                <ToggleRow
+                  label="SMS Notifications"
+                  value={config.notifications.smsEnabled}
+                  onChange={(v) => updateNotifications({ smsEnabled: v })}
                   disabled={!isAdmin}
-                >
-                  <option>Off</option>
-                  <option>Daily</option>
-                  <option>Weekly</option>
-                </select>
-              </div>
-            </CardContent>
-          </Card>
+                />
+                <ToggleRow
+                  label="Push Notifications"
+                  value={config.notifications.pushEnabled}
+                  onChange={(v) => updateNotifications({ pushEnabled: v })}
+                  disabled={!isAdmin}
+                />
+                <div className="space-y-1.5">
+                  <Label>Sender Email Address</Label>
+                  <Input
+                    type="email"
+                    value={config.notifications.emailFromAddress}
+                    onChange={(e) => updateNotifications({ emailFromAddress: e.target.value })}
+                    disabled={!isAdmin}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Digest & Frequency</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label>Notification Digest Frequency</Label>
+                  <div className="flex gap-2">
+                    {(["Off", "Daily", "Weekly"] as const).map((freq) => (
+                      <button
+                        key={freq}
+                        disabled={!isAdmin}
+                        onClick={() => updateNotifications({ digestFrequency: freq })}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                          config.notifications.digestFrequency === freq
+                            ? "bg-blue-100 border-blue-300 text-blue-800"
+                            : "bg-slate-50 border-slate-200 text-slate-600"
+                        } ${isAdmin ? "cursor-pointer hover:border-blue-400" : "cursor-not-allowed opacity-70"}`}
+                      >
+                        {freq === "Off" ? "Real-time" : freq}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {config.notifications.digestFrequency === "Off"
+                      ? "Notifications are sent immediately as events occur"
+                      : `Notifications are batched and sent as a ${config.notifications.digestFrequency.toLowerCase()} digest`}
+                  </p>
+                </div>
+                <div className="border-t pt-3 space-y-2">
+                  <h4 className="text-sm font-medium">Alert Rules</h4>
+                  <ToggleRow
+                    label="Notify on Batch Expiry"
+                    value={config.notifications.notifyOnExpiry}
+                    onChange={(v) => updateNotifications({ notifyOnExpiry: v })}
+                    disabled={!isAdmin}
+                  />
+                  <ToggleRow
+                    label="Notify on Low Stock"
+                    value={config.notifications.notifyOnLowStock}
+                    onChange={(v) => updateNotifications({ notifyOnLowStock: v })}
+                    disabled={!isAdmin}
+                  />
+                  <ToggleRow
+                    label="Notify on Cold Chain Alert"
+                    value={config.notifications.notifyOnColdChainAlert}
+                    onChange={(v) => updateNotifications({ notifyOnColdChainAlert: v })}
+                    disabled={!isAdmin}
+                  />
+                  <ToggleRow
+                    label="Notify on Approval Required"
+                    value={config.notifications.notifyOnApprovalNeeded}
+                    onChange={(v) => updateNotifications({ notifyOnApprovalNeeded: v })}
+                    disabled={!isAdmin}
+                  />
+                  <ToggleRow
+                    label="Notify on New Market Request"
+                    value={config.notifications.notifyOnNewMarketRequest}
+                    onChange={(v) => updateNotifications({ notifyOnNewMarketRequest: v })}
+                    disabled={!isAdmin}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Per-event notification matrix */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Alert Rules</CardTitle>
+              <CardTitle className="text-base">Per-Event Notification Settings</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                Fine-grained control over which events trigger notifications via each channel.
+              </p>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <ToggleRow
-                label="Notify on Batch Expiry"
-                value={config.notifications.notifyOnExpiry}
-                onChange={(v) => updateNotifications({ notifyOnExpiry: v })}
-                disabled={!isAdmin}
-              />
-              <ToggleRow
-                label="Notify on Low Stock"
-                value={config.notifications.notifyOnLowStock}
-                onChange={(v) => updateNotifications({ notifyOnLowStock: v })}
-                disabled={!isAdmin}
-              />
-              <ToggleRow
-                label="Notify on Cold Chain Alert"
-                value={config.notifications.notifyOnColdChainAlert}
-                onChange={(v) => updateNotifications({ notifyOnColdChainAlert: v })}
-                disabled={!isAdmin}
-              />
-              <ToggleRow
-                label="Notify on Approval Required"
-                value={config.notifications.notifyOnApprovalNeeded}
-                onChange={(v) => updateNotifications({ notifyOnApprovalNeeded: v })}
-                disabled={!isAdmin}
-              />
-              <ToggleRow
-                label="Notify on New Market Request"
-                value={config.notifications.notifyOnNewMarketRequest}
-                onChange={(v) => updateNotifications({ notifyOnNewMarketRequest: v })}
-                disabled={!isAdmin}
-              />
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-y">
+                  <tr>
+                    <th className="text-left p-3 font-medium">Event</th>
+                    <th className="text-left p-3 font-medium text-xs">Module</th>
+                    <th className="text-center p-3 font-medium text-xs">Email</th>
+                    <th className="text-center p-3 font-medium text-xs">In-App</th>
+                    <th className="text-center p-3 font-medium text-xs">Escalation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {NOTIFICATION_EVENTS.map((evt) => {
+                    const state = notifEvents[evt.key] || { email: true, inApp: true, escalation: false };
+                    return (
+                      <tr key={evt.key} className="border-b hover:bg-slate-50">
+                        <td className="p-3 text-sm">{evt.label}</td>
+                        <td className="p-3">
+                          <Badge variant="secondary" className="text-[10px]">{evt.group}</Badge>
+                        </td>
+                        <td className="text-center p-3">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4"
+                            checked={state.email}
+                            onChange={() => toggleNotifEvent(evt.key, "email")}
+                            disabled={!isAdmin}
+                          />
+                        </td>
+                        <td className="text-center p-3">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4"
+                            checked={state.inApp}
+                            onChange={() => toggleNotifEvent(evt.key, "inApp")}
+                            disabled={!isAdmin}
+                          />
+                        </td>
+                        <td className="text-center p-3">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4"
+                            checked={state.escalation}
+                            onChange={() => toggleNotifEvent(evt.key, "escalation")}
+                            disabled={!isAdmin}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* Integrations */}
+      {/* ═══════════════════════ Integrations Tab ═══════════════════════ */}
       {tab === "integrations" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
@@ -1098,7 +1776,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Backup & Recovery */}
+      {/* ═══════════════════════ Backup & Recovery Tab ═══════════════════════ */}
       {tab === "backup" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
@@ -1192,7 +1870,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Localization */}
+      {/* ═══════════════════════ Localization Tab ═══════════════════════ */}
       {tab === "localization" && (
         <Card>
           <CardHeader>
@@ -1211,8 +1889,8 @@ export default function SettingsPage() {
                   disabled={!isAdmin}
                 >
                   <option value="en">English</option>
-                  <option value="ar">العربية (Arabic)</option>
-                  <option value="fr">Français</option>
+                  <option value="ar">Arabic</option>
+                  <option value="fr">Francais</option>
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -1262,50 +1940,81 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      {/* Appearance */}
+      {/* ═══════════════════════ Appearance Tab ═══════════════════════ */}
       {tab === "appearance" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Appearance & Theme</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
-              <div className="space-y-1.5">
-                <Label>Theme</Label>
-                <select
-                  className="w-full rounded-md border px-3 py-2 text-sm"
-                  value={config.appearance.theme}
-                  onChange={(e) =>
-                    updateAppearance({ theme: e.target.value as "light" | "dark" | "auto" })
-                  }
-                  disabled={!isAdmin}
-                >
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                  <option value="auto">Auto (System)</option>
-                </select>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Theme</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-3">
+                {([
+                  { value: "light" as const, label: "Light", icon: Sun },
+                  { value: "dark" as const, label: "Dark", icon: Moon },
+                  { value: "auto" as const, label: "System", icon: Monitor },
+                ]).map((theme) => {
+                  const Icon = theme.icon;
+                  const isSelected = config.appearance.theme === theme.value;
+                  return (
+                    <button
+                      key={theme.value}
+                      disabled={!isAdmin}
+                      onClick={() => updateAppearance({ theme: theme.value })}
+                      className={`flex flex-col items-center gap-2 px-6 py-4 rounded-xl border-2 transition-all ${
+                        isSelected
+                          ? "border-blue-500 bg-blue-50 text-blue-700"
+                          : "border-slate-200 bg-card text-muted-foreground hover:border-slate-300"
+                      } ${isAdmin ? "cursor-pointer" : "cursor-not-allowed opacity-70"}`}
+                    >
+                      <Icon className="h-6 w-6" />
+                      <span className="text-sm font-medium">{theme.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-              <div className="space-y-1.5">
-                <Label>Primary Color</Label>
-                <select
-                  className="w-full rounded-md border px-3 py-2 text-sm"
-                  value={config.appearance.primaryColor}
-                  onChange={(e) =>
-                    updateAppearance({
-                      primaryColor: e.target.value as "blue" | "green" | "purple" | "orange" | "red",
-                    })
-                  }
-                  disabled={!isAdmin}
-                >
-                  <option value="blue">Blue</option>
-                  <option value="green">Green</option>
-                  <option value="purple">Purple</option>
-                  <option value="orange">Orange</option>
-                  <option value="red">Red</option>
-                </select>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Primary Color</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-3">
+                {([
+                  { value: "blue" as const, label: "Blue", bg: "bg-blue-500" },
+                  { value: "green" as const, label: "Green", bg: "bg-emerald-500" },
+                  { value: "purple" as const, label: "Purple", bg: "bg-purple-500" },
+                  { value: "orange" as const, label: "Orange", bg: "bg-orange-500" },
+                  { value: "red" as const, label: "Red", bg: "bg-red-500" },
+                ]).map((color) => {
+                  const isSelected = config.appearance.primaryColor === color.value;
+                  return (
+                    <button
+                      key={color.value}
+                      disabled={!isAdmin}
+                      onClick={() => updateAppearance({ primaryColor: color.value })}
+                      className={`flex flex-col items-center gap-2 px-4 py-3 rounded-xl border-2 transition-all ${
+                        isSelected
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-slate-200 bg-card hover:border-slate-300"
+                      } ${isAdmin ? "cursor-pointer" : "cursor-not-allowed opacity-70"}`}
+                    >
+                      <div className={`w-8 h-8 rounded-full ${color.bg} ${isSelected ? "ring-2 ring-offset-2 ring-blue-400" : ""}`} />
+                      <span className="text-xs font-medium">{color.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-            </div>
-            <div className="space-y-2 pt-2">
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Layout & Display</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 max-w-2xl">
               <ToggleRow
                 label="Compact Mode (denser UI)"
                 value={config.appearance.compactMode}
@@ -1324,19 +2033,89 @@ export default function SettingsPage() {
                 onChange={(v) => updateAppearance({ showCompanyLogo: v })}
                 disabled={!isAdmin}
               />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
-      {/* Audit Log */}
+      {/* ═══════════════════════ Audit Log Tab ═══════════════════════ */}
       {tab === "audit" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Recent System Activity</CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
-              Retained for {config.security.auditLogRetentionDays} days. Export for SOX / GMP audits.
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <CardTitle className="text-base">Recent System Activity</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {filteredAuditLogs.length} entries found. Retained for {config.security.auditLogRetentionDays} days.
+                </p>
+              </div>
+              <Button size="sm" variant="outline" disabled={!isAdmin}>
+                <Download className="h-3 w-3 mr-1" /> Export CSV
+              </Button>
+            </div>
+            {/* Filters */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 mt-3">
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Search</Label>
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                  <Input
+                    className="pl-7 h-8 text-xs"
+                    placeholder="Search..."
+                    value={auditFilters.search || ""}
+                    onChange={(e) => { setAuditFilters({ ...auditFilters, search: e.target.value || undefined }); setAuditPage(0); }}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Module</Label>
+                <select
+                  className="w-full rounded-md border px-2 py-1.5 text-xs h-8"
+                  value={auditFilters.module || "All"}
+                  onChange={(e) => { setAuditFilters({ ...auditFilters, module: e.target.value === "All" ? undefined : e.target.value }); setAuditPage(0); }}
+                >
+                  {auditModules.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Action</Label>
+                <select
+                  className="w-full rounded-md border px-2 py-1.5 text-xs h-8"
+                  value={auditFilters.action || "All"}
+                  onChange={(e) => { setAuditFilters({ ...auditFilters, action: e.target.value === "All" ? undefined : e.target.value }); setAuditPage(0); }}
+                >
+                  {auditActions.map((a) => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">User</Label>
+                <select
+                  className="w-full rounded-md border px-2 py-1.5 text-xs h-8"
+                  value={auditFilters.userName || "All"}
+                  onChange={(e) => { setAuditFilters({ ...auditFilters, userName: e.target.value === "All" ? undefined : e.target.value }); setAuditPage(0); }}
+                >
+                  {auditUsers.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">From</Label>
+                <Input
+                  type="date"
+                  className="h-8 text-xs"
+                  value={auditFilters.dateFrom || ""}
+                  onChange={(e) => { setAuditFilters({ ...auditFilters, dateFrom: e.target.value || undefined }); setAuditPage(0); }}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">To</Label>
+                <Input
+                  type="date"
+                  className="h-8 text-xs"
+                  value={auditFilters.dateTo || ""}
+                  onChange={(e) => { setAuditFilters({ ...auditFilters, dateTo: e.target.value || undefined }); setAuditPage(0); }}
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
             <table className="w-full text-xs">
@@ -1344,49 +2123,91 @@ export default function SettingsPage() {
                 <tr>
                   <th className="text-left p-2">Timestamp</th>
                   <th className="text-left p-2">User</th>
-                  <th className="text-left p-2">Role</th>
                   <th className="text-left p-2">Action</th>
+                  <th className="text-left p-2">Module</th>
                   <th className="text-left p-2">Entity</th>
-                  <th className="text-left p-2">IP</th>
+                  <th className="text-left p-2">Details</th>
                 </tr>
               </thead>
               <tbody>
-                {[
-                  { t: "2026-04-11 09:42:18", u: "System Administrator", r: "ADMIN", a: "UPDATE", e: "Config › Security", ip: "10.0.0.12" },
-                  { t: "2026-04-11 09:31:05", u: "Fatima El-Masry", r: "ACCOUNTANT", a: "CREATE", e: "Invoice INV-2026-0142", ip: "10.0.0.44" },
-                  { t: "2026-04-11 09:15:32", u: "Mohamed El-Sayed", r: "MEDICAL_REP", a: "GPS_CHECKIN", e: "Visit V-0098 (Dr. Ahmed)", ip: "197.50.12.8" },
-                  { t: "2026-04-11 08:58:10", u: "Khaled Farouk", r: "WAREHOUSE", a: "UPDATE", e: "Batch B-24-112", ip: "10.0.0.61" },
-                  { t: "2026-04-11 08:42:44", u: "Dr. Hossam Tarek", r: "BUM", a: "EXPORT", e: "CRM Reports CSV", ip: "10.0.0.2" },
-                  { t: "2026-04-11 08:30:21", u: "Laila Abdel-Rahman", r: "HR", a: "CREATE", e: "Job Posting J-0045", ip: "10.0.0.33" },
-                  { t: "2026-04-11 08:10:03", u: "Ahmed Mostafa", r: "DISTRICT_MANAGER", a: "LOGIN", e: "—", ip: "197.50.22.1" },
-                  { t: "2026-04-11 07:55:12", u: "System", r: "—", a: "BACKUP", e: "Daily automatic backup", ip: "—" },
-                ].map((row, i) => (
-                  <tr key={i} className="border-b hover:bg-slate-50">
-                    <td className="p-2 font-mono text-[10px]">{row.t}</td>
-                    <td className="p-2">{row.u}</td>
-                    <td className="p-2">
-                      <Badge variant="secondary" className="text-[10px]">{row.r}</Badge>
+                {pagedAuditLogs.map((entry) => (
+                  <tr key={entry.id} className="border-b hover:bg-slate-50">
+                    <td className="p-2 font-mono text-[10px] whitespace-nowrap">
+                      {new Date(entry.timestamp).toLocaleString()}
                     </td>
                     <td className="p-2">
-                      <span className="font-mono text-[10px]">{row.a}</span>
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold shrink-0 ${ROLE_COLORS[entry.userRole] || "bg-slate-100 text-slate-600"}`}>
+                          {getInitials(entry.userName)}
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-medium truncate max-w-[120px]">{entry.userName}</p>
+                          <p className="text-[9px] text-muted-foreground">{entry.userRole}</p>
+                        </div>
+                      </div>
                     </td>
-                    <td className="p-2 text-muted-foreground">{row.e}</td>
-                    <td className="p-2 font-mono text-[10px] text-muted-foreground">{row.ip}</td>
+                    <td className="p-2">
+                      <Badge
+                        variant={
+                          entry.action === "DELETE" ? "destructive"
+                            : entry.action === "CREATE" ? "success"
+                            : entry.action === "APPROVE" ? "success"
+                            : entry.action === "REJECT" ? "destructive"
+                            : "secondary"
+                        }
+                        className="text-[10px]"
+                      >
+                        {entry.action}
+                      </Badge>
+                    </td>
+                    <td className="p-2">
+                      <Badge variant="outline" className="text-[10px]">{entry.module}</Badge>
+                    </td>
+                    <td className="p-2 text-muted-foreground whitespace-nowrap">
+                      {entry.entityName || entry.entity}
+                    </td>
+                    <td className="p-2 text-muted-foreground max-w-[250px] truncate" title={entry.details}>
+                      {entry.details || "---"}
+                    </td>
                   </tr>
                 ))}
+                {pagedAuditLogs.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                      No audit entries match the current filters.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
             <div className="p-3 border-t flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Showing 8 of 24,418 entries</p>
-              <Button size="sm" variant="outline" disabled={!isAdmin}>
-                Export Full Log (CSV)
-              </Button>
+              <p className="text-xs text-muted-foreground">
+                Page {auditPage + 1} of {auditTotalPages} ({filteredAuditLogs.length} entries)
+              </p>
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={auditPage === 0}
+                  onClick={() => setAuditPage((p) => Math.max(0, p - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={auditPage >= auditTotalPages - 1}
+                  onClick={() => setAuditPage((p) => p + 1)}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Permissions Matrix */}
+      {/* ═══════════════════════ Permissions Matrix Tab ═══════════════════════ */}
       {tab === "permissions" && (
         <div className="space-y-4">
           {/* Custom Roles */}
