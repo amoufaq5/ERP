@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { type UserRole, ROLE_ROUTES } from "@/lib/user-context";
+import { type UserRole, ROLE_ROUTES } from "@/lib/auth/role-routes";
 
 /** Routes that don't require authentication. */
 const PUBLIC_PATHS = [

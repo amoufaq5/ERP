@@ -12,6 +12,7 @@ import { FavoritesProvider } from "@/lib/favorites";
 import { ApprovalProvider } from "@/lib/approval-workflow";
 import { KeyboardShortcutsInit } from "@/lib/keyboard-init";
 import { QueryProvider } from "@/lib/api/query-provider";
+import { AuthSessionProvider } from "@/lib/auth/session-provider";
 
 export default function DashboardLayout({
   children,
@@ -19,6 +20,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
+    <AuthSessionProvider>
     <ThemeProvider>
       <I18nProvider>
         <QueryProvider>
@@ -47,5 +49,6 @@ export default function DashboardLayout({
         </QueryProvider>
       </I18nProvider>
     </ThemeProvider>
+    </AuthSessionProvider>
   );
 }
