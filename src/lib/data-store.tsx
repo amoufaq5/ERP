@@ -1677,7 +1677,16 @@ export function scopeDoctors(
       (d) => d.assignedRepId && (repsUnderMe.includes(d.assignedRepId) || d.assignedRepId === userId)
     );
   }
-  // Marketeer / BUM → doctors in their BU's
+  if (role === "MARKETEER") {
+    // Marketeer sees: doctors in their BUs + doctors assigned to their reports (DMs + reps)
+    const myBUs = visibleBusinessUnits(allBUs, role, userId).map((b) => b.id);
+    return allDoctors.filter(
+      (d) =>
+        (d.buId != null && myBUs.includes(d.buId)) ||
+        (d.assignedRepId != null && repsUnderMe.includes(d.assignedRepId))
+    );
+  }
+  // BUM / NSM → doctors in their BU's
   const myBUs = visibleBusinessUnits(allBUs, role, userId).map((b) => b.id);
   return allDoctors.filter((d) => d.buId && myBUs.includes(d.buId));
 }
@@ -1728,6 +1737,18 @@ export function scopeMarketRequests(
         r.requestedById === userId ||
         repsUnderMe.includes(r.requestedById) ||
         r.approvedById === userId
+    );
+  }
+  if (role === "MARKETEER") {
+    // Marketeer sees: own requests, requests from their reports (DMs + reps),
+    // and requests in their BUs (even if requestedBy someone else).
+    const myBUs = visibleBusinessUnits(allBUs, role, userId).map((b) => b.id);
+    return all.filter(
+      (r) =>
+        r.requestedById === userId ||
+        repsUnderMe.includes(r.requestedById) ||
+        r.approvedById === userId ||
+        (r.buId != null && myBUs.includes(r.buId))
     );
   }
   const myBUs = visibleBusinessUnits(allBUs, role, userId).map((b) => b.id);

@@ -373,7 +373,7 @@ export default function MarketRequestsPage() {
 
   // ─── Monthly Quota ─────────────────────────────────────────────────────
   const monthlyQuotaLimit = useMemo(() => {
-    if (user.role === "ADMIN" || user.role === "BUM") return Infinity;
+    if (user.role === "ADMIN" || user.role === "BUM" || user.role === "NSM" || user.role === "MARKETEER") return Infinity;
     if (user.role === "DISTRICT_MANAGER") return MONTHLY_QUOTA_MANAGER;
     return MONTHLY_QUOTA_REP;
   }, [user.role]);
