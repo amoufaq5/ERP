@@ -209,6 +209,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Tenants", labelKey: "sidebar.tenants", href: "/admin/tenants", icon: Building2 },
       { label: "Database", labelKey: "sidebar.database", href: "/admin/database", icon: Database },
       { label: "API Docs", labelKey: "sidebar.apiDocs", href: "/admin/api", icon: Code2 },
+      { label: "Audit Log", labelKey: "sidebar.auditLog", href: "/admin/audit-log", icon: ShieldCheck },
     ],
   },
 ];
@@ -277,6 +278,10 @@ const ROLE_SECTIONS: Record<string, RoleSectionDef[]> = {
     {
       title: "Requests & Reports",
       items: ["Market Requests", "Expenses"],
+    },
+    {
+      title: "Administration",
+      items: ["Audit Log"],
     },
   ],
   BUM: [

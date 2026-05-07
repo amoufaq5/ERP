@@ -19,6 +19,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/crm/gps-tracking", "/crm/market-requests", "/crm/reports", "/crm/kpis",
     "/crm/call-analysis", "/crm/expenses", "/crm/product-guide",
     "/ats/training",
+    "/admin/audit-log",
     "/reports", "/settings", "/settings/profile",
   ],
   BUM: [

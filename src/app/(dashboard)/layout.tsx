@@ -7,6 +7,7 @@ import { NotificationProvider } from "@/lib/notifications";
 import { EnhancedNotificationProvider } from "@/lib/notification-context";
 import { AuditProvider } from "@/lib/audit-trail";
 import { AuditLoggerProvider } from "@/lib/audit-logger";
+import { AuditServiceProvider } from "@/lib/audit/audit-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { FavoritesProvider } from "@/lib/favorites";
 import { ApprovalProvider } from "@/lib/approval-workflow";
@@ -31,6 +32,7 @@ export default function DashboardLayout({
                   <EnhancedNotificationProvider>
                   <AuditProvider>
                     <AuditLoggerProvider>
+                    <AuditServiceProvider>
                     <ApprovalProvider>
                       <FavoritesProvider>
                         <DashboardShell>
@@ -39,6 +41,7 @@ export default function DashboardLayout({
                         </DashboardShell>
                       </FavoritesProvider>
                     </ApprovalProvider>
+                    </AuditServiceProvider>
                     </AuditLoggerProvider>
                   </AuditProvider>
                   </EnhancedNotificationProvider>
