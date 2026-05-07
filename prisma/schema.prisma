@@ -3,8 +3,105 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum UserRole {
+  ADMIN
+  NSM
+  BUM
+  MARKETEER
+  DISTRICT_MANAGER
+  MEDICAL_REP
+  ACCOUNTANT
+  WAREHOUSE
+  HR
+}
+
+enum DoctorClassification {
+  A
+  B
+  C
+  D
+}
+
+enum BuyingLadderStage {
+  UNAWARE
+  AWARE
+  TRIAL
+  REGULAR
+  CHAMPION
+}
+
+enum VisitType {
+  SINGLE
+  DOUBLE
+}
+
+enum VisitStatus {
+  LOGGED
+  APPROVED
+  REJECTED
+}
+
+enum PlanStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum RequestType {
+  SAMPLE
+  LITERATURE
+  EVENT
+  DISCOUNT
+  DOCTOR_EDIT
+  OTHER
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FULFILLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  BLOCKED
+}
+
+enum ExpenseStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum TerritoryLevel {
+  REGION
+  GOVERNORATE
+  DISTRICT
+  BRICK
+}
+
+enum VisitSession {
+  AM
+  PM
 }
 
 // ==================== CORE ====================
@@ -17,6 +114,7 @@ model User {
   role         String   @default("EMPLOYEE") // ADMIN, MANAGER, EMPLOYEE
   avatar       String?
   department   String?
+  territory    String?
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -52,6 +150,21 @@ model User {
   buMemberships   BusinessUnitMember[]
   approvalActions ApprovalLog[]          @relation("ApprovalPerformer")
 
+  // Pharma CRM relations
+  assignedDoctors    Doctor[]        @relation("DoctorRep")
+  repVisits          Visit[]         @relation("VisitRep")
+  repWeeklyPlans     WeeklyPlan[]    @relation("PlanRep")
+  approvedPlans      WeeklyPlan[]    @relation("PlanApprover")
+  marketRequests     MarketRequest[] @relation("RequestedBy")
+  approvedRequests   MarketRequest[] @relation("RequestApprover")
+  submittedExpenses  Expense[]       @relation("ExpenseSubmitter")
+  approvedExpenses   Expense[]       @relation("ExpenseApprover")
+  kpis               KPI[]
+  assignedStandaloneTasks  StandaloneTask[]  @relation("StandaloneTaskAssignee")
+  createdStandaloneTasks   StandaloneTask[]  @relation("StandaloneTaskCreator")
+  sentMessages       Message[]       @relation("MessageSender")
+  receivedMessages   Message[]       @relation("MessageRecipient")
+
   @@map("users")
 }
 
@@ -79,10 +192,12 @@ model AuditLog {
   entityId  String
   oldValues String?
   newValues String?
+  changes   String?  // JSON diff of old/new values
   ipAddress String?
   createdAt DateTime @default(now())
 
   @@index([entity, entityId])
+  @@index([userId])
   @@map("audit_logs")
 }
 
@@ -95,6 +210,7 @@ model Notification {
   type      String   @default("INFO") // INFO, WARNING, SUCCESS, ERROR
   isRead    Boolean  @default(false)
   link      String?
+  module    String?  // CRM, ERP, HR, ATS, etc.
   createdAt DateTime @default(now())
 
   @@index([userId, isRead])
@@ -942,16 +1058,28 @@ model GPSLocation {
 }
 
 model Territory {
-  id           String   @id @default(cuid())
+  id           String          @id @default(cuid())
   name         String
+  nameAr       String?
+  code         String?         @unique
   description  String?
+  level        TerritoryLevel  @default(REGION)
+  parentId     String?
+  parent       Territory?      @relation("TerritoryHierarchy", fields: [parentId], references: [id])
+  children     Territory[]     @relation("TerritoryHierarchy")
+  imsCode      String?
+  geoShare     Float?
   assignedToId String?
-  assignedTo   User?    @relation(fields: [assignedToId], references: [id])
-  boundaries   String?  // JSON
+  assignedTo   User?           @relation(fields: [assignedToId], references: [id])
+  boundaries   String?         // JSON polygon for geo-fencing
   color        String?
-  createdAt    DateTime @default(now())
-  businessUnits   BusinessUnitTerritory[]
+  createdAt    DateTime        @default(now())
 
+  businessUnits BusinessUnitTerritory[]
+  doctors       Doctor[]
+
+  @@index([level])
+  @@index([parentId])
   @@map("territories")
 }
 
@@ -1180,6 +1308,7 @@ model BusinessUnit {
   products    BusinessUnitProduct[]
   territories BusinessUnitTerritory[]
   approvalLogs ApprovalLog[]
+  doctors      Doctor[]
 
   @@map("business_units")
 }
@@ -1262,4 +1391,232 @@ model Document {
 
   @@index([module, entityType, entityId])
   @@map("documents")
+}
+
+// ==================== PHARMA CRM - DOCTORS ====================
+
+model Doctor {
+  id                 String              @id @default(cuid())
+  name               String
+  specialty          String              // IMS specialty (General Practice, Cardiology, etc.)
+  hospital           String?
+  city               String?
+  phone              String?
+  email              String?
+  classification     DoctorClassification @default(B)
+  potentialRevenue   Float?              // estimated monthly Rx value
+  areaWeight         Int?                // 1-10 importance scale
+  isKOL              Boolean             @default(false) // Key Opinion Leader
+  buyingLadderStage  BuyingLadderStage   @default(UNAWARE)
+  visitFrequency     Int                 @default(2) // required visits per month
+  lastVisitAt        DateTime?
+  notes              String?
+  lat                Float?
+  lng                Float?
+  assignedRepId      String?
+  assignedRep        User?               @relation("DoctorRep", fields: [assignedRepId], references: [id])
+  buId               String?
+  businessUnit       BusinessUnit?       @relation(fields: [buId], references: [id])
+  brickId            String?
+  territory          Territory?          @relation(fields: [brickId], references: [id])
+  linkedPharmacyIds  String?             // JSON array of pharmacy AMAccount IDs
+  linkedAccountIds   String?             // JSON array of hospital/polyclinic IDs
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  visits          Visit[]
+  marketRequests  MarketRequest[]
+
+  @@index([assignedRepId])
+  @@index([buId])
+  @@index([classification])
+  @@index([specialty])
+  @@map("doctors")
+}
+
+// ==================== PHARMA CRM - VISITS ====================
+
+model Visit {
+  id                  String        @id @default(cuid())
+  repId               String
+  rep                 User          @relation("VisitRep", fields: [repId], references: [id])
+  doctorId            String
+  doctor              Doctor        @relation(fields: [doctorId], references: [id])
+  amAccountId         String?
+  dateTime            DateTime
+  session             VisitSession  @default(AM)
+  type                VisitType     @default(SINGLE)
+  partnerId           String?       // for DOUBLE visits
+  durationMin         Int?
+  status              VisitStatus   @default(LOGGED)
+  gpsVerified         Boolean       @default(false)
+  lat                 Float?
+  lng                 Float?
+  checkInTime         DateTime?
+  checkOutTime        DateTime?
+  notes               String?
+  feedback            String?
+  products            String?       // JSON array of product IDs discussed
+  samplesGiven        String?       // JSON array { productId, quantity }
+  samplesDistributed  Int           @default(0)
+  buyingLadderBefore  String?
+  buyingLadderAfter   String?
+  activityRequests    String?       // JSON array of activity requests
+  buId                String?
+  planId              String?
+  isUnplanned         Boolean       @default(false)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@index([repId, dateTime])
+  @@index([doctorId])
+  @@index([status])
+  @@index([buId])
+  @@map("visits")
+}
+
+// ==================== PHARMA CRM - WEEKLY PLANS ====================
+
+model WeeklyPlan {
+  id              String     @id @default(cuid())
+  repId           String
+  rep             User       @relation("PlanRep", fields: [repId], references: [id])
+  weekStartDate   DateTime
+  days            String     // JSON array of DailyPlan objects
+  status          PlanStatus @default(DRAFT)
+  submittedAt     DateTime?
+  approvedById    String?
+  approvedBy      User?      @relation("PlanApprover", fields: [approvedById], references: [id])
+  approvedAt      DateTime?
+  rejectionReason String?
+  notes           String?
+  approvalHistory String?    // JSON array of ApprovalEntry objects
+  approvalLevel   Int?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([repId, weekStartDate])
+  @@index([status])
+  @@map("weekly_plans")
+}
+
+// ==================== PHARMA CRM - MARKET REQUESTS ====================
+
+model MarketRequest {
+  id              String        @id @default(cuid())
+  type            RequestType
+  requestedById   String
+  requestedBy     User          @relation("RequestedBy", fields: [requestedById], references: [id])
+  doctorId        String?
+  doctor          Doctor?       @relation(fields: [doctorId], references: [id])
+  productId       String?
+  description     String
+  quantity        Int?
+  amount          Float?
+  priority        TaskPriority  @default(MEDIUM)
+  status          RequestStatus @default(PENDING)
+  approvedById    String?
+  approvedBy      User?         @relation("RequestApprover", fields: [approvedById], references: [id])
+  approvedAt      DateTime?
+  rejectionReason String?
+  buId            String?
+  proposedChanges String?       // JSON for DOCTOR_EDIT requests
+  targetEntityId  String?       // e.g., the doctor id being edited
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([requestedById])
+  @@index([status])
+  @@index([buId])
+  @@map("market_requests")
+}
+
+// ==================== PHARMA CRM - EXPENSES ====================
+
+model Expense {
+  id             String        @id @default(cuid())
+  type           String        // TRAVEL, MEALS, CONFERENCE, OFFICE, SAMPLES, etc.
+  amount         Float
+  date           DateTime
+  description    String?
+  status         ExpenseStatus @default(DRAFT)
+  submittedById  String
+  submittedBy    User          @relation("ExpenseSubmitter", fields: [submittedById], references: [id])
+  approvedById   String?
+  approvedBy     User?         @relation("ExpenseApprover", fields: [approvedById], references: [id])
+  receiptUrl     String?
+  startOdometer  Float?
+  endOdometer    Float?
+  totalKm        Float?
+  ratePerKm      Float?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([submittedById])
+  @@index([status])
+  @@map("expenses")
+}
+
+// ==================== PHARMA CRM - KPIs ====================
+
+model KPI {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  metric    String   // e.g., "Visits", "New Doctors", "Market Requests"
+  value     Float    @default(0)
+  target    Float    @default(0)
+  period    String   // YYYY-MM format
+  setById   String?  // userId of the superior who set the target
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, period])
+  @@index([metric])
+  @@map("kpis")
+}
+
+// ==================== STANDALONE TASKS ====================
+
+model StandaloneTask {
+  id           String       @id @default(cuid())
+  title        String
+  description  String?
+  assignedById String
+  assignedBy   User         @relation("StandaloneTaskCreator", fields: [assignedById], references: [id])
+  assignedToId String
+  assignedTo   User         @relation("StandaloneTaskAssignee", fields: [assignedToId], references: [id])
+  dueDate      DateTime?
+  status       TaskStatus   @default(TODO)
+  priority     TaskPriority @default(MEDIUM)
+  kpiMetric    String?
+  kpiTarget    Float?
+  kpiActual    Float?
+  buId         String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([assignedToId])
+  @@index([status])
+  @@map("standalone_tasks")
+}
+
+// ==================== MESSAGING ====================
+
+model Message {
+  id          String   @id @default(cuid())
+  subject     String
+  body        String
+  senderId    String
+  sender      User     @relation("MessageSender", fields: [senderId], references: [id])
+  recipientId String
+  recipient   User     @relation("MessageRecipient", fields: [recipientId], references: [id])
+  channelId   String?
+  isRead      Boolean  @default(false)
+  starred     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([recipientId, isRead])
+  @@index([senderId])
+  @@map("messages")
 }

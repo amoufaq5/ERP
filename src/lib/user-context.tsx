@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useSession } from "next-auth/react";
 
 export type UserRole = "ADMIN" | "NSM" | "BUM" | "MARKETEER" | "DISTRICT_MANAGER" | "MEDICAL_REP" | "ACCOUNTANT" | "WAREHOUSE" | "HR";
 
@@ -143,15 +144,42 @@ function genUserId(): string {
 }
 
 export function UserProvider({ children }: { children: ReactNode }) {
+  const { data: session, status: sessionStatus } = useSession();
   const [user, setUserState] = useState<AppUser>(DEMO_USERS[0]);
   const [allUsers, setAllUsers] = useState<AppUser[]>(DEMO_USERS);
   const [navOverrides, setNavOverrides] = useState<Record<string, string[] | null>>({});
   const [ready, setReady] = useState(false);
 
+  // Sync from NextAuth session when it becomes available
+  useEffect(() => {
+    if (sessionStatus === "authenticated" && session?.user) {
+      const sessionUser = session.user;
+      // Find matching demo user or construct from session
+      const matchedDemo = DEMO_USERS.find((u) => u.id === sessionUser.id || u.email === sessionUser.email);
+      const resolvedUser: AppUser = matchedDemo ?? {
+        id: sessionUser.id || "u-session",
+        name: sessionUser.name || "User",
+        email: sessionUser.email || "",
+        role: (sessionUser.role as UserRole) || "MEDICAL_REP",
+        department: sessionUser.department || "",
+        territory: sessionUser.territory,
+      };
+      setUserState(resolvedUser);
+      try {
+        localStorage.setItem(STORAGE_USER, JSON.stringify(resolvedUser));
+      } catch {
+        // ignore
+      }
+    }
+  }, [session, sessionStatus]);
+
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_USER);
-      if (saved) setUserState(JSON.parse(saved));
+      // Only read localStorage user if we don't have a NextAuth session
+      if (sessionStatus !== "authenticated") {
+        const saved = localStorage.getItem(STORAGE_USER);
+        if (saved) setUserState(JSON.parse(saved));
+      }
       const overrides = localStorage.getItem(STORAGE_OVERRIDES);
       if (overrides) setNavOverrides(JSON.parse(overrides));
       const savedUsers = localStorage.getItem(STORAGE_ALL_USERS);
@@ -173,7 +201,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       // ignore
     }
     setReady(true);
-  }, []);
+  }, [sessionStatus]);
 
   function persistUsers(next: AppUser[]) {
     try {

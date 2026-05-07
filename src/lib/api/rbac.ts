@@ -139,7 +139,29 @@ export async function checkPermission(
 }
 
 // Helper to use in route handlers
-export async function requirePermission(req: NextRequest) {
+export async function requirePermission(req: NextRequest, sessionRole?: string, sessionUserId?: string) {
+  // If session-based role/userId are provided, use them instead of headers
+  if (sessionRole) {
+    const role = sessionRole as UserRole;
+    const userId = sessionUserId;
+    const entity = extractEntity(req.nextUrl.pathname);
+    if (!entity) return { role, userId };
+
+    const permissions = ROLE_PERMISSIONS[entity];
+    if (!permissions) return { role, userId };
+
+    const isWrite = isWriteMethod(req.method);
+    const allowedRoles = isWrite ? permissions.write : permissions.read;
+
+    if (!allowedRoles.includes(role)) {
+      return {
+        error: `Role ${role} does not have ${isWrite ? "write" : "read"} access to ${entity}`,
+        status: 403,
+      };
+    }
+    return { role, userId };
+  }
+
   const result = await checkPermission(req);
   if (!result.allowed) {
     return { error: result.error || "Forbidden", status: 403 };
