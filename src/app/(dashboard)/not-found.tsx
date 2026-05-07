@@ -3,17 +3,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Search, Home } from "lucide-react";
 
-export default function NotFound() {
+export default function DashboardNotFound() {
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-6">
+    <div className="flex items-center justify-center min-h-[60vh] p-6">
       <Card className="max-w-md w-full shadow-lg text-center">
         <CardHeader className="pb-2">
           <div className="flex justify-center mb-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-              <Search className="h-8 w-8 text-muted-foreground" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+              <Search className="h-7 w-7 text-muted-foreground" />
             </div>
           </div>
-          <CardTitle className="text-5xl font-bold text-muted-foreground">
+          <CardTitle className="text-4xl font-bold text-muted-foreground">
             404
           </CardTitle>
         </CardHeader>
@@ -21,8 +21,8 @@ export default function NotFound() {
           <div className="space-y-2">
             <h2 className="text-lg font-semibold">Page not found</h2>
             <p className="text-sm text-muted-foreground">
-              The page you&apos;re looking for doesn&apos;t exist or has been
-              moved. Check the URL or navigate to one of the sections below.
+              The page you&apos;re looking for doesn&apos;t exist within the
+              dashboard. Try one of the sections below.
             </p>
           </div>
 
@@ -37,7 +37,7 @@ export default function NotFound() {
 
           <div className="border-t pt-4">
             <p className="text-xs text-muted-foreground mb-3">
-              Common sections
+              Dashboard sections
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               <Button variant="ghost" size="sm" asChild>
@@ -50,7 +50,13 @@ export default function NotFound() {
                 <Link href="/ats">ATS</Link>
               </Button>
               <Button variant="ghost" size="sm" asChild>
+                <Link href="/analytics">Analytics</Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
                 <Link href="/reports">Reports</Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/settings">Settings</Link>
               </Button>
             </div>
           </div>

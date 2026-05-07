@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Home, RefreshCw } from "lucide-react";
 
-export default function DashboardError({
+export default function RootError({
   error,
   reset,
 }: {
@@ -14,26 +14,26 @@ export default function DashboardError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[DashboardError]", error);
+    console.error("[RootError]", error);
   }, [error]);
 
   const isDev = process.env.NODE_ENV === "development";
 
   return (
-    <div className="flex items-center justify-center min-h-[60vh] p-6">
+    <div className="flex items-center justify-center min-h-screen bg-background p-6">
       <Card className="max-w-md w-full border-destructive/50 shadow-lg">
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
-              <AlertTriangle className="h-7 w-7 text-destructive" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+              <AlertTriangle className="h-8 w-8 text-destructive" />
             </div>
           </div>
           <CardTitle className="text-xl">Something went wrong</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-center">
           <p className="text-sm text-muted-foreground">
-            The dashboard encountered an error while loading. Please try again
-            or return to the main dashboard.
+            An unexpected error occurred. Please try again or return to the
+            dashboard.
           </p>
           {isDev && error.message && (
             <pre className="text-xs font-mono bg-muted p-3 rounded-md overflow-auto max-h-32 text-destructive text-left">

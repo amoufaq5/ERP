@@ -1,6 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compareSync } from "bcryptjs";
+import { DEMO_CREDENTIALS_LIST } from "./auth-utils";
 
 export type SessionUser = {
   id: string;
@@ -8,19 +9,9 @@ export type SessionUser = {
   email: string;
   role: string;
   department?: string;
+  territory?: string;
   tenantId?: string;
 };
-
-const DEMO_USERS: { username: string; password: string; profile: SessionUser }[] = [
-  { username: "admin", password: "admin123", profile: { id: "u-admin", name: "System Administrator", email: "admin@pharma.com", role: "ADMIN", department: "IT" } },
-  { username: "bum", password: "bum123", profile: { id: "u-bum", name: "Dr. Hossam Tarek", email: "hossam@pharma.com", role: "BUM", department: "Executive" } },
-  { username: "dm", password: "dm123", profile: { id: "u-dm-1", name: "Ahmed Mostafa", email: "ahmed.m@pharma.com", role: "DISTRICT_MANAGER", department: "Sales" } },
-  { username: "marketeer", password: "mkt123", profile: { id: "u-mkt-1", name: "Dr. Yasmin Salem", email: "yasmin@pharma.com", role: "MARKETEER", department: "Marketing" } },
-  { username: "medrep", password: "rep123", profile: { id: "u-rep-1", name: "Mohamed El-Sayed", email: "mohamed@pharma.com", role: "MEDICAL_REP", department: "Sales" } },
-  { username: "accountant", password: "acc123", profile: { id: "u-acc-1", name: "Fatima El-Masry", email: "fatima@pharma.com", role: "ACCOUNTANT", department: "Finance" } },
-  { username: "warehouse", password: "wh123", profile: { id: "u-wh-1", name: "Khaled Farouk", email: "khaled@pharma.com", role: "WAREHOUSE", department: "Warehouse" } },
-  { username: "hr", password: "hr123", profile: { id: "u-hr-1", name: "Laila Abdel-Rahman", email: "laila@pharma.com", role: "HR", department: "Human Resources" } },
-];
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -37,8 +28,10 @@ export const authOptions: NextAuthOptions = {
         const trimUser = credentials.username.trim().toLowerCase();
         const trimPass = credentials.password.trim();
 
-        // 1. Check demo users
-        const demo = DEMO_USERS.find((u) => u.username === trimUser && u.password === trimPass);
+        // 1. Check demo users (plain-text match for dev convenience)
+        const demo = DEMO_CREDENTIALS_LIST.find(
+          (u) => u.username === trimUser && u.password === trimPass,
+        );
         if (demo) {
           return {
             id: demo.profile.id,
@@ -46,6 +39,7 @@ export const authOptions: NextAuthOptions = {
             email: demo.profile.email,
             role: demo.profile.role,
             department: demo.profile.department,
+            territory: demo.profile.territory,
           };
         }
 
@@ -53,25 +47,25 @@ export const authOptions: NextAuthOptions = {
         try {
           const { PrismaClient } = await import("@prisma/client");
           const prisma = new PrismaClient();
-          const dbUser = await prisma.user.findFirst({
-            where: {
-              OR: [
-                { email: trimUser },
-                { name: trimUser },
-              ],
-              isActive: true,
-            },
-          });
-          await prisma.$disconnect();
+          try {
+            const dbUser = await prisma.user.findFirst({
+              where: {
+                OR: [{ email: trimUser }, { name: trimUser }],
+                isActive: true,
+              },
+            });
 
-          if (dbUser && compareSync(trimPass, dbUser.passwordHash)) {
-            return {
-              id: dbUser.id,
-              name: dbUser.name,
-              email: dbUser.email,
-              role: dbUser.role,
-              department: dbUser.department || undefined,
-            };
+            if (dbUser && compareSync(trimPass, dbUser.passwordHash)) {
+              return {
+                id: dbUser.id,
+                name: dbUser.name,
+                email: dbUser.email,
+                role: dbUser.role,
+                department: dbUser.department || undefined,
+              };
+            }
+          } finally {
+            await prisma.$disconnect();
           }
         } catch {
           // DB not available, fall through
@@ -96,19 +90,21 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as SessionUser).role;
-        token.department = (user as SessionUser).department;
-        token.tenantId = (user as SessionUser).tenantId;
+        token.role = user.role;
+        token.department = user.department;
+        token.territory = user.territory;
+        token.tenantId = user.tenantId;
       }
       return token;
     },
 
     async session({ session, token }) {
       if (session.user) {
-        (session.user as SessionUser).id = token.id as string;
-        (session.user as SessionUser).role = token.role as string;
-        (session.user as SessionUser).department = token.department as string;
-        (session.user as SessionUser).tenantId = token.tenantId as string;
+        session.user.id = token.id as string;
+        session.user.role = token.role as string;
+        session.user.department = token.department as string | undefined;
+        session.user.territory = token.territory as string | undefined;
+        session.user.tenantId = token.tenantId as string | undefined;
       }
       return session;
     },
