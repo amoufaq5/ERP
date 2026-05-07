@@ -2306,7 +2306,7 @@ export default function BusinessUnitsPage() {
           {wizardStep === 4 && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Assign a representative to each selected brick. You can also do this later from the BU detail view.
+                Assign a representative to each selected brick (including merged bricks). You can also do this later from the BU detail view.
               </p>
               {(() => {
                 const selectedBricks = store.territories.filter(
@@ -2315,6 +2315,17 @@ export default function BusinessUnitsPage() {
                 const selectedNonBricks = store.territories.filter(
                   (t) => wizardSelectedTerritories.has(t.id) && t.level !== "brick"
                 );
+                const selectedMergedBricks = mergedBricks.filter((mb) => wizardSelectedTerritories.has(mb.id));
+
+                const allBrickItems: Array<{ id: string; name: string; imsCode: string; parentName: string; isMerged: boolean; sourceCount?: number }> = [
+                  ...selectedBricks.map((brick) => {
+                    const parentDistrict = store.territories.find((t) => t.id === brick.parentId);
+                    return { id: brick.id, name: brick.name, imsCode: brick.imsCode, parentName: parentDistrict?.name ?? "", isMerged: false };
+                  }),
+                  ...selectedMergedBricks.map((mb) => ({
+                    id: mb.id, name: mb.name, imsCode: "MERGED", parentName: store.territories.find((t) => t.id === mb.parentId)?.name ?? "", isMerged: true, sourceCount: mb.sourceIds.length,
+                  })),
+                ];
 
                 return (
                   <>
@@ -2323,7 +2334,7 @@ export default function BusinessUnitsPage() {
                         <span className="font-medium">{selectedNonBricks.length}</span> non-brick territories selected (regions/districts). Rep assignment is per brick.
                       </div>
                     )}
-                    {selectedBricks.length === 0 ? (
+                    {allBrickItems.length === 0 ? (
                       <Card className="p-6 text-center text-muted-foreground">
                         <MapPin className="h-10 w-10 mx-auto mb-2 opacity-30" />
                         <p className="text-sm">No bricks selected. Go back to step 3 to select brick-level territories for rep assignment.</p>
@@ -2339,43 +2350,44 @@ export default function BusinessUnitsPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {selectedBricks.map((brick) => {
-                              const parentDistrict = store.territories.find((t) => t.id === brick.parentId);
-                              return (
-                                <tr key={brick.id} className="border-b hover:bg-muted/30">
-                                  <td className="p-2">
-                                    <div>
-                                      <span className="font-medium">{brick.name}</span>
-                                      {parentDistrict && (
-                                        <span className="text-xs text-muted-foreground ml-1">({parentDistrict.name})</span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="p-2">
-                                    <Badge variant="outline" className="text-[10px] font-mono">{brick.imsCode}</Badge>
-                                  </td>
-                                  <td className="p-2">
-                                    <select
-                                      className="w-full border rounded-md p-1.5 text-sm bg-background"
-                                      value={wizardBrickAssignments[brick.id] || ""}
-                                      onChange={(e) => {
-                                        setWizardBrickAssignments((prev) => ({
-                                          ...prev,
-                                          [brick.id]: e.target.value,
-                                        }));
-                                      }}
-                                    >
-                                      <option value="">-- No rep --</option>
-                                      {allUsers
-                                        .filter((u) => u.role === "MEDICAL_REP" || u.role === "DISTRICT_MANAGER")
-                                        .map((u) => (
-                                          <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
-                                        ))}
-                                    </select>
-                                  </td>
-                                </tr>
-                              );
-                            })}
+                            {allBrickItems.map((brick) => (
+                              <tr key={brick.id} className={`border-b hover:bg-muted/30 ${brick.isMerged ? "bg-purple-50/50" : ""}`}>
+                                <td className="p-2">
+                                  <div className="flex items-center gap-1.5">
+                                    {brick.isMerged && <Merge className="h-3 w-3 text-purple-500 shrink-0" />}
+                                    <span className="font-medium">{brick.name}</span>
+                                    {brick.parentName && (
+                                      <span className="text-xs text-muted-foreground">({brick.parentName})</span>
+                                    )}
+                                    {brick.isMerged && brick.sourceCount && (
+                                      <Badge className="text-[9px] bg-purple-100 text-purple-700">{brick.sourceCount} merged</Badge>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-2">
+                                  <Badge variant="outline" className={`text-[10px] font-mono ${brick.isMerged ? "bg-purple-50 text-purple-700 border-purple-200" : ""}`}>{brick.imsCode}</Badge>
+                                </td>
+                                <td className="p-2">
+                                  <select
+                                    className="w-full border rounded-md p-1.5 text-sm bg-background"
+                                    value={wizardBrickAssignments[brick.id] || ""}
+                                    onChange={(e) => {
+                                      setWizardBrickAssignments((prev) => ({
+                                        ...prev,
+                                        [brick.id]: e.target.value,
+                                      }));
+                                    }}
+                                  >
+                                    <option value="">-- No rep --</option>
+                                    {allUsers
+                                      .filter((u) => u.role === "MEDICAL_REP" || u.role === "DISTRICT_MANAGER")
+                                      .map((u) => (
+                                        <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                                      ))}
+                                  </select>
+                                </td>
+                              </tr>
+                            ))}
                           </tbody>
                         </table>
                       </div>
