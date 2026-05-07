@@ -59,6 +59,7 @@ export interface DataTableProps<T = any> {
   isLoading?: boolean;
   exportable?: boolean;
   exportFilename?: string;
+  pageSize?: number;
   selectable?: boolean;
   onBulkAction?: (action: string, selectedRows: T[]) => void;
   bulkActions?: BulkAction[];
@@ -76,10 +77,12 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
   isLoading = false,
   exportable = false,
   exportFilename = "export.csv",
+  pageSize: pageSizeProp,
   selectable = false,
   onBulkAction,
   bulkActions = [],
 }: DataTableProps<T>) {
+  const effectivePageSize = pageSizeProp ?? PAGE_SIZE;
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortState, setSortState] = useState<SortState>({ key: null, direction: null });
@@ -124,13 +127,13 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
   }, [filteredData, sortState]);
 
   // Pagination
-  const totalPages = pagination ? Math.max(1, Math.ceil(sortedData.length / PAGE_SIZE)) : 1;
+  const totalPages = pagination ? Math.max(1, Math.ceil(sortedData.length / effectivePageSize)) : 1;
 
   const paginatedData = useMemo(() => {
     if (!pagination) return sortedData;
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return sortedData.slice(start, start + PAGE_SIZE);
-  }, [sortedData, pagination, currentPage]);
+    const start = (currentPage - 1) * effectivePageSize;
+    return sortedData.slice(start, start + effectivePageSize);
+  }, [sortedData, pagination, currentPage, effectivePageSize]);
 
   const handleSearch = useCallback((q: string) => {
     setSearchQuery(q);
@@ -337,11 +340,11 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
           <p>
             {t("table.showing")}{" "}
             <span className="font-medium text-foreground">
-              {Math.min((currentPage - 1) * PAGE_SIZE + 1, sortedData.length)}
+              {Math.min((currentPage - 1) * effectivePageSize + 1, sortedData.length)}
             </span>
             {" – "}
             <span className="font-medium text-foreground">
-              {Math.min(currentPage * PAGE_SIZE, sortedData.length)}
+              {Math.min(currentPage * effectivePageSize, sortedData.length)}
             </span>{" "}
             {t("table.of")}{" "}
             <span className="font-medium text-foreground">{sortedData.length}</span>{" "}

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 export interface PageHeaderProps {
   title: string;
   description?: string;
+  icon?: ReactNode;
   /** Slot for action buttons — rendered right-aligned */
   actions?: ReactNode;
   /** @deprecated Use actions prop instead */
@@ -16,6 +17,7 @@ export interface PageHeaderProps {
 export default function PageHeader({
   title,
   description,
+  icon,
   actions,
   children,
   className,
@@ -31,7 +33,8 @@ export default function PageHeader({
     >
       {/* Left: title + description */}
       <div className="min-w-0">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground leading-tight">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground leading-tight flex items-center gap-2">
+          {icon}
           {title}
         </h1>
         {description && (

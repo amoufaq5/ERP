@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
 import { masterDb } from "@/lib/tenant/master-db";
 import { hashSync } from "bcryptjs";

@@ -150,10 +150,10 @@ export default function AIHubPage() {
 
     return {
       invoiceCount: invoices.length,
-      invoiceTotal: invoices.reduce((s: number, inv: Record<string, unknown>) => s + (Number(inv.total) || 0), 0).toLocaleString(),
+      invoiceTotal: (invoices as unknown as Record<string, unknown>[]).reduce((s: number, inv) => s + (Number(inv.total) || 0), 0).toLocaleString(),
       employeeCount: employees.length,
       productCount: products.length,
-      lowStockCount: products.filter((p: Record<string, unknown>) => (Number(p.quantity) || 0) < (Number(p.reorderLevel) || 10)).length,
+      lowStockCount: (products as unknown as Record<string, unknown>[]).filter((p) => (Number(p.quantity) || 0) < (Number(p.reorderLevel) || 10)).length,
       salesOrderCount: salesOrders.length,
       leadCount: leads.length,
     }
