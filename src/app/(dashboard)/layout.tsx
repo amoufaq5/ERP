@@ -15,6 +15,7 @@ import { KeyboardShortcutsInit } from "@/lib/keyboard-init";
 import { QueryProvider } from "@/lib/api/query-provider";
 import { AuthSessionProvider } from "@/lib/auth/session-provider";
 import { SearchProvider } from "@/lib/search/search-provider";
+import { ActivityProvider } from "@/lib/activity/activity-context";
 
 export default function DashboardLayout({
   children,
@@ -37,10 +38,12 @@ export default function DashboardLayout({
                     <ApprovalProvider>
                       <FavoritesProvider>
                         <SearchProvider>
-                          <DashboardShell>
-                            <KeyboardShortcutsInit />
-                            {children}
-                          </DashboardShell>
+                          <ActivityProvider>
+                            <DashboardShell>
+                              <KeyboardShortcutsInit />
+                              {children}
+                            </DashboardShell>
+                          </ActivityProvider>
                         </SearchProvider>
                       </FavoritesProvider>
                     </ApprovalProvider>
