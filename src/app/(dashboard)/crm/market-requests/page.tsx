@@ -167,10 +167,9 @@ const SLA_DAYS: Record<string, number> = {
 
 // Approval chain levels config
 const APPROVAL_CHAIN = [
-  { level: 0, role: "MEDICAL_REP", label: "Med Rep", action: "Submit" },
+  { level: 0, role: "MEDICAL_REP", label: "Medical Rep", action: "Submit" },
   { level: 1, role: "DISTRICT_MANAGER", label: "District Manager", action: "Level 1" },
-  { level: 2, role: "MARKETEER", label: "Marketeer", action: "Level 2" },
-  { level: 3, role: "BUM", label: "BUM", action: "Level 3" },
+  { level: 2, role: "BUM", label: "BUM", action: "Level 2" },
 ] as const;
 
 // ─── Request Value Limits ────────────────────────────────────────────────────
@@ -183,17 +182,17 @@ const REQUEST_VALUE_LIMITS: Record<string, { max: number; unit: string }> = {
 
 // ─── Monthly Request Quota ────────��─────────────────────────────────────────
 const MONTHLY_QUOTA_REP = 10;
-const MONTHLY_QUOTA_MANAGER = 25; // DM, Marketeer
+const MONTHLY_QUOTA_MANAGER = 25; // DM
 // BUM and ADMIN are unlimited
 
 /**
  * Determine which approval levels are required for a given request.
- * Returns the max level needed (1 = DM only, 2 = DM+Marketeer, 3 = DM+Marketeer+BUM).
+ * Returns the max level needed (1 = DM only, 2 = DM+BUM).
  */
 function getRequiredApprovalLevel(type: string, amount?: number, discountPercent?: number): number {
-  if (type === "EVENT") return 3;
-  if (type === "DOCTOR_EDIT") return 2;
-  if (type === "DISCOUNT" && (discountPercent ?? 0) > 15) return 3;
+  if (type === "EVENT") return 2;
+  if (type === "DOCTOR_EDIT") return 1;
+  if (type === "DISCOUNT" && (discountPercent ?? 0) > 15) return 2;
   if (type === "DISCOUNT") return 1;
   if (type === "LITERATURE") return 1;
   if (type === "SAMPLE" && (amount ?? 0) >= 5000) return 2;
@@ -323,11 +322,10 @@ export default function MarketRequestsPage() {
     .filter((r) => r.amount)
     .reduce((s, r) => s + (r.amount ?? 0), 0);
 
-  // Can this user approve? (DM, Marketeer, BUM, Admin)
+  // Can this user approve? (DM, BUM, Admin)
   const canApprove =
     user.role === "ADMIN" ||
     user.role === "BUM" ||
-    user.role === "MARKETEER" ||
     user.role === "DISTRICT_MANAGER";
 
   // ─── Audit trail helpers ────────────────────────────────────────────────
@@ -374,7 +372,7 @@ export default function MarketRequestsPage() {
   // ─── Monthly Quota ─────────────────────────────────────────────────────
   const monthlyQuotaLimit = useMemo(() => {
     if (user.role === "ADMIN" || user.role === "BUM") return Infinity;
-    if (user.role === "DISTRICT_MANAGER" || user.role === "MARKETEER") return MONTHLY_QUOTA_MANAGER;
+    if (user.role === "DISTRICT_MANAGER") return MONTHLY_QUOTA_MANAGER;
     return MONTHLY_QUOTA_REP;
   }, [user.role]);
 
@@ -1969,14 +1967,14 @@ export default function MarketRequestsPage() {
             <CardHeader>
               <CardTitle className="text-base">Approval Workflow</CardTitle>
               <CardDescription>
-                Multi-level approval chain: Med Rep → DM → Marketeer → BUM
+                Multi-level approval chain: Medical Rep → DM → BUM
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-3">
                 {[
                   {
-                    level: 1,
+                    level: 0,
                     label: "Medical Rep",
                     desc: "Initiates request",
                     count: myRequests.filter((r) => {
@@ -1988,7 +1986,7 @@ export default function MarketRequestsPage() {
                     bg: "bg-blue-50",
                   },
                   {
-                    level: 2,
+                    level: 1,
                     label: "District Manager",
                     desc: "First-line approval",
                     count: myRequests.filter(
@@ -1997,21 +1995,12 @@ export default function MarketRequestsPage() {
                     bg: "bg-green-50",
                   },
                   {
-                    level: 3,
-                    label: "Marketeer",
-                    desc: "Regional approval",
-                    count: myRequests.filter(
-                      (r) => r.status === "APPROVED" && r.amount && r.amount > 5000
-                    ).length,
-                    bg: "bg-purple-50",
-                  },
-                  {
-                    level: 4,
+                    level: 2,
                     label: "BUM",
-                    desc: "Strategic approval",
+                    desc: "Final approval (high-value/priority)",
                     count: myRequests.filter(
                       (r) =>
-                        r.status === "APPROVED" && r.amount && r.amount > 20000
+                        r.status === "APPROVED" && r.amount && r.amount >= 5000
                     ).length,
                     bg: "bg-amber-50",
                   },
@@ -2034,11 +2023,9 @@ export default function MarketRequestsPage() {
               </div>
 
               <div className="flex items-center justify-center gap-2 mt-6 text-xs text-slate-500">
-                <span className="font-medium">Rep</span>
+                <span className="font-medium">Medical Rep</span>
                 <ArrowRight className="h-3 w-3" />
                 <span className="font-medium">DM</span>
-                <ArrowRight className="h-3 w-3" />
-                <span className="font-medium">Marketeer</span>
                 <ArrowRight className="h-3 w-3" />
                 <span className="font-medium">BUM</span>
               </div>

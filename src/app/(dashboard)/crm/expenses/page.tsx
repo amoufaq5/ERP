@@ -41,9 +41,9 @@ const OCR_TOLERANCE = 0.10; // 10% tolerance for OCR amount matching
 
 // ─── Approval Level Logic ──────────────────────────────────────────────────
 function getApprovalLevel(amount: number): { level: number; approver: string } {
-  if (amount < 1000) return { level: 1, approver: "District Manager" };
-  if (amount <= 5000) return { level: 2, approver: "Marketeer" };
-  return { level: 3, approver: "BUM" };
+  if (amount < 1000) return { level: 1, approver: "HR Manager" };
+  if (amount <= 5000) return { level: 2, approver: "HR Manager" };
+  return { level: 3, approver: "HR Manager" };
 }
 
 // ─── OCR Types ──────────────────────────────────────────────────────────────
@@ -262,7 +262,7 @@ export default function ExpensesPage() {
 
   // ─── Permissions ────────────────────────────────────────────────────────
 
-  const isManager = user.role === "BUM" || user.role === "MARKETEER" || user.role === "DISTRICT_MANAGER" || user.role === "ADMIN";
+  const isManager = user.role === "HR" || user.role === "ADMIN";
 
   // ─── Stats ──────────────────────────────────────────────────────────────
 
@@ -358,8 +358,8 @@ export default function ExpensesPage() {
   // ─── Team Expenses (pending, for approval) ─────────────────────────────
 
   const pendingTeamExpenses = useMemo(
-    () => expenses.filter((e) => e.status === "PENDING" && e.userId !== user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    [expenses, user.id]
+    () => expenses.filter((e) => e.status === "PENDING" && (isManager ? true : e.userId !== user.id)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [expenses, user.id, isManager]
   );
 
   // ─── Photo handling ─────────────────────────────────────────────────────

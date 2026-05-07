@@ -147,6 +147,7 @@ const NAV_SECTIONS: NavSection[] = [
     icon: MapPin,
     items: [
       { label: "Business Units", labelKey: "sidebar.businessUnits", href: "/crm/business-units", icon: Building },
+      { label: "My Team", labelKey: "sidebar.myTeam", href: "/crm/my-team", icon: Users },
       { label: "Medical Reps", labelKey: "sidebar.medicalReps", href: "/crm/medical-rep", icon: UserCheck },
       { label: "District Manager", labelKey: "sidebar.districtManager", href: "/crm/district-manager", icon: Users },
       { label: "Marketeer", labelKey: "sidebar.marketeer", href: "/crm/marketeer", icon: Target },
@@ -242,7 +243,7 @@ const ROLE_SECTIONS: Record<string, RoleSectionDef[]> = {
     },
     {
       title: "Field Operations", titleKey: "sidebar.fieldOps",
-      items: ["Doctor Directory", "Territories (IMS)", "Market Requests", "Expenses", "CRM Reports"],
+      items: ["Doctor Directory", "Market Requests", "Expenses", "CRM Reports"],
     },
   ],
   MARKETEER: [
@@ -267,8 +268,8 @@ const ROLE_SECTIONS: Record<string, RoleSectionDef[]> = {
       items: ["BUM Dashboard", "Territories (IMS)", "KPIs", "CRM Reports"],
     },
     {
-      title: "Field Operations", titleKey: "sidebar.fieldOps",
-      items: ["Weekly Plans", "District Manager", "Medical Reps", "Doctor Directory", "Visit Tracking"],
+      title: "Team & Field", titleKey: "sidebar.teamField",
+      items: ["My Team", "Weekly Plans", "Doctor Directory", "Visit Tracking"],
     },
     {
       title: "Requests & Reports", titleKey: "sidebar.salesMarketing",
@@ -302,6 +303,10 @@ const ROLE_SECTIONS: Record<string, RoleSectionDef[]> = {
     {
       title: "HR & Talent", titleKey: "nav.hr",
       items: ["HR & Payroll", "Jobs", "Candidates", "Interviews", "Onboarding", "Training"],
+    },
+    {
+      title: "Approvals", titleKey: "sidebar.approvals",
+      items: ["Expenses"],
     },
   ],
 };
