@@ -4,10 +4,13 @@ import { useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { AccessGate } from "@/components/layout/access-gate";
+import { NotificationToast } from "@/components/shared/notification-toast";
+import { useCurrentUser } from "@/lib/user-context";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const { user } = useCurrentUser();
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -36,6 +39,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <AccessGate>{children}</AccessGate>
         </main>
       </div>
+
+      {/* Real-time notification toasts (bottom-right, all pages) */}
+      <NotificationToast userId={user.id} />
     </div>
   );
 }
