@@ -212,10 +212,10 @@ export default function TrainingMatrixPage() {
 
     // Sort
     result.sort((a, b) => {
-      const aVal = (a as Record<string, unknown>)[sortField];
-      const bVal = (b as Record<string, unknown>)[sortField];
-      const aStr = String(aVal ?? "");
-      const bStr = String(bVal ?? "");
+      const aRec = a as unknown as Record<string, unknown>;
+      const bRec = b as unknown as Record<string, unknown>;
+      const aStr = String(aRec[sortField] ?? "");
+      const bStr = String(bRec[sortField] ?? "");
       const cmp = aStr.localeCompare(bStr);
       return sortDir === "asc" ? cmp : -cmp;
     });
