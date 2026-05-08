@@ -711,8 +711,8 @@ export function useAuditTrail() {
 
   return {
     entries: logs,
-    log: (entry: Omit<AuditEntry, "id" | "timestamp">) => {
-      logAction(entry);
+    log: (entry: Omit<AuditEntry, "id" | "timestamp" | "userRole"> & { userRole?: string }) => {
+      logAction({ ...entry, userRole: entry.userRole ?? "" });
     },
     getByModule: (module: string) =>
       logs.filter((e) => e.module === module),

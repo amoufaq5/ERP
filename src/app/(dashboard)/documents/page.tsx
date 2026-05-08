@@ -4,7 +4,7 @@ import { useState, useCallback } from "react"
 import {
   FileText, File, Upload, FolderOpen, ScanLine, Eye, Search,
   Download, CheckCircle, Clock, XCircle, FileImage, FileSpreadsheet,
-  Loader2, Trash2, Filter,
+  Loader2, Trash2, Filter, Plus, Pencil,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import DataTable from "@/components/shared/data-table"
 import type { Column } from "@/components/shared/data-table"
 import PageHeader from "@/components/shared/page-header"
+import { EditDeleteMenu } from "@/components/shared/edit-delete-menu"
+import { EntityFormModal, type EntityField } from "@/components/shared/entity-form-modal"
 import { useTranslation } from "@/lib/i18n/i18n-context"
 
 interface OCRDocument {
@@ -73,6 +75,19 @@ export default function DocumentsPage() {
   const [filterStatus, setFilterStatus] = useState("")
   const [uploadFiles, setUploadFiles] = useState<{ name: string; category: string; size: string }[]>([])
   const [dragOver, setDragOver] = useState(false)
+  const [editingDoc, setEditingDoc] = useState<OCRDocument | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
+
+  const docFields: EntityField[] = [
+    { name: "name", label: "Document Name", type: "text", required: true },
+    { name: "category", label: "Category", type: "select", required: true, options: CATEGORIES.map(c => ({ label: c, value: c })) },
+    { name: "type", label: "File Type", type: "select", options: [
+      { label: "PDF", value: "PDF" }, { label: "DOC", value: "DOC" },
+      { label: "XLS", value: "XLS" }, { label: "IMG", value: "IMG" },
+    ]},
+    { name: "uploadedBy", label: "Uploaded By", type: "text" },
+    { name: "date", label: "Date", type: "date" },
+  ]
 
   const filtered = docs.filter(doc => {
     if (filterCategory && doc.category !== filterCategory) return false
@@ -192,10 +207,16 @@ export default function DocumentsPage() {
     { key: "actions", label: "", render: (_v, row) => {
       const doc = row as unknown as OCRDocument
       return (
-        <div className="flex gap-1">
-          {doc.ocrStatus === "pending" && <Button size="sm" variant="ghost" onClick={() => simulateOCR(doc.id)}><ScanLine className="h-4 w-4" /></Button>}
-          {doc.ocrStatus === "completed" && <Button size="sm" variant="ghost" onClick={() => setViewDoc(doc)}><Eye className="h-4 w-4" /></Button>}
-          <Button size="sm" variant="ghost" onClick={() => setDocs(prev => prev.filter(d => d.id !== doc.id))}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+        <div className="flex items-center gap-1">
+          {doc.ocrStatus === "pending" && <Button size="sm" variant="ghost" title="Run OCR" onClick={() => simulateOCR(doc.id)}><ScanLine className="h-4 w-4" /></Button>}
+          {doc.ocrStatus === "completed" && <Button size="sm" variant="ghost" title="View OCR Results" onClick={() => setViewDoc(doc)}><Eye className="h-4 w-4" /></Button>}
+          <EditDeleteMenu
+            compact
+            onEdit={() => { setEditingDoc(doc); setFormOpen(true) }}
+            onDelete={() => setDocs(prev => prev.filter(d => d.id !== doc.id))}
+            deleteConfirmTitle={`Delete "${doc.name}"?`}
+            deleteConfirmDescription="This will permanently remove this document and its OCR data."
+          />
         </div>
       )
     }},
@@ -203,7 +224,9 @@ export default function DocumentsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("doc.title")} description="Document management with OCR text extraction" />
+      <PageHeader title={t("doc.title")} description="Document management with OCR text extraction">
+        <Button onClick={() => { setEditingDoc(null); setFormOpen(true) }}><Plus className="mr-2 h-4 w-4" />Add Document</Button>
+      </PageHeader>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card><CardContent className="pt-6"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><FileText className="h-5 w-5 text-blue-600" /></div><div><p className="text-sm text-muted-foreground">Total Documents</p><p className="text-2xl font-bold">{docs.length}</p></div></div></CardContent></Card>

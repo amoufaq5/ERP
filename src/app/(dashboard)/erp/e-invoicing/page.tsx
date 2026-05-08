@@ -48,6 +48,8 @@ import {
   ChevronRight,
   Copy,
   Trash2,
+  Plus,
+  Pencil,
 } from "lucide-react";
 
 // ─── ETA Types ────────────────────────────────────────────────────────────────
@@ -345,6 +347,17 @@ export default function EInvoicingPage() {
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [convertTaxId, setConvertTaxId] = useState("");
   const [selectedErpInvoice, setSelectedErpInvoice] = useState("");
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<ETAInvoice | null>(null);
+  const [formCustomer, setFormCustomer] = useState("");
+  const [formTaxId, setFormTaxId] = useState("");
+  const [formDate, setFormDate] = useState("");
+  const [formDocType, setFormDocType] = useState<ETADocumentType>("I");
+  const [formItems, setFormItems] = useState<ETALineItem[]>([]);
+  const [newItemDesc, setNewItemDesc] = useState("");
+  const [newItemQty, setNewItemQty] = useState("");
+  const [newItemPrice, setNewItemPrice] = useState("");
+  const [newItemExempt, setNewItemExempt] = useState(false);
   const [config, setConfig] = useState<ETAConfig>({
     companyTaxId: "514367892",
     companyName: "PharmaCorp Egypt S.A.E.",
@@ -580,6 +593,112 @@ export default function EInvoicingPage() {
     });
   }, []);
 
+  /** Open create dialog */
+  const openCreateDialog = useCallback(() => {
+    setEditingInvoice(null);
+    setFormCustomer("");
+    setFormTaxId("");
+    setFormDate(new Date().toISOString().split("T")[0]);
+    setFormDocType("I");
+    setFormItems([]);
+    setNewItemDesc("");
+    setNewItemQty("");
+    setNewItemPrice("");
+    setNewItemExempt(false);
+    setShowCreateDialog(true);
+  }, []);
+
+  /** Open edit dialog for a draft invoice */
+  const openEditDialog = useCallback((inv: ETAInvoice) => {
+    setEditingInvoice(inv);
+    setFormCustomer(inv.customerName);
+    setFormTaxId(inv.customerTaxId);
+    setFormDate(inv.date);
+    setFormDocType(inv.documentType);
+    setFormItems([...inv.items]);
+    setNewItemDesc("");
+    setNewItemQty("");
+    setNewItemPrice("");
+    setNewItemExempt(false);
+    setShowCreateDialog(true);
+  }, []);
+
+  /** Add line item to form */
+  const addFormItem = useCallback(() => {
+    if (!newItemDesc || !newItemQty || !newItemPrice) return;
+    const qty = parseInt(newItemQty) || 0;
+    const price = parseFloat(newItemPrice) || 0;
+    const net = qty * price;
+    const vatAmt = newItemExempt ? 0 : Math.round(net * VAT_STANDARD_RATE * 100) / 100;
+    const item: ETALineItem = {
+      description: newItemDesc,
+      itemType: "EGS",
+      itemCode: `EG-PH-${Math.floor(10000 + Math.random() * 90000)}`,
+      quantity: qty,
+      unitType: "EA",
+      unitPrice: price,
+      netTotal: net,
+      vatRate: newItemExempt ? 0 : VAT_STANDARD_RATE,
+      vatAmount: vatAmt,
+      totalAmount: net + vatAmt,
+      isExempt: newItemExempt,
+    };
+    setFormItems((prev) => [...prev, item]);
+    setNewItemDesc("");
+    setNewItemQty("");
+    setNewItemPrice("");
+    setNewItemExempt(false);
+  }, [newItemDesc, newItemQty, newItemPrice, newItemExempt]);
+
+  /** Remove form item */
+  const removeFormItem = useCallback((idx: number) => {
+    setFormItems((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
+
+  /** Save create/edit */
+  const saveInvoice = useCallback(() => {
+    if (!formCustomer || formItems.length === 0) return;
+    const netAmount = formItems.reduce((s, it) => s + it.netTotal, 0);
+    const vatAmount = formItems.reduce((s, it) => s + it.vatAmount, 0);
+    const totalAmount = formItems.reduce((s, it) => s + it.totalAmount, 0);
+
+    if (editingInvoice) {
+      setEtaInvoices((prev) =>
+        prev.map((inv) =>
+          inv.id === editingInvoice.id
+            ? { ...inv, customerName: formCustomer, customerTaxId: formTaxId, date: formDate, documentType: formDocType, items: formItems, netAmount, vatAmount, totalAmount, vatRate: formItems.some((it) => it.isExempt) ? 0 : VAT_STANDARD_RATE }
+            : inv
+        )
+      );
+    } else {
+      const serial = String(etaInvoices.length + 1).padStart(6, "0");
+      const year = formDate.substring(0, 4) || new Date().getFullYear();
+      const newInvoice: ETAInvoice = {
+        id: `eta-new-${Date.now()}`,
+        invoiceNumber: `ERP-${year}-${serial}`,
+        customerName: formCustomer,
+        customerTaxId: formTaxId || "000000000",
+        date: formDate,
+        netAmount,
+        vatRate: formItems.some((it) => it.isExempt) ? 0 : VAT_STANDARD_RATE,
+        vatAmount,
+        totalAmount,
+        etaStatus: "Draft",
+        etaReference: null,
+        etaSubmissionId: null,
+        documentType: formDocType,
+        sourceInvoiceId: null,
+        items: formItems,
+        rejectionReason: null,
+        submittedAt: null,
+        acceptedAt: null,
+      };
+      setEtaInvoices((prev) => [newInvoice, ...prev]);
+    }
+    setShowCreateDialog(false);
+    setEditingInvoice(null);
+  }, [editingInvoice, formCustomer, formTaxId, formDate, formDocType, formItems, etaInvoices.length]);
+
   // ─── Table Columns ─────────────────────────────────────────────────────
 
   const queueColumns: Column<Record<string, unknown>>[] = useMemo(() => [
@@ -668,6 +787,11 @@ export default function EInvoicingPage() {
             <Button size="sm" variant="ghost" onClick={() => setPreviewInvoice(inv)} title="Preview ETA JSON">
               <FileText className="h-4 w-4" />
             </Button>
+            {inv.etaStatus === "Draft" && (
+              <Button size="sm" variant="ghost" onClick={() => openEditDialog(inv)} title="Edit draft">
+                <Settings className="h-4 w-4 text-blue-600" />
+              </Button>
+            )}
             {(inv.etaStatus === "Draft" || inv.etaStatus === "Rejected") && (
               <Button
                 size="sm"
@@ -785,6 +909,10 @@ export default function EInvoicingPage() {
             <Button variant="outline" onClick={() => setShowConvertDialog(true)}>
               <Upload className="h-4 w-4 mr-2" />
               Import from ERP
+            </Button>
+            <Button onClick={openCreateDialog}>
+              <Plus className="h-4 w-4 mr-2" />
+              New E-Invoice
             </Button>
           </div>
         }
@@ -1469,6 +1597,91 @@ export default function EInvoicingPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ CREATE/EDIT E-INVOICE DIALOG ═══ */}
+      <Dialog open={showCreateDialog} onOpenChange={(open) => { if (!open) { setShowCreateDialog(false); setEditingInvoice(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {editingInvoice ? <Pencil className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+              {editingInvoice ? "Edit E-Invoice" : "Create New E-Invoice"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Customer Name</Label>
+                <Input value={formCustomer} onChange={(e) => setFormCustomer(e.target.value)} placeholder="Customer name" />
+              </div>
+              <div className="space-y-2">
+                <Label>Customer Tax ID (9 digits)</Label>
+                <Input value={formTaxId} onChange={(e) => setFormTaxId(e.target.value.replace(/\D/g, "").slice(0, 9))} placeholder="123456789" maxLength={9} />
+              </div>
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Document Type</Label>
+                <Select value={formDocType} onValueChange={(v) => setFormDocType(v as ETADocumentType)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="I">Invoice</SelectItem>
+                    <SelectItem value="C">Credit Note</SelectItem>
+                    <SelectItem value="D">Debit Note</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Line Items</Label>
+              {formItems.length > 0 && (
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b bg-muted/40"><th className="text-left px-3 py-2">Description</th><th className="text-right px-3 py-2">Qty</th><th className="text-right px-3 py-2">Price</th><th className="text-right px-3 py-2">Total</th><th className="px-3 py-2 w-10"></th></tr></thead>
+                    <tbody>
+                      {formItems.map((item, idx) => (
+                        <tr key={idx} className="border-b">
+                          <td className="px-3 py-2">{item.description}{item.isExempt && <Badge className="ml-1 bg-green-100 text-green-700 border-0 text-[10px]">Exempt</Badge>}</td>
+                          <td className="px-3 py-2 text-right">{item.quantity}</td>
+                          <td className="px-3 py-2 text-right">{fmtEGP(item.unitPrice)}</td>
+                          <td className="px-3 py-2 text-right font-medium">{fmtEGP(item.totalAmount)}</td>
+                          <td className="px-3 py-2"><Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500" onClick={() => removeFormItem(idx)}><Trash2 className="h-3 w-3" /></Button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div className="grid grid-cols-5 gap-2 items-end p-3 border rounded-lg bg-muted/30">
+                <div className="col-span-2"><Label className="text-xs">Description</Label><Input value={newItemDesc} onChange={(e) => setNewItemDesc(e.target.value)} placeholder="Item description" className="mt-1" /></div>
+                <div><Label className="text-xs">Qty</Label><Input type="number" value={newItemQty} onChange={(e) => setNewItemQty(e.target.value)} placeholder="0" className="mt-1" /></div>
+                <div><Label className="text-xs">Unit Price</Label><Input type="number" value={newItemPrice} onChange={(e) => setNewItemPrice(e.target.value)} placeholder="0.00" className="mt-1" /></div>
+                <div className="flex flex-col gap-1">
+                  <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={newItemExempt} onChange={(e) => setNewItemExempt(e.target.checked)} className="rounded" /> VAT Exempt</label>
+                  <Button size="sm" onClick={addFormItem} disabled={!newItemDesc || !newItemQty || !newItemPrice}><Plus className="h-3 w-3 mr-1" />Add</Button>
+                </div>
+              </div>
+            </div>
+
+            {formItems.length > 0 && (
+              <div className="text-right text-sm space-y-1">
+                <p>Net: <span className="font-medium">{fmtEGP(formItems.reduce((s, i) => s + i.netTotal, 0))}</span></p>
+                <p>VAT: <span className="font-medium">{fmtEGP(formItems.reduce((s, i) => s + i.vatAmount, 0))}</span></p>
+                <p className="text-base font-bold">Total: {fmtEGP(formItems.reduce((s, i) => s + i.totalAmount, 0))}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setShowCreateDialog(false); setEditingInvoice(null); }}>Cancel</Button>
+              <Button onClick={saveInvoice} disabled={!formCustomer || formItems.length === 0}>
+                {editingInvoice ? "Update Invoice" : "Create Invoice"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -237,6 +237,19 @@ export default function EquipmentPage() {
   const [completeRootCause, setCompleteRootCause] = useState("");
   const [completeAction, setCompleteAction] = useState("");
 
+  // Equipment form
+  const [showEquipForm, setShowEquipForm] = useState(false);
+  const [eqFormName, setEqFormName] = useState("");
+  const [eqFormAssetTag, setEqFormAssetTag] = useState("");
+  const [eqFormSerial, setEqFormSerial] = useState("");
+  const [eqFormModel, setEqFormModel] = useState("");
+  const [eqFormManufacturer, setEqFormManufacturer] = useState("");
+  const [eqFormType, setEqFormType] = useState<EquipmentType>("manufacturing");
+  const [eqFormDept, setEqFormDept] = useState("");
+  const [eqFormCriticality, setEqFormCriticality] = useState<EquipmentCriticality>("minor");
+  const [eqFormLocation, setEqFormLocation] = useState("");
+  const [deleteEquipId, setDeleteEquipId] = useState<string | null>(null);
+
   // Force refresh
   const [tick, setTick] = useState(0);
   const refresh = useCallback(() => setTick((t) => t + 1), []);
