@@ -2,36 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { Building, ChevronDown, ChevronUp, Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
 import { useTranslation, I18nProvider } from "@/lib/i18n/i18n-context";
-
-async function submitLoginForm(username: string, password: string, callbackUrl: string) {
-  const csrfRes = await fetch("/api/auth/csrf", { credentials: "include" });
-  const { csrfToken } = await csrfRes.json();
-
-  const form = document.createElement("form");
-  form.method = "POST";
-  form.action = "/api/auth/callback/credentials";
-  form.style.display = "none";
-
-  const fields: Record<string, string> = {
-    username,
-    password,
-    csrfToken,
-    callbackUrl,
-  };
-
-  for (const [key, value] of Object.entries(fields)) {
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = key;
-    input.value = value;
-    form.appendChild(input);
-  }
-
-  document.body.appendChild(form);
-  form.submit();
-}
 
 const DEMO_CREDENTIALS = [
   { username: "admin", password: "admin123", label: "Admin (Full Access)", role: "ADMIN" },
@@ -85,7 +58,19 @@ function LoginPageInner() {
     setError("");
     setIsLoading(true);
     try {
-      await submitLoginForm(cred.username, cred.password, callbackUrl);
+      const result = await signIn("credentials", {
+        username: cred.username,
+        password: cred.password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError(t("login.invalidCredentials"));
+        setIsLoading(false);
+        return;
+      }
+
+      window.location.href = callbackUrl;
     } catch {
       setError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
@@ -107,7 +92,19 @@ function LoginPageInner() {
     }
 
     try {
-      await submitLoginForm(trimUser, trimPass, callbackUrl);
+      const result = await signIn("credentials", {
+        username: trimUser,
+        password: trimPass,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError(t("login.invalidCredentials"));
+        setIsLoading(false);
+        return;
+      }
+
+      window.location.href = callbackUrl;
     } catch {
       setError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
