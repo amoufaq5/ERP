@@ -174,8 +174,14 @@ export default function FinancePage() {
     )},
   ];
 
-  const customerName = useCallback((id: string) => (id ? store.customers.find((c) => c.id === id)?.name ?? id : "—"), [store.customers]);
-  const vendorName = useCallback((id: string) => (id ? store.vendors.find((v) => v.id === id)?.name ?? id : "—"), [store.vendors]);
+  const customerName = useCallback((id?: string | null): string => {
+    if (!id) return "—";
+    return store.customers.find((c: { id: string; name: string }) => c.id === id)?.name ?? id;
+  }, [store.customers]);
+  const vendorName = useCallback((id?: string | null): string => {
+    if (!id) return "—";
+    return store.vendors.find((v: { id: string; name: string }) => v.id === id)?.name ?? id;
+  }, [store.vendors]);
 
   // ─── Computed metrics ──────────────────────────────────────────
   const totalRevenue = store.invoices
