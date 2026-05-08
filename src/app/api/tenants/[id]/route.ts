@@ -1,14 +1,15 @@
-// @ts-nocheck
+// @ts-nocheck — masterDb.tenant requires Prisma Tenant model (not yet generated)
 import { NextRequest, NextResponse } from "next/server";
 import { masterDb } from "@/lib/tenant/master-db";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const tenant = await masterDb.tenant.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         users: { orderBy: { createdAt: "desc" } },
         _count: { select: { users: true } },
@@ -25,14 +26,15 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await req.json();
     const { name, domain, logo, primaryColor, plan, maxUsers, isActive } = body;
 
     const tenant = await masterDb.tenant.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(name !== undefined && { name }),
         ...(domain !== undefined && { domain: domain || null }),
@@ -51,11 +53,12 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await masterDb.tenant.update({
-      where: { id: params.id },
+      where: { id },
       data: { isActive: false },
     });
     return NextResponse.json({ success: true });

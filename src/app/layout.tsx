@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { OfflineIndicator } from "@/components/shared/offline-indicator";
 import { PwaInstall } from "@/components/shared/pwa-install";
+import { AuthSessionProvider } from "@/lib/auth/session-provider";
 
 export const metadata: Metadata = {
   title: "PharmaCRM Field Force",
@@ -48,9 +49,11 @@ export default function RootLayout({
             document.documentElement.classList.add('dark')}catch{}})()
           `}}
         />
+        <AuthSessionProvider>
         <OfflineIndicator />
         {children}
         <PwaInstall />
+        </AuthSessionProvider>
         <script
           dangerouslySetInnerHTML={{
             __html: `
