@@ -285,15 +285,19 @@ export default function WorkflowsPage() {
   const [tab, setTab] = useState("templates");
   const [templates, setTemplates] = useState<WorkflowTemplate[]>(SEED_TEMPLATES);
   const [instances, setInstances] = useState<WorkflowInstance[]>(SEED_INSTANCES);
+  const [search, setSearch] = useState("");
+  const [instanceSearch, setInstanceSearch] = useState("");
 
-  // Custom builder dialog state
+  // Custom builder dialog state (also used for edit)
   const [builderOpen, setBuilderOpen] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [builderName, setBuilderName] = useState("");
   const [builderDescription, setBuilderDescription] = useState("");
   const [builderSteps, setBuilderSteps] = useState<WorkflowStep[]>([]);
   const [newStepName, setNewStepName] = useState("");
   const [newStepRole, setNewStepRole] = useState("");
   const [newStepAction, setNewStepAction] = useState<WorkflowStep["actionType"]>("process");
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // ── Template actions ───────────────────────────────────────────────────
 
@@ -359,23 +363,35 @@ export default function WorkflowsPage() {
 
   function saveCustomWorkflow() {
     if (!builderName || builderSteps.length === 0) return;
-    const newTemplate: WorkflowTemplate = {
-      id: `wf-custom-${Date.now()}`,
-      name: builderName,
-      description: builderDescription || "Custom workflow",
-      steps: builderSteps,
-      active: false,
-      activeInstances: 0,
-      custom: true,
-    };
-    setTemplates((prev) => [...prev, newTemplate]);
+    if (editingTemplateId) {
+      setTemplates((prev) =>
+        prev.map((t) =>
+          t.id === editingTemplateId
+            ? { ...t, name: builderName, description: builderDescription || t.description, steps: builderSteps }
+            : t
+        )
+      );
+    } else {
+      const newTemplate: WorkflowTemplate = {
+        id: `wf-custom-${Date.now()}`,
+        name: builderName,
+        description: builderDescription || "Custom workflow",
+        steps: builderSteps,
+        active: false,
+        activeInstances: 0,
+        custom: true,
+      };
+      setTemplates((prev) => [...prev, newTemplate]);
+    }
     setBuilderOpen(false);
+    setEditingTemplateId(null);
     setBuilderName("");
     setBuilderDescription("");
     setBuilderSteps([]);
   }
 
   function openBuilder() {
+    setEditingTemplateId(null);
     setBuilderName("");
     setBuilderDescription("");
     setBuilderSteps([]);
@@ -383,6 +399,27 @@ export default function WorkflowsPage() {
     setNewStepRole("");
     setNewStepAction("process");
     setBuilderOpen(true);
+  }
+
+  function editTemplate(tpl: WorkflowTemplate) {
+    setEditingTemplateId(tpl.id);
+    setBuilderName(tpl.name);
+    setBuilderDescription(tpl.description);
+    setBuilderSteps([...tpl.steps]);
+    setNewStepName("");
+    setNewStepRole("");
+    setNewStepAction("process");
+    setBuilderOpen(true);
+  }
+
+  function deleteTemplate(id: string) {
+    setTemplates((prev) => prev.filter((t) => t.id !== id));
+    setInstances((prev) => prev.filter((i) => i.workflowId !== id));
+    setDeleteConfirmId(null);
+  }
+
+  function deleteInstance(id: string) {
+    setInstances((prev) => prev.filter((i) => i.id !== id));
   }
 
   // ── Stats ──────────────────────────────────────────────────────────────
@@ -483,6 +520,9 @@ export default function WorkflowsPage() {
           {row.status !== "Active" && (
             <span className="text-xs text-muted-foreground">--</span>
           )}
+          <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => deleteInstance(row.id)}>
+            <Trash2 className="h-3 w-3" />
+          </Button>
         </div>
       ),
     },
@@ -555,8 +595,12 @@ export default function WorkflowsPage() {
 
         {/* ── Tab 1: Templates ────────────────────────────────────────── */}
         <TabsContent value="templates" className="mt-6">
+          <div className="mb-4 flex items-center gap-2">
+            <Input placeholder="Search templates..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+            <Button onClick={openBuilder}><Plus className="mr-1 h-4 w-4" />New Template</Button>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {templates.map((tpl) => (
+            {templates.filter((t) => !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.description.toLowerCase().includes(search.toLowerCase())).map((tpl) => (
               <Card
                 key={tpl.id}
                 className={`flex flex-col transition-opacity ${
@@ -617,24 +661,32 @@ export default function WorkflowsPage() {
                     </Badge>
                   )}
 
-                  <Button
-                    size="sm"
-                    variant={tpl.active ? "outline" : "default"}
-                    className="mt-auto"
-                    onClick={() => toggleTemplate(tpl.id)}
-                  >
-                    {tpl.active ? (
-                      <>
-                        <Pause className="mr-1 h-3 w-3" />
-                        Deactivate
-                      </>
-                    ) : (
-                      <>
-                        <Play className="mr-1 h-3 w-3" />
-                        Activate
-                      </>
-                    )}
-                  </Button>
+                  <div className="mt-auto flex gap-1">
+                    <Button
+                      size="sm"
+                      variant={tpl.active ? "outline" : "default"}
+                      className="flex-1"
+                      onClick={() => toggleTemplate(tpl.id)}
+                    >
+                      {tpl.active ? (
+                        <>
+                          <Pause className="mr-1 h-3 w-3" />
+                          Deactivate
+                        </>
+                      ) : (
+                        <>
+                          <Play className="mr-1 h-3 w-3" />
+                          Activate
+                        </>
+                      )}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => editTemplate(tpl)} title="Edit">
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setDeleteConfirmId(tpl.id)} title="Delete">
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -643,9 +695,12 @@ export default function WorkflowsPage() {
 
         {/* ── Tab 2: Active Instances ─────────────────────────────────── */}
         <TabsContent value="instances" className="mt-6">
+          <div className="mb-4">
+            <Input placeholder="Search instances..." value={instanceSearch} onChange={(e) => setInstanceSearch(e.target.value)} className="max-w-sm" />
+          </div>
           <DataTable
             columns={instanceColumns as unknown as Column<Record<string, unknown>>[]}
-            data={instances as unknown as Record<string, unknown>[]}
+            data={(instanceSearch ? instances.filter((i) => i.workflowName.toLowerCase().includes(instanceSearch.toLowerCase()) || i.initiatedBy.toLowerCase().includes(instanceSearch.toLowerCase())) : instances) as unknown as Record<string, unknown>[]}
             emptyMessage="No active workflow instances."
           />
         </TabsContent>
@@ -700,7 +755,7 @@ export default function WorkflowsPage() {
       <Dialog open={builderOpen} onOpenChange={setBuilderOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create Custom Workflow</DialogTitle>
+            <DialogTitle>{editingTemplateId ? "Edit Workflow" : "Create Custom Workflow"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
@@ -857,7 +912,25 @@ export default function WorkflowsPage() {
               disabled={!builderName || builderSteps.length === 0}
             >
               <CheckCircle className="mr-1 h-4 w-4" />
-              Save Workflow
+              {editingTemplateId ? "Update Workflow" : "Save Workflow"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Workflow Template</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete this workflow template? This will also remove all associated instances. This action cannot be undone.
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => deleteConfirmId && deleteTemplate(deleteConfirmId)}>
+              <Trash2 className="mr-1 h-4 w-4" />Delete
             </Button>
           </DialogFooter>
         </DialogContent>

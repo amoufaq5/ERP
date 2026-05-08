@@ -36,15 +36,18 @@ import {
 } from "@/components/ui/dialog";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import PageHeader from "@/components/shared/page-header";
-import { useAuditLogger, type AuditEntry as LegacyAuditEntry } from "@/lib/audit-logger";
 import {
+  useAuditLogger,
   AuditAction,
   AuditEntity,
   type AuditEntry,
   type AuditFilters,
   getAuditLog,
   getAuditLogCount,
-} from "@/lib/audit/audit-service";
+} from "@/lib/audit-logger";
+
+// Both legacy and new audit entries now use the same AuditEntry type
+type LegacyAuditEntry = AuditEntry;
 import { downloadCSV, downloadJSON } from "@/lib/download";
 
 // ---------------------------------------------------------------------------

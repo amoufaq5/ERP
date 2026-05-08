@@ -7,11 +7,8 @@ import { UserProvider } from "@/lib/user-context";
 import { ConfigProvider } from "@/lib/config-context";
 import { DataStoreProvider } from "@/lib/data-store";
 import { I18nProvider } from "@/lib/i18n/i18n-context";
-import { NotificationProvider } from "@/lib/notifications";
 import { EnhancedNotificationProvider } from "@/lib/notification-context";
-import { AuditProvider } from "@/lib/audit-trail";
 import { AuditLoggerProvider } from "@/lib/audit-logger";
-import { AuditServiceProvider } from "@/lib/audit/audit-context";
 import { ThemeProvider } from "@/lib/theme/theme-provider";
 import { FavoritesProvider } from "@/lib/favorites";
 import { ApprovalProvider } from "@/lib/approval-workflow";
@@ -76,11 +73,8 @@ export default function DashboardLayout({
             <UserProvider>
               <ConfigProvider>
                 <DataStoreProvider>
-                  <NotificationProvider>
-                    <EnhancedNotificationProvider>
-                    <AuditProvider>
-                      <AuditLoggerProvider>
-                      <AuditServiceProvider>
+                  <EnhancedNotificationProvider>
+                    <AuditLoggerProvider>
                       <ApprovalProvider>
                         <FavoritesProvider>
                           <SearchProvider>
@@ -94,11 +88,8 @@ export default function DashboardLayout({
                           </SearchProvider>
                         </FavoritesProvider>
                       </ApprovalProvider>
-                      </AuditServiceProvider>
-                      </AuditLoggerProvider>
-                    </AuditProvider>
-                    </EnhancedNotificationProvider>
-                  </NotificationProvider>
+                    </AuditLoggerProvider>
+                </EnhancedNotificationProvider>
                 </DataStoreProvider>
               </ConfigProvider>
             </UserProvider>

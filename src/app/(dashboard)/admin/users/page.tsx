@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCurrentUser, ROLE_LABEL, ROLE_ROUTES, type AppUser, type UserRole } from "@/lib/user-context";
-import { useAuditTrail } from "@/lib/audit-trail";
+import { useAuditTrail } from "@/lib/audit-logger";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
 const ROLES: { label: string; value: UserRole }[] = [

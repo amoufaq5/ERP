@@ -338,3 +338,56 @@ export function useNotificationCenter() {
     );
   return ctx;
 }
+
+// ---------------------------------------------------------------------------
+// Backward-compatible aliases for consolidated notification system
+// (originally from notifications.tsx)
+// ---------------------------------------------------------------------------
+
+/** @deprecated Use EnhancedNotificationProvider instead */
+export const NotificationProvider = EnhancedNotificationProvider;
+
+/** Lowercase notification type alias used by the old notifications.tsx */
+export type SimpleNotificationType = "info" | "success" | "warning" | "error";
+
+/**
+ * Backward-compatible hook matching the old notifications.tsx interface.
+ * Maps the old property names (read, timestamp, add, remove, clear, unreadCount)
+ * onto the enhanced notification system.
+ * @deprecated Use useNotificationCenter instead
+ */
+export function useNotifications() {
+  const ctx = useNotificationCenter();
+
+  // Map notifications to the old shape (read instead of isRead, timestamp instead of createdAt)
+  const notifications = ctx.notifications.map((n) => ({
+    id: n.id,
+    type: n.type.toLowerCase() as SimpleNotificationType,
+    title: n.title,
+    message: n.message,
+    timestamp: n.createdAt,
+    read: n.isRead,
+    module: n.module,
+    actionUrl: n.actionUrl,
+  }));
+
+  const unreadCount = ctx.getUnreadCount();
+
+  return {
+    notifications,
+    unreadCount,
+    add: (n: Omit<{ type: SimpleNotificationType; title: string; message: string; module?: string; actionUrl?: string }, never>) => {
+      ctx.addNotification({
+        type: n.type.toUpperCase() as NotificationType,
+        title: n.title,
+        message: n.message,
+        module: n.module || "SYSTEM",
+        actionUrl: n.actionUrl,
+      });
+    },
+    markRead: (id: string) => ctx.markAsRead(id),
+    markAllRead: () => ctx.markAllRead(),
+    remove: (id: string) => ctx.removeNotification(id),
+    clear: () => ctx.clearAll(),
+  };
+}
