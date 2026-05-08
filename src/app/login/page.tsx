@@ -2,9 +2,23 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { Building, ChevronDown, ChevronUp, Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
 import { useTranslation, I18nProvider } from "@/lib/i18n/i18n-context";
+
+async function doLogin(username: string, password: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch("/api/auth/direct-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) return { ok: true };
+    return { ok: false, error: data.error || "Login failed" };
+  } catch {
+    return { ok: false, error: "Network error" };
+  }
+}
 
 const DEMO_CREDENTIALS = [
   { username: "admin", password: "admin123", label: "Admin (Full Access)", role: "ADMIN" },
@@ -58,18 +72,12 @@ function LoginPageInner() {
     setError("");
     setIsLoading(true);
     try {
-      const result = await signIn("credentials", {
-        username: cred.username,
-        password: cred.password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError(t("login.invalidCredentials"));
+      const result = await doLogin(cred.username, cred.password);
+      if (!result.ok) {
+        setError(result.error || t("login.invalidCredentials"));
         setIsLoading(false);
         return;
       }
-
       window.location.href = callbackUrl;
     } catch {
       setError("An unexpected error occurred. Please try again.");
@@ -92,18 +100,12 @@ function LoginPageInner() {
     }
 
     try {
-      const result = await signIn("credentials", {
-        username: trimUser,
-        password: trimPass,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError(t("login.invalidCredentials"));
+      const result = await doLogin(trimUser, trimPass);
+      if (!result.ok) {
+        setError(result.error || t("login.invalidCredentials"));
         setIsLoading(false);
         return;
       }
-
       window.location.href = callbackUrl;
     } catch {
       setError("An unexpected error occurred. Please try again.");
