@@ -32,10 +32,11 @@ import {
 } from "lucide-react";
 import { downloadCSV } from "@/lib/download";
 import { useTranslation } from "@/lib/i18n/i18n-context";
+import PLStatement from "@/components/shared/pl-statement";
 
 const egp = (n: number) => `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-type Tab = "overview" | "invoices" | "payments" | "gl" | "vendors" | "budgets" | "trial" | "ratios" | "cashflow" | "sales-orders" | "banking" | "transactions" | "reconciliation" | "payment-gateway" | "escalated";
+type Tab = "overview" | "invoices" | "payments" | "gl" | "vendors" | "budgets" | "trial" | "ratios" | "cashflow" | "pnl" | "sales-orders" | "banking" | "transactions" | "reconciliation" | "payment-gateway" | "escalated";
 
 // ─── Banking interfaces & sample data ──────────────────────────
 interface BankingTransaction {
@@ -480,6 +481,7 @@ export default function FinancePage() {
     { key: "trial", label: "Trial Balance" },
     { key: "ratios", label: "Financial Ratios" },
     { key: "cashflow", label: "Cash Flow" },
+    { key: "pnl", label: "P&L Statement" },
     { key: "sales-orders", label: `${t("fin.salesOrders")} (${store.salesOrders.length})` },
     { key: "banking", label: "Banking" },
     { key: "payment-gateway", label: "Payment Gateway" },
@@ -1190,6 +1192,10 @@ export default function FinancePage() {
             </div>
           </CardContent></Card>
         </div>
+      )}
+
+      {activeTab === "pnl" && (
+        <PLStatement />
       )}
 
       {activeTab === "sales-orders" && (() => {
