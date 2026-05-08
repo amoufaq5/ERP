@@ -1,361 +1,475 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
-  Building2, Plus, Users, Globe, Shield, CheckCircle, XCircle,
-  Pencil, Trash2, CreditCard, Calendar, BarChart3, Star,
+  Building2,
+  Plus,
+  Users,
+  Globe,
+  Shield,
+  CheckCircle,
+  XCircle,
+  Pencil,
+  Trash2,
+  CreditCard,
+  BarChart3,
+  Star,
+  Crown,
+  Palette,
+  ChevronDown,
+  ChevronRight,
+  UserPlus,
+  UserMinus,
 } from "lucide-react";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
-import {
-  EntityFormModal,
-  type EntityField,
-  type EntityFormData,
-} from "@/components/shared/entity-form-modal";
 import { FilterBar } from "@/components/shared/filter-bar";
 import StatusBadge from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
-import { useTranslation } from "@/lib/i18n/i18n-context";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
+import { tenantStore } from "@/lib/tenant/tenant-store";
+import type {
+  Tenant,
+  TenantUser,
+  TenantPlanName,
+  CreateTenantInput,
+} from "@/lib/tenant/tenant-types";
+import { TENANT_PLANS } from "@/lib/tenant/tenant-types";
 
-// ─── Types ──────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────
 
-type TenantStatus = "Active" | "Suspended" | "Trial" | "Cancelled";
-type TenantPlan = "Free" | "Starter" | "Professional" | "Enterprise";
-
-interface Tenant {
-  id: string;
-  name: string;
-  domain: string;
-  plan: TenantPlan;
-  status: TenantStatus;
-  createdAt: string;
-  usersCount: number;
-  maxUsers: number;
-  storageUsedMB: number;
-  storageMaxMB: number;
-  apiCallsMonth: number;
-  apiCallsMax: number;
-  contactEmail: string;
-  contactName: string;
-  features: Record<string, boolean>;
-  subscriptionEnd: string;
-  monthlyRevenue: number;
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
-// ─── Plan Features ──────────────────────────────────────────────────
-
-const PLAN_FEATURES: Record<TenantPlan, { maxUsers: number; storageMB: number; apiCalls: number; price: number; features: string[] }> = {
-  Free: {
-    maxUsers: 3,
-    storageMB: 500,
-    apiCalls: 1000,
-    price: 0,
-    features: ["Basic CRM", "5 Products", "Email Support"],
-  },
-  Starter: {
-    maxUsers: 10,
-    storageMB: 5000,
-    apiCalls: 10000,
-    price: 49,
-    features: ["Full CRM", "Unlimited Products", "Invoicing", "Basic Reports", "Email Support"],
-  },
-  Professional: {
-    maxUsers: 50,
-    storageMB: 25000,
-    apiCalls: 50000,
-    price: 149,
-    features: ["Full CRM", "Unlimited Products", "Invoicing", "Advanced Reports", "HR Module", "Inventory", "API Access", "Priority Support"],
-  },
-  Enterprise: {
-    maxUsers: 500,
-    storageMB: 100000,
-    apiCalls: 500000,
-    price: 499,
-    features: ["All Modules", "Unlimited Products", "Custom Integrations", "White-label", "SLA 99.9%", "Dedicated Account Manager", "SSO/SAML", "Audit Logs"],
-  },
+const PLAN_BADGE_COLORS: Record<TenantPlanName, string> = {
+  STARTER: "bg-blue-100 text-blue-800",
+  PROFESSIONAL: "bg-purple-100 text-purple-800",
+  ENTERPRISE: "bg-amber-100 text-amber-800",
 };
 
-// ─── Seed Data ──────────────────────────────────────────────────────
+// ─── Expanded Row with Users ────────────────────────────────────────
 
-const SEED_TENANTS: Tenant[] = [
-  {
-    id: "tn-001",
-    name: "NovaCure Pharmaceuticals",
-    domain: "novacure.pharma-erp.com",
-    plan: "Enterprise",
-    status: "Active",
-    createdAt: "2024-03-15T10:00:00Z",
-    usersCount: 87,
-    maxUsers: 500,
-    storageUsedMB: 42300,
-    storageMaxMB: 100000,
-    apiCallsMonth: 128450,
-    apiCallsMax: 500000,
-    contactEmail: "admin@novacure-pharma.com",
-    contactName: "Dr. Sarah El-Masry",
-    features: { crm: true, hr: true, inventory: true, manufacturing: true, analytics: true, api: true, sso: true, audit: true },
-    subscriptionEnd: "2027-03-14T23:59:59Z",
-    monthlyRevenue: 499,
-  },
-  {
-    id: "tn-002",
-    name: "MediGen Solutions",
-    domain: "medigen.pharma-erp.com",
-    plan: "Professional",
-    status: "Active",
-    createdAt: "2024-08-22T14:30:00Z",
-    usersCount: 23,
-    maxUsers: 50,
-    storageUsedMB: 8900,
-    storageMaxMB: 25000,
-    apiCallsMonth: 15200,
-    apiCallsMax: 50000,
-    contactEmail: "ops@medigen.com",
-    contactName: "Ahmed Khalil",
-    features: { crm: true, hr: true, inventory: true, manufacturing: false, analytics: true, api: true, sso: false, audit: false },
-    subscriptionEnd: "2026-08-21T23:59:59Z",
-    monthlyRevenue: 149,
-  },
-  {
-    id: "tn-003",
-    name: "BioVita Labs",
-    domain: "biovita.pharma-erp.com",
-    plan: "Starter",
-    status: "Trial",
-    createdAt: "2026-04-01T09:00:00Z",
-    usersCount: 5,
-    maxUsers: 10,
-    storageUsedMB: 320,
-    storageMaxMB: 5000,
-    apiCallsMonth: 890,
-    apiCallsMax: 10000,
-    contactEmail: "info@biovitalabs.com",
-    contactName: "Layla Hassan",
-    features: { crm: true, hr: false, inventory: true, manufacturing: false, analytics: false, api: false, sso: false, audit: false },
-    subscriptionEnd: "2026-05-01T23:59:59Z",
-    monthlyRevenue: 49,
-  },
-  {
-    id: "tn-004",
-    name: "PharmaLink International",
-    domain: "pharmalink.pharma-erp.com",
-    plan: "Professional",
-    status: "Suspended",
-    createdAt: "2025-01-10T11:15:00Z",
-    usersCount: 31,
-    maxUsers: 50,
-    storageUsedMB: 12400,
-    storageMaxMB: 25000,
-    apiCallsMonth: 0,
-    apiCallsMax: 50000,
-    contactEmail: "billing@pharmalink-intl.com",
-    contactName: "Karim Mansour",
-    features: { crm: true, hr: true, inventory: true, manufacturing: false, analytics: true, api: true, sso: false, audit: false },
-    subscriptionEnd: "2026-01-09T23:59:59Z",
-    monthlyRevenue: 149,
-  },
-];
+interface TenantDetailRowProps {
+  tenant: Tenant;
+  onRemoveUser: (tenantId: string, userId: string) => void;
+  onAddUser: (tenantId: string) => void;
+}
 
-// ─── Component ──────────────────────────────────────────────────────
+function TenantDetailRow({ tenant, onRemoveUser, onAddUser }: TenantDetailRowProps) {
+  const users = tenantStore.getTenantUsers(tenant.id);
+  const plan = TENANT_PLANS[tenant.plan];
+  const userPct = plan.maxUsers === -1 ? 10 : Math.min(100, (users.length / tenant.maxUsers) * 100);
+  const storagePct = 35; // demo placeholder
 
-export default function TenantsPage() {
-  const { t } = useTranslation();
-  const [tenants, setTenants] = useState<Tenant[]>(SEED_TENANTS);
+  return (
+    <div className="bg-muted/30 border-t px-6 py-4 space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Usage Bars */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" /> Usage
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-muted-foreground">Users</span>
+                <span className="font-medium">
+                  {users.length} / {plan.maxUsers === -1 ? "Unlimited" : tenant.maxUsers}
+                </span>
+              </div>
+              <Progress value={userPct} className="h-2" />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-muted-foreground">Storage</span>
+                <span className="font-medium">
+                  {(storagePct / 100 * plan.maxStorageGB).toFixed(1)} GB / {plan.maxStorageGB} GB
+                </span>
+              </div>
+              <Progress value={storagePct} className="h-2" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Features */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Shield className="h-4 w-4" /> Features Enabled
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-1.5">
+              {plan.features.map((feature) => (
+                <div key={feature} className="flex items-center gap-1.5 text-xs">
+                  <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                  <span>{feature}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Users List */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Users className="h-4 w-4" /> Users ({users.length})
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => onAddUser(tenant.id)}
+              >
+                <UserPlus className="h-3.5 w-3.5 mr-1" /> Add
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {users.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No users yet</p>
+            ) : (
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {users.map((u) => (
+                  <div
+                    key={u.id}
+                    className="flex items-center justify-between text-xs"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{u.name}</div>
+                      <div className="text-muted-foreground truncate">
+                        {u.email}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant="outline" className="text-[10px] px-1.5">
+                        {u.role}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => onRemoveUser(tenant.id, u.id)}
+                      >
+                        <UserMinus className="h-3 w-3 text-red-400" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ─── Page Component ─────────────────────────────────────────────────
+
+export default function TenantManagementPage() {
+  const [tenants, setTenants] = useState<Tenant[]>(() => tenantStore.getTenants());
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [editTenant, setEditTenant] = useState<Tenant | null>(null);
   const [detailTenant, setDetailTenant] = useState<Tenant | null>(null);
-  const [showPlanComparison, setShowPlanComparison] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  // Add-user dialog state
+  const [addUserTenantId, setAddUserTenantId] = useState<string | null>(null);
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserRole, setNewUserRole] = useState("USER");
+
+  // Create form state
+  const [createName, setCreateName] = useState("");
+  const [createSlug, setCreateSlug] = useState("");
+  const [createPlan, setCreatePlan] = useState<TenantPlanName>("STARTER");
+  const [createAdminEmail, setCreateAdminEmail] = useState("");
+  const [createAdminName, setCreateAdminName] = useState("");
+  const [createAdminPassword, setCreateAdminPassword] = useState("");
+
+  // Edit form state
+  const [editName, setEditName] = useState("");
+  const [editDomain, setEditDomain] = useState("");
+  const [editLogo, setEditLogo] = useState("");
+  const [editColor, setEditColor] = useState("#6366f1");
+  const [editPlan, setEditPlan] = useState<TenantPlanName>("STARTER");
+  const [editMaxUsers, setEditMaxUsers] = useState(10);
+  const [editIsActive, setEditIsActive] = useState(true);
+
+  // Refresh tenants from store
+  const refreshTenants = useCallback(() => {
+    setTenants(tenantStore.getTenants());
+  }, []);
 
   // ─── Stats ──────────────────────────────────────────────────────
 
-  const activeTenants = tenants.filter((tn) => tn.status === "Active").length;
-  const totalUsers = tenants.reduce((sum, tn) => sum + tn.usersCount, 0);
-  const monthlyRevenue = tenants.filter((tn) => tn.status === "Active" || tn.status === "Trial").reduce((sum, tn) => sum + tn.monthlyRevenue, 0);
+  const activeTenants = tenants.filter((t) => t.isActive).length;
+  const totalUsers = tenants.reduce(
+    (sum, t) => sum + tenantStore.getTenantUserCount(t.id),
+    0
+  );
+  const plansBreakdown = useMemo(() => {
+    const counts: Record<TenantPlanName, number> = { STARTER: 0, PROFESSIONAL: 0, ENTERPRISE: 0 };
+    tenants.forEach((t) => { counts[t.plan]++; });
+    return counts;
+  }, [tenants]);
 
   // ─── Filtered list ────────────────────────────────────────────────
 
-  const filtered = useMemo(() =>
-    tenants.filter((tn) =>
-      !search ||
-      tn.name.toLowerCase().includes(search.toLowerCase()) ||
-      tn.domain.toLowerCase().includes(search.toLowerCase()) ||
-      tn.contactEmail.toLowerCase().includes(search.toLowerCase())
-    ),
+  const filtered = useMemo(
+    () =>
+      tenants.filter(
+        (t) =>
+          !search ||
+          t.name.toLowerCase().includes(search.toLowerCase()) ||
+          t.slug.toLowerCase().includes(search.toLowerCase()) ||
+          (t.domain ?? "").toLowerCase().includes(search.toLowerCase())
+      ),
     [tenants, search]
   );
 
-  // ─── Form Fields ──────────────────────────────────────────────────
-
-  const createFields: EntityField[] = [
-    { name: "name", label: "Company Name", type: "text", required: true, placeholder: "Acme Pharmaceuticals" },
-    { name: "domain", label: "Domain", type: "text", required: true, placeholder: "acme.pharma-erp.com" },
-    { name: "plan", label: "Plan", type: "select", required: true, defaultValue: "Starter", options: [
-      { label: "Free", value: "Free" },
-      { label: "Starter", value: "Starter" },
-      { label: "Professional", value: "Professional" },
-      { label: "Enterprise", value: "Enterprise" },
-    ]},
-    { name: "status", label: "Status", type: "select", defaultValue: "Trial", options: [
-      { label: "Active", value: "Active" },
-      { label: "Trial", value: "Trial" },
-      { label: "Suspended", value: "Suspended" },
-      { label: "Cancelled", value: "Cancelled" },
-    ]},
-    { name: "contactName", label: "Contact Name", type: "text", required: true, placeholder: "John Smith" },
-    { name: "contactEmail", label: "Contact Email", type: "email", required: true, placeholder: "admin@company.com" },
-    { name: "maxUsers", label: "Max Users", type: "number", defaultValue: 10, min: 1, max: 500 },
-  ];
-
-  const editFields: EntityField[] = [
-    { name: "name", label: "Company Name", type: "text", required: true },
-    { name: "domain", label: "Domain", type: "text", required: true },
-    { name: "plan", label: "Plan", type: "select", required: true, options: [
-      { label: "Free", value: "Free" },
-      { label: "Starter", value: "Starter" },
-      { label: "Professional", value: "Professional" },
-      { label: "Enterprise", value: "Enterprise" },
-    ]},
-    { name: "status", label: "Status", type: "select", options: [
-      { label: "Active", value: "Active" },
-      { label: "Trial", value: "Trial" },
-      { label: "Suspended", value: "Suspended" },
-      { label: "Cancelled", value: "Cancelled" },
-    ]},
-    { name: "contactName", label: "Contact Name", type: "text", required: true },
-    { name: "contactEmail", label: "Contact Email", type: "email", required: true },
-    { name: "maxUsers", label: "Max Users", type: "number", min: 1, max: 500 },
-  ];
-
   // ─── Handlers ─────────────────────────────────────────────────────
 
-  function handleCreate(data: EntityFormData) {
-    const plan = (data.plan as TenantPlan) || "Starter";
-    const planInfo = PLAN_FEATURES[plan];
-    const newTenant: Tenant = {
-      id: `tn-${Date.now().toString(36)}`,
-      name: data.name as string,
-      domain: data.domain as string,
-      plan,
-      status: (data.status as TenantStatus) || "Trial",
-      createdAt: new Date().toISOString(),
-      usersCount: 1,
-      maxUsers: (data.maxUsers as number) || planInfo.maxUsers,
-      storageUsedMB: 0,
-      storageMaxMB: planInfo.storageMB,
-      apiCallsMonth: 0,
-      apiCallsMax: planInfo.apiCalls,
-      contactEmail: data.contactEmail as string,
-      contactName: data.contactName as string,
-      features: { crm: true, hr: plan !== "Free", inventory: plan !== "Free", manufacturing: plan === "Enterprise", analytics: plan === "Professional" || plan === "Enterprise", api: plan === "Professional" || plan === "Enterprise", sso: plan === "Enterprise", audit: plan === "Enterprise" },
-      subscriptionEnd: new Date(Date.now() + 365 * 86400000).toISOString(),
-      monthlyRevenue: planInfo.price,
-    };
-    setTenants([...tenants, newTenant]);
-    setShowCreate(false);
+  function handleCreate() {
+    if (!createName || !createSlug || !createAdminEmail) return;
+
+    try {
+      const input: CreateTenantInput = {
+        name: createName,
+        slug: createSlug,
+        plan: createPlan,
+      };
+      const tenant = tenantStore.createTenant(input);
+
+      // Add admin user
+      tenantStore.addTenantUser(tenant.id, {
+        email: createAdminEmail,
+        name: createAdminName || createName + " Admin",
+        role: "ADMIN",
+      });
+
+      refreshTenants();
+      resetCreateForm();
+      setShowCreate(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to create tenant");
+    }
   }
 
-  function handleUpdate(data: EntityFormData) {
+  function resetCreateForm() {
+    setCreateName("");
+    setCreateSlug("");
+    setCreatePlan("STARTER");
+    setCreateAdminEmail("");
+    setCreateAdminName("");
+    setCreateAdminPassword("");
+  }
+
+  function openEditDialog(t: Tenant) {
+    setEditTenant(t);
+    setEditName(t.name);
+    setEditDomain(t.domain ?? "");
+    setEditLogo(t.logo ?? "");
+    setEditColor(t.primaryColor ?? "#6366f1");
+    setEditPlan(t.plan);
+    setEditMaxUsers(t.maxUsers);
+    setEditIsActive(t.isActive);
+  }
+
+  function handleUpdate() {
     if (!editTenant) return;
-    const plan = (data.plan as TenantPlan) || editTenant.plan;
-    const planInfo = PLAN_FEATURES[plan];
-    setTenants(tenants.map((tn) =>
-      tn.id === editTenant.id
-        ? {
-            ...tn,
-            name: (data.name as string) || tn.name,
-            domain: (data.domain as string) || tn.domain,
-            plan,
-            status: (data.status as TenantStatus) || tn.status,
-            contactName: (data.contactName as string) || tn.contactName,
-            contactEmail: (data.contactEmail as string) || tn.contactEmail,
-            maxUsers: (data.maxUsers as number) || tn.maxUsers,
-            storageMaxMB: planInfo.storageMB,
-            apiCallsMax: planInfo.apiCalls,
-            monthlyRevenue: planInfo.price,
-          }
-        : tn
-    ));
-    setEditTenant(null);
+    try {
+      tenantStore.updateTenant(editTenant.id, {
+        name: editName || undefined,
+        domain: editDomain || undefined,
+        logo: editLogo || undefined,
+        primaryColor: editColor || undefined,
+        plan: editPlan,
+        maxUsers: editMaxUsers,
+        isActive: editIsActive,
+      });
+      refreshTenants();
+      setEditTenant(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to update tenant");
+    }
   }
 
-  function handleDelete(id: string) {
-    setTenants(tenants.map((tn) =>
-      tn.id === id ? { ...tn, status: "Cancelled" as TenantStatus } : tn
-    ));
+  function handleDeactivate(id: string) {
+    tenantStore.deactivateTenant(id);
+    refreshTenants();
     setDeleteConfirm(null);
+  }
+
+  function handleAddUser() {
+    if (!addUserTenantId || !newUserEmail || !newUserName) return;
+    try {
+      tenantStore.addTenantUser(addUserTenantId, {
+        email: newUserEmail,
+        name: newUserName,
+        role: newUserRole as "ADMIN" | "MANAGER" | "USER" | "VIEWER",
+      });
+      refreshTenants();
+      setAddUserTenantId(null);
+      setNewUserName("");
+      setNewUserEmail("");
+      setNewUserRole("USER");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to add user");
+    }
+  }
+
+  function handleRemoveUser(tenantId: string, userId: string) {
+    try {
+      tenantStore.removeTenantUser(tenantId, userId);
+      refreshTenants();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to remove user");
+    }
   }
 
   // ─── Table Columns ────────────────────────────────────────────────
 
   const columns: Column<Tenant>[] = [
     {
-      key: "name",
-      label: "Company",
-      sortable: true,
+      key: "expand",
+      label: "",
+      className: "w-8",
       render: (_val: unknown, row: Tenant) => (
-        <button className="text-blue-600 hover:underline font-medium text-left" onClick={() => setDetailTenant(row)}>
-          {row.name}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpandedId(expandedId === row.id ? null : row.id);
+          }}
+          className="p-1 hover:bg-accent rounded"
+        >
+          {expandedId === row.id ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
         </button>
       ),
     },
     {
-      key: "domain",
-      label: "Domain",
+      key: "name",
+      label: "Tenant",
+      sortable: true,
       render: (_val: unknown, row: Tenant) => (
-        <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{row.domain}</code>
+        <div className="flex items-center gap-2">
+          <div
+            className="h-7 w-7 rounded-md flex items-center justify-center text-xs font-bold text-white shrink-0"
+            style={{ backgroundColor: row.primaryColor ?? "#6366f1" }}
+          >
+            {row.name.charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <div className="font-medium truncate">{row.name}</div>
+            <div className="text-xs text-muted-foreground truncate">{row.slug}</div>
+          </div>
+        </div>
       ),
     },
     {
       key: "plan",
       label: "Plan",
       sortable: true,
+      render: (_val: unknown, row: Tenant) => (
+        <Badge className={cn(PLAN_BADGE_COLORS[row.plan], "gap-1")}>
+          {row.plan === "ENTERPRISE" && <Crown className="h-3 w-3" />}
+          {TENANT_PLANS[row.plan].label}
+        </Badge>
+      ),
+    },
+    {
+      key: "users",
+      label: "Users",
+      sortable: false,
       render: (_val: unknown, row: Tenant) => {
-        const colors: Record<TenantPlan, string> = {
-          Free: "bg-gray-100 text-gray-800",
-          Starter: "bg-blue-100 text-blue-800",
-          Professional: "bg-purple-100 text-purple-800",
-          Enterprise: "bg-amber-100 text-amber-800",
-        };
-        return <Badge className={colors[row.plan]}>{row.plan}</Badge>;
+        const count = tenantStore.getTenantUserCount(row.id);
+        const max = row.maxUsers;
+        return (
+          <span>
+            {count} / {TENANT_PLANS[row.plan].maxUsers === -1 ? "∞" : max}
+          </span>
+        );
       },
     },
     {
-      key: "status",
-      label: t("common.status"),
+      key: "isActive",
+      label: "Status",
       sortable: true,
-      render: (_val: unknown, row: Tenant) => <StatusBadge status={row.status} />,
-    },
-    {
-      key: "usersCount",
-      label: "Users",
-      sortable: true,
-      render: (_val: unknown, row: Tenant) => `${row.usersCount} / ${row.maxUsers}`,
+      render: (_val: unknown, row: Tenant) => (
+        <StatusBadge status={row.isActive ? "Active" : "Inactive"} />
+      ),
     },
     {
       key: "createdAt",
       label: "Created",
       sortable: true,
-      render: (_val: unknown, row: Tenant) => new Date(row.createdAt).toLocaleDateString(),
+      render: (_val: unknown, row: Tenant) =>
+        new Date(row.createdAt).toLocaleDateString(),
     },
     {
       key: "actions",
-      label: t("common.actions"),
+      label: "Actions",
       render: (_val: unknown, row: Tenant) => (
         <div className="flex gap-1">
-          <Button variant="ghost" size="sm" onClick={() => setEditTenant(row)} title="Edit">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              openEditDialog(row);
+            }}
+            title="Edit"
+          >
             <Pencil className="h-4 w-4" />
           </Button>
-          {row.status !== "Cancelled" && (
-            <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm(row.id)} title="Cancel Tenant">
+          {row.isActive && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteConfirm(row.id);
+              }}
+              title="Deactivate"
+            >
               <Trash2 className="h-4 w-4 text-red-500" />
             </Button>
           )}
@@ -368,27 +482,44 @@ export default function TenantsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Tenant Management"
-        description="Manage companies, plans, and access across the multi-tenant platform"
-        actions={
-          <Button variant="outline" onClick={() => setShowPlanComparison(true)}>
-            <Star className="h-4 w-4 mr-2" /> Compare Plans
-          </Button>
-        }
+        description="Manage organizations, plans, and user access across the multi-tenant platform"
+        icon={<Building2 className="h-6 w-6" />}
       />
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatsCard icon={Building2} title="Total Tenants" value={tenants.length} iconColor="bg-blue-100 text-blue-600" />
-        <StatsCard icon={CheckCircle} title="Active Tenants" value={activeTenants} iconColor="bg-green-100 text-green-600" />
-        <StatsCard icon={Users} title="Total Users" value={totalUsers} iconColor="bg-purple-100 text-purple-600" />
-        <StatsCard icon={CreditCard} title="Monthly Revenue" value={`$${monthlyRevenue.toLocaleString()}`} iconColor="bg-amber-100 text-amber-600" />
+      {/* Stats Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard
+          icon={Building2}
+          title="Total Tenants"
+          value={tenants.length}
+          iconColor="bg-blue-100 text-blue-600"
+        />
+        <StatsCard
+          icon={CheckCircle}
+          title="Active"
+          value={activeTenants}
+          subtitle={`${tenants.length - activeTenants} inactive`}
+          iconColor="bg-green-100 text-green-600"
+        />
+        <StatsCard
+          icon={Users}
+          title="Users Across Tenants"
+          value={totalUsers}
+          iconColor="bg-purple-100 text-purple-600"
+        />
+        <StatsCard
+          icon={CreditCard}
+          title="Plans Breakdown"
+          value={`${plansBreakdown.ENTERPRISE}E / ${plansBreakdown.PROFESSIONAL}P / ${plansBreakdown.STARTER}S`}
+          iconColor="bg-amber-100 text-amber-600"
+        />
       </div>
 
       {/* Filter + Add */}
       <FilterBar
         searchValue={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Search tenants by name, domain, or email..."
+        searchPlaceholder="Search tenants by name, slug, or domain..."
         rightSlot={
           <Button onClick={() => setShowCreate(true)} className="gap-2">
             <Plus className="h-4 w-4" /> New Tenant
@@ -396,245 +527,363 @@ export default function TenantsPage() {
         }
       />
 
-      {/* Tenants Table */}
-      <DataTable columns={columns} data={filtered} />
+      {/* Tenant Table */}
+      <div>
+        <DataTable columns={columns} data={filtered} pagination />
+        {/* Expanded detail row */}
+        {expandedId && (
+          <TenantDetailRow
+            tenant={tenantStore.getTenantById(expandedId)!}
+            onRemoveUser={handleRemoveUser}
+            onAddUser={(tenantId) => setAddUserTenantId(tenantId)}
+          />
+        )}
+      </div>
 
-      {/* Create Modal */}
-      <EntityFormModal
+      {/* ────────── Create Tenant Dialog ────────── */}
+      <Dialog
         open={showCreate}
-        onOpenChange={setShowCreate}
-        title="Create New Tenant"
-        description="Provision a new company with isolated data and configuration"
-        fields={createFields}
-        onSubmit={handleCreate}
-        submitLabel="Create Tenant"
-        size="lg"
-      />
-
-      {/* Edit Modal */}
-      {editTenant && (
-        <EntityFormModal
-          open={!!editTenant}
-          onOpenChange={(open) => { if (!open) setEditTenant(null); }}
-          title={`Edit ${editTenant.name}`}
-          fields={editFields}
-          initialData={{
-            name: editTenant.name,
-            domain: editTenant.domain,
-            plan: editTenant.plan,
-            status: editTenant.status,
-            contactName: editTenant.contactName,
-            contactEmail: editTenant.contactEmail,
-            maxUsers: editTenant.maxUsers,
-          }}
-          onSubmit={handleUpdate}
-          submitLabel="Update Tenant"
-        />
-      )}
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}>
-        <DialogContent>
+        onOpenChange={(open) => {
+          if (!open) resetCreateForm();
+          setShowCreate(open);
+        }}
+      >
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Cancel Tenant</DialogTitle>
+            <DialogTitle>Create New Tenant</DialogTitle>
             <DialogDescription>
-              Are you sure you want to cancel this tenant? Their access will be revoked and data will be retained for 90 days.
+              Provision a new organization with isolated data and configuration
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Keep Active</Button>
-            <Button variant="destructive" onClick={() => deleteConfirm && handleDelete(deleteConfirm)}>
-              Cancel Tenant
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
-      {/* Detail Dialog */}
-      {detailTenant && (
-        <Dialog open={!!detailTenant} onOpenChange={(open) => { if (!open) setDetailTenant(null); }}>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                {detailTenant.name}
-              </DialogTitle>
-              <DialogDescription>Tenant details, usage statistics, and subscription info</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-5">
-              {/* Basic Info */}
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-muted-foreground">Domain:</span>{" "}<code className="bg-muted px-1 rounded text-xs">{detailTenant.domain}</code></div>
-                <div><span className="text-muted-foreground">Contact:</span>{" "}<strong>{detailTenant.contactName}</strong></div>
-                <div><span className="text-muted-foreground">Email:</span>{" "}<span>{detailTenant.contactEmail}</span></div>
-                <div><span className="text-muted-foreground">Created:</span>{" "}<span>{new Date(detailTenant.createdAt).toLocaleDateString()}</span></div>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Plan:</span>
-                  <Badge className="bg-blue-100 text-blue-800">{detailTenant.plan}</Badge>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="create-name">Organization Name *</Label>
+              <Input
+                id="create-name"
+                placeholder="PharmaCorp Egypt"
+                value={createName}
+                onChange={(e) => {
+                  setCreateName(e.target.value);
+                  setCreateSlug(slugify(e.target.value));
+                }}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-slug">Slug *</Label>
+              <Input
+                id="create-slug"
+                placeholder="pharmacorp-egypt"
+                value={createSlug}
+                onChange={(e) => setCreateSlug(slugify(e.target.value))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Used in URLs: {createSlug || "slug"}.pharma-erp.com
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Plan</Label>
+              <Select
+                value={createPlan}
+                onValueChange={(v) => setCreatePlan(v as TenantPlanName)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(TENANT_PLANS) as TenantPlanName[]).map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {TENANT_PLANS[p].label} &mdash;{" "}
+                      {TENANT_PLANS[p].price === 0
+                        ? "Free"
+                        : `$${TENANT_PLANS[p].price}/mo`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="border-t pt-4 space-y-3">
+              <h4 className="text-sm font-medium">Admin User</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="create-admin-name">Name</Label>
+                  <Input
+                    id="create-admin-name"
+                    placeholder="Admin Name"
+                    value={createAdminName}
+                    onChange={(e) => setCreateAdminName(e.target.value)}
+                  />
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Status:</span>
-                  <StatusBadge status={detailTenant.status} />
+                <div className="space-y-2">
+                  <Label htmlFor="create-admin-email">Email *</Label>
+                  <Input
+                    id="create-admin-email"
+                    type="email"
+                    placeholder="admin@company.com"
+                    value={createAdminEmail}
+                    onChange={(e) => setCreateAdminEmail(e.target.value)}
+                  />
                 </div>
               </div>
-
-              {/* Usage Stats */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4" /> Usage Statistics
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-muted-foreground">Users</span>
-                      <span className="font-medium">{detailTenant.usersCount} / {detailTenant.maxUsers}</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(100, (detailTenant.usersCount / detailTenant.maxUsers) * 100)}%` }} />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-muted-foreground">Storage</span>
-                      <span className="font-medium">{(detailTenant.storageUsedMB / 1000).toFixed(1)} GB / {(detailTenant.storageMaxMB / 1000).toFixed(0)} GB</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-green-500 rounded-full" style={{ width: `${Math.min(100, (detailTenant.storageUsedMB / detailTenant.storageMaxMB) * 100)}%` }} />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-muted-foreground">API Calls (this month)</span>
-                      <span className="font-medium">{(detailTenant.apiCallsMonth ?? 0).toLocaleString()} / {(detailTenant.apiCallsMax ?? 0).toLocaleString()}</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-purple-500 rounded-full" style={{ width: `${Math.min(100, (detailTenant.apiCallsMonth / detailTenant.apiCallsMax) * 100)}%` }} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Feature Flags */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Shield className="h-4 w-4" /> Feature Flags
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(detailTenant.features).map(([feature, enabled]) => (
-                      <div key={feature} className="flex items-center gap-2 text-sm">
-                        {enabled ? (
-                          <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-gray-300 shrink-0" />
-                        )}
-                        <span className={enabled ? "font-medium" : "text-muted-foreground"}>
-                          {feature.toUpperCase()}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Subscription Info */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <CreditCard className="h-4 w-4" /> Subscription
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div><span className="text-muted-foreground">Plan:</span>{" "}<strong>{detailTenant.plan}</strong></div>
-                    <div><span className="text-muted-foreground">Monthly:</span>{" "}<strong>${detailTenant.monthlyRevenue}/mo</strong></div>
-                    <div>
-                      <span className="text-muted-foreground">Renewal:</span>{" "}
-                      <span>{new Date(detailTenant.subscriptionEnd).toLocaleDateString()}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Days Left:</span>{" "}
-                      <strong>
-                        {Math.max(0, Math.ceil((new Date(detailTenant.subscriptionEnd).getTime() - Date.now()) / 86400000))}
-                      </strong>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="space-y-2">
+                <Label htmlFor="create-admin-password">Password *</Label>
+                <Input
+                  id="create-admin-password"
+                  type="password"
+                  placeholder="Minimum 8 characters"
+                  value={createAdminPassword}
+                  onChange={(e) => setCreateAdminPassword(e.target.value)}
+                />
+              </div>
             </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Plan Comparison Dialog */}
-      <Dialog open={showPlanComparison} onOpenChange={setShowPlanComparison}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Plan Comparison</DialogTitle>
-            <DialogDescription>Compare features across all available plans</DialogDescription>
-          </DialogHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-3 font-medium">Feature</th>
-                  {(Object.keys(PLAN_FEATURES) as TenantPlan[]).map((plan) => (
-                    <th key={plan} className="text-center p-3 font-medium">{plan}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b bg-muted/30">
-                  <td className="p-3 font-medium">Monthly Price</td>
-                  {(Object.keys(PLAN_FEATURES) as TenantPlan[]).map((plan) => (
-                    <td key={plan} className="p-3 text-center font-bold">
-                      {PLAN_FEATURES[plan].price === 0 ? "Free" : `$${PLAN_FEATURES[plan].price}`}
-                    </td>
-                  ))}
-                </tr>
-                <tr className="border-b">
-                  <td className="p-3">Max Users</td>
-                  {(Object.keys(PLAN_FEATURES) as TenantPlan[]).map((plan) => (
-                    <td key={plan} className="p-3 text-center">{PLAN_FEATURES[plan].maxUsers}</td>
-                  ))}
-                </tr>
-                <tr className="border-b bg-muted/30">
-                  <td className="p-3">Storage</td>
-                  {(Object.keys(PLAN_FEATURES) as TenantPlan[]).map((plan) => (
-                    <td key={plan} className="p-3 text-center">{(PLAN_FEATURES[plan].storageMB / 1000).toFixed(0)} GB</td>
-                  ))}
-                </tr>
-                <tr className="border-b">
-                  <td className="p-3">API Calls / month</td>
-                  {(Object.keys(PLAN_FEATURES) as TenantPlan[]).map((plan) => (
-                    <td key={plan} className="p-3 text-center">{PLAN_FEATURES[plan].apiCalls.toLocaleString()}</td>
-                  ))}
-                </tr>
-                {["Full CRM", "Invoicing", "Basic Reports", "Advanced Reports", "HR Module", "Inventory", "API Access", "Custom Integrations", "White-label", "SSO/SAML", "Audit Logs", "SLA 99.9%", "Dedicated Account Manager", "Priority Support"].map((feature) => (
-                  <tr key={feature} className="border-b">
-                    <td className="p-3">{feature}</td>
-                    {(Object.keys(PLAN_FEATURES) as TenantPlan[]).map((plan) => (
-                      <td key={plan} className="p-3 text-center">
-                        {PLAN_FEATURES[plan].features.some((f) => f.toLowerCase().includes(feature.toLowerCase().replace("full ", "")) || f === feature) ? (
-                          <CheckCircle className="h-4 w-4 text-green-500 mx-auto" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-gray-300 mx-auto" />
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={!createName || !createSlug || !createAdminEmail || !createAdminPassword}
+            >
+              Create Tenant
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Architecture Diagram */}
+      {/* ────────── Edit Tenant Dialog ────────── */}
+      <Dialog
+        open={!!editTenant}
+        onOpenChange={(open) => {
+          if (!open) setEditTenant(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Tenant</DialogTitle>
+            <DialogDescription>
+              Update settings for {editTenant?.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Name</Label>
+              <Input
+                id="edit-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-domain">Domain</Label>
+              <Input
+                id="edit-domain"
+                placeholder="company.pharma-erp.com"
+                value={editDomain}
+                onChange={(e) => setEditDomain(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-logo">Logo URL</Label>
+              <Input
+                id="edit-logo"
+                placeholder="https://..."
+                value={editLogo}
+                onChange={(e) => setEditLogo(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-color">Primary Color</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="edit-color"
+                  type="color"
+                  value={editColor}
+                  onChange={(e) => setEditColor(e.target.value)}
+                  className="h-10 w-14 rounded border border-input cursor-pointer"
+                />
+                <Input
+                  value={editColor}
+                  onChange={(e) => setEditColor(e.target.value)}
+                  className="flex-1"
+                  placeholder="#6366f1"
+                />
+                <Palette className="h-4 w-4 text-muted-foreground shrink-0" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Plan</Label>
+                <Select
+                  value={editPlan}
+                  onValueChange={(v) => setEditPlan(v as TenantPlanName)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(TENANT_PLANS) as TenantPlanName[]).map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {TENANT_PLANS[p].label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-max-users">Max Users</Label>
+                <Input
+                  id="edit-max-users"
+                  type="number"
+                  min={1}
+                  value={editMaxUsers}
+                  onChange={(e) => setEditMaxUsers(Number(e.target.value))}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <Label htmlFor="edit-active" className="font-medium">
+                  Active
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Deactivated tenants lose access
+                </p>
+              </div>
+              <Switch
+                id="edit-active"
+                checked={editIsActive}
+                onCheckedChange={setEditIsActive}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTenant(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdate}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ────────── Deactivation Confirm Dialog ────────── */}
+      <Dialog
+        open={!!deleteConfirm}
+        onOpenChange={(open) => {
+          if (!open) setDeleteConfirm(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deactivate Tenant</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to deactivate this tenant? Their users will
+              lose access immediately. Data is retained.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
+              Keep Active
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteConfirm && handleDeactivate(deleteConfirm)}
+            >
+              Deactivate Tenant
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ────────── Add User Dialog ────────── */}
+      <Dialog
+        open={!!addUserTenantId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAddUserTenantId(null);
+            setNewUserName("");
+            setNewUserEmail("");
+            setNewUserRole("USER");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add User</DialogTitle>
+            <DialogDescription>
+              Add a new user to{" "}
+              {addUserTenantId
+                ? tenantStore.getTenantById(addUserTenantId)?.name ?? "tenant"
+                : "tenant"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-user-name">Name *</Label>
+              <Input
+                id="new-user-name"
+                placeholder="Full Name"
+                value={newUserName}
+                onChange={(e) => setNewUserName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-user-email">Email *</Label>
+              <Input
+                id="new-user-email"
+                type="email"
+                placeholder="user@company.com"
+                value={newUserEmail}
+                onChange={(e) => setNewUserEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select value={newUserRole} onValueChange={setNewUserRole}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ADMIN">Admin</SelectItem>
+                  <SelectItem value="MANAGER">Manager</SelectItem>
+                  <SelectItem value="USER">User</SelectItem>
+                  <SelectItem value="VIEWER">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAddUserTenantId(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddUser}
+              disabled={!newUserName || !newUserEmail}
+            >
+              Add User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Architecture Note */}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
@@ -646,24 +895,28 @@ export default function TenantsPage() {
             <div className="flex items-center gap-2 rounded-lg border p-3 bg-blue-50">
               <Building2 className="h-5 w-5 text-blue-600" />
               <div>
-                <div className="font-semibold text-blue-800">Tenant Request</div>
+                <div className="font-semibold text-blue-800">
+                  Tenant Request
+                </div>
                 <div>tenant.pharma-erp.com</div>
               </div>
             </div>
-            <span className="text-lg">&#8594;</span>
+            <span className="text-lg">&rarr;</span>
             <div className="flex items-center gap-2 rounded-lg border p-3 bg-amber-50">
               <Shield className="h-5 w-5 text-amber-600" />
               <div>
                 <div className="font-semibold text-amber-800">Middleware</div>
-                <div>Resolve tenant by domain</div>
+                <div>Resolve tenant by domain/slug</div>
               </div>
             </div>
-            <span className="text-lg">&#8594;</span>
+            <span className="text-lg">&rarr;</span>
             <div className="flex items-center gap-2 rounded-lg border p-3 bg-green-50">
               <Globe className="h-5 w-5 text-green-600" />
               <div>
-                <div className="font-semibold text-green-800">Isolated Store</div>
-                <div>Scoped data context</div>
+                <div className="font-semibold text-green-800">
+                  Isolated Store
+                </div>
+                <div>Scoped data + branding</div>
               </div>
             </div>
           </div>
