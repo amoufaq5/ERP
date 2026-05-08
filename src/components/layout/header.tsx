@@ -289,8 +289,8 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
     } catch {
       // ignore
     }
-    router.push("/login");
-  }, [router]);
+    window.location.href = "/api/auth/logout";
+  }, []);
 
   const breadcrumbs = buildBreadcrumbs(pathname);
 
