@@ -1,10 +1,44 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { Building, ChevronDown, ChevronUp, Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
 import { useTranslation, I18nProvider } from "@/lib/i18n/i18n-context";
+
+async function doCredentialLogin(username: string, password: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const csrfRes = await fetch("/api/auth/csrf");
+    const { csrfToken } = await csrfRes.json();
+
+    const res = await fetch("/api/auth/callback/credentials", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ username, password, csrfToken, json: "true" }),
+      redirect: "manual",
+    });
+
+    if (res.status === 302 || res.status === 301 || res.status === 307 || res.status === 308) {
+      const location = res.headers.get("location") || "";
+      if (location.includes("error")) return { ok: false, error: "CredentialsSignin" };
+      return { ok: true };
+    }
+
+    if (res.ok) {
+      const text = await res.text();
+      try {
+        const data = JSON.parse(text);
+        if (data?.url && !data.url.includes("error")) return { ok: true };
+        if (data?.error) return { ok: false, error: data.error };
+      } catch {
+        if (!text.includes("error")) return { ok: true };
+      }
+    }
+
+    return { ok: false, error: "CredentialsSignin" };
+  } catch {
+    return { ok: false, error: "NetworkError" };
+  }
+}
 
 const DEMO_CREDENTIALS = [
   { username: "admin", password: "admin123", label: "Admin (Full Access)", role: "ADMIN" },
@@ -27,7 +61,6 @@ export default function LoginPage() {
 }
 
 function LoginPageInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
@@ -59,19 +92,15 @@ function LoginPageInner() {
     setError("");
     setIsLoading(true);
     try {
-      const result = await signIn("credentials", {
-        username: cred.username,
-        password: cred.password,
-        redirect: false,
-      });
+      const result = await doCredentialLogin(cred.username, cred.password);
 
-      if (result?.error) {
+      if (!result.ok) {
         setError(t("login.invalidCredentials"));
         setIsLoading(false);
         return;
       }
 
-      router.push(callbackUrl);
+      window.location.href = callbackUrl;
     } catch {
       setError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
@@ -93,19 +122,15 @@ function LoginPageInner() {
     }
 
     try {
-      const result = await signIn("credentials", {
-        username: trimUser,
-        password: trimPass,
-        redirect: false,
-      });
+      const result = await doCredentialLogin(trimUser, trimPass);
 
-      if (result?.error) {
+      if (!result.ok) {
         setError(t("login.invalidCredentials"));
         setIsLoading(false);
         return;
       }
 
-      router.push(callbackUrl);
+      window.location.href = callbackUrl;
     } catch {
       setError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
