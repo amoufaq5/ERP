@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Users, TrendingUp, Star, BarChart2, Plus, DollarSign, Award, LayoutGrid, List } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Users, TrendingUp, Star, BarChart2, Plus, DollarSign, Award, LayoutGrid, List, Flame, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EditDeleteMenu } from "@/components/shared/edit-delete-menu";
@@ -15,6 +15,7 @@ import StatsCard from "@/components/shared/stats-card";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { useCrossModuleActions } from "@/lib/cross-module-actions";
 import { useTranslation } from "@/lib/i18n/i18n-context";
+import { useNotificationCenter } from "@/lib/notification-context";
 
 // ── Lead types & data ──────────────────────────────────────────────────────────
 
@@ -120,6 +121,195 @@ function LeadStatusBadge({ status }: { status: LeadStatus }) {
   );
 }
 
+interface ScoreBreakdown {
+  value: number;
+  source: number;
+  stage: number;
+  recency: number;
+  companySize: number;
+  total: number;
+}
+
+const SOURCE_SCORES: Record<LeadSource, number> = {
+  REFERRAL: 20,
+  PARTNER: 18,
+  TRADE_SHOW: 15,
+  WEBSITE: 12,
+  SOCIAL_MEDIA: 8,
+  EMAIL: 6,
+  COLD_CALL: 4,
+};
+
+const STAGE_SCORES: Record<LeadStatus, number> = {
+  CLOSED_WON: 25,
+  NEGOTIATION: 22,
+  PROPOSAL: 20,
+  QUALIFIED: 15,
+  CONTACTED: 10,
+  NURTURING: 8,
+  NEW: 5,
+  CLOSED_LOST: 0,
+};
+
+function computeLeadScore(lead: Lead): ScoreBreakdown {
+  const valuePoints = Math.min(30, (lead.value / 300000) * 30);
+
+  const sourcePoints = SOURCE_SCORES[lead.source] ?? 0;
+
+  const stagePoints = STAGE_SCORES[lead.status] ?? 0;
+
+  const daysSinceCreation = Math.floor(
+    (Date.now() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const recencyPoints =
+    daysSinceCreation <= 7 ? 15 :
+    daysSinceCreation <= 14 ? 12 :
+    daysSinceCreation <= 30 ? 9 :
+    daysSinceCreation <= 60 ? 5 : 2;
+
+  const companySizePoints =
+    lead.value > 150000 ? 10 :
+    lead.value > 75000 ? 7 :
+    lead.value > 30000 ? 5 : 3;
+
+  const total = Math.round(
+    Math.min(100, valuePoints + sourcePoints + stagePoints + recencyPoints + companySizePoints)
+  );
+
+  return {
+    value: Math.round(valuePoints),
+    source: sourcePoints,
+    stage: stagePoints,
+    recency: recencyPoints,
+    companySize: companySizePoints,
+    total,
+  };
+}
+
+function scoreLabel(score: number): { text: string; className: string } {
+  if (score >= 80) return { text: "Hot", className: "bg-green-100 text-green-800 border-green-200" };
+  if (score >= 60) return { text: "Warm", className: "bg-blue-100 text-blue-800 border-blue-200" };
+  if (score >= 40) return { text: "Cool", className: "bg-amber-100 text-amber-800 border-amber-200" };
+  return { text: "Cold", className: "bg-gray-100 text-gray-700 border-gray-200" };
+}
+
+function scoreGradientColor(score: number): string {
+  if (score >= 75) return "bg-green-500";
+  if (score >= 50) return "bg-amber-500";
+  return "bg-red-400";
+}
+
+function ScoreBadge({ lead, onClick }: { lead: Lead; onClick: () => void }) {
+  const breakdown = computeLeadScore(lead);
+  const label = scoreLabel(breakdown.total);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border cursor-pointer transition-all hover:shadow-md ${label.className}`}
+    >
+      <span className="text-sm font-bold">{breakdown.total}</span>
+      <span className="text-[10px] uppercase tracking-wide">{label.text}</span>
+    </button>
+  );
+}
+
+function ScoreBreakdownDialog({ lead, open, onClose }: { lead: Lead | null; open: boolean; onClose: () => void }) {
+  if (!lead || !open) return null;
+  const breakdown = computeLeadScore(lead);
+  const label = scoreLabel(breakdown.total);
+
+  const criteria = [
+    { name: "Deal Value", points: breakdown.value, max: 30, color: "bg-blue-500" },
+    { name: "Source Quality", points: breakdown.source, max: 20, color: "bg-purple-500" },
+    { name: "Engagement Stage", points: breakdown.stage, max: 25, color: "bg-emerald-500" },
+    { name: "Recency", points: breakdown.recency, max: 15, color: "bg-orange-500" },
+    { name: "Company Size", points: breakdown.companySize, max: 10, color: "bg-pink-500" },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-card border border-border rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-foreground">Score Breakdown</h3>
+          <button type="button" onClick={onClose} className="p-1 rounded-md hover:bg-muted transition-colors">
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="relative w-20 h-20 flex items-center justify-center">
+            <svg className="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
+              <path
+                d="M18 2.0845a 15.9155 15.9155 0 0 1 0 31.831 15.9155 15.9155 0 0 1 0 -31.831"
+                fill="none"
+                stroke="currentColor"
+                className="text-muted"
+                strokeWidth="3"
+              />
+              <path
+                d="M18 2.0845a 15.9155 15.9155 0 0 1 0 31.831 15.9155 15.9155 0 0 1 0 -31.831"
+                fill="none"
+                className={breakdown.total >= 80 ? "stroke-green-500" : breakdown.total >= 60 ? "stroke-blue-500" : breakdown.total >= 40 ? "stroke-amber-500" : "stroke-gray-400"}
+                strokeWidth="3"
+                strokeDasharray={`${breakdown.total}, 100`}
+                strokeLinecap="round"
+              />
+            </svg>
+            <span className="absolute text-xl font-bold text-foreground">{breakdown.total}</span>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground">{lead.firstName} {lead.lastName}</p>
+            <p className="text-xs text-muted-foreground">{lead.company}</p>
+            <span className={`mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${label.className}`}>
+              {label.text} Lead
+            </span>
+          </div>
+        </div>
+
+        <div className="h-2 w-full rounded-full overflow-hidden flex">
+          <div className="bg-red-400 h-full" style={{ width: "25%" }} />
+          <div className="bg-amber-400 h-full" style={{ width: "25%" }} />
+          <div className="bg-blue-400 h-full" style={{ width: "25%" }} />
+          <div className="bg-green-400 h-full" style={{ width: "25%" }} />
+        </div>
+        <div className="flex justify-between text-[10px] text-muted-foreground -mt-3">
+          <span>0</span>
+          <span>25</span>
+          <span>50</span>
+          <span>75</span>
+          <span>100</span>
+        </div>
+
+        <div className="space-y-3">
+          {criteria.map((c) => (
+            <div key={c.name}>
+              <div className="flex items-center justify-between text-sm mb-1">
+                <span className="text-muted-foreground">{c.name}</span>
+                <span className="font-semibold text-foreground">{c.points}/{c.max}</span>
+              </div>
+              <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${c.color}`}
+                  style={{ width: `${(c.points / c.max) * 100}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="pt-3 border-t border-border">
+          <div className="flex justify-between text-sm">
+            <span className="font-medium text-muted-foreground">Total Score</span>
+            <span className="font-bold text-foreground">{breakdown.total}/100</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Opportunity types & data ────────────────────────────────────────────────────
 
 type Stage = "PROSPECTING" | "QUALIFICATION" | "PROPOSAL" | "NEGOTIATION" | "CLOSED_WON" | "CLOSED_LOST";
@@ -201,6 +391,11 @@ export default function LeadsPage() {
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
+  const [scoreBreakdownLead, setScoreBreakdownLead] = useState<Lead | null>(null);
+  const [hotLeadsOnly, setHotLeadsOnly] = useState(false);
+
+  // Lead view state
+  const [leadView, setLeadView] = useState<"kanban" | "table">("table");
 
   // Opportunity state
   const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES);
@@ -222,23 +417,35 @@ export default function LeadsPage() {
   ];
 
   // ── Lead computed ──
-  const filteredLeads = leads.filter((l) => {
-    const q = (leadFilters._search || "").toLowerCase();
-    const matchesSearch =
-      !q ||
-      `${l.firstName} ${l.lastName}`.toLowerCase().includes(q) ||
-      l.company.toLowerCase().includes(q) ||
-      l.email.toLowerCase().includes(q);
-    const matchesStatus = !leadFilters.status || l.status === leadFilters.status;
-    const matchesSource = !leadFilters.source || l.source === leadFilters.source;
-    return matchesSearch && matchesStatus && matchesSource;
-  });
+  const leadsWithScores = useMemo(
+    () => leads.map((l) => ({ lead: l, breakdown: computeLeadScore(l) })),
+    [leads]
+  );
+
+  const filteredLeads = useMemo(() => {
+    return leadsWithScores
+      .filter(({ lead: l, breakdown }) => {
+        const q = (leadFilters._search || "").toLowerCase();
+        const matchesSearch =
+          !q ||
+          `${l.firstName} ${l.lastName}`.toLowerCase().includes(q) ||
+          l.company.toLowerCase().includes(q) ||
+          l.email.toLowerCase().includes(q);
+        const matchesStatus = !leadFilters.status || l.status === leadFilters.status;
+        const matchesSource = !leadFilters.source || l.source === leadFilters.source;
+        const matchesHot = !hotLeadsOnly || breakdown.total >= 80;
+        return matchesSearch && matchesStatus && matchesSource && matchesHot;
+      })
+      .sort((a, b) => b.breakdown.total - a.breakdown.total)
+      .map(({ lead }) => lead);
+  }, [leadsWithScores, leadFilters, hotLeadsOnly]);
 
   const totalLeads = leads.length;
   const newThisMonth = leads.filter((l) => l.createdAt >= "2026-03-01").length;
   const qualifiedLeads = leads.filter((l) => l.status === "QUALIFIED" || l.status === "PROPOSAL" || l.status === "NEGOTIATION").length;
   const wonLeads = leads.filter((l) => l.status === "CLOSED_WON").length;
   const leadConversionRate = totalLeads > 0 ? ((wonLeads / totalLeads) * 100).toFixed(1) : "0";
+  const hotLeadsCount = leadsWithScores.filter(({ breakdown }) => breakdown.total >= 80).length;
 
   const leadStatusFlow: Record<string, LeadStatus> = {
     NEW: "CONTACTED",
@@ -394,10 +601,20 @@ export default function LeadsPage() {
   );
 
   // ── Add button per tab ──
+  const LEAD_KANBAN_STATUSES: LeadStatus[] = ["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "CLOSED_WON", "CLOSED_LOST", "NURTURING"];
+
   const addButton = activeTab === "leads" ? (
-    <Button onClick={() => { setEditingLead(null); setShowLeadModal(true); }} className="gap-2">
-      <Plus className="w-4 h-4" /> {t("leads.addLead")}
-    </Button>
+    <div className="flex items-center gap-2">
+      <Button variant={leadView === "kanban" ? "default" : "outline"} size="sm" onClick={() => setLeadView("kanban")} className="gap-1.5">
+        <LayoutGrid className="w-4 h-4" /> Kanban
+      </Button>
+      <Button variant={leadView === "table" ? "default" : "outline"} size="sm" onClick={() => setLeadView("table")} className="gap-1.5">
+        <List className="w-4 h-4" /> Table
+      </Button>
+      <Button onClick={() => { setEditingLead(null); setShowLeadModal(true); }} className="gap-2">
+        <Plus className="w-4 h-4" /> {t("leads.addLead")}
+      </Button>
+    </div>
   ) : activeTab === "opportunities" ? (
     <div className="flex items-center gap-2">
       <Button variant={oppView === "kanban" ? "default" : "outline"} size="sm" onClick={() => setOppView("kanban")} className="gap-1.5">
@@ -430,8 +647,9 @@ export default function LeadsPage() {
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       {activeTab === "leads" && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <StatsCard title="Total Leads" value={String(totalLeads)} icon={Users} />
+            <StatsCard title="Hot Leads" value={String(hotLeadsCount)} icon={Flame} />
             <StatsCard title="New This Month" value={String(newThisMonth)} icon={TrendingUp} />
             <StatsCard title="Qualified" value={String(qualifiedLeads)} icon={Star} />
             <StatsCard title="Conversion Rate" value={`${leadConversionRate}%`} icon={BarChart2} />
@@ -439,13 +657,27 @@ export default function LeadsPage() {
 
           <div className="bg-card rounded-xl border border-border shadow-sm">
             <div className="p-4 border-b border-border">
-              <FilterBar
-                searchValue={leadFilters._search}
-                onSearchChange={(v) => setLeadFilters((f) => ({ ...f, _search: v }))}
-                fields={LEAD_FILTER_FIELDS}
-                values={leadFilters}
-                onChange={(k, v) => setLeadFilters((f) => ({ ...f, [k]: v }))}
-              />
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <FilterBar
+                    searchValue={leadFilters._search}
+                    onSearchChange={(v) => setLeadFilters((f) => ({ ...f, _search: v }))}
+                    fields={LEAD_FILTER_FIELDS}
+                    values={leadFilters}
+                    onChange={(k, v) => setLeadFilters((f) => ({ ...f, [k]: v }))}
+                  />
+                </div>
+                <Button
+                  variant={hotLeadsOnly ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setHotLeadsOnly((v) => !v)}
+                  className="gap-1.5 shrink-0"
+                >
+                  <Flame className="w-4 h-4" />
+                  Hot Leads
+                  {hotLeadsOnly && <span className="ml-1 text-xs">({hotLeadsCount})</span>}
+                </Button>
+              </div>
             </div>
             <DataTable
               selectable
@@ -494,17 +726,7 @@ export default function LeadsPage() {
                   label: "Score",
                   render: (_v: unknown, row: unknown) => {
                     const lead = row as Lead;
-                    return (
-                      <div className="flex items-center gap-2">
-                        <div className="w-16 bg-muted rounded-full h-1.5">
-                          <div
-                            className={`h-1.5 rounded-full ${lead.score >= 80 ? "bg-green-500" : lead.score >= 60 ? "bg-yellow-500" : "bg-red-400"}`}
-                            style={{ width: `${lead.score}%` }}
-                          />
-                        </div>
-                        <span className="text-foreground font-medium">{lead.score}</span>
-                      </div>
-                    );
+                    return <ScoreBadge lead={lead} onClick={() => setScoreBreakdownLead(lead)} />;
                   },
                 },
                 {
@@ -866,15 +1088,41 @@ export default function LeadsPage() {
                 <div><span className="text-sm text-muted-foreground">Created</span><p className="font-medium">{detailLead.createdAt}</p></div>
               </div>
               {/* Lead Score */}
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-muted-foreground">Lead Score</span>
-                  <span className="font-medium">{detailLead.score}/100</span>
-                </div>
-                <div className="h-3 bg-muted rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full ${detailLead.score >= 80 ? "bg-green-500" : detailLead.score >= 60 ? "bg-yellow-500" : "bg-red-400"}`} style={{ width: `${detailLead.score}%` }} />
-                </div>
-              </div>
+              {(() => {
+                const bd = computeLeadScore(detailLead);
+                const lbl = scoreLabel(bd.total);
+                const detailCriteria = [
+                  { name: "Deal Value", points: bd.value, max: 30, color: "bg-blue-500" },
+                  { name: "Source Quality", points: bd.source, max: 20, color: "bg-purple-500" },
+                  { name: "Engagement Stage", points: bd.stage, max: 25, color: "bg-emerald-500" },
+                  { name: "Recency", points: bd.recency, max: 15, color: "bg-orange-500" },
+                  { name: "Company Size", points: bd.companySize, max: 10, color: "bg-pink-500" },
+                ];
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-muted-foreground">Computed Lead Score</span>
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${lbl.className}`}>
+                        {bd.total}/100 — {lbl.text}
+                      </span>
+                    </div>
+                    <div className="h-3 bg-muted rounded-full overflow-hidden mb-3">
+                      <div className={`h-full rounded-full ${scoreGradientColor(bd.total)}`} style={{ width: `${bd.total}%` }} />
+                    </div>
+                    <div className="space-y-2">
+                      {detailCriteria.map((c) => (
+                        <div key={c.name} className="flex items-center gap-2 text-xs">
+                          <span className="w-28 text-muted-foreground">{c.name}</span>
+                          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${c.color}`} style={{ width: `${(c.points / c.max) * 100}%` }} />
+                          </div>
+                          <span className="font-medium w-10 text-right">{c.points}/{c.max}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
               {detailLead.status === "CLOSED_WON" && (
                 <div className="pt-2 border-t">
                   <span className="text-sm text-muted-foreground">Cross-Module Actions</span>
@@ -911,6 +1159,13 @@ export default function LeadsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ── Score Breakdown Dialog ── */}
+      <ScoreBreakdownDialog
+        lead={scoreBreakdownLead}
+        open={!!scoreBreakdownLead}
+        onClose={() => setScoreBreakdownLead(null)}
+      />
 
       {/* ── Opportunity Detail Dialog ── */}
       <Dialog open={!!detailOpp} onOpenChange={(open) => { if (!open) setDetailOpp(null); }}>

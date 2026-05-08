@@ -542,7 +542,32 @@ export default function WeeklyPlanPage() {
   }
 
   function updatePlanDays(planId: string, days: DailyPlan[]) {
+    const oldPlan = store.weeklyPlans.find((p) => p.id === planId);
     store.update("weeklyPlans", planId, { days });
+    const oldCompleted = new Set<string>();
+    if (oldPlan) {
+      oldPlan.days.forEach((d, di) =>
+        d.visits.forEach((v, vi) => {
+          if (v.outcome === "successful") oldCompleted.add(`${di}-${vi}`);
+        })
+      );
+    }
+    days.forEach((d, di) =>
+      d.visits.forEach((v, vi) => {
+        if (v.outcome === "successful" && !oldCompleted.has(`${di}-${vi}`)) {
+          const doctorName = v.doctorId ? store.doctors.find((doc) => doc.id === v.doctorId)?.name : undefined;
+          addNotification({
+            type: "SUCCESS",
+            title: "Visit Completed",
+            message: `Visit${doctorName ? ` to ${doctorName}` : ""} on ${fmtDate(d.date)} marked as successful`,
+            module: "WEEKLY_PLAN",
+            entityType: "WeeklyPlan",
+            entityId: planId,
+            actionUrl: "/crm/weekly-plan",
+          });
+        }
+      })
+    );
   }
 
   return (

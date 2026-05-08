@@ -16,6 +16,7 @@ import type { Column } from "@/components/shared/data-table";
 import { downloadCSV } from "@/lib/download";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
+import { useNotificationCenter } from "@/lib/notification-context";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Priority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -145,6 +146,7 @@ function getSlaInfo(slaDeadline: string, status: TicketStatus): { label: string;
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function TicketsPage() {
+  const { addNotification } = useNotificationCenter();
   const [tickets, setTickets] = useState<SupportTicket[]>(INITIAL_TICKETS);
   const [filters, setFilters] = useState<FilterState>({ _search: "", priority: "", status: "" });
   const [showModal, setShowModal] = useState(false);
@@ -185,8 +187,31 @@ export default function TicketsPage() {
 
   // ── Transition handler ──
   const transitionStatus = (id: string, newStatus: TicketStatus) => {
+    const ticket = tickets.find((t) => t.id === id);
     setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)));
     setDetailTicket((prev) => (prev && prev.id === id ? { ...prev, status: newStatus } : prev));
+    if (newStatus === "RESOLVED" && ticket) {
+      addNotification({
+        type: "SUCCESS",
+        title: "Ticket Resolved",
+        message: `${ticket.ticketNumber} "${ticket.subject}" has been resolved`,
+        module: "CRM",
+        entityType: "ticket",
+        entityId: ticket.id,
+        actionUrl: "/crm/tickets",
+      });
+    }
+    if (ticket && isSlaBreached(ticket.slaDeadline, newStatus)) {
+      addNotification({
+        type: "SLA_BREACH",
+        title: "SLA Breached",
+        message: `${ticket.ticketNumber} "${ticket.subject}" has breached its SLA deadline of ${ticket.slaDeadline}`,
+        module: "CRM",
+        entityType: "ticket",
+        entityId: ticket.id,
+        actionUrl: "/crm/tickets",
+      });
+    }
   };
 
   // ── Columns ──
@@ -313,6 +338,15 @@ export default function TicketsPage() {
               createdAt: new Date().toISOString().split("T")[0],
             };
             setTickets((prev) => [newTicket, ...prev]);
+            addNotification({
+              type: "INFO",
+              title: "New Ticket Created",
+              message: `${newTicket.ticketNumber} "${newTicket.subject}" has been created for ${newTicket.account}`,
+              module: "CRM",
+              entityType: "ticket",
+              entityId: newTicket.id,
+              actionUrl: "/crm/tickets",
+            });
           }
           setShowModal(false);
           setEditing(null);
