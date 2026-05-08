@@ -240,6 +240,14 @@ export default function SupplierQualityPage() {
     null
   );
 
+  /* CRUD state */
+  const [showAgreementForm, setShowAgreementForm] = useState(false);
+  const [agFormSupplier, setAgFormSupplier] = useState("");
+  const [agFormMaterialType, setAgFormMaterialType] = useState<string>("api");
+  const [agFormMaterials, setAgFormMaterials] = useState("");
+  const [agFormExpiry, setAgFormExpiry] = useState("");
+  const [deleteAgreementId, setDeleteAgreementId] = useState<string | null>(null);
+
   /* ── Load data ── */
   const reload = useCallback(() => {
     setAgreements(supplierQualityStore.getAllAgreements());
@@ -392,6 +400,42 @@ export default function SupplierQualityPage() {
     },
     [reload]
   );
+
+  /* ── Agreement CRUD ── */
+  const handleCreateAgreement = useCallback(() => {
+    if (!agFormSupplier) return;
+    supplierQualityStore.createAgreement({
+      supplierName: agFormSupplier,
+      supplierCode: `SUP-${Date.now().toString(36).toUpperCase()}`,
+      materialType: agFormMaterialType as MaterialType,
+      materialsScope: agFormMaterials.split(",").map((m) => m.trim()).filter(Boolean),
+      status: "draft" as SQAStatus,
+      version: "1.0",
+      effectiveDate: new Date().toISOString(),
+      expiryDate: agFormExpiry || new Date(Date.now() + 730 * 24 * 60 * 60 * 1000).toISOString(),
+      reviewDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      clauses: [
+        { title: "Quality Standards", content: "Supplier shall comply with GMP requirements." },
+        { title: "Documentation", content: "CoA required for every batch delivered." },
+      ],
+      reviewHistory: [],
+      attachments: [],
+    });
+    setShowAgreementForm(false);
+    setAgFormSupplier("");
+    setAgFormMaterialType("api");
+    setAgFormMaterials("");
+    setAgFormExpiry("");
+    reload();
+  }, [agFormSupplier, agFormMaterialType, agFormMaterials, agFormExpiry, reload]);
+
+  const handleDeleteAgreement = useCallback(() => {
+    if (!deleteAgreementId) return;
+    supplierQualityStore.deleteAgreement(deleteAgreementId);
+    setDeleteAgreementId(null);
+    if (agreementDetail?.id === deleteAgreementId) setAgreementDetail(null);
+    reload();
+  }, [deleteAgreementId, agreementDetail, reload]);
 
   /* ── Spec linked to CoA ── */
   const getSpecForCoA = useCallback(

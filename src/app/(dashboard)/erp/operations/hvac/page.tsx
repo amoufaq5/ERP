@@ -198,6 +198,14 @@ export default function HVACPage() {
   const [readingOperator, setReadingOperator] = useState("");
   const [readingNotes, setReadingNotes] = useState("");
 
+  // Unit CRUD
+  const [showUnitForm, setShowUnitForm] = useState(false);
+  const [unitFormName, setUnitFormName] = useState("");
+  const [unitFormType, setUnitFormType] = useState<string>("ahu");
+  const [unitFormZone, setUnitFormZone] = useState("");
+  const [unitFormGrade, setUnitFormGrade] = useState<string>("D");
+  const [deleteUnitId, setDeleteUnitId] = useState<string | null>(null);
+
   // ── Load data ──
   const refreshData = useCallback(() => {
     setUnits(hvacStore.getAllUnits());
@@ -325,6 +333,35 @@ export default function HVACPage() {
     refreshData();
   }, [readingUnitId, readingParameter, readingValue, readingOperator, readingNotes, units, readings, refreshData]);
 
+  const handleCreateUnit = useCallback(() => {
+    if (!unitFormName) return;
+    hvacStore.createUnit({
+      name: unitFormName,
+      type: unitFormType as HVACUnitType,
+      zone: unitFormZone || "General",
+      cleanroomGrade: unitFormGrade as GradeClassification,
+      status: "operational",
+      location: unitFormZone || "Main Building",
+      lastQualificationDate: new Date().toISOString(),
+      nextQualificationDue: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      parameters: [],
+    });
+    setShowUnitForm(false);
+    setUnitFormName("");
+    setUnitFormType("ahu");
+    setUnitFormZone("");
+    setUnitFormGrade("D");
+    refreshData();
+  }, [unitFormName, unitFormType, unitFormZone, unitFormGrade, refreshData]);
+
+  const handleDeleteUnit = useCallback(() => {
+    if (!deleteUnitId) return;
+    hvacStore.deleteUnit(deleteUnitId);
+    setDeleteUnitId(null);
+    if (selectedUnit?.id === deleteUnitId) { setSelectedUnit(null); setShowUnitDetail(false); }
+    refreshData();
+  }, [deleteUnitId, selectedUnit, refreshData]);
+
   const handleSelectFloorPlanUnit = useCallback((unit: HVACUnit) => {
     setSelectedUnit(unit);
     setShowUnitDetail(true);
@@ -355,6 +392,10 @@ export default function HVACPage() {
             <Button size="sm" onClick={() => setShowReadingForm(true)}>
               <Plus className="h-4 w-4 mr-1" />
               Add Reading
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setShowUnitForm(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              Add Unit
             </Button>
           </div>
         }
@@ -1619,6 +1660,68 @@ export default function HVACPage() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ADD UNIT DIALOG */}
+      <Dialog open={showUnitForm} onOpenChange={(open) => !open && setShowUnitForm(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add HVAC Unit</DialogTitle>
+            <DialogDescription>Register a new HVAC unit to the monitoring system.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Unit Name *</Label>
+              <Input value={unitFormName} onChange={(e) => setUnitFormName(e.target.value)} placeholder="e.g. AHU-05 Production" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Type</Label>
+                <Select value={unitFormType} onValueChange={setUnitFormType}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(UNIT_TYPE_LABELS).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Cleanroom Grade</Label>
+                <Select value={unitFormGrade} onValueChange={setUnitFormGrade}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(GRADE_LABELS).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Zone / Location</Label>
+              <Input value={unitFormZone} onChange={(e) => setUnitFormZone(e.target.value)} placeholder="e.g. Production Area B" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowUnitForm(false)}>Cancel</Button>
+            <Button onClick={handleCreateUnit} disabled={!unitFormName}>Create Unit</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DELETE UNIT CONFIRMATION */}
+      <Dialog open={!!deleteUnitId} onOpenChange={(open) => !open && setDeleteUnitId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete HVAC Unit</DialogTitle>
+            <DialogDescription>Are you sure you want to delete this HVAC unit? Associated readings and alarms will also be removed.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteUnitId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteUnit}>Delete</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

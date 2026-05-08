@@ -1797,6 +1797,90 @@ export default function EquipmentPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ════════════════════════════════════════════════════
+          ADD EQUIPMENT DIALOG
+         ════════════════════════════════════════════════════ */}
+      <Dialog open={showEquipForm} onOpenChange={(open) => { if (!open) { setShowEquipForm(false); resetEquipForm(); } }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Equipment</DialogTitle>
+            <DialogDescription>Register a new piece of equipment to the system.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Equipment Name *</Label>
+              <Input value={eqFormName} onChange={(e) => setEqFormName(e.target.value)} placeholder="e.g. Tablet Press TP-200" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Serial Number</Label>
+                <Input value={eqFormSerial} onChange={(e) => setEqFormSerial(e.target.value)} placeholder="Serial number" />
+              </div>
+              <div>
+                <Label>Model</Label>
+                <Input value={eqFormModel} onChange={(e) => setEqFormModel(e.target.value)} placeholder="Model" />
+              </div>
+            </div>
+            <div>
+              <Label>Manufacturer</Label>
+              <Input value={eqFormManufacturer} onChange={(e) => setEqFormManufacturer(e.target.value)} placeholder="Manufacturer" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Type</Label>
+                <Select value={eqFormType} onValueChange={(v) => setEqFormType(v as EquipmentType)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(TYPE_LABELS) as EquipmentType[]).map((t) => (
+                      <SelectItem key={t} value={t}>{TYPE_LABELS[t]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Criticality</Label>
+                <Select value={eqFormCriticality} onValueChange={(v) => setEqFormCriticality(v as EquipmentCriticality)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="major">Major</SelectItem>
+                    <SelectItem value="minor">Minor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Department</Label>
+                <Input value={eqFormDept} onChange={(e) => setEqFormDept(e.target.value)} placeholder="e.g. Manufacturing" />
+              </div>
+              <div>
+                <Label>Location</Label>
+                <Input value={eqFormLocation} onChange={(e) => setEqFormLocation(e.target.value)} placeholder="e.g. Building A, Floor 2" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowEquipForm(false); resetEquipForm(); }}>Cancel</Button>
+            <Button onClick={handleCreateEquipment} disabled={!eqFormName}>Create Equipment</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DELETE EQUIPMENT CONFIRMATION */}
+      <Dialog open={!!deleteEquipId} onOpenChange={(open) => !open && setDeleteEquipId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Equipment</DialogTitle>
+            <DialogDescription>Are you sure you want to delete this equipment? This will also remove associated calibration and maintenance records.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteEquipId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteEquipment}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
