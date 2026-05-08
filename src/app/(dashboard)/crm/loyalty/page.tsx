@@ -14,7 +14,6 @@ import {
   FlaskConical,
   Repeat,
   Trophy,
-  X,
   ClipboardList,
   Package,
 } from "lucide-react";
