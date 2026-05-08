@@ -24,6 +24,7 @@ import { VendorLink } from "@/components/shared/entity-detail-dialog";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 import { useNotificationCenter } from "@/lib/notification-context";
 import { useAuditLogger } from "@/lib/audit-logger";
+import { useApprovals } from "@/lib/approval-workflow";
 
 const COMPANY_NAME = "PharmaCorp Egypt";
 
@@ -172,6 +173,8 @@ export default function ProcurementPage() {
     logAction = al.logAction;
   } catch {}
 
+  const approvals = useApprovals();
+
   const [showPOModal, setShowPOModal] = useState(false);
   const [showRFQModal, setShowRFQModal] = useState(false);
   const [activeTab, setActiveTab] = useState("orders");
@@ -276,6 +279,8 @@ export default function ProcurementPage() {
   const billsTotal = vendorBills.reduce((s, b) => s + (b.total ?? 0), 0);
   const billsPaidCount = vendorBills.filter((b) => b.status === "PAID").length;
   const billsOutstanding = vendorBills.filter((b) => b.status !== "PAID" && b.status !== "VOID").reduce((s, b) => s + (b.total ?? 0), 0);
+
+  const procurementApprovals = approvals.getByModule("Procurement");
 
   const [detailBill, setDetailBill] = useState<Invoice | null>(null);
 
@@ -485,6 +490,20 @@ export default function ProcurementPage() {
       notes: `Auto-generated from PO ${po.number} — pending accounting approval`,
     });
     store.update("purchaseOrders", po.id, { invoiceId: invId });
+
+    approvals.submit({
+      type: "Purchase Order",
+      module: "Procurement",
+      entityId: po.number,
+      title: `PO ${po.number} — ${vendorName(po.vendorId)}`,
+      description: `Purchase order for EGP ${po.total.toLocaleString()} submitted for accounting approval`,
+      requestedBy: "u-admin",
+      requestedByName: "Admin User",
+      assignedTo: "acc-001",
+      assignedToName: "Fatma Ali",
+      amount: po.total,
+      priority: po.total > 500000 ? "HIGH" : po.total > 100000 ? "MEDIUM" : "LOW",
+    });
 
     logAction({
       userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
@@ -759,6 +778,7 @@ export default function ProcurementPage() {
           <TabsTrigger value="grn">{t("proc.grn")} ({store.goodsReceipts.length})</TabsTrigger>
           <TabsTrigger value="bills">Bills</TabsTrigger>
           <TabsTrigger value="scorecard">Vendor Scorecard ({vendorScores.length})</TabsTrigger>
+          <TabsTrigger value="approvals">Approvals ({procurementApprovals.length})</TabsTrigger>
         </TabsList>
 
         {/* ── Purchase Orders Tab ── */}
@@ -1314,6 +1334,36 @@ export default function ProcurementPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="approvals" className="space-y-4">
+          {procurementApprovals.length === 0 ? (
+            <Card><CardContent className="py-12 text-center text-muted-foreground">No approval requests yet</CardContent></Card>
+          ) : (
+            <div className="space-y-3">
+              {procurementApprovals.map((req) => (
+                <Card key={req.id}>
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">{req.title}</div>
+                        <div className="text-sm text-muted-foreground">{req.description}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Requested by {req.requestedByName} · Assigned to {req.assignedToName} · {new Date(req.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {req.amount && <span className="text-sm font-medium">EGP {req.amount.toLocaleString()}</span>}
+                        <Badge variant={req.status === "APPROVED" ? "default" : req.status === "REJECTED" ? "destructive" : "secondary"}>
+                          {req.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 

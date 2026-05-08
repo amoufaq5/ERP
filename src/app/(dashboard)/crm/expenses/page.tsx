@@ -19,6 +19,7 @@ import { useApiDataStore } from "@/lib/api/use-api-store";
 import { downloadCSV } from "@/lib/download";
 import { useNotificationCenter } from "@/lib/notification-context";
 import { useAuditLogger } from "@/lib/audit-logger";
+import { useApprovals } from "@/lib/approval-workflow";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -209,6 +210,7 @@ export default function ExpensesPage() {
   // Notification & audit hooks
   const { addNotification } = useNotificationCenter();
   const { logAction } = useAuditLogger();
+  const approvals = useApprovals();
 
   // Dialog state
   const [newDialogOpen, setNewDialogOpen] = useState(false);
@@ -628,6 +630,21 @@ export default function ExpensesPage() {
     };
     persist([newExp, ...expenses]);
 
+    // ── Submit to centralized approval workflow ──
+    approvals.submit({
+      type: "Expense Report",
+      module: "Finance",
+      entityId: newExp.id,
+      title: `Expense — ${formType}: ${formDescription.slice(0, 50)}`,
+      description: `EGP ${amt.toLocaleString()} by ${user.name}. ${isKilometrage ? `${totalKm} km mileage claim.` : `Category: ${formType}.`}`,
+      requestedBy: user.id,
+      requestedByName: user.name,
+      assignedTo: "bum-001",
+      assignedToName: "Tarek Nabil",
+      amount: amt,
+      priority: amt > 5000 ? "HIGH" : amt > 1000 ? "MEDIUM" : "LOW",
+    });
+
     // ── Notification: expense submitted ──
     try {
       addNotification({
@@ -738,6 +755,10 @@ export default function ExpensesPage() {
     );
     persist(next);
 
+    // ── Sync centralized approval workflow ──
+    const match = approvals.requests.find((r) => r.module === "Finance" && r.entityId === exp.id && r.status === "PENDING");
+    if (match) approvals.approve(match.id, `Approved and posted as ${jeNumber}`);
+
     // ── Notification: expense approved ──
     try {
       addNotification({
@@ -802,6 +823,10 @@ export default function ExpensesPage() {
         : e
     );
     persist(next);
+
+    // ── Sync centralized approval workflow ──
+    const match = approvals.requests.find((r) => r.module === "Finance" && r.entityId === selectedExpense.id && r.status === "PENDING");
+    if (match) approvals.reject(match.id, rejectionReason);
 
     // ── Notification: expense rejected ──
     try {

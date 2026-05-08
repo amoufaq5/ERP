@@ -37,6 +37,7 @@ import type { Column } from "@/components/shared/data-table";
 import { downloadCSV } from "@/lib/download";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { type Employee } from "@/lib/data-store";
+import { useApprovals } from "@/lib/approval-workflow";
 
 interface LeaveRequest {
   id: string;
@@ -178,6 +179,8 @@ export default function HRPage() {
   // Data store
   const store = useApiDataStore();
   const employees = store.employees;
+  const approvals = useApprovals();
+  const hrApprovals = approvals.getByModule("HR");
 
   // State (leave & payroll stay local for now)
   const [leaves, setLeaves] = useState<LeaveRequest[]>(SEED_LEAVES);
@@ -391,20 +394,30 @@ export default function HRPage() {
         )
       );
     } else {
-      setLeaves((prev) => [
-        ...prev,
-        {
-          id: store.genId("lv"),
-          employeeId: String(data.employeeId),
-          employeeName: emp ? emp.name : "Unknown",
-          type: data.type as LeaveRequest["type"],
-          startDate: String(data.startDate),
-          endDate: String(data.endDate),
-          days,
-          status: "PENDING",
-          reason: String(data.reason),
-        },
-      ]);
+      const newLeave: LeaveRequest = {
+        id: store.genId("lv"),
+        employeeId: String(data.employeeId),
+        employeeName: emp ? emp.name : "Unknown",
+        type: data.type as LeaveRequest["type"],
+        startDate: String(data.startDate),
+        endDate: String(data.endDate),
+        days,
+        status: "PENDING",
+        reason: String(data.reason),
+      };
+      setLeaves((prev) => [...prev, newLeave]);
+      approvals.submit({
+        type: "Leave Request",
+        module: "HR",
+        entityId: newLeave.id,
+        title: `${data.type} Leave — ${emp ? emp.name : "Unknown"}`,
+        description: `${days} day(s) from ${String(data.startDate)} to ${String(data.endDate)}. Reason: ${String(data.reason)}`,
+        requestedBy: String(data.employeeId),
+        requestedByName: emp ? emp.name : "Unknown",
+        assignedTo: "dm-001",
+        assignedToName: "Hany Adel",
+        priority: days >= 5 ? "HIGH" : days >= 3 ? "MEDIUM" : "LOW",
+      });
     }
     setLeaveFormOpen(false);
     setEditingLeave(null);
@@ -414,9 +427,13 @@ export default function HRPage() {
   }
   function handleApproveLeave(l: LeaveRequest) {
     setLeaves((prev) => prev.map((x) => (x.id === l.id ? { ...x, status: "APPROVED" as const } : x)));
+    const match = approvals.requests.find((r) => r.module === "HR" && r.entityId === l.id && r.status === "PENDING");
+    if (match) approvals.approve(match.id, "Approved by manager");
   }
   function handleRejectLeave(l: LeaveRequest) {
     setLeaves((prev) => prev.map((x) => (x.id === l.id ? { ...x, status: "REJECTED" as const } : x)));
+    const match = approvals.requests.find((r) => r.module === "HR" && r.entityId === l.id && r.status === "PENDING");
+    if (match) approvals.reject(match.id, "Rejected by manager");
   }
 
   /* ─── Department CRUD ─── */
@@ -656,6 +673,17 @@ export default function HRPage() {
               <Button size="sm" onClick={handleCreateLeave}><Plus className="h-3.5 w-3.5 mr-1" />Request Leave</Button>
             }
           />
+
+          {hrApprovals.filter(r => r.status === "PENDING").length > 0 && (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-medium">{hrApprovals.filter(r => r.status === "PENDING").length} leave request(s) pending approval</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardContent className="p-0">
