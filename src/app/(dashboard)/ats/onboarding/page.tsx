@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   UserPlus, CheckSquare, TrendingUp, BarChart2, Plus, ShieldCheck, FlaskConical, Pill,
 } from "lucide-react";
@@ -104,26 +104,61 @@ const FILTER_FIELDS = [
 
 const taskStatusFlow: Record<string, OnboardingTask["status"]> = { PENDING: "IN_PROGRESS", IN_PROGRESS: "COMPLETED" };
 
+const DEPARTMENTS = ["Sales & Marketing", "Quality Assurance", "R&D", "Manufacturing", "Medical Affairs"];
+
+const EMPLOYEE_FIELDS: EntityField[] = [
+  { name: "name", label: "Name", type: "text" as const, required: true, placeholder: "Full name" },
+  { name: "department", label: "Department", type: "select" as const, required: true, options: DEPARTMENTS.map((d) => ({ label: d, value: d })) },
+  { name: "role", label: "Role", type: "text" as const, required: true, placeholder: "Job title" },
+  { name: "startDate", label: "Start Date", type: "text" as const, required: true, placeholder: "YYYY-MM-DD" },
+];
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) return JSON.parse(raw) as T;
+  } catch {}
+  return fallback;
+}
+
 export default function OnboardingPage() {
   const store = useApiDataStore();
-  const [employees] = useState<OnboardingEmployee[]>(INITIAL_EMPLOYEES);
-  const [tasks, setTasks] = useState<OnboardingTask[]>(INITIAL_TASKS);
+  const [employees, setEmployees] = useState<OnboardingEmployee[]>(() => loadFromStorage("ats-onboarding-employees", INITIAL_EMPLOYEES));
+  const [tasks, setTasks] = useState<OnboardingTask[]>(() => loadFromStorage("ats-onboarding-tasks", INITIAL_TASKS));
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", category: "" });
   const [showModal, setShowModal] = useState(false);
+  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [editing, setEditing] = useState<OnboardingTask | null>(null);
   const [detailTask, setDetailTask] = useState<OnboardingTask | null>(null);
 
+  useEffect(() => {
+    localStorage.setItem("ats-onboarding-tasks", JSON.stringify(tasks));
+  }, [tasks]);
+
+  useEffect(() => {
+    localStorage.setItem("ats-onboarding-employees", JSON.stringify(employees));
+  }, [employees]);
+
+  const employeesWithProgress = useMemo(() =>
+    employees.map((emp) => {
+      const tasksTotal = tasks.filter((t) => t.employeeId === emp.id).length;
+      const tasksCompleted = tasks.filter((t) => t.employeeId === emp.id && t.status === "COMPLETED").length;
+      const progress = tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : 0;
+      return { ...emp, tasksTotal, tasksCompleted, progress };
+    }), [employees, tasks]);
+
   // Build employee options from local onboarding list + store candidates (hired status)
   const employeeOptions = useMemo(() => {
-    const localNames = new Set(INITIAL_EMPLOYEES.map(e => e.name));
+    const localNames = new Set(employees.map(e => e.name));
     const storeNames = store.candidates
       .filter(c => c.status === "HIRED" && !localNames.has(c.name))
       .map(c => ({ label: c.name, value: c.name }));
     return [
-      ...INITIAL_EMPLOYEES.map(e => ({ label: e.name, value: e.name })),
+      ...employees.map(e => ({ label: e.name, value: e.name })),
       ...storeNames,
     ];
-  }, [store.candidates]);
+  }, [store.candidates, employees]);
 
   const taskFields: EntityField[] = useMemo(() => [
     { name: "employee", label: "Employee", type: "select" as const, required: true, options: employeeOptions },
@@ -134,8 +169,8 @@ export default function OnboardingPage() {
     { name: "status", label: "Status", type: "select" as const, defaultValue: "PENDING", options: STATUSES.map((s) => ({ label: s.replace(/_/g, " "), value: s })) },
   ], [employeeOptions]);
 
-  const totalHires = employees.length;
-  const inProgress = employees.filter((e) => e.progress < 100).length;
+  const totalHires = employeesWithProgress.length;
+  const inProgress = employeesWithProgress.filter((e) => e.progress < 100).length;
   const tasksCompleted = tasks.filter((t) => t.status === "COMPLETED").length;
   const completionRate = Math.round((tasksCompleted / tasks.length) * 100);
   const gmpCompliance = tasks.filter((t) => t.category === "GMP_TRAINING" && t.status === "COMPLETED").length;
@@ -193,9 +228,14 @@ export default function OnboardingPage() {
   return (
     <div className="p-6 space-y-6">
       <PageHeader title="Pharmaceutical Onboarding" description="Track new hire onboarding across field force, manufacturing, QA, and R&D with GMP compliance">
-        <Button onClick={() => { setEditing(null); setShowModal(true); }} className="gap-2">
-          <Plus className="h-4 w-4" /> Add Task
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowEmployeeModal(true)} className="gap-2">
+            <UserPlus className="h-4 w-4" /> Add Employee
+          </Button>
+          <Button onClick={() => { setEditing(null); setShowModal(true); }} className="gap-2">
+            <Plus className="h-4 w-4" /> Add Task
+          </Button>
+        </div>
       </PageHeader>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -208,7 +248,7 @@ export default function OnboardingPage() {
       <div>
         <h2 className="text-base font-semibold text-foreground mb-3">New Hire Progress</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {employees.map((emp) => {
+          {employeesWithProgress.map((emp) => {
             const Icon = DEPARTMENT_ICONS[emp.department] ?? Pill;
             return (
               <div key={emp.id} className="rounded-lg border border-border bg-card p-4 shadow-sm space-y-3">
@@ -288,10 +328,24 @@ export default function OnboardingPage() {
               status: (data.status as OnboardingTask["status"]) || t.status,
             } : t));
           } else {
-            const emp = employees.find((e) => e.name === data.employee);
+            let emp = employees.find((e) => e.name === data.employee);
+            if (!emp) {
+              const newEmp: OnboardingEmployee = {
+                id: Date.now(),
+                name: data.employee as string,
+                department: "Sales & Marketing",
+                role: "New Hire",
+                startDate: new Date().toISOString().slice(0, 10),
+                progress: 0,
+                tasksTotal: 0,
+                tasksCompleted: 0,
+              };
+              setEmployees((prev) => [...prev, newEmp]);
+              emp = newEmp;
+            }
             const newTask: OnboardingTask = {
-              id: Date.now(),
-              employeeId: emp?.id ?? 0,
+              id: Date.now() + 1,
+              employeeId: emp.id,
               employee: data.employee as string,
               task: data.task as string,
               category: (data.category as OnboardingTask["category"]) || "PAPERWORK",
@@ -303,6 +357,31 @@ export default function OnboardingPage() {
           }
           setShowModal(false);
           setEditing(null);
+        }}
+      />
+
+      <EntityFormModal
+        open={showEmployeeModal}
+        onOpenChange={setShowEmployeeModal}
+        title="Add Employee"
+        fields={EMPLOYEE_FIELDS}
+        onSubmit={(data) => {
+          const empId = Date.now();
+          const empTasks = tasks.filter((t) => t.employee === data.name);
+          const completed = empTasks.filter((t) => t.status === "COMPLETED").length;
+          const total = empTasks.length;
+          const newEmp: OnboardingEmployee = {
+            id: empId,
+            name: data.name as string,
+            department: data.department as string,
+            role: data.role as string,
+            startDate: data.startDate as string,
+            progress: total > 0 ? Math.round((completed / total) * 100) : 0,
+            tasksTotal: total,
+            tasksCompleted: completed,
+          };
+          setEmployees((prev) => [...prev, newEmp]);
+          setShowEmployeeModal(false);
         }}
       />
 

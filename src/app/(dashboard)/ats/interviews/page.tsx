@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Calendar, Clock, CheckCircle, Star, Plus } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Calendar, Clock, CheckCircle, Star, Plus, ClipboardCheck } from "lucide-react";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,9 @@ import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { useApiDataStore } from "@/lib/api/use-api-store";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Interview {
   id: number;
@@ -26,6 +29,40 @@ interface Interview {
   status: string;
   rating: number | null;
 }
+
+interface Scorecard {
+  interviewId: number;
+  competencies: { name: string; rating: number; notes: string }[];
+  overallRecommendation: "STRONG_YES" | "YES" | "MAYBE" | "NO" | "STRONG_NO";
+  strengths: string;
+  concerns: string;
+  submittedAt: string;
+}
+
+const DEFAULT_COMPETENCIES = [
+  "Technical Knowledge",
+  "Communication",
+  "Problem Solving",
+  "Industry Experience",
+  "Cultural Fit",
+  "Leadership Potential",
+];
+
+const RECOMMENDATION_OPTIONS: { label: string; value: Scorecard["overallRecommendation"] }[] = [
+  { label: "Strong Yes", value: "STRONG_YES" },
+  { label: "Yes", value: "YES" },
+  { label: "Maybe", value: "MAYBE" },
+  { label: "No", value: "NO" },
+  { label: "Strong No", value: "STRONG_NO" },
+];
+
+const RECOMMENDATION_COLORS: Record<string, string> = {
+  STRONG_YES: "text-green-700 dark:text-green-400",
+  YES: "text-green-600 dark:text-green-500",
+  MAYBE: "text-yellow-600 dark:text-yellow-400",
+  NO: "text-red-600 dark:text-red-400",
+  STRONG_NO: "text-red-700 dark:text-red-500",
+};
 
 const INITIAL_INTERVIEWS: Interview[] = [
   { id: 1, candidate: "Dr. Amira Hassan", job: "District Sales Manager", type: "PANEL", interviewer: "Dr. Samir Farid", interviewerRole: "National Sales Director", date: "2026-04-14", time: "10:00", duration: 60, status: "SCHEDULED", rating: null },
@@ -86,14 +123,65 @@ const FILTER_FIELDS = [
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 const WEEK_DATES = ["2026-04-13", "2026-04-14", "2026-04-15", "2026-04-16", "2026-04-17"];
 
+function ScorecardStarInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <button
+          key={s}
+          type="button"
+          onClick={() => onChange(s)}
+          className="focus:outline-none"
+        >
+          <Star className={`h-5 w-5 transition-colors ${s <= value ? "fill-yellow-400 text-yellow-400" : "text-gray-300 dark:text-gray-600 hover:text-yellow-300"}`} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed as T;
+    }
+  } catch {}
+  return fallback;
+}
+
 export default function InterviewsPage() {
   const store = useApiDataStore();
-  const [interviews, setInterviews] = useState<Interview[]>(INITIAL_INTERVIEWS);
+  const [interviews, setInterviews] = useState<Interview[]>(() => loadFromStorage<Interview[]>("ats-interviews", INITIAL_INTERVIEWS));
+  const [scorecards, setScorecards] = useState<Scorecard[]>(() => loadFromStorage<Scorecard[]>("ats-scorecards", []));
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", type: "" });
   const [view, setView] = useState<"table" | "calendar">("table");
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Interview | null>(null);
   const [detailInterview, setDetailInterview] = useState<Interview | null>(null);
+  const [scorecardInterview, setScorecardInterview] = useState<Interview | null>(null);
+  const [scorecardViewInterview, setScorecardViewInterview] = useState<Interview | null>(null);
+  const [scorecardForm, setScorecardForm] = useState<{
+    competencies: { name: string; rating: number; notes: string }[];
+    overallRecommendation: Scorecard["overallRecommendation"];
+    strengths: string;
+    concerns: string;
+  }>({
+    competencies: DEFAULT_COMPETENCIES.map((name) => ({ name, rating: 0, notes: "" })),
+    overallRecommendation: "MAYBE",
+    strengths: "",
+    concerns: "",
+  });
+
+  useEffect(() => {
+    localStorage.setItem("ats-interviews", JSON.stringify(interviews));
+  }, [interviews]);
+
+  useEffect(() => {
+    localStorage.setItem("ats-scorecards", JSON.stringify(scorecards));
+  }, [scorecards]);
 
   const interviewFields: EntityField[] = useMemo(() => [
     { name: "candidate", label: "Candidate", type: "select" as const, required: true, options: store.candidates.map(c => ({ label: c.name, value: c.name })) },
@@ -147,11 +235,12 @@ export default function InterviewsPage() {
         </div>
       </PageHeader>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatsCard title="Scheduled Today" value={scheduledToday} icon={Calendar} />
         <StatsCard title="This Week" value={scheduledWeek} icon={Clock} />
         <StatsCard title="Completed" value={completed} icon={CheckCircle} change={12.5} changeLabel="vs last week" />
         <StatsCard title="Avg Rating" value={avgRating} icon={Star} />
+        <StatsCard title="Scorecards Filled" value={scorecards.length} icon={ClipboardCheck} />
       </div>
 
       {view === "calendar" ? (
@@ -276,6 +365,22 @@ export default function InterviewsPage() {
                       extraItems={[
                         ...(statusFlow[iv.status] ? [{ label: `Mark ${statusFlow[iv.status]}`, onClick: () => setInterviews((prev) => prev.map((x) => x.id === iv.id ? { ...x, status: statusFlow[iv.status] } : x)) }] : []),
                         ...(iv.status === "SCHEDULED" ? [{ label: "Cancel", onClick: () => setInterviews((prev) => prev.map((x) => x.id === iv.id ? { ...x, status: "CANCELLED" } : x)) }] : []),
+                        ...(iv.status === "COMPLETED" && !scorecards.find((sc) => sc.interviewId === iv.id) ? [{
+                          label: "Fill Scorecard",
+                          onClick: () => {
+                            setScorecardForm({
+                              competencies: DEFAULT_COMPETENCIES.map((name) => ({ name, rating: 0, notes: "" })),
+                              overallRecommendation: "MAYBE",
+                              strengths: "",
+                              concerns: "",
+                            });
+                            setScorecardInterview(iv);
+                          },
+                        }] : []),
+                        ...(iv.status === "COMPLETED" && scorecards.find((sc) => sc.interviewId === iv.id) ? [{
+                          label: "View Scorecard",
+                          onClick: () => setScorecardViewInterview(iv),
+                        }] : []),
                       ]}
                     />
                   );
@@ -384,8 +489,198 @@ export default function InterviewsPage() {
                   </div>
                 );
               })()}
+              {(() => {
+                const sc = scorecards.find((s) => s.interviewId === detailInterview.id);
+                if (!sc) return null;
+                return (
+                  <div className="rounded-lg border border-border p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Interview Scorecard</span>
+                      <span className={`text-sm font-semibold ${RECOMMENDATION_COLORS[sc.overallRecommendation] ?? ""}`}>
+                        {sc.overallRecommendation.replace(/_/g, " ")}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {sc.competencies.map((comp) => (
+                        <div key={comp.name} className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">{comp.name}</span>
+                          <StarRating rating={comp.rating} />
+                        </div>
+                      ))}
+                    </div>
+                    {sc.strengths && (
+                      <div>
+                        <span className="text-xs font-semibold text-muted-foreground">Strengths</span>
+                        <p className="text-sm text-foreground mt-0.5">{sc.strengths}</p>
+                      </div>
+                    )}
+                    {sc.concerns && (
+                      <div>
+                        <span className="text-xs font-semibold text-muted-foreground">Concerns</span>
+                        <p className="text-sm text-foreground mt-0.5">{sc.concerns}</p>
+                      </div>
+                    )}
+                    <div className="text-xs text-muted-foreground">Submitted: {new Date(sc.submittedAt).toLocaleString()}</div>
+                  </div>
+                );
+              })()}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!scorecardInterview} onOpenChange={(open) => { if (!open) setScorecardInterview(null); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Interview Scorecard &mdash; {scorecardInterview?.candidate}</DialogTitle>
+          </DialogHeader>
+          {scorecardInterview && (
+            <div className="space-y-5">
+              <div className="rounded-lg bg-muted/50 border border-border p-3 text-sm">
+                <span className="font-medium">{scorecardInterview.candidate}</span>
+                <span className="text-muted-foreground"> for </span>
+                <span className="font-medium">{scorecardInterview.job}</span>
+                <span className="text-muted-foreground"> on {scorecardInterview.date}</span>
+              </div>
+              <div className="space-y-4">
+                <Label className="text-sm font-semibold">Competency Ratings</Label>
+                {scorecardForm.competencies.map((comp, idx) => (
+                  <div key={comp.name} className="rounded-lg border border-border p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-foreground">{comp.name}</span>
+                      <ScorecardStarInput
+                        value={comp.rating}
+                        onChange={(rating) => {
+                          setScorecardForm((prev) => {
+                            const updated = [...prev.competencies];
+                            updated[idx] = { ...updated[idx], rating };
+                            return { ...prev, competencies: updated };
+                          });
+                        }}
+                      />
+                    </div>
+                    <Textarea
+                      placeholder={`Notes for ${comp.name}...`}
+                      className="min-h-[48px] text-sm"
+                      value={comp.notes}
+                      onChange={(e) => {
+                        setScorecardForm((prev) => {
+                          const updated = [...prev.competencies];
+                          updated[idx] = { ...updated[idx], notes: e.target.value };
+                          return { ...prev, competencies: updated };
+                        });
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Overall Recommendation</Label>
+                <Select
+                  value={scorecardForm.overallRecommendation}
+                  onValueChange={(v) => setScorecardForm((prev) => ({ ...prev, overallRecommendation: v as Scorecard["overallRecommendation"] }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {RECOMMENDATION_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Strengths</Label>
+                <Textarea
+                  placeholder="Key strengths observed..."
+                  value={scorecardForm.strengths}
+                  onChange={(e) => setScorecardForm((prev) => ({ ...prev, strengths: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Concerns</Label>
+                <Textarea
+                  placeholder="Areas of concern..."
+                  value={scorecardForm.concerns}
+                  onChange={(e) => setScorecardForm((prev) => ({ ...prev, concerns: e.target.value }))}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setScorecardInterview(null)}>Cancel</Button>
+                <Button
+                  onClick={() => {
+                    const newScorecard: Scorecard = {
+                      interviewId: scorecardInterview.id,
+                      competencies: scorecardForm.competencies,
+                      overallRecommendation: scorecardForm.overallRecommendation,
+                      strengths: scorecardForm.strengths,
+                      concerns: scorecardForm.concerns,
+                      submittedAt: new Date().toISOString(),
+                    };
+                    setScorecards((prev) => [...prev.filter((sc) => sc.interviewId !== scorecardInterview.id), newScorecard]);
+                    setScorecardInterview(null);
+                  }}
+                  disabled={scorecardForm.competencies.some((c) => c.rating === 0)}
+                >
+                  Submit Scorecard
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!scorecardViewInterview} onOpenChange={(open) => { if (!open) setScorecardViewInterview(null); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Scorecard &mdash; {scorecardViewInterview?.candidate}</DialogTitle>
+          </DialogHeader>
+          {scorecardViewInterview && (() => {
+            const sc = scorecards.find((s) => s.interviewId === scorecardViewInterview.id);
+            if (!sc) return null;
+            return (
+              <div className="space-y-5">
+                <div className="rounded-lg bg-muted/50 border border-border p-3 text-sm">
+                  <span className="font-medium">{scorecardViewInterview.candidate}</span>
+                  <span className="text-muted-foreground"> for </span>
+                  <span className="font-medium">{scorecardViewInterview.job}</span>
+                  <span className="text-muted-foreground"> on {scorecardViewInterview.date}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Overall Recommendation</span>
+                  <span className={`text-lg font-bold ${RECOMMENDATION_COLORS[sc.overallRecommendation] ?? ""}`}>
+                    {sc.overallRecommendation.replace(/_/g, " ")}
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Competency Ratings</span>
+                  {sc.competencies.map((comp) => (
+                    <div key={comp.name} className="rounded-lg border border-border p-3 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-foreground">{comp.name}</span>
+                        <StarRating rating={comp.rating} />
+                      </div>
+                      {comp.notes && <p className="text-sm text-muted-foreground">{comp.notes}</p>}
+                    </div>
+                  ))}
+                </div>
+                {sc.strengths && (
+                  <div>
+                    <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Strengths</span>
+                    <p className="text-sm text-foreground mt-1">{sc.strengths}</p>
+                  </div>
+                )}
+                {sc.concerns && (
+                  <div>
+                    <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Concerns</span>
+                    <p className="text-sm text-foreground mt-1">{sc.concerns}</p>
+                  </div>
+                )}
+                <div className="text-xs text-muted-foreground">Submitted: {new Date(sc.submittedAt).toLocaleString()}</div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
