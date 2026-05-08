@@ -1157,6 +1157,7 @@ class EquipmentStore {
   private generateAssetTag(type: EquipmentType): string {
     const prefixes: Record<EquipmentType, string> = {
       production: "PRD",
+      manufacturing: "MFG",
       lab: "LAB",
       utility: "UTL",
       HVAC: "HVAC",

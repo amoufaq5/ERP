@@ -58,7 +58,9 @@ export interface SupplierQualityAgreement {
   status: SQAStatus;
   version: string;
   terms: string[];
+  clauses?: { title: string; content: string }[];
   reviewHistory: { date: string; reviewer: string; notes: string }[];
+  attachments?: string[];
   contactPerson: string;
   contactEmail: string;
   createdAt: string;

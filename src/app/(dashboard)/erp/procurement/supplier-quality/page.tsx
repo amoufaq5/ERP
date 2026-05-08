@@ -418,6 +418,9 @@ export default function SupplierQualityPage() {
         { title: "Quality Standards", content: "Supplier shall comply with GMP requirements." },
         { title: "Documentation", content: "CoA required for every batch delivered." },
       ],
+      terms: [],
+      contactPerson: "",
+      contactEmail: "",
       reviewHistory: [],
       attachments: [],
     });

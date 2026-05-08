@@ -31,12 +31,18 @@ export interface HVACUnit {
   type: HVACUnitType;
   areaServed: string;
   grade: GradeClassification;
+  cleanroomGrade?: GradeClassification;
   building: string;
   floor: string;
   designParameters: DesignParameters;
   status: HVACUnitStatus;
   installationDate: string;
   lastMaintenanceDate?: string;
+  lastQualificationDate?: string;
+  nextQualificationDue?: string;
+  zone?: string;
+  location?: string;
+  parameters?: unknown[];
   description: string;
   isActive: boolean;
 }

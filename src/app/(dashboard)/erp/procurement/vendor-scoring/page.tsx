@@ -20,7 +20,17 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import {
@@ -77,9 +87,12 @@ import {
 
 const CATEGORY_LABELS: Record<VendorCategory, string> = {
   "api-supplier": "API Supplier",
+  "api-manufacturer": "API Manufacturer",
   "excipient-supplier": "Excipient Supplier",
   "packaging-supplier": "Packaging Supplier",
   "equipment-vendor": "Equipment Vendor",
+  "contract-manufacturer": "Contract Manufacturer",
+  "distributor": "Distributor",
   "service-provider": "Service Provider",
 };
 
@@ -270,6 +283,11 @@ export default function VendorScoringPage() {
       category: vfCategory as VendorCategory,
       country: vfCountry || "Egypt",
       qualificationStatus: "new" as QualificationStatus,
+      nextReviewDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      quality: { defectRate: 0, oosRate: 0, capaCount: 0, score: 0 },
+      delivery: { onTimePercent: 100, leadTimeVariance: 0, score: 0 },
+      compliance: { auditScore: 0, certifications: [], regulatoryStatus: "clear" as const, score: 0 },
+      commercial: { pricingCompetitiveness: 50, paymentTermsDays: 30, score: 0 },
       qualityScore: 0,
       deliveryScore: 0,
       complianceScore: 0,

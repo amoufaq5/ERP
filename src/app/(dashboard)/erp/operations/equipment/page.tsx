@@ -99,6 +99,7 @@ const CRITICALITY_COLORS: Record<EquipmentCriticality, string> = {
 
 const TYPE_LABELS: Record<EquipmentType, string> = {
   production:     "Production",
+  manufacturing:  "Manufacturing",
   lab:            "Laboratory",
   utility:        "Utility",
   HVAC:           "HVAC",
@@ -412,6 +413,7 @@ export default function EquipmentPage() {
       location: eqFormLocation || "Main Facility",
       criticality: eqFormCriticality,
       status: "operational",
+      installationDate: todayISO(),
       installDate: todayISO(),
       nextCalibrationDue: futureDaysISO(90),
       nextMaintenanceDue: futureDaysISO(30),

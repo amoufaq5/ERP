@@ -11,9 +11,12 @@ export type QualificationStatus =
 /* ── Vendor category ── */
 export type VendorCategory =
   | "api-supplier"
+  | "api-manufacturer"
   | "excipient-supplier"
   | "packaging-supplier"
   | "equipment-vendor"
+  | "contract-manufacturer"
+  | "distributor"
   | "service-provider";
 
 /* ── Score dimensions ── */
@@ -105,6 +108,16 @@ export interface VendorScore {
   overallScore: number;       // weighted average 0–100
   scoreHistory: ScoreHistory[];
   audits: VendorAudit[];
+
+  qualityScore?: number;
+  deliveryScore?: number;
+  complianceScore?: number;
+  commercialScore?: number;
+  responsiveness?: number;
+  certifications?: string[];
+  incidents?: string[];
+  contractValue?: number;
+  activeContracts?: number;
 
   notes?: string;
   createdAt: string;

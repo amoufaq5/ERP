@@ -338,13 +338,21 @@ export default function HVACPage() {
     hvacStore.createUnit({
       name: unitFormName,
       type: unitFormType as HVACUnitType,
-      zone: unitFormZone || "General",
+      areaServed: unitFormZone || "General",
+      grade: unitFormGrade as GradeClassification,
       cleanroomGrade: unitFormGrade as GradeClassification,
+      building: "Main Building",
+      floor: "Ground",
+      designParameters: {},
       status: "operational",
+      installationDate: new Date().toISOString(),
+      zone: unitFormZone || "General",
       location: unitFormZone || "Main Building",
       lastQualificationDate: new Date().toISOString(),
       nextQualificationDue: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       parameters: [],
+      description: `${unitFormName} - ${unitFormType}`,
+      isActive: true,
     });
     setShowUnitForm(false);
     setUnitFormName("");

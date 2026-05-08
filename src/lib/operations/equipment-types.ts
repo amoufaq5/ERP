@@ -9,6 +9,7 @@
 
 export type EquipmentType =
   | "production"
+  | "manufacturing"
   | "lab"
   | "utility"
   | "HVAC"
@@ -40,6 +41,9 @@ export interface Equipment {
   nextCalibrationDue?: string;
   lastMaintenanceDate?: string;
   nextMaintenanceDue?: string;
+  installDate?: string;
+  calibrationInterval?: number;
+  maintenanceInterval?: number;
   notes?: string;
 }
 
