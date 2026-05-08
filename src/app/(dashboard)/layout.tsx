@@ -1,4 +1,5 @@
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { BottomNav } from "@/components/shared/mobile/bottom-nav";
 import { UserProvider } from "@/lib/user-context";
 import { ConfigProvider } from "@/lib/config-context";
 import { DataStoreProvider } from "@/lib/data-store";
@@ -43,6 +44,7 @@ export default function DashboardLayout({
                               <KeyboardShortcutsInit />
                               {children}
                             </DashboardShell>
+                            <BottomNav />
                           </ActivityProvider>
                         </SearchProvider>
                       </FavoritesProvider>
