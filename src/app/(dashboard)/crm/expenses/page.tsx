@@ -20,6 +20,7 @@ import { downloadCSV } from "@/lib/download";
 import { useNotificationCenter } from "@/lib/notification-context";
 import { useAuditLogger } from "@/lib/audit-logger";
 import { useApprovals } from "@/lib/approval-workflow";
+import { useCrossModuleActions } from "@/lib/cross-module-actions";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -211,6 +212,7 @@ export default function ExpensesPage() {
   const { addNotification } = useNotificationCenter();
   const { logAction } = useAuditLogger();
   const approvals = useApprovals();
+  const crossModule = useCrossModuleActions();
 
   // Dialog state
   const [newDialogOpen, setNewDialogOpen] = useState(false);
@@ -758,6 +760,7 @@ export default function ExpensesPage() {
     // ── Sync centralized approval workflow ──
     const match = approvals.requests.find((r) => r.module === "Finance" && r.entityId === exp.id && r.status === "PENDING");
     if (match) approvals.approve(match.id, `Approved and posted as ${jeNumber}`);
+    crossModule.onFieldExpenseApproved({ ...exp, employeeId: exp.userId });
 
     // ── Notification: expense approved ──
     try {

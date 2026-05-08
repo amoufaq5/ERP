@@ -25,6 +25,7 @@ import { useTranslation } from "@/lib/i18n/i18n-context";
 import { useNotificationCenter } from "@/lib/notification-context";
 import { useAuditLogger } from "@/lib/audit-logger";
 import { useApprovals } from "@/lib/approval-workflow";
+import { useCrossModuleActions } from "@/lib/cross-module-actions";
 
 const COMPANY_NAME = "PharmaCorp Egypt";
 
@@ -174,6 +175,7 @@ export default function ProcurementPage() {
   } catch {}
 
   const approvals = useApprovals();
+  const crossModule = useCrossModuleActions();
 
   const [showPOModal, setShowPOModal] = useState(false);
   const [showRFQModal, setShowRFQModal] = useState(false);
@@ -582,6 +584,8 @@ export default function ProcurementPage() {
       oldValues: { status: "ORDERED" },
       newValues: { status: "RECEIVED", grnId },
     });
+    crossModule.onPOReceived(po);
+    crossModule.onPOReceivedVendorScore(po);
   }
 
   // ─── Integration: Confirm GRN → auto-create Draft Journal Entry ──────

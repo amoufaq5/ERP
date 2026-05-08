@@ -63,6 +63,7 @@ import {
   ArrowRight,
   Eye,
 } from "lucide-react";
+import { useCrossModuleActions } from "@/lib/cross-module-actions";
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
@@ -147,6 +148,7 @@ function ageDays(dateStr: string): number {
 // ─── Page Component ────────────────────────────────────────────────────────
 
 export default function DeviationsPage() {
+  const crossModule = useCrossModuleActions();
   const [deviations, setDeviations] = useState<Deviation[]>([]);
   const [metrics, setMetrics] = useState<DeviationMetrics | null>(null);
   const [trends, setTrends] = useState<DeviationTrend[]>([]);
@@ -240,6 +242,19 @@ export default function DeviationsPage() {
       immediateAction: newImmediateAction.trim() || undefined,
       dueDate: newDueDate,
     });
+    if (newClassification === "critical") {
+      crossModule.onCriticalDeviation({
+        title: newTitle.trim(),
+        description: newDescription.trim(),
+        classification: newClassification,
+        category: newCategory,
+        department: newDepartment,
+        area: newArea.trim(),
+        batchesAffected: newBatches,
+        productsAffected: newProducts,
+        immediateAction: newImmediateAction.trim() || undefined,
+      });
+    }
     // Reset form
     setNewTitle("");
     setNewCategory("process");

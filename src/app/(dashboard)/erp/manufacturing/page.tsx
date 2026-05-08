@@ -27,6 +27,7 @@ import {
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { useApiDataStore } from "@/lib/api/use-api-store";
+import { useCrossModuleActions } from "@/lib/cross-module-actions";
 
 /* ─── Types ─── */
 
@@ -111,6 +112,7 @@ const priorityColor: Record<string, string> = { LOW: "bg-gray-100 text-gray-800"
 
 export default function ManufacturingPage() {
   const store = useApiDataStore();
+  const crossModule = useCrossModuleActions();
   const [boms, setBoms] = useState<BOM[]>(SEED_BOMS);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>(SEED_WO);
   const [filters, setFilters] = useState<FilterState>({});
@@ -258,6 +260,7 @@ export default function ManufacturingPage() {
     }
     setStockWarningOpen(false);
     setStockWarningWO(null);
+    crossModule.onWorkOrderInProgress(wo);
   }
 
   /** Complete production: add finished goods to inventory */
@@ -283,6 +286,7 @@ export default function ManufacturingPage() {
     if (detailWO?.id === wo.id) {
       setDetailWO(completedWO);
     }
+    crossModule.onWorkOrderCompleted(wo);
   }
 
   /* ─── WO CRUD ─── */

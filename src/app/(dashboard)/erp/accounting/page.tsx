@@ -75,6 +75,7 @@ import { useNotificationCenter } from "@/lib/notification-context";
 import { useAuditLogger } from "@/lib/audit-logger";
 import { useCurrentUser } from "@/lib/user-context";
 import { Lock } from "lucide-react";
+import { useCrossModuleActions } from "@/lib/cross-module-actions";
 
 // ─── E-Invoicing types & data ─────────────────────────────────────────
 interface EInvoice {
@@ -162,6 +163,7 @@ const assetMaintenanceRecords = [
 export default function AccountingPage() {
   const store = useApiDataStore();
   const approvals = useApprovals();
+  const crossModule = useCrossModuleActions();
   const { t } = useTranslation();
   const { user } = useCurrentUser();
 
@@ -274,6 +276,7 @@ export default function AccountingPage() {
             entityId: inv.id,
             actionUrl: "/erp/accounting",
           });
+          crossModule.onInvoiceOverdue(inv);
         }
       }
     });
@@ -908,6 +911,8 @@ export default function AccountingPage() {
     const soApprovalId = store.genId("soa");
     store.update("salesOrders", so.id, { status: "PROCESSING", soApprovalId });
     approvals.approve(approvalId, "SO approved by accounting — moved to PROCESSING");
+    crossModule.onSalesOrderConfirmed(so);
+    crossModule.onSalesOrderReserveStock(so);
   }
 
   function rejectSOApproval(approvalId: string, soId: string) {

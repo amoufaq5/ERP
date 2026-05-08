@@ -38,6 +38,7 @@ import { downloadCSV } from "@/lib/download";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { type Employee } from "@/lib/data-store";
 import { useApprovals } from "@/lib/approval-workflow";
+import { useCrossModuleActions } from "@/lib/cross-module-actions";
 
 interface LeaveRequest {
   id: string;
@@ -180,6 +181,7 @@ export default function HRPage() {
   const store = useApiDataStore();
   const employees = store.employees;
   const approvals = useApprovals();
+  const crossModule = useCrossModuleActions();
   const hrApprovals = approvals.getByModule("HR");
 
   // State (leave & payroll stay local for now)
@@ -344,6 +346,9 @@ export default function HRPage() {
         salary: Number(data.salary),
         status: data.status as Employee["status"],
       });
+      if (data.status === "TERMINATED" && editingEmp.status !== "TERMINATED") {
+        crossModule.onEmployeeTerminated({ ...editingEmp, status: "TERMINATED", name: String(data.name), employeeId: editingEmp.employeeId });
+      }
     } else {
       const newId = store.genId("emp");
       const seqNum = employees.length + 1;
@@ -429,6 +434,7 @@ export default function HRPage() {
     setLeaves((prev) => prev.map((x) => (x.id === l.id ? { ...x, status: "APPROVED" as const } : x)));
     const match = approvals.requests.find((r) => r.module === "HR" && r.entityId === l.id && r.status === "PENDING");
     if (match) approvals.approve(match.id, "Approved by manager");
+    crossModule.onLeaveApproved(l);
   }
   function handleRejectLeave(l: LeaveRequest) {
     setLeaves((prev) => prev.map((x) => (x.id === l.id ? { ...x, status: "REJECTED" as const } : x)));

@@ -75,6 +75,7 @@ import type {
   RegulatoryHold,
   ChecklistCategory,
 } from "@/lib/quality/batch-release-types";
+import { useCrossModuleActions } from "@/lib/cross-module-actions";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -142,6 +143,7 @@ const CATEGORY_LABELS: Record<ChecklistCategory, string> = {
 // ─── Page Component ──────────────────────────────────────────────────────────
 
 export default function BatchReleasePage() {
+  const crossModule = useCrossModuleActions();
   const [releases, setReleases] = useState<BatchRelease[]>([]);
   const [metrics, setMetrics] = useState<ReleaseMetrics | null>(null);
   const [activeTab, setActiveTab] = useState("queue");
@@ -326,6 +328,8 @@ export default function BatchReleasePage() {
 
   function handleReleaseToMarket(id: string) {
     batchReleaseStore.releaseToMarket(id);
+    const release = batchReleaseStore.getById(id);
+    if (release) crossModule.onBatchReleasedToMarket(release);
     reload();
     setDetailOpen(false);
   }
