@@ -214,8 +214,7 @@ export default function DocumentsPage() {
             compact
             onEdit={() => { setEditingDoc(doc); setFormOpen(true) }}
             onDelete={() => setDocs(prev => prev.filter(d => d.id !== doc.id))}
-            deleteConfirmTitle={`Delete "${doc.name}"?`}
-            deleteConfirmDescription="This will permanently remove this document and its OCR data."
+            itemLabel={doc.name}
           />
         </div>
       )
@@ -355,6 +354,49 @@ export default function DocumentsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Create / Edit Document Modal */}
+      <EntityFormModal
+        open={formOpen}
+        onOpenChange={(open) => { setFormOpen(open); if (!open) setEditingDoc(null) }}
+        title={editingDoc ? `Edit ${editingDoc.name}` : "Add New Document"}
+        description={editingDoc ? "Update document metadata" : "Create a new document record"}
+        fields={docFields}
+        initialData={editingDoc ? {
+          name: editingDoc.name,
+          category: editingDoc.category,
+          type: editingDoc.type,
+          uploadedBy: editingDoc.uploadedBy,
+          date: editingDoc.date,
+        } : undefined}
+        submitLabel={editingDoc ? "Update" : "Create"}
+        onSubmit={(data) => {
+          if (editingDoc) {
+            setDocs(prev => prev.map(d => d.id === editingDoc.id ? {
+              ...d,
+              name: String(data.name),
+              category: data.category as OCRDocument["category"],
+              type: String(data.type || d.type),
+              uploadedBy: String(data.uploadedBy || d.uploadedBy),
+              date: String(data.date || d.date),
+            } : d))
+          } else {
+            const newDoc: OCRDocument = {
+              id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+              name: String(data.name),
+              category: (data.category as OCRDocument["category"]) || "Other",
+              type: String(data.type || "PDF"),
+              size: "0 KB",
+              uploadedBy: String(data.uploadedBy || "Admin"),
+              date: String(data.date || new Date().toISOString().split("T")[0]),
+              ocrStatus: "pending",
+            }
+            setDocs(prev => [newDoc, ...prev])
+          }
+          setFormOpen(false)
+          setEditingDoc(null)
+        }}
+      />
 
       {/* OCR Detail Dialog */}
       <Dialog open={!!viewDoc} onOpenChange={o => !o && setViewDoc(null)}>

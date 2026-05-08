@@ -400,6 +400,49 @@ export default function EquipmentPage() {
     refresh();
   }
 
+  function handleCreateEquipment() {
+    if (!eqFormName) return;
+    equipmentStore.createEquipment({
+      name: eqFormName,
+      serialNumber: eqFormSerial || `SN-${Date.now()}`,
+      model: eqFormModel || "N/A",
+      manufacturer: eqFormManufacturer || "N/A",
+      type: eqFormType,
+      department: eqFormDept || "General",
+      location: eqFormLocation || "Main Facility",
+      criticality: eqFormCriticality,
+      status: "operational",
+      installDate: todayISO(),
+      nextCalibrationDue: futureDaysISO(90),
+      nextMaintenanceDue: futureDaysISO(30),
+      calibrationInterval: 90,
+      maintenanceInterval: 30,
+    });
+    setShowEquipForm(false);
+    resetEquipForm();
+    refresh();
+  }
+
+  function resetEquipForm() {
+    setEqFormName("");
+    setEqFormAssetTag("");
+    setEqFormSerial("");
+    setEqFormModel("");
+    setEqFormManufacturer("");
+    setEqFormType("manufacturing");
+    setEqFormDept("");
+    setEqFormCriticality("minor");
+    setEqFormLocation("");
+  }
+
+  function handleDeleteEquipment() {
+    if (!deleteEquipId) return;
+    equipmentStore.deleteEquipment(deleteEquipId);
+    setDeleteEquipId(null);
+    if (selectedEquipment?.id === deleteEquipId) setSelectedEquipment(null);
+    refresh();
+  }
+
   function openCompleteForm(orderId: string) {
     setCompleteOrderId(orderId);
     setCompleteDate(todayISO());
@@ -560,10 +603,13 @@ export default function EquipmentPage() {
 
           {/* Equipment Table */}
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <CardTitle className="text-base">
                 Equipment List ({filteredEquipment.length})
               </CardTitle>
+              <Button size="sm" onClick={() => setShowEquipForm(true)}>
+                <Plus className="h-4 w-4 mr-1" /> Add Equipment
+              </Button>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -625,7 +671,10 @@ export default function EquipmentPage() {
                               </span>
                             </TableCell>
                             <TableCell>
-                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              <div className="flex items-center gap-1">
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setSelectedEquipment(eq); setDetailTab("info"); }}><ChevronRight className="h-4 w-4" /></Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={(e) => { e.stopPropagation(); setDeleteEquipId(eq.id); }}><X className="h-3.5 w-3.5" /></Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
