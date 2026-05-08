@@ -110,5 +110,5 @@ export const authOptions: NextAuthOptions = {
     },
   },
 
-  secret: process.env.NEXTAUTH_SECRET || "pharma-erp-dev-secret-change-in-production",
+  secret: "pharma-erp-dev-secret-change-in-production",
 };

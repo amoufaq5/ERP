@@ -1,24 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Building, ChevronDown, ChevronUp, Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
 import { useTranslation, I18nProvider } from "@/lib/i18n/i18n-context";
-
-async function doLogin(username: string, password: string): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const res = await fetch("/api/auth/direct-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-    const data = await res.json();
-    if (res.ok && data.ok) return { ok: true };
-    return { ok: false, error: data.error || "Login failed" };
-  } catch {
-    return { ok: false, error: "Network error" };
-  }
-}
 
 const DEMO_CREDENTIALS = [
   { username: "admin", password: "admin123", label: "Admin (Full Access)", role: "ADMIN" },
@@ -51,6 +36,10 @@ function LoginPageInner() {
   const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
   const [showDemoHints, setShowDemoHints] = useState(false);
+  const hiddenFormRef = useRef<HTMLFormElement>(null);
+  const hiddenUserRef = useRef<HTMLInputElement>(null);
+  const hiddenPassRef = useRef<HTMLInputElement>(null);
+  const hiddenCallbackRef = useRef<HTMLInputElement>(null);
 
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const authError = searchParams.get("error");
@@ -68,49 +57,28 @@ function LoginPageInner() {
     setError("");
   }
 
-  async function quickLogin(cred: (typeof DEMO_CREDENTIALS)[0]) {
-    setError("");
+  function submitViaForm(user: string, pass: string) {
+    if (hiddenUserRef.current) hiddenUserRef.current.value = user;
+    if (hiddenPassRef.current) hiddenPassRef.current.value = pass;
+    if (hiddenCallbackRef.current) hiddenCallbackRef.current.value = callbackUrl;
     setIsLoading(true);
-    try {
-      const result = await doLogin(cred.username, cred.password);
-      if (!result.ok) {
-        setError(result.error || t("login.invalidCredentials"));
-        setIsLoading(false);
-        return;
-      }
-      window.location.href = callbackUrl;
-    } catch {
-      setError("An unexpected error occurred. Please try again.");
-      setIsLoading(false);
-    }
+    setError("");
+    hiddenFormRef.current?.submit();
   }
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError("");
-    setIsLoading(true);
+  function quickLogin(cred: (typeof DEMO_CREDENTIALS)[0]) {
+    submitViaForm(cred.username, cred.password);
+  }
 
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     const trimUser = username.trim();
     const trimPass = password.trim();
-
     if (!trimUser || !trimPass) {
       setError("Username and password are required.");
-      setIsLoading(false);
       return;
     }
-
-    try {
-      const result = await doLogin(trimUser, trimPass);
-      if (!result.ok) {
-        setError(result.error || t("login.invalidCredentials"));
-        setIsLoading(false);
-        return;
-      }
-      window.location.href = callbackUrl;
-    } catch {
-      setError("An unexpected error occurred. Please try again.");
-      setIsLoading(false);
-    }
+    submitViaForm(trimUser, trimPass);
   }
 
   if (!mounted) {
@@ -119,6 +87,18 @@ function LoginPageInner() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900 px-4 py-12">
+      {/* Hidden form that does a real browser POST — no JS fetch */}
+      <form
+        ref={hiddenFormRef}
+        method="POST"
+        action="/api/auth/direct-login"
+        style={{ display: "none" }}
+      >
+        <input ref={hiddenUserRef} type="hidden" name="username" />
+        <input ref={hiddenPassRef} type="hidden" name="password" />
+        <input ref={hiddenCallbackRef} type="hidden" name="callbackUrl" value={callbackUrl} />
+      </form>
+
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />

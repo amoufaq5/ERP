@@ -63,7 +63,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check for valid session token (try both secure and plain cookie names)
-  const secret = process.env.NEXTAUTH_SECRET || "pharma-erp-dev-secret-change-in-production";
+  const secret = "pharma-erp-dev-secret-change-in-production";
   let token = await getToken({ req: request, secret });
   if (!token) {
     token = await getToken({ req: request, secret, cookieName: "next-auth.session-token" });
