@@ -50,6 +50,7 @@ import { useCurrentUser } from "@/lib/user-context";
 import { useNotificationCenter } from "@/lib/notification-context";
 import { useAuditLogger } from "@/lib/audit-logger";
 import { useTranslation } from "@/lib/i18n/i18n-context";
+import { useCrossModuleActions } from "@/lib/cross-module-actions";
 
 const MIN_VISIT_DURATION_MIN = 10;
 
@@ -227,6 +228,7 @@ export default function WeeklyPlanPage() {
   // Notification & audit hooks — providers are in dashboard layout
   const { addNotification } = useNotificationCenter();
   const { logAction } = useAuditLogger();
+  const crossModule = useCrossModuleActions();
 
   const isRep = user.role === "MEDICAL_REP";
   const isManager = ["DISTRICT_MANAGER", "MARKETEER", "BUM", "ADMIN"].includes(user.role);
@@ -430,6 +432,19 @@ export default function WeeklyPlanPage() {
         newValues: { status: "APPROVED" },
       });
     } catch { /* safe */ }
+
+    // Deduct samples from inventory for all visits with samples
+    for (const day of plan.days) {
+      for (const visit of day.visits) {
+        if ((visit as any).samplesGiven && (visit as any).samplesGiven.length > 0) {
+          crossModule.onVisitApprovedWithSamples({
+            id: (visit as any).id ?? `${plan.id}-${day.date}`,
+            repId: plan.repId,
+            samplesGiven: (visit as any).samplesGiven,
+          });
+        }
+      }
+    }
   }
 
   function rejectPlan() {

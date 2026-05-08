@@ -13,6 +13,7 @@ import { downloadCSV } from "@/lib/download";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { useApiDataStore } from "@/lib/api/use-api-store";
+import { useCrossModuleActions } from "@/lib/cross-module-actions";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 
 // ── Lead types & data ──────────────────────────────────────────────────────────
@@ -185,7 +186,11 @@ type ActiveTab = "leads" | "opportunities" | "pipeline";
 
 export default function LeadsPage() {
   const store = useApiDataStore();
+  const crossModule = useCrossModuleActions();
   const { t } = useTranslation();
+
+  // Map of opportunity ID → generated SO number (for CLOSED_WON visual indicator)
+  const [wonOppSOs, setWonOppSOs] = useState<Record<string, string>>({});
 
   // Tab state
   const [activeTab, setActiveTab] = useState<ActiveTab>("leads");
@@ -261,6 +266,43 @@ export default function LeadsPage() {
     PROSPECTING: "QUALIFICATION", QUALIFICATION: "PROPOSAL", PROPOSAL: "NEGOTIATION", NEGOTIATION: "CLOSED_WON",
   };
 
+  // ── Lead-to-Cash: auto-create Sales Order + Invoice when opp reaches CLOSED_WON ──
+  function handleOppWon(opp: Opportunity) {
+    const soNumber = store.generateSONumber();
+    const soId = store.genId("so");
+    const customerId = store.customers.find((c) => c.name === opp.account)?.id ?? "";
+
+    const salesOrder = {
+      id: soId,
+      number: soNumber,
+      customerId,
+      date: new Date().toISOString().split("T")[0],
+      expectedDate: opp.expectedClose,
+      items: [{
+        productId: store.products[0]?.id ?? "",
+        description: opp.title,
+        quantity: 1,
+        unitPrice: opp.value,
+        discountPct: 0,
+        total: opp.value,
+      }],
+      subtotal: opp.value,
+      discountPct: 0,
+      discountAmount: 0,
+      tax: Math.round(opp.value * 0.14),
+      total: Math.round(opp.value * 1.14),
+      status: "CONFIRMED" as const,
+      createdAt: new Date().toISOString(),
+    };
+
+    store.add("salesOrders", salesOrder);
+    crossModule.onSalesOrderConfirmed(salesOrder);
+    crossModule.onSalesOrderReserveStock(salesOrder);
+
+    // Track the linked SO number for UI badge
+    setWonOppSOs((prev) => ({ ...prev, [opp.id]: soNumber }));
+  }
+
   const oppColumns: Column<Record<string, unknown>>[] = [
     { key: "id", label: "ID", className: "w-24" },
     { key: "title", label: "Title" },
@@ -277,7 +319,16 @@ export default function LeadsPage() {
         </div>
       ),
     },
-    { key: "stage", label: "Stage", render: (v) => <StageBadge stage={v as Stage} /> },
+    { key: "stage", label: "Stage", render: (v, row) => (
+      <div className="flex items-center gap-1.5">
+        <StageBadge stage={v as Stage} />
+        {wonOppSOs[row.id as string] && (
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+            SO: {wonOppSOs[row.id as string]}
+          </span>
+        )}
+      </div>
+    ) },
     { key: "owner", label: "Owner" },
     { key: "expectedClose", label: "Expected Close" },
     {
@@ -294,7 +345,13 @@ export default function LeadsPage() {
             canView
             itemLabel={o.title}
             extraItems={[
-              ...(next ? [{ label: `Advance to ${next.replace(/_/g, " ")}`, onClick: () => setOpportunities((prev) => prev.map((x) => x.id === o.id ? { ...x, stage: next } : x)) }] : []),
+              ...(next ? [{ label: `Advance to ${next.replace(/_/g, " ")}`, onClick: () => {
+                const updated = { ...o, stage: next };
+                setOpportunities((prev) => prev.map((x) => x.id === o.id ? updated : x));
+                if (next === "CLOSED_WON" && o.stage !== "CLOSED_WON") {
+                  handleOppWon(updated);
+                }
+              } }] : []),
               ...(o.stage !== "CLOSED_WON" && o.stage !== "CLOSED_LOST" ? [{ label: "Mark Lost", onClick: () => setOpportunities((prev) => prev.map((x) => x.id === o.id ? { ...x, stage: "CLOSED_LOST" as Stage } : x)) }] : []),
             ]}
           />
@@ -546,7 +603,13 @@ export default function LeadsPage() {
                                 extraItems={(() => {
                                   const next = oppStageFlow[opp.stage];
                                   return [
-                                    ...(next ? [{ label: `Advance to ${next.replace(/_/g, " ")}`, onClick: () => setOpportunities((prev) => prev.map((x) => x.id === opp.id ? { ...x, stage: next } : x)) }] : []),
+                                    ...(next ? [{ label: `Advance to ${next.replace(/_/g, " ")}`, onClick: () => {
+                                      const updated = { ...opp, stage: next };
+                                      setOpportunities((prev) => prev.map((x) => x.id === opp.id ? updated : x));
+                                      if (next === "CLOSED_WON" && opp.stage !== "CLOSED_WON") {
+                                        handleOppWon(updated);
+                                      }
+                                    } }] : []),
                                     ...(opp.stage !== "CLOSED_WON" && opp.stage !== "CLOSED_LOST" ? [{ label: "Mark Lost", onClick: () => setOpportunities((prev) => prev.map((x) => x.id === opp.id ? { ...x, stage: "CLOSED_LOST" as Stage } : x)) }] : []),
                                   ];
                                 })()}
@@ -562,6 +625,11 @@ export default function LeadsPage() {
                             </div>
                             <p className="text-xs text-muted-foreground mt-2">Close: {opp.expectedClose}</p>
                             <p className="text-xs text-muted-foreground mt-1">{opp.owner}</p>
+                            {wonOppSOs[opp.id] && (
+                              <span className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                <DollarSign className="w-3 h-3" /> SO: {wonOppSOs[opp.id]}
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -741,16 +809,22 @@ export default function LeadsPage() {
         initialData={editingOpp ? { title: editingOpp.title, account: editingOpp.account, value: editingOpp.value, probability: editingOpp.probability, stage: editingOpp.stage, owner: editingOpp.owner, expectedClose: editingOpp.expectedClose } : undefined}
         onSubmit={(data) => {
           if (editingOpp) {
-            setOpportunities((prev) => prev.map((o) => o.id === editingOpp.id ? {
-              ...o,
+            const newStage = (data.stage as Stage) || editingOpp.stage;
+            const oldStage = editingOpp.stage;
+            const updatedOpp: Opportunity = {
+              ...editingOpp,
               title: data.title as string,
-              account: (data.account as string) || o.account,
-              value: (data.value as number) || o.value,
-              probability: (data.probability as number) ?? o.probability,
-              stage: (data.stage as Stage) || o.stage,
-              owner: (data.owner as string) || o.owner,
-              expectedClose: (data.expectedClose as string) || o.expectedClose,
-            } : o));
+              account: (data.account as string) || editingOpp.account,
+              value: (data.value as number) || editingOpp.value,
+              probability: (data.probability as number) ?? editingOpp.probability,
+              stage: newStage,
+              owner: (data.owner as string) || editingOpp.owner,
+              expectedClose: (data.expectedClose as string) || editingOpp.expectedClose,
+            };
+            setOpportunities((prev) => prev.map((o) => o.id === editingOpp.id ? updatedOpp : o));
+            if (newStage === "CLOSED_WON" && oldStage !== "CLOSED_WON") {
+              handleOppWon(updatedOpp);
+            }
           } else {
             const newOpp: Opportunity = {
               id: `OPP-${Date.now().toString(36)}`,
@@ -764,6 +838,9 @@ export default function LeadsPage() {
               createdAt: new Date().toISOString().split("T")[0],
             };
             setOpportunities((prev) => [newOpp, ...prev]);
+            if (newOpp.stage === "CLOSED_WON") {
+              handleOppWon(newOpp);
+            }
           }
           setShowOppModal(false);
           setEditingOpp(null);
