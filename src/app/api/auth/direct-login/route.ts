@@ -39,12 +39,24 @@ export async function POST(req: NextRequest) {
 
     const response = NextResponse.json({ ok: true, user: demo.profile });
 
-    response.cookies.set("next-auth.session-token", token, {
+    const isSecure = req.headers.get("x-forwarded-proto") === "https" ||
+      req.nextUrl.protocol === "https:";
+
+    const cookieOpts = {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "lax" as const,
       path: "/",
       maxAge: 8 * 60 * 60,
-      secure: req.nextUrl.protocol === "https:",
+    };
+
+    response.cookies.set("next-auth.session-token", token, {
+      ...cookieOpts,
+      secure: false,
+    });
+
+    response.cookies.set("__Secure-next-auth.session-token", token, {
+      ...cookieOpts,
+      secure: true,
     });
 
     return response;

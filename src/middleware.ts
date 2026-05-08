@@ -62,11 +62,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for valid session token
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET || "pharma-erp-dev-secret-change-in-production",
-  });
+  // Check for valid session token (try both secure and plain cookie names)
+  const secret = process.env.NEXTAUTH_SECRET || "pharma-erp-dev-secret-change-in-production";
+  let token = await getToken({ req: request, secret });
+  if (!token) {
+    token = await getToken({ req: request, secret, cookieName: "next-auth.session-token" });
+  }
+  if (!token) {
+    token = await getToken({ req: request, secret, cookieName: "__Secure-next-auth.session-token" });
+  }
 
   if (!token) {
     const loginUrl = new URL("/login", request.url);
