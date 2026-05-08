@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Building, ChevronDown, ChevronUp, Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
 import { useTranslation, I18nProvider } from "@/lib/i18n/i18n-context";
@@ -36,10 +36,6 @@ function LoginPageInner() {
   const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
   const [showDemoHints, setShowDemoHints] = useState(false);
-  const hiddenFormRef = useRef<HTMLFormElement>(null);
-  const hiddenUserRef = useRef<HTMLInputElement>(null);
-  const hiddenPassRef = useRef<HTMLInputElement>(null);
-  const hiddenCallbackRef = useRef<HTMLInputElement>(null);
 
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const authError = searchParams.get("error");
@@ -57,28 +53,17 @@ function LoginPageInner() {
     setError("");
   }
 
-  function submitViaForm(user: string, pass: string) {
-    if (hiddenUserRef.current) hiddenUserRef.current.value = user;
-    if (hiddenPassRef.current) hiddenPassRef.current.value = pass;
-    if (hiddenCallbackRef.current) hiddenCallbackRef.current.value = callbackUrl;
+  function quickLogin(cred: (typeof DEMO_CREDENTIALS)[0]) {
     setIsLoading(true);
     setError("");
-    hiddenFormRef.current?.submit();
-  }
-
-  function quickLogin(cred: (typeof DEMO_CREDENTIALS)[0]) {
-    submitViaForm(cred.username, cred.password);
-  }
-
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const trimUser = username.trim();
-    const trimPass = password.trim();
-    if (!trimUser || !trimPass) {
-      setError("Username and password are required.");
-      return;
+    const form = document.getElementById("login-form") as HTMLFormElement;
+    if (form) {
+      const uInput = form.querySelector('input[name="username"]') as HTMLInputElement;
+      const pInput = form.querySelector('input[name="password"]') as HTMLInputElement;
+      if (uInput) uInput.value = cred.username;
+      if (pInput) pInput.value = cred.password;
+      form.submit();
     }
-    submitViaForm(trimUser, trimPass);
   }
 
   if (!mounted) {
@@ -87,18 +72,6 @@ function LoginPageInner() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900 px-4 py-12">
-      {/* Hidden form that does a real browser POST — no JS fetch */}
-      <form
-        ref={hiddenFormRef}
-        method="POST"
-        action="/api/auth/direct-login"
-        style={{ display: "none" }}
-      >
-        <input ref={hiddenUserRef} type="hidden" name="username" />
-        <input ref={hiddenPassRef} type="hidden" name="password" />
-        <input ref={hiddenCallbackRef} type="hidden" name="callbackUrl" value={callbackUrl} />
-      </form>
-
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
@@ -128,7 +101,7 @@ function LoginPageInner() {
             </p>
           </div>
 
-          {/* Form */}
+          {/* Form — native POST, no JavaScript interception */}
           <div className="px-8 py-8">
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-gray-900">{t("login.welcomeBack")}</h2>
@@ -148,7 +121,16 @@ function LoginPageInner() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            {/* This form POSTs directly to the server — no e.preventDefault(), no fetch */}
+            <form
+              id="login-form"
+              method="POST"
+              action="/api/auth/direct-login"
+              className="space-y-5"
+              onSubmit={() => setIsLoading(true)}
+            >
+              <input type="hidden" name="callbackUrl" value={callbackUrl} />
+
               {/* Username field */}
               <div className="space-y-1.5">
                 <label
@@ -163,6 +145,7 @@ function LoginPageInner() {
                   </div>
                   <input
                     id="username"
+                    name="username"
                     type="text"
                     autoComplete="username"
                     required
@@ -190,6 +173,7 @@ function LoginPageInner() {
                   </div>
                   <input
                     id="password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     required

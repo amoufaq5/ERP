@@ -28,18 +28,21 @@ function findUser(username: string, password: string) {
   );
 }
 
-function setCookieHeaders(headers: Headers, token: string) {
+function setAuthCookies(response: NextResponse, token: string) {
   const maxAge = 8 * 60 * 60;
-  const expires = new Date(Date.now() + maxAge * 1000).toUTCString();
-
-  headers.append(
-    "Set-Cookie",
-    `next-auth.session-token=${token}; Path=/; Expires=${expires}; Max-Age=${maxAge}; HttpOnly; SameSite=Lax`
-  );
-  headers.append(
-    "Set-Cookie",
-    `__Secure-next-auth.session-token=${token}; Path=/; Expires=${expires}; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`
-  );
+  response.cookies.set("next-auth.session-token", token, {
+    path: "/",
+    maxAge,
+    httpOnly: true,
+    sameSite: "lax",
+  });
+  response.cookies.set("__Secure-next-auth.session-token", token, {
+    path: "/",
+    maxAge,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: true,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -54,23 +57,23 @@ export async function POST(req: NextRequest) {
     const demo = findUser(username, password);
 
     if (!demo) {
-      const html = `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/login?error=CredentialsSignin"></head><body>Redirecting...</body></html>`;
-      return new NextResponse(html, {
-        status: 200,
-        headers: { "Content-Type": "text/html" },
+      // 303 See Other — redirect back to login with error
+      const response = new NextResponse(null, {
+        status: 303,
+        headers: { Location: "/login?error=CredentialsSignin" },
       });
+      return response;
     }
 
     const token = await createToken(demo);
     const safeCallback = callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
 
-    const html = `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${safeCallback}"></head><body>Redirecting...</body></html>`;
-    const response = new NextResponse(html, {
-      status: 200,
-      headers: { "Content-Type": "text/html" },
+    // 303 See Other — browser follows with GET, cookies are set before redirect
+    const response = new NextResponse(null, {
+      status: 303,
+      headers: { Location: safeCallback },
     });
-
-    setCookieHeaders(response.headers, token);
+    setAuthCookies(response, token);
     return response;
   }
 
@@ -87,7 +90,7 @@ export async function POST(req: NextRequest) {
 
     const token = await createToken(demo);
     const response = NextResponse.json({ ok: true, user: demo.profile });
-    setCookieHeaders(response.headers, token);
+    setAuthCookies(response, token);
     return response;
   } catch {
     return NextResponse.json({ error: "Login failed" }, { status: 500 });
