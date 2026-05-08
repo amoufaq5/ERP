@@ -5,39 +5,32 @@ import { useSearchParams } from "next/navigation";
 import { Building, ChevronDown, ChevronUp, Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
 import { useTranslation, I18nProvider } from "@/lib/i18n/i18n-context";
 
-async function doCredentialLogin(username: string, password: string): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const csrfRes = await fetch("/api/auth/csrf");
-    const { csrfToken } = await csrfRes.json();
+async function submitLoginForm(username: string, password: string, callbackUrl: string) {
+  const csrfRes = await fetch("/api/auth/csrf", { credentials: "include" });
+  const { csrfToken } = await csrfRes.json();
 
-    const res = await fetch("/api/auth/callback/credentials", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ username, password, csrfToken, json: "true" }),
-      redirect: "manual",
-    });
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = "/api/auth/callback/credentials";
+  form.style.display = "none";
 
-    if (res.status === 302 || res.status === 301 || res.status === 307 || res.status === 308) {
-      const location = res.headers.get("location") || "";
-      if (location.includes("error")) return { ok: false, error: "CredentialsSignin" };
-      return { ok: true };
-    }
+  const fields: Record<string, string> = {
+    username,
+    password,
+    csrfToken,
+    callbackUrl,
+  };
 
-    if (res.ok) {
-      const text = await res.text();
-      try {
-        const data = JSON.parse(text);
-        if (data?.url && !data.url.includes("error")) return { ok: true };
-        if (data?.error) return { ok: false, error: data.error };
-      } catch {
-        if (!text.includes("error")) return { ok: true };
-      }
-    }
-
-    return { ok: false, error: "CredentialsSignin" };
-  } catch {
-    return { ok: false, error: "NetworkError" };
+  for (const [key, value] of Object.entries(fields)) {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = key;
+    input.value = value;
+    form.appendChild(input);
   }
+
+  document.body.appendChild(form);
+  form.submit();
 }
 
 const DEMO_CREDENTIALS = [
@@ -92,15 +85,7 @@ function LoginPageInner() {
     setError("");
     setIsLoading(true);
     try {
-      const result = await doCredentialLogin(cred.username, cred.password);
-
-      if (!result.ok) {
-        setError(t("login.invalidCredentials"));
-        setIsLoading(false);
-        return;
-      }
-
-      window.location.href = callbackUrl;
+      await submitLoginForm(cred.username, cred.password, callbackUrl);
     } catch {
       setError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
@@ -122,15 +107,7 @@ function LoginPageInner() {
     }
 
     try {
-      const result = await doCredentialLogin(trimUser, trimPass);
-
-      if (!result.ok) {
-        setError(t("login.invalidCredentials"));
-        setIsLoading(false);
-        return;
-      }
-
-      window.location.href = callbackUrl;
+      await submitLoginForm(trimUser, trimPass, callbackUrl);
     } catch {
       setError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
