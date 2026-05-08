@@ -30,6 +30,7 @@ import {
   type Budget,
   type SalesOrder,
   type PurchaseOrder,
+  type FiscalPeriod,
 } from "@/lib/data-store";
 import { useApprovals } from "@/lib/approval-workflow";
 import { openInvoicePDF } from "@/lib/invoice-pdf";
@@ -182,6 +183,46 @@ export default function AccountingPage() {
     const al = useAuditLogger();
     logAction = al.logAction;
   } catch {}
+
+  const fiscalPeriods = store.fiscalPeriods ?? [];
+
+  function getPeriodForDate(date: string): FiscalPeriod | undefined {
+    return fiscalPeriods.find((fp) => date >= fp.startDate && date <= fp.endDate);
+  }
+
+  function isDateInClosedPeriod(date: string): boolean {
+    const period = getPeriodForDate(date);
+    return period?.status === "CLOSED" || period?.status === "ARCHIVED";
+  }
+
+  function handleClosePeriod(fp: FiscalPeriod) {
+    const unpostedJEs = store.journalEntries.filter((je) => je.status === "DRAFT" && je.date >= fp.startDate && je.date <= fp.endDate);
+    if (unpostedJEs.length > 0) {
+      alert(`Cannot close ${fp.name}: ${unpostedJEs.length} unposted journal entry/entries in this period. Please post or void them first.`);
+      return;
+    }
+    store.update("fiscalPeriods", fp.id, { status: "CLOSED", closedBy: "Admin User", closedAt: new Date().toISOString() });
+    logAction({
+      userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+      action: "UPDATE", module: "ERP", entity: "FiscalPeriod",
+      entityId: fp.id, entityName: fp.name,
+      details: `Fiscal period ${fp.name} closed`,
+      oldValues: { status: "OPEN" },
+      newValues: { status: "CLOSED" },
+    });
+  }
+
+  function handleReopenPeriod(fp: FiscalPeriod) {
+    store.update("fiscalPeriods", fp.id, { status: "OPEN", closedBy: undefined, closedAt: undefined });
+    logAction({
+      userId: "u-admin", userName: "Admin User", userRole: "ADMIN",
+      action: "UPDATE", module: "ERP", entity: "FiscalPeriod",
+      entityId: fp.id, entityName: fp.name,
+      details: `Fiscal period ${fp.name} reopened`,
+      oldValues: { status: "CLOSED" },
+      newValues: { status: "OPEN" },
+    });
+  }
 
   const [custSearch, setCustSearch] = useState("");
   const [custFilters, setCustFilters] = useState<FilterState>({});
@@ -999,6 +1040,7 @@ export default function AccountingPage() {
           <TabsTrigger value="collections">Collections</TabsTrigger>
           <TabsTrigger value="einvoicing">E-Invoicing</TabsTrigger>
           <TabsTrigger value="assets">Assets</TabsTrigger>
+          <TabsTrigger value="periods">Fiscal Periods</TabsTrigger>
         </TabsList>
 
         {/* Customers */}
@@ -1287,6 +1329,11 @@ export default function AccountingPage() {
                     const je = row as unknown as JournalEntry;
                     const extras: { label: string; onClick: () => void }[] = [{ label: "View Lines", onClick: () => setJeDetailId(je.id) }];
                     if (je.status === "DRAFT") extras.push({ label: "Post", onClick: () => {
+                      const totalDebit = je.lines.reduce((s, l) => s + l.debit, 0);
+                      const totalCredit = je.lines.reduce((s, l) => s + l.credit, 0);
+                      if (je.lines.length === 0) { alert("Cannot post: journal entry has no lines."); return; }
+                      if (Math.abs(totalDebit - totalCredit) >= 0.01) { alert(`Cannot post: unbalanced entry. Debits: ${totalDebit.toLocaleString()}, Credits: ${totalCredit.toLocaleString()}`); return; }
+                      if (isDateInClosedPeriod(je.date)) { alert(`Cannot post: fiscal period for ${je.date} is closed.`); return; }
                       store.update("journalEntries", je.id, { status: "POSTED" as JournalEntry["status"] });
                       logAction({ userId: "u-admin", userName: "Admin User", userRole: "ADMIN", action: "UPDATE", module: "ERP", entity: "JournalEntry", entityId: je.id, entityName: `JE ${je.number}`, details: `Journal entry posted: ${je.number}`, oldValues: { status: "DRAFT" }, newValues: { status: "POSTED" } });
                     }});
@@ -1985,6 +2032,11 @@ export default function AccountingPage() {
                               <XCircle className="h-3.5 w-3.5 mr-1" /> Void
                             </Button>
                             <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={() => {
+                              const totalDebit = je.lines.reduce((s, l) => s + l.debit, 0);
+                              const totalCredit = je.lines.reduce((s, l) => s + l.credit, 0);
+                              if (je.lines.length === 0) { alert("Cannot post: journal entry has no lines."); return; }
+                              if (Math.abs(totalDebit - totalCredit) >= 0.01) { alert(`Cannot post: unbalanced entry. Debits: ${totalDebit.toLocaleString()}, Credits: ${totalCredit.toLocaleString()}`); return; }
+                              if (isDateInClosedPeriod(je.date)) { alert(`Cannot post: fiscal period for ${je.date} is closed.`); return; }
                               store.update("journalEntries", je.id, { status: "POSTED" as JournalEntry["status"] });
                               logAction({ userId: user.id ?? "u-admin", userName: user.name ?? "Admin", userRole: user.role, action: "UPDATE", module: "ERP", entity: "JournalEntry", entityId: je.id, entityName: `JE ${je.number}`, details: `Journal entry posted from Approval Center: ${je.number}`, oldValues: { status: "DRAFT" }, newValues: { status: "POSTED" } });
                               addNotification({ type: "SUCCESS", title: `JE ${je.number} posted`, message: `Journal entry ${je.number} has been posted and is now visible in the Journal Entries tab.`, module: "ACCOUNTING", entityType: "journalEntry", entityId: je.id, actionUrl: "/erp/accounting" });
@@ -2400,6 +2452,48 @@ export default function AccountingPage() {
             </CardContent></Card>
           )}
         </TabsContent>
+
+        <TabsContent value="periods" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Lock className="h-5 w-5" /> Fiscal Period Management</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {fiscalPeriods.map((fp) => {
+                  const jesInPeriod = store.journalEntries.filter((je) => je.date >= fp.startDate && je.date <= fp.endDate);
+                  const postedCount = jesInPeriod.filter((je) => je.status === "POSTED").length;
+                  const draftCount = jesInPeriod.filter((je) => je.status === "DRAFT").length;
+                  return (
+                    <div key={fp.id} className="flex items-center justify-between p-3 rounded-lg border">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-2.5 w-2.5 rounded-full ${fp.status === "OPEN" ? "bg-green-500" : fp.status === "CLOSED" ? "bg-red-500" : "bg-gray-400"}`} />
+                        <div>
+                          <div className="font-medium text-sm">{fp.name}</div>
+                          <div className="text-xs text-muted-foreground">{fp.startDate} to {fp.endDate}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-xs text-muted-foreground">{postedCount} posted · {draftCount} draft</div>
+                        <Badge variant={fp.status === "OPEN" ? "default" : fp.status === "CLOSED" ? "destructive" : "secondary"}>{fp.status}</Badge>
+                        {fp.status === "OPEN" && (
+                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleClosePeriod(fp)}>
+                            <Lock className="h-3 w-3 mr-1" /> Close
+                          </Button>
+                        )}
+                        {fp.status === "CLOSED" && (
+                          <Button size="sm" variant="ghost" className="h-7 text-xs text-amber-600" onClick={() => handleReopenPeriod(fp)}>
+                            Reopen
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* JE Detail dialog */}
@@ -2501,11 +2595,22 @@ export default function AccountingPage() {
                 </div>
               )}
               <div className="flex justify-between items-center text-xs text-muted-foreground">
+                {(() => {
+                  const td = jeDetail.lines.reduce((s, l) => s + l.debit, 0);
+                  const tc = jeDetail.lines.reduce((s, l) => s + l.credit, 0);
+                  const balanced = Math.abs(td - tc) < 0.01;
+                  return <span className={balanced ? "text-green-600" : "text-red-600"}>{balanced ? "Balanced" : `Unbalanced (${(td - tc).toLocaleString()})`}</span>;
+                })()}
                 <span>Status: <Badge variant={jeDetail.status === "POSTED" ? "success" : jeDetail.status === "VOID" ? "destructive" : "warning"}>{jeDetail.status}</Badge></span>
                 <div className="flex items-center gap-2">
                   <span>Created: {new Date(jeDetail.createdAt).toLocaleDateString()}</span>
                   {jeDetail.status === "DRAFT" && (
                     <Button size="sm" className="h-6 text-xs bg-green-600 hover:bg-green-700" onClick={() => {
+                      const totalDebit = jeDetail.lines.reduce((s, l) => s + l.debit, 0);
+                      const totalCredit = jeDetail.lines.reduce((s, l) => s + l.credit, 0);
+                      if (jeDetail.lines.length === 0) { alert("Cannot post: journal entry has no lines."); return; }
+                      if (Math.abs(totalDebit - totalCredit) >= 0.01) { alert(`Cannot post: unbalanced entry. Debits: ${totalDebit.toLocaleString()}, Credits: ${totalCredit.toLocaleString()}`); return; }
+                      if (isDateInClosedPeriod(jeDetail.date)) { alert(`Cannot post: fiscal period for ${jeDetail.date} is closed.`); return; }
                       store.update("journalEntries", jeDetail.id, { status: "POSTED" as JournalEntry["status"] });
                       logAction({ userId: "u-admin", userName: "Admin User", userRole: "ADMIN", action: "UPDATE", module: "ERP", entity: "JournalEntry", entityId: jeDetail.id, entityName: `JE ${jeDetail.number}`, details: `Journal entry posted: ${jeDetail.number}`, oldValues: { status: "DRAFT" }, newValues: { status: "POSTED" } });
                     }}>Post</Button>

@@ -510,6 +510,30 @@ export interface Budget {
   status: "DRAFT" | "APPROVED" | "CLOSED";
 }
 
+export interface FiscalPeriod {
+  id: string;
+  code: string;
+  name: string;
+  fiscalYear: string;
+  startDate: string;
+  endDate: string;
+  status: "OPEN" | "CLOSED" | "ARCHIVED";
+  closedBy?: string;
+  closedAt?: string;
+}
+
+export interface TaxConfiguration {
+  id: string;
+  code: string;
+  name: string;
+  rate: number;
+  type: "PERCENTAGE" | "FIXED";
+  glAccountId: string;
+  isActive: boolean;
+  effectiveFrom: string;
+  effectiveUntil?: string;
+}
+
 export interface PurchaseOrder {
   id: string;
   number: string;
@@ -696,6 +720,8 @@ export interface DataStoreState {
   journalEntries: JournalEntry[];
   costCenters: CostCenter[];
   budgets: Budget[];
+  fiscalPeriods: FiscalPeriod[];
+  taxConfigurations: TaxConfiguration[];
   purchaseOrders: PurchaseOrder[];
   salesOrders: SalesOrder[];
   rfqs: RFQ[];
@@ -1317,6 +1343,27 @@ export const SEED_DATA: DataStoreState = {
   journalEntries: SEED_JOURNAL_ENTRIES,
   costCenters: SEED_COST_CENTERS,
   budgets: SEED_BUDGETS,
+  fiscalPeriods: [
+    { id: "fp-2026-01", code: "2026-01", name: "January 2026", fiscalYear: "2026", startDate: "2026-01-01", endDate: "2026-01-31", status: "CLOSED", closedBy: "Admin User", closedAt: "2026-02-05T10:00:00Z" },
+    { id: "fp-2026-02", code: "2026-02", name: "February 2026", fiscalYear: "2026", startDate: "2026-02-01", endDate: "2026-02-28", status: "CLOSED", closedBy: "Admin User", closedAt: "2026-03-05T10:00:00Z" },
+    { id: "fp-2026-03", code: "2026-03", name: "March 2026", fiscalYear: "2026", startDate: "2026-03-01", endDate: "2026-03-31", status: "CLOSED", closedBy: "Admin User", closedAt: "2026-04-05T10:00:00Z" },
+    { id: "fp-2026-04", code: "2026-04", name: "April 2026", fiscalYear: "2026", startDate: "2026-04-01", endDate: "2026-04-30", status: "CLOSED", closedBy: "Admin User", closedAt: "2026-05-05T10:00:00Z" },
+    { id: "fp-2026-05", code: "2026-05", name: "May 2026", fiscalYear: "2026", startDate: "2026-05-01", endDate: "2026-05-31", status: "OPEN" },
+    { id: "fp-2026-06", code: "2026-06", name: "June 2026", fiscalYear: "2026", startDate: "2026-06-01", endDate: "2026-06-30", status: "OPEN" },
+    { id: "fp-2026-07", code: "2026-07", name: "July 2026", fiscalYear: "2026", startDate: "2026-07-01", endDate: "2026-07-31", status: "OPEN" },
+    { id: "fp-2026-08", code: "2026-08", name: "August 2026", fiscalYear: "2026", startDate: "2026-08-01", endDate: "2026-08-31", status: "OPEN" },
+    { id: "fp-2026-09", code: "2026-09", name: "September 2026", fiscalYear: "2026", startDate: "2026-09-01", endDate: "2026-09-30", status: "OPEN" },
+    { id: "fp-2026-10", code: "2026-10", name: "October 2026", fiscalYear: "2026", startDate: "2026-10-01", endDate: "2026-10-31", status: "OPEN" },
+    { id: "fp-2026-11", code: "2026-11", name: "November 2026", fiscalYear: "2026", startDate: "2026-11-01", endDate: "2026-11-30", status: "OPEN" },
+    { id: "fp-2026-12", code: "2026-12", name: "December 2026", fiscalYear: "2026", startDate: "2026-12-01", endDate: "2026-12-31", status: "OPEN" },
+  ],
+  taxConfigurations: [
+    { id: "tax-vat", code: "VAT", name: "Value Added Tax", rate: 14, type: "PERCENTAGE", glAccountId: "gl-2200", isActive: true, effectiveFrom: "2016-09-08" },
+    { id: "tax-wht", code: "WHT", name: "Withholding Tax", rate: 1, type: "PERCENTAGE", glAccountId: "gl-2200", isActive: true, effectiveFrom: "2020-01-01" },
+    { id: "tax-stamp", code: "STAMP", name: "Stamp Tax", rate: 0.5, type: "PERCENTAGE", glAccountId: "gl-2200", isActive: true, effectiveFrom: "2020-01-01" },
+    { id: "tax-social", code: "SOC", name: "Social Insurance", rate: 11, type: "PERCENTAGE", glAccountId: "gl-2100", isActive: true, effectiveFrom: "2020-01-01" },
+    { id: "tax-exempt", code: "EXEMPT", name: "Tax Exempt", rate: 0, type: "PERCENTAGE", glAccountId: "gl-2200", isActive: true, effectiveFrom: "2020-01-01" },
+  ],
   purchaseOrders: SEED_PURCHASE_ORDERS,
   salesOrders: SEED_SALES_ORDERS,
   rfqs: SEED_RFQS,
