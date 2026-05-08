@@ -4,27 +4,6 @@ import { DEMO_CREDENTIALS } from "@/lib/auth/auth-utils";
 
 const secret = "pharma-erp-dev-secret-change-in-production";
 
-function setSessionCookies(response: NextResponse, token: string, isSecure: boolean) {
-  const cookieOpts = {
-    httpOnly: true,
-    sameSite: "lax" as const,
-    path: "/",
-    maxAge: 8 * 60 * 60,
-  };
-
-  response.cookies.set("next-auth.session-token", token, {
-    ...cookieOpts,
-    secure: false,
-  });
-
-  if (isSecure) {
-    response.cookies.set("__Secure-next-auth.session-token", token, {
-      ...cookieOpts,
-      secure: true,
-    });
-  }
-}
-
 async function createToken(demo: (typeof DEMO_CREDENTIALS)[string]) {
   return encode({
     token: {
@@ -49,10 +28,21 @@ function findUser(username: string, password: string) {
   );
 }
 
-export async function POST(req: NextRequest) {
-  const isSecure = req.headers.get("x-forwarded-proto") === "https" ||
-    req.nextUrl.protocol === "https:";
+function setCookieHeaders(headers: Headers, token: string) {
+  const maxAge = 8 * 60 * 60;
+  const expires = new Date(Date.now() + maxAge * 1000).toUTCString();
 
+  headers.append(
+    "Set-Cookie",
+    `next-auth.session-token=${token}; Path=/; Expires=${expires}; Max-Age=${maxAge}; HttpOnly; SameSite=Lax`
+  );
+  headers.append(
+    "Set-Cookie",
+    `__Secure-next-auth.session-token=${token}; Path=/; Expires=${expires}; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`
+  );
+}
+
+export async function POST(req: NextRequest) {
   const contentType = req.headers.get("content-type") || "";
 
   if (contentType.includes("application/x-www-form-urlencoded")) {
@@ -62,19 +52,25 @@ export async function POST(req: NextRequest) {
     const callbackUrl = formData.get("callbackUrl") as string || "/dashboard";
 
     const demo = findUser(username, password);
+
     if (!demo) {
-      const host = req.headers.get("host") || "localhost:3000";
-      const proto = req.headers.get("x-forwarded-proto") || "http";
-      const loginUrl = `${proto}://${host}/login?error=CredentialsSignin`;
-      return NextResponse.redirect(loginUrl);
+      const html = `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/login?error=CredentialsSignin"></head><body>Redirecting...</body></html>`;
+      return new NextResponse(html, {
+        status: 200,
+        headers: { "Content-Type": "text/html" },
+      });
     }
 
     const token = await createToken(demo);
-    const host = req.headers.get("host") || "localhost:3000";
-    const proto = req.headers.get("x-forwarded-proto") || "http";
-    const redirectUrl = `${proto}://${host}${callbackUrl}`;
-    const response = NextResponse.redirect(redirectUrl);
-    setSessionCookies(response, token, isSecure);
+    const safeCallback = callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
+
+    const html = `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${safeCallback}"></head><body>Redirecting...</body></html>`;
+    const response = new NextResponse(html, {
+      status: 200,
+      headers: { "Content-Type": "text/html" },
+    });
+
+    setCookieHeaders(response.headers, token);
     return response;
   }
 
@@ -91,7 +87,7 @@ export async function POST(req: NextRequest) {
 
     const token = await createToken(demo);
     const response = NextResponse.json({ ok: true, user: demo.profile });
-    setSessionCookies(response, token, isSecure);
+    setCookieHeaders(response.headers, token);
     return response;
   } catch {
     return NextResponse.json({ error: "Login failed" }, { status: 500 });
