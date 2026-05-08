@@ -557,7 +557,7 @@ export default function ExpiryManagementPage() {
               { key: "quarantine", label: "Quarantine Selected", variant: "destructive" },
               { key: "destroy", label: "Mark Destroyed", variant: "destructive" },
             ]}
-            onBulkAction={handleBulkAction as unknown as (action: string, rows: Record<string, unknown>[]) => void}
+            onBulkAction={(action, rows) => handleBulkAction(action, rows as unknown as ExpiryItem[])}
             exportable
             exportFilename="expiry-inventory.csv"
           />
