@@ -23,6 +23,7 @@ import {
 } from "@/lib/data-store";
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 import { useTranslation } from "@/lib/i18n/i18n-context";
+import { useNotificationCenter } from "@/lib/notification-context";
 
 // ─── Specialty → Product Matching ─────────────────────────────────────────────
 const SPECIALTY_PRODUCT_MAP: Record<string, string[]> = {
@@ -47,6 +48,7 @@ export default function DoctorsPage() {
   const store = useApiDataStore();
   const { user, allUsers, getReportsOf } = useCurrentUser();
   const { t } = useTranslation();
+  const { addNotification } = useNotificationCenter();
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
@@ -208,10 +210,22 @@ export default function DoctorsPage() {
         });
       } else {
         store.update("doctors", editing.id, payload);
+        if (payload.classification && payload.classification !== editing.classification) {
+          addNotification({
+            type: "INFO",
+            title: "Doctor Classification Changed",
+            message: `${editing.name} classification changed from ${editing.classification} to ${payload.classification}`,
+            module: "CRM",
+            entityType: "doctor",
+            entityId: editing.id,
+            actionUrl: "/crm/doctors",
+          });
+        }
       }
     } else {
+      const newId = store.genId("dr");
       store.add("doctors", {
-        id: store.genId("dr"),
+        id: newId,
         ...payload,
         name: payload.name!,
         specialty: payload.specialty!,
@@ -225,6 +239,15 @@ export default function DoctorsPage() {
         buyingLadderStage: payload.buyingLadderStage ?? "Unaware",
         linkedPharmacyIds: payload.linkedPharmacyIds ?? [],
         createdAt: new Date().toISOString(),
+      });
+      addNotification({
+        type: "INFO",
+        title: "New Doctor Added",
+        message: `${payload.name} (${payload.specialty}, ${payload.city}) has been added to the system`,
+        module: "CRM",
+        entityType: "doctor",
+        entityId: newId,
+        actionUrl: "/crm/doctors",
       });
     }
     setFormOpen(false);

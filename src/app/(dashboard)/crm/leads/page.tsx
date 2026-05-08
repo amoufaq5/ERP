@@ -378,6 +378,7 @@ export default function LeadsPage() {
   const store = useApiDataStore();
   const crossModule = useCrossModuleActions();
   const { t } = useTranslation();
+  const { addNotification } = useNotificationCenter();
 
   // Map of opportunity ID → generated SO number (for CLOSED_WON visual indicator)
   const [wonOppSOs, setWonOppSOs] = useState<Record<string, string>>({});
@@ -508,6 +509,16 @@ export default function LeadsPage() {
 
     // Track the linked SO number for UI badge
     setWonOppSOs((prev) => ({ ...prev, [opp.id]: soNumber }));
+
+    addNotification({
+      type: "SUCCESS",
+      title: "Opportunity Won",
+      message: `${opp.title} (${opp.account}) won — Sales Order ${soNumber} created for EGP ${(opp.value ?? 0).toLocaleString()}`,
+      module: "CRM",
+      entityType: "opportunity",
+      entityId: opp.id,
+      actionUrl: "/crm/leads",
+    });
   }
 
   const oppColumns: Column<Record<string, unknown>>[] = [
@@ -655,30 +666,93 @@ export default function LeadsPage() {
             <StatsCard title="Conversion Rate" value={`${leadConversionRate}%`} icon={BarChart2} />
           </div>
 
-          <div className="bg-card rounded-xl border border-border shadow-sm">
-            <div className="p-4 border-b border-border">
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <FilterBar
-                    searchValue={leadFilters._search}
-                    onSearchChange={(v) => setLeadFilters((f) => ({ ...f, _search: v }))}
-                    fields={LEAD_FILTER_FIELDS}
-                    values={leadFilters}
-                    onChange={(k, v) => setLeadFilters((f) => ({ ...f, [k]: v }))}
-                  />
-                </div>
-                <Button
-                  variant={hotLeadsOnly ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setHotLeadsOnly((v) => !v)}
-                  className="gap-1.5 shrink-0"
-                >
-                  <Flame className="w-4 h-4" />
-                  Hot Leads
-                  {hotLeadsOnly && <span className="ml-1 text-xs">({hotLeadsCount})</span>}
-                </Button>
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <FilterBar
+                searchValue={leadFilters._search}
+                onSearchChange={(v) => setLeadFilters((f) => ({ ...f, _search: v }))}
+                fields={LEAD_FILTER_FIELDS}
+                values={leadFilters}
+                onChange={(k, v) => setLeadFilters((f) => ({ ...f, [k]: v }))}
+              />
+            </div>
+            <Button
+              variant={hotLeadsOnly ? "default" : "outline"}
+              size="sm"
+              onClick={() => setHotLeadsOnly((v) => !v)}
+              className="gap-1.5 shrink-0"
+            >
+              <Flame className="w-4 h-4" />
+              Hot Leads
+              {hotLeadsOnly && <span className="ml-1 text-xs">({hotLeadsCount})</span>}
+            </Button>
+          </div>
+
+          {leadView === "kanban" && (
+            <div className="overflow-x-auto pb-4">
+              <div className="flex gap-4 min-w-max">
+                {LEAD_KANBAN_STATUSES.map((status) => {
+                  const cards = filteredLeads.filter((l) => l.status === status);
+                  const stageTotal = cards.reduce((s, l) => s + l.value, 0);
+                  return (
+                    <div key={status} className="w-64 flex-shrink-0">
+                      <div className={`rounded-t-lg px-3 py-2 flex items-center justify-between ${LEAD_STATUS_STYLES[status]}`}>
+                        <span className="text-xs font-bold uppercase tracking-wide">{status.replace(/_/g, " ")}</span>
+                        <span className="text-xs font-semibold">{cards.length} · EGP {(stageTotal / 1000).toFixed(0)}K</span>
+                      </div>
+                      <div className="rounded-b-lg border border-t-0 border-border bg-muted/50 min-h-40 space-y-2 p-2">
+                        {cards.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No leads</p>}
+                        {cards.map((lead) => (
+                          <div key={lead.id} className="bg-card rounded-lg border border-border p-3 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex items-start justify-between">
+                              <p className="text-sm font-semibold text-foreground leading-tight">{lead.firstName} {lead.lastName}</p>
+                              <EditDeleteMenu
+                                onEdit={() => { setEditingLead(lead); setShowLeadModal(true); }}
+                                onDelete={() => setLeads((prev) => prev.filter((l) => l.id !== lead.id))}
+                                onView={() => setDetailLead(lead)}
+                                canView
+                                itemLabel={`${lead.firstName} ${lead.lastName}`}
+                                extraItems={(() => {
+                                  const next = leadStatusFlow[lead.status];
+                                  if (!next) return [];
+                                  return [{ label: `Move to ${next.replace(/_/g, " ")}`, onClick: () => {
+                                    setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, status: next } : l));
+                                    if (next === "CLOSED_WON") {
+                                      addNotification({
+                                        type: "SUCCESS",
+                                        title: "Lead Closed Won",
+                                        message: `${lead.firstName} ${lead.lastName} (${lead.company}) closed won with value EGP ${(lead.value ?? 0).toLocaleString()}`,
+                                        module: "CRM",
+                                        entityType: "lead",
+                                        entityId: lead.id,
+                                        actionUrl: "/crm/leads",
+                                      });
+                                    }
+                                  } }];
+                                })()}
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">{lead.company}</p>
+                            <div className="mt-2">
+                              <ScoreBadge lead={lead} onClick={() => setScoreBreakdownLead(lead)} />
+                            </div>
+                            <div className="mt-2 flex items-center justify-between">
+                              <span className="text-sm font-bold text-foreground">EGP {(lead.value ?? 0).toLocaleString()}</span>
+                              <span className="text-xs text-muted-foreground">{lead.source.replace(/_/g, " ")}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">{lead.assignedTo}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
+          )}
+
+          {leadView === "table" && (
+          <div className="bg-card rounded-xl border border-border shadow-sm">
             <DataTable
               selectable
               bulkActions={[
@@ -762,7 +836,20 @@ export default function LeadsPage() {
                         extraItems={(() => {
                           const next = leadStatusFlow[lead.status];
                           if (!next) return [];
-                          return [{ label: `Move to ${next.replace(/_/g, " ")}`, onClick: () => setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, status: next } : l)) }];
+                          return [{ label: `Move to ${next.replace(/_/g, " ")}`, onClick: () => {
+                            setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, status: next } : l));
+                            if (next === "CLOSED_WON") {
+                              addNotification({
+                                type: "SUCCESS",
+                                title: "Lead Closed Won",
+                                message: `${lead.firstName} ${lead.lastName} (${lead.company}) closed won with value EGP ${(lead.value ?? 0).toLocaleString()}`,
+                                module: "CRM",
+                                entityType: "lead",
+                                entityId: lead.id,
+                                actionUrl: "/crm/leads",
+                              });
+                            }
+                          } }];
                         })()}
                       />
                     );
@@ -775,6 +862,7 @@ export default function LeadsPage() {
               exportFilename="leads.csv"
             />
           </div>
+          )}
         </>
       )}
 
@@ -1016,6 +1104,15 @@ export default function LeadsPage() {
               createdAt: new Date().toISOString().split("T")[0],
             };
             setLeads((prev) => [newLead, ...prev]);
+            addNotification({
+              type: "INFO",
+              title: "New Lead Created",
+              message: `${newLead.firstName} ${newLead.lastName} from ${newLead.company || "Unknown"} added as a new lead`,
+              module: "CRM",
+              entityType: "lead",
+              entityId: newLead.id,
+              actionUrl: "/crm/leads",
+            });
           }
           setShowLeadModal(false);
           setEditingLead(null);
