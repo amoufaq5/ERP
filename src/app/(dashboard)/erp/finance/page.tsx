@@ -174,8 +174,8 @@ export default function FinancePage() {
     )},
   ];
 
-  const customerName = useCallback((id: string) => store.customers.find((c) => c.id === id)?.name ?? id, [store.customers]);
-  const vendorName = useCallback((id: string) => store.vendors.find((v) => v.id === id)?.name ?? id, [store.vendors]);
+  const customerName = useCallback((id: string) => (id ? store.customers.find((c) => c.id === id)?.name ?? id : "—"), [store.customers]);
+  const vendorName = useCallback((id: string) => (id ? store.vendors.find((v) => v.id === id)?.name ?? id : "—"), [store.vendors]);
 
   // ─── Computed metrics ──────────────────────────────────────────
   const totalRevenue = store.invoices
@@ -254,7 +254,7 @@ export default function FinancePage() {
   const filteredInvoices = useMemo(() => {
     return store.invoices.filter((i) => {
       const q = (invoiceFilters._search || "").toLowerCase();
-      const cName = customerName(i.customerId).toLowerCase();
+      const cName = (customerName(i.customerId) || "").toLowerCase();
       const matchesSearch = !q || i.number.toLowerCase().includes(q) || cName.includes(q);
       const matchesStatus = !invoiceFilters.status || i.status === invoiceFilters.status;
       return matchesSearch && matchesStatus;
@@ -265,7 +265,7 @@ export default function FinancePage() {
     return store.payments.filter((p) => {
       const q = (paymentFilters._search || "").toLowerCase();
       const party = p.customerId ? customerName(p.customerId) : p.vendorId ? vendorName(p.vendorId) : "";
-      const matchesSearch = !q || p.reference.toLowerCase().includes(q) || party.toLowerCase().includes(q);
+      const matchesSearch = !q || (p.reference || "").toLowerCase().includes(q) || (party || "").toLowerCase().includes(q);
       const matchesType = !paymentFilters.type || p.type === paymentFilters.type;
       const matchesMethod = !paymentFilters.method || p.method === paymentFilters.method;
       return matchesSearch && matchesType && matchesMethod;
