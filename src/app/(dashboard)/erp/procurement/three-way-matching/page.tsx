@@ -163,6 +163,8 @@ export default function ThreeWayMatchingPage() {
 
   // Bulk selection for exceptions
   const [selectedExceptionIds, setSelectedExceptionIds] = useState<Set<string>>(new Set());
+  // Delete
+  const [deleteMatchId, setDeleteMatchId] = useState<string | null>(null);
 
   // ── Load data ────────────────────────────────────────────
 
@@ -284,6 +286,14 @@ export default function ThreeWayMatchingPage() {
         : "Bulk escalated to management"
     );
     setSelectedExceptionIds(new Set());
+    refreshData();
+  }
+
+  function handleDeleteMatch() {
+    if (!deleteMatchId) return;
+    matchingStore.delete(deleteMatchId);
+    setDeleteMatchId(null);
+    if (selectedRecord?.id === deleteMatchId) { setSelectedRecord(null); setDetailOpen(false); }
     refreshData();
   }
 
@@ -615,9 +625,28 @@ export default function ThreeWayMatchingPage() {
                 <Button variant="outline" onClick={() => setDetailOpen(false)}>
                   Close
                 </Button>
+                {selectedRecord && (
+                  <Button variant="destructive" onClick={() => { setDetailOpen(false); setDeleteMatchId(selectedRecord.id); }}>
+                    Delete Record
+                  </Button>
+                )}
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* DELETE MATCH RECORD CONFIRMATION */}
+      <Dialog open={!!deleteMatchId} onOpenChange={(open) => !open && setDeleteMatchId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Match Record</DialogTitle>
+            <DialogDescription>Are you sure you want to delete this match record? This action cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteMatchId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteMatch}>Delete</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
@@ -694,9 +723,11 @@ function QueueTable({
                 )}
               </TableCell>
               <TableCell>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                  <Eye className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}

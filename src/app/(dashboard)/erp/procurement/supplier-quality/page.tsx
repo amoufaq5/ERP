@@ -706,16 +706,29 @@ export default function SupplierQualityPage() {
                             </TableCell>
                             <TableCell>{sqaStatusBadge(a.status)}</TableCell>
                             <TableCell className="text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setAgreementDetail(a);
-                                }}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setAgreementDetail(a);
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteAgreementId(a.id);
+                                  }}
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -1870,6 +1883,57 @@ export default function SupplierQualityPage() {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* CREATE AGREEMENT DIALOG */}
+      <Dialog open={showAgreementForm} onOpenChange={(open) => !open && setShowAgreementForm(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>New Quality Agreement</DialogTitle>
+            <DialogDescription>Create a new supplier quality agreement.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Supplier Name *</label>
+              <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1" value={agFormSupplier} onChange={(e) => setAgFormSupplier(e.target.value)} placeholder="Supplier name" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Material Type</label>
+              <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1" value={agFormMaterialType} onChange={(e) => setAgFormMaterialType(e.target.value)}>
+                <option value="api">API</option>
+                <option value="excipient">Excipient</option>
+                <option value="packaging">Packaging</option>
+                <option value="raw">Raw Material</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Materials Scope (comma-separated)</label>
+              <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1" value={agFormMaterials} onChange={(e) => setAgFormMaterials(e.target.value)} placeholder="e.g. Amoxicillin Trihydrate, Clavulanic Acid" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Expiry Date</label>
+              <input type="date" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1" value={agFormExpiry} onChange={(e) => setAgFormExpiry(e.target.value)} />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setShowAgreementForm(false)}>Cancel</Button>
+            <Button onClick={handleCreateAgreement} disabled={!agFormSupplier}>Create Agreement</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* DELETE AGREEMENT CONFIRMATION */}
+      <Dialog open={!!deleteAgreementId} onOpenChange={(open) => !open && setDeleteAgreementId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Agreement</DialogTitle>
+            <DialogDescription>Are you sure you want to delete this quality agreement? This action cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setDeleteAgreementId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteAgreement}>Delete</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

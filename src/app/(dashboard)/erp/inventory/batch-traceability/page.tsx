@@ -448,16 +448,50 @@ function BatchRegistryTab() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedBatch(b);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedBatch(b);
+                          }}
+                          title="View details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {b.status === "released" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50 text-[10px]"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              batchStore.updateBatch(b.id, { status: "quarantine" });
+                              refresh();
+                            }}
+                            title="Quarantine"
+                          >
+                            <ShieldAlert className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {b.status === "quarantine" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-green-600 hover:text-green-700 hover:bg-green-50 text-[10px]"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              batchStore.updateBatch(b.id, { status: "released", qcStatus: "passed" });
+                              refresh();
+                            }}
+                            title="Release"
+                          >
+                            <CheckCircle className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

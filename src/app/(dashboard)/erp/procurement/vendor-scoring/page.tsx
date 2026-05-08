@@ -145,6 +145,14 @@ export default function VendorScoringPage() {
   const [qualVendorId, setQualVendorId] = useState("");
   const [qualAction, setQualAction] = useState<QualificationStatus | "">("");
 
+  // Vendor CRUD
+  const [showVendorForm, setShowVendorForm] = useState(false);
+  const [vfName, setVfName] = useState("");
+  const [vfContact, setVfContact] = useState("");
+  const [vfCategory, setVfCategory] = useState<string>("api-manufacturer");
+  const [vfCountry, setVfCountry] = useState("");
+  const [deleteVendorId, setDeleteVendorId] = useState<string | null>(null);
+
   const reload = useCallback(() => {
     setVendors(vendorScoringStore.getAll());
     setMetrics(vendorScoringStore.getMetrics());
@@ -252,6 +260,40 @@ export default function VendorScoringPage() {
     reload();
   }
 
+  function handleCreateVendor() {
+    if (!vfName) return;
+    vendorScoringStore.create({
+      vendorName: vfName,
+      vendorCode: `V-${Date.now().toString(36).toUpperCase()}`,
+      contactPerson: vfContact || "N/A",
+      contactEmail: "",
+      category: vfCategory as VendorCategory,
+      country: vfCountry || "Egypt",
+      qualificationStatus: "new" as QualificationStatus,
+      qualityScore: 0,
+      deliveryScore: 0,
+      complianceScore: 0,
+      commercialScore: 0,
+      responsiveness: 0,
+      audits: [],
+      certifications: [],
+      incidents: [],
+      contractValue: 0,
+      activeContracts: 0,
+    });
+    setShowVendorForm(false);
+    setVfName(""); setVfContact(""); setVfCategory("api-manufacturer"); setVfCountry("");
+    reload();
+  }
+
+  function handleDeleteVendor() {
+    if (!deleteVendorId) return;
+    vendorScoringStore.delete(deleteVendorId);
+    setDeleteVendorId(null);
+    if (selectedVendor?.id === deleteVendorId) { setSelectedVendor(null); setDetailOpen(false); }
+    reload();
+  }
+
   function handleToggleSort(field: typeof sortField) {
     if (sortField === field) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -297,10 +339,16 @@ export default function VendorScoringPage() {
         description="Evaluate, score, and qualify pharmaceutical suppliers across quality, delivery, compliance, and commercial dimensions."
         icon={<Award className="h-6 w-6 text-primary" />}
         actions={
-          <Button variant="outline" size="sm" onClick={reload}>
-            <RefreshCw className="h-4 w-4 mr-1.5" />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={reload}>
+              <RefreshCw className="h-4 w-4 mr-1.5" />
+              Refresh
+            </Button>
+            <Button size="sm" onClick={() => setShowVendorForm(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              Add Vendor
+            </Button>
+          </div>
         }
       />
 
@@ -1132,6 +1180,61 @@ export default function VendorScoringPage() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ADD VENDOR DIALOG */}
+      <Dialog open={showVendorForm} onOpenChange={(open) => !open && setShowVendorForm(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Vendor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Vendor Name *</Label>
+              <Input value={vfName} onChange={(e) => setVfName(e.target.value)} placeholder="e.g. PharmaChem Industries" className="mt-1" />
+            </div>
+            <div>
+              <Label>Contact Person</Label>
+              <Input value={vfContact} onChange={(e) => setVfContact(e.target.value)} placeholder="Contact name" className="mt-1" />
+            </div>
+            <div>
+              <Label>Category</Label>
+              <Select value={vfCategory} onValueChange={setVfCategory}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="api-manufacturer">API Manufacturer</SelectItem>
+                  <SelectItem value="excipient-supplier">Excipient Supplier</SelectItem>
+                  <SelectItem value="packaging-supplier">Packaging Supplier</SelectItem>
+                  <SelectItem value="contract-manufacturer">Contract Manufacturer</SelectItem>
+                  <SelectItem value="distributor">Distributor</SelectItem>
+                  <SelectItem value="service-provider">Service Provider</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Country</Label>
+              <Input value={vfCountry} onChange={(e) => setVfCountry(e.target.value)} placeholder="e.g. Egypt" className="mt-1" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowVendorForm(false)}>Cancel</Button>
+            <Button onClick={handleCreateVendor} disabled={!vfName}>Create Vendor</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DELETE VENDOR CONFIRMATION */}
+      <Dialog open={!!deleteVendorId} onOpenChange={(open) => !open && setDeleteVendorId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Vendor</DialogTitle>
+            <DialogDescription>Are you sure you want to delete this vendor? All scoring data and audit history will be removed.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteVendorId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteVendor}>Delete</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

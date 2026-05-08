@@ -302,6 +302,24 @@ export default function ExpiryManagementPage() {
       label: "Status",
       render: (v: ExpiryItem["status"]) => <StatusBadge status={v} />,
     },
+    {
+      key: "id",
+      label: "Actions",
+      render: (_: unknown, row: ExpiryItem) => {
+        const store = getStore();
+        if (!store) return null;
+        return (
+          <div className="flex items-center gap-1">
+            {row.status !== "quarantined" && row.status !== "destroyed" && (
+              <button className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-800 hover:bg-amber-200" onClick={() => { store.updateItem(row.id, { status: "quarantined", lastCheckedAt: new Date().toISOString(), notes: "Manually quarantined" }); reload(); }}>Quarantine</button>
+            )}
+            {row.status === "quarantined" && (
+              <button className="text-xs px-2 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200" onClick={() => { store.updateItem(row.id, { status: "destroyed", lastCheckedAt: new Date().toISOString(), notes: "Destroyed" }); reload(); }}>Destroy</button>
+            )}
+          </div>
+        );
+      },
+    },
   ];
 
   const soonestColumns: Column<ExpiryItem>[] = [
