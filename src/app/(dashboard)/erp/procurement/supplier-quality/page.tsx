@@ -481,7 +481,7 @@ export default function SupplierQualityPage() {
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
-            <Button size="sm">
+            <Button size="sm" onClick={() => setShowAgreementForm(true)}>
               <Plus className="h-4 w-4 mr-2" />
               New Agreement
             </Button>
