@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
-import { type UserRole, ROLE_ROUTES } from "@/lib/auth/role-routes";
 
-/** Routes that don't require authentication. */
 const PUBLIC_PATHS = [
   "/login",
   "/api/auth",
@@ -19,19 +16,6 @@ function isPublicPath(pathname: string): boolean {
   );
 }
 
-/**
- * Check if a user role is allowed to access a given pathname
- * based on the ROLE_ROUTES ACL from user-context.
- */
-function isRoleAllowed(role: string, pathname: string): boolean {
-  const routes = ROLE_ROUTES[role as UserRole];
-  if (!routes) return false;
-  // Wildcard = full access
-  if (routes.includes("*")) return true;
-  // Check if the pathname matches any allowed route
-  return routes.some((r) => pathname === r || pathname.startsWith(r + "/"));
-}
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -40,8 +24,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow API routes that aren't under /api/v1 (e.g., /api/auth is already handled above)
-  // API v1 routes use their own withAuth middleware
+  // Allow API routes
   if (pathname.startsWith("/api/")) {
     return NextResponse.next();
   }
@@ -62,32 +45,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for valid session token (try both secure and plain cookie names)
-  const secret = "pharma-erp-dev-secret-change-in-production";
-  let token = await getToken({ req: request, secret });
-  if (!token) {
-    token = await getToken({ req: request, secret, cookieName: "next-auth.session-token" });
-  }
-  if (!token) {
-    token = await getToken({ req: request, secret, cookieName: "__Secure-next-auth.session-token" });
-  }
+  // Check for session cookie presence (either variant)
+  const hasPlain = request.cookies.has("next-auth.session-token");
+  const hasSecure = request.cookies.has("__Secure-next-auth.session-token");
 
-  if (!token) {
+  if (!hasPlain && !hasSecure) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Role-based route protection
-  const role = (token.role as string) || "MEDICAL_REP";
-
-  // ADMIN always has full access
-  if (role !== "ADMIN" && !isRoleAllowed(role, pathname)) {
-    // Redirect to dashboard if role is not allowed on this route
-    const dashboardUrl = new URL("/dashboard", request.url);
-    return NextResponse.redirect(dashboardUrl);
-  }
-
+  // JWT verification and role checks happen in the dashboard layout
   return NextResponse.next();
 }
 
