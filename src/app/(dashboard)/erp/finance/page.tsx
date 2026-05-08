@@ -36,7 +36,7 @@ import PLStatement from "@/components/shared/pl-statement";
 
 const egp = (n: number) => `EGP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-type Tab = "overview" | "invoices" | "payments" | "gl" | "vendors" | "budgets" | "trial" | "ratios" | "cashflow" | "pnl" | "sales-orders" | "banking" | "transactions" | "reconciliation" | "payment-gateway" | "escalated";
+type Tab = "overview" | "invoices" | "payments" | "gl" | "vendors" | "budgets" | "trial" | "ratios" | "cashflow" | "pnl" | "sales-orders" | "banking" | "transactions" | "reconciliation" | "payment-gateway" | "tax-config" | "escalated";
 
 // ─── Banking interfaces & sample data ──────────────────────────
 interface BankingTransaction {
@@ -234,6 +234,51 @@ export default function FinancePage() {
       return true;
     });
   }, [store.glAccounts, glSearch, glFilters]);
+
+  const trialBalance = useMemo(() => {
+    const balances = new Map<string, { debit: number; credit: number }>();
+
+    // Start with GL account balances
+    for (const acct of store.glAccounts) {
+      const isDebitNormal = acct.type === "ASSET" || acct.type === "EXPENSE";
+      balances.set(acct.id, {
+        debit: isDebitNormal ? acct.balance : 0,
+        credit: isDebitNormal ? 0 : acct.balance,
+      });
+    }
+
+    // Add posted journal entry movements
+    for (const je of store.journalEntries) {
+      if (je.status !== "POSTED") continue;
+      for (const line of je.lines) {
+        const existing = balances.get(line.accountId) ?? { debit: 0, credit: 0 };
+        balances.set(line.accountId, {
+          debit: existing.debit + line.debit,
+          credit: existing.credit + line.credit,
+        });
+      }
+    }
+
+    const rows = store.glAccounts
+      .filter((a) => a.isActive)
+      .map((acct) => {
+        const bal = balances.get(acct.id) ?? { debit: 0, credit: 0 };
+        const net = bal.debit - bal.credit;
+        return {
+          ...acct,
+          totalDebit: bal.debit,
+          totalCredit: bal.credit,
+          netBalance: Math.abs(net),
+          balanceSide: net >= 0 ? "debit" as const : "credit" as const,
+        };
+      })
+      .sort((a, b) => a.code.localeCompare(b.code));
+
+    const totalDebit = rows.reduce((s, r) => s + (r.balanceSide === "debit" ? r.netBalance : 0), 0);
+    const totalCredit = rows.reduce((s, r) => s + (r.balanceSide === "credit" ? r.netBalance : 0), 0);
+
+    return { rows, totalDebit, totalCredit, isBalanced: Math.abs(totalDebit - totalCredit) < 0.01 };
+  }, [store.glAccounts, store.journalEntries]);
 
   const typeBadge = (type: string) => {
     const colors: Record<string, string> = { ASSET: "bg-blue-100 text-blue-800", LIABILITY: "bg-red-100 text-red-800", EQUITY: "bg-purple-100 text-purple-800", REVENUE: "bg-green-100 text-green-800", EXPENSE: "bg-amber-100 text-amber-800" };
@@ -491,6 +536,7 @@ export default function FinancePage() {
     { key: "sales-orders", label: `${t("fin.salesOrders")} (${store.salesOrders.length})` },
     { key: "banking", label: "Banking" },
     { key: "payment-gateway", label: "Payment Gateway" },
+    { key: "tax-config", label: `Tax Config (${(store.taxConfigurations ?? []).length})` },
     { key: "escalated", label: `Escalated Approvals (${store.salesOrders.filter(so => so.escalatedToFinance && so.status === "PENDING_APPROVAL").length + store.purchaseOrders.filter(po => po.escalatedToFinance && po.status === "PENDING_APPROVAL").length})` },
   ];
 
@@ -859,37 +905,25 @@ export default function FinancePage() {
           })()}
 
           {/* ── Trial Balance sub-view ── */}
-          {glView === "trial-balance" && (() => {
-            const trialBalanceAccounts = activeGLAccounts
-              .sort((a, b) => a.code.localeCompare(b.code))
-              .map((a) => {
-                const isDebitNormal = ["ASSET", "EXPENSE"].includes(a.type);
-                const debitBalance = isDebitNormal ? Math.abs(a.balance ?? 0) : 0;
-                const creditBalance = !isDebitNormal ? Math.abs(a.balance ?? 0) : 0;
-                return { ...a, debitBalance, creditBalance };
-              });
-            const totalDebitsGL = trialBalanceAccounts.reduce((s, a) => s + a.debitBalance, 0);
-            const totalCreditsGL = trialBalanceAccounts.reduce((s, a) => s + a.creditBalance, 0);
-            const isBalancedGL = Math.abs(totalDebitsGL - totalCreditsGL) < 0.01;
-
-            return (
+          {glView === "trial-balance" && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <Calculator className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm font-medium">Trial Balance as of {new Date().toLocaleDateString()}</span>
-                    {isBalancedGL ? (
-                      <Badge variant="success">Balanced</Badge>
+                    {trialBalance.isBalanced ? (
+                      <Badge variant="default">Balanced</Badge>
                     ) : (
-                      <Badge variant="destructive">Out of Balance: EGP {Math.abs(totalDebitsGL - totalCreditsGL).toLocaleString()}</Badge>
+                      <Badge variant="destructive">Out of Balance: EGP {Math.abs(trialBalance.totalDebit - trialBalance.totalCredit).toLocaleString()}</Badge>
                     )}
                   </div>
                   <Button size="sm" variant="outline" onClick={() => {
-                    const rows = trialBalanceAccounts.map((a) => ({
-                      Code: a.code, Name: a.name, Type: a.type,
-                      Debit: a.debitBalance, Credit: a.creditBalance,
+                    const rows = trialBalance.rows.map((r) => ({
+                      Code: r.code, Name: r.name, Type: r.type,
+                      Debit: r.balanceSide === "debit" ? r.netBalance : 0,
+                      Credit: r.balanceSide === "credit" ? r.netBalance : 0,
                     }));
-                    rows.push({ Code: "", Name: "TOTAL", Type: "" as GLAccount["type"], Debit: totalDebitsGL, Credit: totalCreditsGL });
+                    rows.push({ Code: "", Name: "TOTAL", Type: "" as GLAccount["type"], Debit: trialBalance.totalDebit, Credit: trialBalance.totalCredit });
                     downloadCSV("trial-balance.csv", rows);
                   }}><Download className="h-3 w-3 mr-1" /> Export CSV</Button>
                 </div>
@@ -906,19 +940,19 @@ export default function FinancePage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {trialBalanceAccounts.map((a) => (
-                          <tr key={a.id} className="border-b hover:bg-muted/30">
-                            <td className="p-2"><span className="font-mono text-xs font-semibold">{a.code}</span></td>
-                            <td className="p-2 font-medium">{a.name}</td>
-                            <td className="p-2">{typeBadge(a.type)}</td>
-                            <td className="p-2 text-right font-medium">{a.debitBalance > 0 ? `EGP ${(a.debitBalance ?? 0).toLocaleString()}` : ""}</td>
-                            <td className="p-2 text-right font-medium">{a.creditBalance > 0 ? `EGP ${(a.creditBalance ?? 0).toLocaleString()}` : ""}</td>
+                        {trialBalance.rows.map((row) => (
+                          <tr key={row.id} className="border-b hover:bg-muted/30">
+                            <td className="p-2"><span className="font-mono text-xs font-semibold">{row.code}</span></td>
+                            <td className="p-2 font-medium">{row.name}</td>
+                            <td className="p-2">{typeBadge(row.type)}</td>
+                            <td className="p-2 text-right font-medium">{row.balanceSide === "debit" ? `EGP ${row.netBalance.toLocaleString()}` : ""}</td>
+                            <td className="p-2 text-right font-medium">{row.balanceSide === "credit" ? `EGP ${row.netBalance.toLocaleString()}` : ""}</td>
                           </tr>
                         ))}
                         <tr className="border-t-2 bg-muted/50 font-bold">
                           <td className="p-2" colSpan={3}>Total</td>
-                          <td className="p-2 text-right">EGP {(totalDebitsGL ?? 0).toLocaleString()}</td>
-                          <td className="p-2 text-right">EGP {(totalCreditsGL ?? 0).toLocaleString()}</td>
+                          <td className="p-2 text-right">EGP {trialBalance.totalDebit.toLocaleString()}</td>
+                          <td className="p-2 text-right">EGP {trialBalance.totalCredit.toLocaleString()}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -928,19 +962,18 @@ export default function FinancePage() {
                   <Card>
                     <CardContent className="p-3 text-center">
                       <div className="text-xs text-muted-foreground">Total Debits</div>
-                      <div className="text-xl font-bold">EGP {(totalDebitsGL ?? 0).toLocaleString()}</div>
+                      <div className="text-xl font-bold">EGP {trialBalance.totalDebit.toLocaleString()}</div>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className="p-3 text-center">
                       <div className="text-xs text-muted-foreground">Total Credits</div>
-                      <div className="text-xl font-bold">EGP {(totalCreditsGL ?? 0).toLocaleString()}</div>
+                      <div className="text-xl font-bold">EGP {trialBalance.totalCredit.toLocaleString()}</div>
                     </CardContent>
                   </Card>
                 </div>
               </div>
-            );
-          })()}
+          )}
         </div>
       )}
 
@@ -989,149 +1022,70 @@ export default function FinancePage() {
         </div>
       )}
 
-      {activeTab === "trial" && (() => {
-        const trialAccounts = store.glAccounts.filter((a) => a.isActive);
-        const typeOrder: GLAccount["type"][] = ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"];
-        const typeLabels: Record<string, string> = { ASSET: "Assets", LIABILITY: "Liabilities", EQUITY: "Equity", REVENUE: "Revenue", EXPENSE: "Expenses" };
-        const typeColors: Record<string, string> = { ASSET: "bg-blue-100 text-blue-800", LIABILITY: "bg-red-100 text-red-800", EQUITY: "bg-purple-100 text-purple-800", REVENUE: "bg-green-100 text-green-800", EXPENSE: "bg-amber-100 text-amber-800" };
-        const grouped = typeOrder.map((type) => {
-          const accounts = trialAccounts.filter((a) => a.type === type);
-          const totalDebit = ["ASSET", "EXPENSE"].includes(type) ? accounts.reduce((s, a) => s + Math.abs(a.balance), 0) : 0;
-          const totalCredit = ["LIABILITY", "EQUITY", "REVENUE"].includes(type) ? accounts.reduce((s, a) => s + Math.abs(a.balance), 0) : 0;
-          return { type, label: typeLabels[type], accounts, totalDebit, totalCredit };
-        });
-        const grandDebit = grouped.reduce((s, g) => s + g.totalDebit, 0);
-        const grandCredit = grouped.reduce((s, g) => s + g.totalCredit, 0);
-        const isBalanced = Math.abs(grandDebit - grandCredit) < 0.01;
-
-        const exportTrialCSV = () => {
-          const rows: Record<string, unknown>[] = [];
-          grouped.forEach((g) => {
-            rows.push({ Code: "", Account: `--- ${g.label} ---`, Type: g.type, SubType: "", Debit: "", Credit: "" });
-            g.accounts.forEach((a) => {
-              rows.push({
-                Code: a.code, Account: a.name, Type: a.type, SubType: a.subType,
-                Debit: ["ASSET", "EXPENSE"].includes(a.type) ? Math.abs(a.balance) : 0,
-                Credit: ["LIABILITY", "EQUITY", "REVENUE"].includes(a.type) ? Math.abs(a.balance) : 0,
-              });
-            });
-            rows.push({ Code: "", Account: `Total ${g.label}`, Type: "", SubType: "", Debit: g.totalDebit, Credit: g.totalCredit });
-          });
-          rows.push({ Code: "", Account: "GRAND TOTAL", Type: "", SubType: "", Debit: grandDebit, Credit: grandCredit });
-          downloadCSV("trial-balance.csv", rows);
-        };
-
-        return (
-          <div className="space-y-4">
-            {/* Filters & Export */}
-            <div className="flex flex-wrap items-end gap-4 justify-between">
-              <div className="flex items-end gap-3">
-                <div>
-                  <Label className="text-xs text-muted-foreground">From Date</Label>
-                  <Input type="date" className="h-8 text-sm w-40 mt-1" value={trialDateFrom} onChange={(e) => setTrialDateFrom(e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">To Date</Label>
-                  <Input type="date" className="h-8 text-sm w-40 mt-1" value={trialDateTo} onChange={(e) => setTrialDateTo(e.target.value)} />
-                </div>
-                {(trialDateFrom || trialDateTo) && (
-                  <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setTrialDateFrom(""); setTrialDateTo(""); }}>Clear</Button>
-                )}
-              </div>
-              <Button variant="outline" size="sm" onClick={exportTrialCSV}><Download className="h-4 w-4 mr-1" /> Export CSV</Button>
-            </div>
-
-            {/* Balance verification banner */}
-            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium ${isBalanced ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
-              {isBalanced ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-              {isBalanced ? "Trial balance is in balance — total debits equal total credits." : `Trial balance is out of balance — difference of ${egp(Math.abs(grandDebit - grandCredit))}.`}
-            </div>
-
-            {/* Grouped accounts */}
-            {grouped.map((g) => (
-              <Card key={g.type}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${typeColors[g.type]}`}>{g.label}</span>
-                    <span className="text-xs text-muted-foreground font-normal">({g.accounts.length} account{g.accounts.length !== 1 ? "s" : ""})</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {g.accounts.length > 0 ? (
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b bg-muted/30">
-                          <th className="text-left p-3 font-medium text-xs">Code</th>
-                          <th className="text-left p-3 font-medium text-xs">Account Name</th>
-                          <th className="text-left p-3 font-medium text-xs">Sub-Type</th>
-                          <th className="text-right p-3 font-medium text-xs">Debit</th>
-                          <th className="text-right p-3 font-medium text-xs">Credit</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {g.accounts.map((a) => (
-                          <tr key={a.id} className="border-b hover:bg-muted/20">
-                            <td className="p-3 font-mono text-xs font-semibold">{a.code}</td>
-                            <td className="p-3 font-medium">{a.name}</td>
-                            <td className="p-3 text-xs text-muted-foreground">{a.subType}</td>
-                            <td className="p-3 text-right font-semibold">
-                              {["ASSET", "EXPENSE"].includes(a.type) ? egp(Math.abs(a.balance)) : <span className="text-muted-foreground">—</span>}
-                            </td>
-                            <td className="p-3 text-right font-semibold">
-                              {["LIABILITY", "EQUITY", "REVENUE"].includes(a.type) ? egp(Math.abs(a.balance)) : <span className="text-muted-foreground">—</span>}
-                            </td>
-                          </tr>
-                        ))}
-                        <tr className="bg-muted/40 font-semibold">
-                          <td className="p-3" colSpan={3}>Total {g.label}</td>
-                          <td className="p-3 text-right">{g.totalDebit > 0 ? egp(g.totalDebit) : "—"}</td>
-                          <td className="p-3 text-right">{g.totalCredit > 0 ? egp(g.totalCredit) : "—"}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  ) : (
-                    <div className="p-4 text-center text-xs text-muted-foreground">No active accounts in this category.</div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-
-            {/* Grand totals */}
-            <Card className={`border-2 ${isBalanced ? "border-green-200" : "border-red-200"}`}>
-              <CardContent className="p-0">
-                <table className="w-full text-sm">
-                  <tbody>
-                    <tr className={`font-bold text-base ${isBalanced ? "bg-green-50" : "bg-red-50"}`}>
-                      <td className="p-4">Grand Total</td>
-                      <td className="p-4 text-right">{egp(grandDebit)}</td>
-                      <td className="p-4 text-right">{egp(grandCredit)}</td>
-                    </tr>
-                    {!isBalanced && (
-                      <tr className="bg-red-50/50 text-red-700">
-                        <td className="px-4 pb-3 text-sm font-medium">Difference</td>
-                        <td className="px-4 pb-3 text-right text-sm font-semibold" colSpan={2}>{egp(Math.abs(grandDebit - grandCredit))}</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-
-            {/* Summary cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {grouped.map((g) => (
-                <Card key={g.type}>
-                  <CardContent className="p-4 text-center">
-                    <div className="text-xs text-muted-foreground">{g.label}</div>
-                    <div className="text-lg font-bold mt-1">{egp(g.totalDebit || g.totalCredit)}</div>
-                    <div className="text-xs text-muted-foreground">{g.accounts.length} account{g.accounts.length !== 1 ? "s" : ""}</div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+      {activeTab === "trial" && (
+        <div className="space-y-4">
+          {/* Balance verification banner */}
+          <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium ${trialBalance.isBalanced ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+            {trialBalance.isBalanced ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+            {trialBalance.isBalanced ? "Trial balance is in balance — total debits equal total credits." : `Trial balance is out of balance — difference of ${egp(Math.abs(trialBalance.totalDebit - trialBalance.totalCredit))}.`}
           </div>
-        );
-      })()}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Trial Balance</span>
+                <Badge variant={trialBalance.isBalanced ? "default" : "destructive"}>
+                  {trialBalance.isBalanced ? "Balanced" : "UNBALANCED"}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="py-2 font-medium">Code</th>
+                    <th className="py-2 font-medium">Account</th>
+                    <th className="py-2 font-medium">Type</th>
+                    <th className="py-2 font-medium text-right">Debit (EGP)</th>
+                    <th className="py-2 font-medium text-right">Credit (EGP)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trialBalance.rows.map((row) => (
+                    <tr key={row.id} className="border-b hover:bg-muted/50">
+                      <td className="py-1.5 font-mono text-xs">{row.code}</td>
+                      <td className="py-1.5">{row.name}</td>
+                      <td className="py-1.5"><Badge variant="outline" className="text-[10px]">{row.type}</Badge></td>
+                      <td className="py-1.5 text-right font-mono">{row.balanceSide === "debit" ? row.netBalance.toLocaleString() : "—"}</td>
+                      <td className="py-1.5 text-right font-mono">{row.balanceSide === "credit" ? row.netBalance.toLocaleString() : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 font-bold">
+                    <td colSpan={3} className="py-2">Total</td>
+                    <td className="py-2 text-right font-mono">{trialBalance.totalDebit.toLocaleString()}</td>
+                    <td className="py-2 text-right font-mono">{trialBalance.totalCredit.toLocaleString()}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </CardContent>
+          </Card>
+
+          {/* Export */}
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => {
+              const rows = trialBalance.rows.map((r) => ({
+                Code: r.code, Account: r.name, Type: r.type,
+                Debit: r.balanceSide === "debit" ? r.netBalance : 0,
+                Credit: r.balanceSide === "credit" ? r.netBalance : 0,
+              }));
+              rows.push({ Code: "", Account: "TOTAL", Type: "" as GLAccount["type"], Debit: trialBalance.totalDebit, Credit: trialBalance.totalCredit });
+              downloadCSV("trial-balance.csv", rows);
+            }}><Download className="h-4 w-4 mr-1" /> Export CSV</Button>
+          </div>
+        </div>
+      )}
 
       {activeTab === "ratios" && (
         <div className="space-y-4">
@@ -1835,6 +1789,48 @@ export default function FinancePage() {
                   ))}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ─── Tax Configuration Tab ─────────────────────────────── */}
+      {activeTab === "tax-config" && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tax Configuration</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="py-2 font-medium">Code</th>
+                    <th className="py-2 font-medium">Name</th>
+                    <th className="py-2 font-medium text-right">Rate</th>
+                    <th className="py-2 font-medium">Type</th>
+                    <th className="py-2 font-medium">GL Account</th>
+                    <th className="py-2 font-medium">Effective From</th>
+                    <th className="py-2 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(store.taxConfigurations ?? []).map((tax: any) => {
+                    const glAcct = store.glAccounts.find((a: any) => a.id === tax.glAccountId);
+                    return (
+                      <tr key={tax.id} className="border-b hover:bg-muted/50">
+                        <td className="py-1.5 font-mono text-xs">{tax.code}</td>
+                        <td className="py-1.5">{tax.name}</td>
+                        <td className="py-1.5 text-right font-mono">{tax.rate}%</td>
+                        <td className="py-1.5"><Badge variant="outline" className="text-[10px]">{tax.type}</Badge></td>
+                        <td className="py-1.5 text-xs">{glAcct ? `${glAcct.code} — ${glAcct.name}` : tax.glAccountId}</td>
+                        <td className="py-1.5 text-xs">{tax.effectiveFrom}</td>
+                        <td className="py-1.5"><Badge variant={tax.isActive ? "default" : "secondary"}>{tax.isActive ? "Active" : "Inactive"}</Badge></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </CardContent>
           </Card>
         </div>
