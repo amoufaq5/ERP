@@ -15,36 +15,8 @@ import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import StatusBadge from "@/components/shared/status-badge";
 import { downloadCSV } from "@/lib/download";
-
-// ─── Contact type ─────────────────────────────────────────────────────────────
-
-interface Contact {
-  id: string;
-  firstName: string;
-  lastName: string;
-  title: string;
-  email: string;
-  phone: string;
-  account: string | null;
-  owner: string;
-  status: string;
-  createdAt: string;
-}
-
-// ─── Seed data ────────────────────────────────────────────────────────────────
-
-const INITIAL_CONTACTS: Contact[] = [
-  { id: "CON-001", firstName: "Alexandra", lastName: "Chen", title: "VP of Engineering", email: "a.chen@techcorp.io", phone: "+1 (415) 555-0192", account: "TechCorp Solutions", owner: "Marcus Williams", status: "active", createdAt: "2024-06-15" },
-  { id: "CON-002", firstName: "James", lastName: "Martinez", title: "Chief Procurement Officer", email: "j.martinez@globalretail.com", phone: "+1 (212) 555-0148", account: "Global Retail Inc.", owner: "Sarah Johnson", status: "active", createdAt: "2024-03-22" },
-  { id: "CON-003", firstName: "Priya", lastName: "Patel", title: "CTO", email: "priya.patel@nexusfinance.com", phone: "+1 (312) 555-0271", account: "Nexus Finance", owner: "Marcus Williams", status: "active", createdAt: "2023-11-10" },
-  { id: "CON-004", firstName: "David", lastName: "Thompson", title: "IT Director", email: "d.thompson@healthplus.org", phone: "+1 (617) 555-0334", account: "HealthPlus Systems", owner: "Emma Davis", status: "active", createdAt: "2026-01-08" },
-  { id: "CON-005", firstName: "Sofia", lastName: "Nguyen", title: "Head of Operations", email: "sofia.n@cloudbuild.tech", phone: "+1 (206) 555-0417", account: "CloudBuild Technologies", owner: "Sarah Johnson", status: "active", createdAt: "2026-02-14" },
-  { id: "CON-006", firstName: "Robert", lastName: "Kim", title: "Plant Manager", email: "r.kim@manufactura.com", phone: "+1 (313) 555-0509", account: "Manufactura Group", owner: "Emma Davis", status: "active", createdAt: "2024-09-03" },
-  { id: "CON-007", firstName: "Isabella", lastName: "Santos", title: "Logistics Coordinator", email: "i.santos@logisticspro.net", phone: "+1 (713) 555-0623", account: "LogisticsPro", owner: "Marcus Williams", status: "active", createdAt: "2025-04-17" },
-  { id: "CON-008", firstName: "Michael", lastName: "O'Brien", title: "CEO", email: "m.obrien@quantumdata.ai", phone: "+1 (650) 555-0781", account: "Quantum Data AI", owner: "Sarah Johnson", status: "active", createdAt: "2025-08-29" },
-  { id: "CON-009", firstName: "Natalie", lastName: "Foster", title: "Sales Director", email: "n.foster@independentco.com", phone: "+1 (404) 555-0855", account: null, owner: "Emma Davis", status: "pending", createdAt: "2026-03-10" },
-  { id: "CON-010", firstName: "Carlos", lastName: "Reyes", title: "Business Development Manager", email: "c.reyes@freeagent.biz", phone: "+1 (305) 555-0933", account: null, owner: "Marcus Williams", status: "pending", createdAt: "2026-03-20" },
-];
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { type CRMContact } from "@/lib/data-store";
 
 // ─── Account options for form select ──────────────────────────────────────────
 
@@ -89,11 +61,12 @@ const FILTER_FIELDS = [
 // ─── Main Page Component ──────────────────────────────────────────────────────
 
 export default function ContactsPage() {
-  const [contacts, setContacts] = useState<Contact[]>(INITIAL_CONTACTS);
+  const store = useApiDataStore();
+  const contacts = store.crmContacts;
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", account: "" });
   const [showFormModal, setShowFormModal] = useState(false);
-  const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [detailContact, setDetailContact] = useState<Contact | null>(null);
+  const [editingContact, setEditingContact] = useState<CRMContact | null>(null);
+  const [detailContact, setDetailContact] = useState<CRMContact | null>(null);
 
   // ── Filtered data ──
   const filteredContacts = contacts.filter((c) => {
@@ -114,20 +87,19 @@ export default function ContactsPage() {
   // ── CRUD handlers ──
   const handleSubmit = (data: EntityFormData) => {
     if (editingContact) {
-      setContacts((prev) => prev.map((c) => c.id === editingContact.id ? {
-        ...c,
+      store.update("crmContacts", editingContact.id, {
         firstName: data.firstName as string,
-        lastName: (data.lastName as string) || c.lastName,
-        title: (data.title as string) || c.title,
+        lastName: (data.lastName as string) || editingContact.lastName,
+        title: (data.title as string) || editingContact.title,
         email: data.email as string,
-        phone: (data.phone as string) || c.phone,
+        phone: (data.phone as string) || editingContact.phone,
         account: (data.account as string) || null,
-        owner: (data.owner as string) || c.owner,
-        status: (data.status as string) || c.status,
-      } : c));
+        owner: (data.owner as string) || editingContact.owner,
+        status: (data.status as string) || editingContact.status,
+      });
     } else {
-      const newContact: Contact = {
-        id: `CON-${Date.now().toString(36)}`,
+      store.add("crmContacts", {
+        id: store.genId("con"),
         firstName: data.firstName as string,
         lastName: (data.lastName as string) || "",
         title: (data.title as string) || "",
@@ -137,15 +109,14 @@ export default function ContactsPage() {
         owner: (data.owner as string) || "Unassigned",
         status: (data.status as string) || "active",
         createdAt: new Date().toISOString().split("T")[0],
-      };
-      setContacts((prev) => [newContact, ...prev]);
+      });
     }
     setShowFormModal(false);
     setEditingContact(null);
   };
 
   const handleDelete = (id: string) => {
-    setContacts((prev) => prev.filter((c) => c.id !== id));
+    store.remove("crmContacts", id);
   };
 
   const handleExport = () => {
@@ -222,7 +193,7 @@ export default function ContactsPage() {
             itemLabel={`${c.firstName} ${c.lastName}`}
             extraItems={c.status === "pending" ? [{
               label: "Set Active",
-              onClick: () => setContacts((prev) => prev.map((x) => x.id === c.id ? { ...x, status: "active" } : x)),
+              onClick: () => store.update("crmContacts", c.id, { status: "active" }),
             }] : []}
           />
         );
@@ -372,7 +343,7 @@ export default function ContactsPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      setContacts((prev) => prev.map((c) => c.id === detailContact.id ? { ...c, status: "active" } : c));
+                      store.update("crmContacts", detailContact.id, { status: "active" });
                       setDetailContact({ ...detailContact, status: "active" });
                     }}
                   >

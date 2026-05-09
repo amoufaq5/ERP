@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Users, Target, DollarSign, MapPin, Plus, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { EntityFormModal, type EntityField } from "@/components/shared/entity-fo
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 
 const DISTRICTS = [
   { dm: "Hany Mansour", district: "Greater Cairo", reps: 8, doctors: 320, callRate: 88, compliance: 91, budget: "62%", rating: "A" },
@@ -74,6 +75,7 @@ const visitFields: EntityField[] = [
 ];
 
 export default function MarketeerPage() {
+  const store = useApiDataStore();
   const [escalated, setEscalated] = useState(ESCALATED);
   const [doubleVisits, setDoubleVisits] = useState(DOUBLE_VISITS);
   const [editing, setEditing] = useState<typeof DOUBLE_VISITS[0] | null>(null);
@@ -82,6 +84,18 @@ export default function MarketeerPage() {
   const [visitFilters, setVisitFilters] = useState<FilterState>({ _search: "", purpose: "" });
   const [viewEscalated, setViewEscalated] = useState<(typeof ESCALATED)[0] | null>(null);
   const [viewVisit, setViewVisit] = useState<(typeof DOUBLE_VISITS)[0] | null>(null);
+
+  const storeDoctorCount = (store.doctors ?? []).length;
+  const storeVisitCount = (store.visits ?? []).length;
+  const storeDoubleVisitCount = useMemo(
+    () => (store.visits ?? []).filter((v) => v.type === "DOUBLE").length,
+    [store.visits]
+  );
+  const storeGpsVerifiedPct = useMemo(() => {
+    const visits = store.visits ?? [];
+    if (visits.length === 0) return 0;
+    return Math.round((visits.filter((v) => v.gpsVerified).length / visits.length) * 100);
+  }, [store.visits]);
 
   const filteredEscalated = escalated.filter((e) => {
     if (approvalFilters.decision && e.decision !== approvalFilters.decision) return false;
@@ -110,10 +124,10 @@ export default function MarketeerPage() {
       <PageHeader title="Marketeer Dashboard" description="Oversee district managers, approve escalated requests, and analyze market performance" />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatsCard icon={Users} title="Districts Under Management" value={DISTRICTS.length} subtitle={`${totalReps} reps total`} iconColor="bg-blue-100 text-blue-700" />
-        <StatsCard icon={MapPin} title="Total Field Force" value={totalReps} subtitle={`${totalDoctors} doctors covered`} iconColor="bg-green-100 text-green-700" />
+        <StatsCard icon={Users} title="Districts Under Management" value={DISTRICTS.length} subtitle={`${totalReps} reps · ${storeDoctorCount} doctors in system`} iconColor="bg-blue-100 text-blue-700" />
+        <StatsCard icon={MapPin} title="Total Field Force" value={totalReps} subtitle={`${storeVisitCount} visits logged · ${storeDoubleVisitCount} double`} iconColor="bg-green-100 text-green-700" />
         <StatsCard icon={DollarSign} title="Budget Used" value="58%" subtitle="YTD spend" iconColor="bg-purple-100 text-purple-700" />
-        <StatsCard icon={Target} title="Territory Coverage" value="89%" subtitle="National average" iconColor="bg-amber-100 text-amber-700" />
+        <StatsCard icon={Target} title="GPS Compliance" value={`${storeGpsVerifiedPct}%`} subtitle={`${totalDoctors} doctors covered`} iconColor="bg-amber-100 text-amber-700" />
       </div>
 
       <Tabs defaultValue="districts">

@@ -17,23 +17,8 @@ import { downloadCSV } from "@/lib/download";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { useNotificationCenter } from "@/lib/notification-context";
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-type Priority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-type TicketStatus = "OPEN" | "IN_PROGRESS" | "PENDING" | "RESOLVED" | "CLOSED";
-
-interface SupportTicket {
-  id: string;
-  ticketNumber: string;
-  subject: string;
-  description: string;
-  account: string;
-  priority: Priority;
-  status: TicketStatus;
-  assignedTo: string;
-  slaDeadline: string;
-  createdAt: string;
-}
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { type SupportTicket as SupportTicketType, type TicketPriority as Priority, type TicketStatus } from "@/lib/data-store";
 
 // ─── Style maps ──────────────────────────────────────────────────────────────
 const PRIORITY_STYLES: Record<Priority, string> = {
@@ -67,18 +52,6 @@ const STATUS_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   RESOLVED: ["CLOSED"],
   CLOSED: [],
 };
-
-// ─── Seed data ───────────────────────────────────────────────────────────────
-const INITIAL_TICKETS: SupportTicket[] = [
-  { id: "1", ticketNumber: "TKT-00341", subject: "Unable to export reports to PDF", description: "Users report that clicking the Export PDF button in the Reports module returns a blank page. Affects Chrome and Firefox on Windows.", account: "TechCorp Solutions", priority: "HIGH", status: "IN_PROGRESS", assignedTo: "Alex Turner", slaDeadline: "2026-04-02 17:00", createdAt: "2026-03-30" },
-  { id: "2", ticketNumber: "TKT-00340", subject: "Login issues after SSO migration", description: "After migrating to Okta SSO, approximately 30% of users are unable to authenticate. They receive a 403 Forbidden error on the callback redirect.", account: "Nexus Finance", priority: "CRITICAL", status: "OPEN", assignedTo: "Maya Rodriguez", slaDeadline: "2026-04-01 09:00", createdAt: "2026-03-30" },
-  { id: "3", ticketNumber: "TKT-00339", subject: "Invoice totals not matching line items", description: "Invoice summary totals are off by small amounts due to a floating-point rounding issue when tax is applied per line item rather than on the subtotal.", account: "Global Retail Inc.", priority: "HIGH", status: "PENDING", assignedTo: "Alex Turner", slaDeadline: "2026-04-02 12:00", createdAt: "2026-03-29" },
-  { id: "4", ticketNumber: "TKT-00338", subject: "Custom field not saving on contact form", description: "The newly added custom dropdown field on the Contact form does not persist its value after save. The field appears empty when the record is reopened.", account: "HealthPlus Systems", priority: "MEDIUM", status: "IN_PROGRESS", assignedTo: "Dana Park", slaDeadline: "2026-04-04 17:00", createdAt: "2026-03-28" },
-  { id: "5", ticketNumber: "TKT-00337", subject: "Email notifications not being sent", description: "Automated workflow email notifications stopped sending after the last deployment. The mail queue shows messages stuck in PENDING status.", account: "CloudBuild Technologies", priority: "MEDIUM", status: "OPEN", assignedTo: "Maya Rodriguez", slaDeadline: "2026-04-04 09:00", createdAt: "2026-03-27" },
-  { id: "6", ticketNumber: "TKT-00336", subject: "Dashboard loading slowly (>10 sec)", description: "The main analytics dashboard takes over 10 seconds to load. Investigation points to unoptimised aggregate queries on the reporting views.", account: "Manufactura Group", priority: "LOW", status: "RESOLVED", assignedTo: "Dana Park", slaDeadline: "2026-04-06 17:00", createdAt: "2026-03-25" },
-  { id: "7", ticketNumber: "TKT-00335", subject: "Data import wizard crashes on large files", description: "Uploading CSV files larger than 50 MB causes the import wizard to crash with an out-of-memory error in the browser tab.", account: "LogisticsPro", priority: "HIGH", status: "RESOLVED", assignedTo: "Alex Turner", slaDeadline: "2026-03-28 17:00", createdAt: "2026-03-24" },
-  { id: "8", ticketNumber: "TKT-00334", subject: "API rate limit documentation unclear", description: "The public API docs do not clearly state the rate limit per endpoint. Customers are hitting 429 errors without knowing the thresholds.", account: "Quantum Data AI", priority: "LOW", status: "CLOSED", assignedTo: "Dana Park", slaDeadline: "2026-03-31 17:00", createdAt: "2026-03-22" },
-];
 
 const ACCOUNTS = [
   "TechCorp Solutions", "Nexus Finance", "Global Retail Inc.", "HealthPlus Systems",
@@ -147,11 +120,12 @@ function getSlaInfo(slaDeadline: string, status: TicketStatus): { label: string;
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function TicketsPage() {
   const { addNotification } = useNotificationCenter();
-  const [tickets, setTickets] = useState<SupportTicket[]>(INITIAL_TICKETS);
+  const store = useApiDataStore();
+  const tickets = store.supportTickets as SupportTicketType[];
   const [filters, setFilters] = useState<FilterState>({ _search: "", priority: "", status: "" });
   const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState<SupportTicket | null>(null);
-  const [detailTicket, setDetailTicket] = useState<SupportTicket | null>(null);
+  const [editing, setEditing] = useState<SupportTicketType | null>(null);
+  const [detailTicket, setDetailTicket] = useState<SupportTicketType | null>(null);
 
   // ── Stats ──
   const totalTickets = tickets.length;
@@ -188,7 +162,7 @@ export default function TicketsPage() {
   // ── Transition handler ──
   const transitionStatus = (id: string, newStatus: TicketStatus) => {
     const ticket = tickets.find((t) => t.id === id);
-    setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)));
+    store.update("supportTickets", id, { status: newStatus });
     setDetailTicket((prev) => (prev && prev.id === id ? { ...prev, status: newStatus } : prev));
     if (newStatus === "RESOLVED" && ticket) {
       addNotification({
@@ -242,7 +216,7 @@ export default function TicketsPage() {
         return (
           <EditDeleteMenu
             onEdit={() => { setEditing(tk); setShowModal(true); }}
-            onDelete={() => setTickets((prev) => prev.filter((x) => x.id !== tk.id))}
+            onDelete={() => store.remove("supportTickets", tk.id)}
             onView={() => setDetailTicket(tk)}
             canView
             itemLabel={tk.ticketNumber}
@@ -314,20 +288,19 @@ export default function TicketsPage() {
         } : undefined}
         onSubmit={(data) => {
           if (editing) {
-            setTickets((prev) => prev.map((t) => t.id === editing.id ? {
-              ...t,
+            store.update("supportTickets", editing.id, {
               subject: data.subject as string,
-              description: (data.description as string) || t.description,
-              account: (data.account as string) || t.account,
-              priority: (data.priority as Priority) || t.priority,
-              assignedTo: (data.assignedTo as string) || t.assignedTo,
-              slaDeadline: (data.slaDeadline as string) || t.slaDeadline,
-            } : t));
+              description: (data.description as string) || editing.description,
+              account: (data.account as string) || editing.account,
+              priority: (data.priority as Priority) || editing.priority,
+              assignedTo: (data.assignedTo as string) || editing.assignedTo,
+              slaDeadline: (data.slaDeadline as string) || editing.slaDeadline,
+            });
           } else {
-            const uid = Date.now().toString(36);
-            const newTicket: SupportTicket = {
-              id: uid,
-              ticketNumber: `TKT-${uid.toUpperCase()}`,
+            const newId = store.genId("tkt");
+            const newTicket: SupportTicketType = {
+              id: newId,
+              ticketNumber: `TKT-${newId.toUpperCase()}`,
               subject: data.subject as string,
               description: (data.description as string) || "",
               account: (data.account as string) || "",
@@ -337,7 +310,7 @@ export default function TicketsPage() {
               slaDeadline: (data.slaDeadline as string) || "",
               createdAt: new Date().toISOString().split("T")[0],
             };
-            setTickets((prev) => [newTicket, ...prev]);
+            store.add("supportTickets", newTicket);
             addNotification({
               type: "INFO",
               title: "New Ticket Created",

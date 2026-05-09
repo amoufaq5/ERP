@@ -33,6 +33,7 @@ import DataTable from "@/components/shared/data-table";
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { useAppConfig } from "@/lib/config-context";
 import { useCurrentUser } from "@/lib/user-context";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import type { Column } from "@/components/shared/data-table";
 
 const LeafletMap = dynamic(
@@ -277,14 +278,56 @@ function scopeByRole<T extends { repId: string }>(
 export default function GpsTrackingPage() {
   const { config } = useAppConfig();
   const { user, getReportsOf } = useCurrentUser();
+  const store = useApiDataStore();
   const repsUnderMe = useMemo(() => getReportsOf(user.id).map((u) => u.id), [user.id, getReportsOf]);
+
+  const storeVisits = store.visits ?? [];
+  const storeDoctors = store.doctors ?? [];
+  const storeEmployees = store.employees ?? [];
+
+  const storeDoctorCount = storeDoctors.length;
+  const storeGpsVerifiedPct = useMemo(() => {
+    if (storeVisits.length === 0) return 0;
+    return Math.round((storeVisits.filter((v) => v.gpsVerified).length / storeVisits.length) * 100);
+  }, [storeVisits]);
+  const storeAvgDuration = useMemo(() => {
+    if (storeVisits.length === 0) return 0;
+    return Math.round(storeVisits.reduce((s, v) => s + v.durationMin, 0) / storeVisits.length);
+  }, [storeVisits]);
+
+  const storeFieldVisits: FieldVisit[] = useMemo(() => {
+    if (storeVisits.length === 0) return [];
+    const doctorMap = new Map(storeDoctors.map((d) => [d.id, d]));
+    const empMap = new Map(storeEmployees.map((e) => [e.id, e.name]));
+    return storeVisits.map((v) => {
+      const doctor = doctorMap.get(v.doctorId);
+      const statusMap: Record<string, VisitStatus> = { APPROVED: "COMPLETED", LOGGED: "IN_PROGRESS", REJECTED: "PLANNED" };
+      return {
+        id: v.id,
+        repId: v.repId,
+        rep: empMap.get(v.repId) ?? v.repId,
+        account: doctor ? `${doctor.name} — ${doctor.specialty}` : v.doctorId,
+        checkIn: new Date(v.dateTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+        checkOut: v.status === "APPROVED" ? new Date(new Date(v.dateTime).getTime() + v.durationMin * 60000).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—",
+        address: doctor ? `${doctor.hospital}, ${doctor.city}` : "—",
+        status: statusMap[v.status] ?? "PLANNED",
+        distance: "—",
+        lat: v.lat ?? doctor?.lat ?? 30.0444,
+        lng: v.lng ?? doctor?.lng ?? 31.2357,
+      };
+    });
+  }, [storeVisits, storeDoctors, storeEmployees]);
+
+  const mergedFieldVisits: FieldVisit[] = useMemo(() => {
+    if (storeFieldVisits.length > 0) return [...storeFieldVisits, ...FIELD_VISITS];
+    return FIELD_VISITS;
+  }, [storeFieldVisits]);
 
   const [activeTab, setActiveTab] = useState("visits");
   const [mapView, setMapView] = useState<"live" | "visits">("live");
   const [visitFilters, setVisitFilters] = useState<FilterState>({ _search: "", status: "" });
 
-  // Scope data to the current user's role
-  const scopedVisits = useMemo(() => scopeByRole(FIELD_VISITS, user.role, user.id, repsUnderMe), [user.role, user.id, repsUnderMe]);
+  const scopedVisits = useMemo(() => scopeByRole(mergedFieldVisits, user.role, user.id, repsUnderMe), [mergedFieldVisits, user.role, user.id, repsUnderMe]);
   const scopedLocations = useMemo(() => scopeByRole(LIVE_LOCATIONS, user.role, user.id, repsUnderMe), [user.role, user.id, repsUnderMe]);
   const scopedAlerts = useMemo(() => scopeByRole(GEOFENCE_ALERTS, user.role, user.id, repsUnderMe), [user.role, user.id, repsUnderMe]);
 
@@ -392,9 +435,9 @@ export default function GpsTrackingPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard title="Field Reps Active" value={scopedLocations.length} subtitle="Currently in the field" icon={Users} change={20} changeLabel="vs last week" />
-        <StatsCard title="Visits Today" value={scopedVisits.length} subtitle={`${completedVisits} completed · ${inProgressVisits} in progress`} icon={CheckSquare} change={9} changeLabel="vs yesterday" />
-        <StatsCard title="Avg Distance" value="15.3 km" subtitle="Per rep today" icon={Route} change={-4} changeLabel="vs last week" />
-        <StatsCard title="Territories" value={TERRITORIES.length} subtitle="Active coverage zones" icon={MapIcon} />
+        <StatsCard title="Visits Today" value={scopedVisits.length} subtitle={`${completedVisits} completed · ${inProgressVisits} in progress · ${storeVisits.length} in store`} icon={CheckSquare} change={9} changeLabel="vs yesterday" />
+        <StatsCard title="Avg Visit Duration" value={`${storeAvgDuration} min`} subtitle={`${storeGpsVerifiedPct}% GPS verified`} icon={Route} change={-4} changeLabel="vs last week" />
+        <StatsCard title="Doctors in System" value={storeDoctorCount} subtitle={`${TERRITORIES.length} active territories`} icon={MapIcon} />
       </div>
 
       <Card className="overflow-hidden">

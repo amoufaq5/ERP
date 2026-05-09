@@ -15,24 +15,10 @@ import DataTable from "@/components/shared/data-table";
 import StatusBadge from "@/components/shared/status-badge";
 import type { Column } from "@/components/shared/data-table";
 import { useTranslation } from "@/lib/i18n/i18n-context";
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { type CRMCampaign, type CampaignType, type CampaignStatus } from "@/lib/data-store";
 
-// ── Campaign Types & Interfaces ──
-type CampaignType = "EMAIL" | "SOCIAL_MEDIA" | "PPC" | "CONTENT" | "WEBINAR" | "TRADE_SHOW" | "DIRECT_MAIL";
-type CampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "CANCELLED";
-
-interface Campaign {
-  id: string;
-  name: string;
-  type: CampaignType;
-  status: CampaignStatus;
-  budget: number;
-  spent: number;
-  leads: number;
-  conversions: number;
-  startDate: string;
-  endDate: string;
-  owner: string;
-}
+type Campaign = CRMCampaign;
 
 // ── Loyalty Types & Interfaces ──
 type Tier = "BRONZE" | "SILVER" | "GOLD" | "PLATINUM";
@@ -71,15 +57,6 @@ interface LoyaltyTransaction {
 const STATUS_MAP: Record<CampaignStatus, string> = {
   DRAFT: "draft", ACTIVE: "active", PAUSED: "on hold", COMPLETED: "completed", CANCELLED: "cancelled",
 };
-
-const INITIAL_CAMPAIGNS: Campaign[] = [
-  { id: "CAM-001", name: "Q1 Enterprise Email Blast", type: "EMAIL", status: "COMPLETED", budget: 8000, spent: 7640, leads: 142, conversions: 18, startDate: "2026-01-05", endDate: "2026-02-28", owner: "Sarah Johnson" },
-  { id: "CAM-002", name: "Spring Product Launch — Social", type: "SOCIAL_MEDIA", status: "ACTIVE", budget: 15000, spent: 9200, leads: 287, conversions: 34, startDate: "2026-03-01", endDate: "2026-04-30", owner: "Marcus Williams" },
-  { id: "CAM-003", name: "Google Ads — CRM Keywords", type: "PPC", status: "ACTIVE", budget: 25000, spent: 11500, leads: 195, conversions: 27, startDate: "2026-02-15", endDate: "2026-05-15", owner: "Emma Davis" },
-  { id: "CAM-004", name: "Thought Leadership Blog Series", type: "CONTENT", status: "ACTIVE", budget: 5000, spent: 2100, leads: 63, conversions: 8, startDate: "2026-01-15", endDate: "2026-06-30", owner: "Sarah Johnson" },
-  { id: "CAM-005", name: "Manufacturing Automation Webinar", type: "WEBINAR", status: "COMPLETED", budget: 3500, spent: 3480, leads: 89, conversions: 12, startDate: "2026-02-20", endDate: "2026-02-20", owner: "Marcus Williams" },
-  { id: "CAM-006", name: "Tech Expo Chicago 2026", type: "TRADE_SHOW", status: "DRAFT", budget: 40000, spent: 0, leads: 0, conversions: 0, startDate: "2026-06-10", endDate: "2026-06-12", owner: "Emma Davis" },
-];
 
 const CAMPAIGN_FIELDS: EntityField[] = [
   { name: "name", label: "Campaign Name", type: "text", placeholder: "e.g. Summer Promo Email Blast", required: true, fullWidth: true },
@@ -190,10 +167,9 @@ type HubTab = "campaigns" | "loyalty";
 
 export default function CampaignsPage() {
   const { t } = useTranslation();
+  const store = useApiDataStore();
+  const campaigns = store.crmCampaigns as Campaign[];
   const [activeHubTab, setActiveHubTab] = useState<HubTab>("campaigns");
-
-  // ── Campaign State ──
-  const [campaigns, setCampaigns] = useState<Campaign[]>(INITIAL_CAMPAIGNS);
   const [campaignFilters, setCampaignFilters] = useState<FilterState>({ _search: "", status: "", type: "" });
   const [showCampaignModal, setShowCampaignModal] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
@@ -267,13 +243,13 @@ export default function CampaignsPage() {
         return (
           <EditDeleteMenu
             onEdit={() => { setEditingCampaign(c); setShowCampaignModal(true); }}
-            onDelete={() => setCampaigns((prev) => prev.filter((x) => x.id !== c.id))}
+            onDelete={() => store.remove("crmCampaigns", c.id)}
             onView={() => setDetailCampaign(c)}
             canView
             itemLabel={c.name}
             extraItems={[
-              ...(next ? [{ label: `Set ${next}`, onClick: () => setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, status: next } : x)) }] : []),
-              ...(c.status === "ACTIVE" ? [{ label: "Complete", onClick: () => setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, status: "COMPLETED" as CampaignStatus } : x)) }] : []),
+              ...(next ? [{ label: `Set ${next}`, onClick: () => store.update("crmCampaigns", c.id, { status: next }) }] : []),
+              ...(c.status === "ACTIVE" ? [{ label: "Complete", onClick: () => store.update("crmCampaigns", c.id, { status: "COMPLETED" }) }] : []),
             ]}
           />
         );
@@ -482,18 +458,17 @@ export default function CampaignsPage() {
         initialData={editingCampaign ? { name: editingCampaign.name, type: editingCampaign.type, budget: editingCampaign.budget, startDate: editingCampaign.startDate, endDate: editingCampaign.endDate, owner: editingCampaign.owner } : undefined}
         onSubmit={(data) => {
           if (editingCampaign) {
-            setCampaigns((prev) => prev.map((c) => c.id === editingCampaign.id ? {
-              ...c,
+            store.update("crmCampaigns", editingCampaign.id, {
               name: data.name as string,
-              type: (data.type as CampaignType) || c.type,
-              budget: (data.budget as number) || c.budget,
-              startDate: (data.startDate as string) || c.startDate,
-              endDate: (data.endDate as string) || c.endDate,
-              owner: (data.owner as string) || c.owner,
-            } : c));
+              type: (data.type as CampaignType) || editingCampaign.type,
+              budget: (data.budget as number) || editingCampaign.budget,
+              startDate: (data.startDate as string) || editingCampaign.startDate,
+              endDate: (data.endDate as string) || editingCampaign.endDate,
+              owner: (data.owner as string) || editingCampaign.owner,
+            });
           } else {
-            const newCampaign: Campaign = {
-              id: `CAM-${Date.now().toString(36)}`,
+            store.add("crmCampaigns", {
+              id: store.genId("camp"),
               name: data.name as string,
               type: (data.type as CampaignType) || "EMAIL",
               status: "DRAFT",
@@ -504,8 +479,7 @@ export default function CampaignsPage() {
               startDate: (data.startDate as string) || new Date().toISOString().split("T")[0],
               endDate: (data.endDate as string) || "",
               owner: (data.owner as string) || "Unassigned",
-            };
-            setCampaigns((prev) => [newCampaign, ...prev]);
+            });
           }
           setShowCampaignModal(false);
           setEditingCampaign(null);

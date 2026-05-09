@@ -32,22 +32,11 @@ import type { Column } from "@/components/shared/data-table";
 import { downloadCSV } from "@/lib/download";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
+import { useApiDataStore } from "@/lib/api/use-api-store";
+import { type CRMOpportunity, type OpportunityStage } from "@/lib/data-store";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-type Stage = "PROSPECTING" | "QUALIFICATION" | "PROPOSAL" | "NEGOTIATION" | "CLOSED_WON" | "CLOSED_LOST";
-
-interface Opportunity {
-  id: string;
-  title: string;
-  account: string;
-  value: number;
-  probability: number;
-  stage: Stage;
-  owner: string;
-  expectedClose: string;
-  createdAt: string;
-}
+type Opportunity = CRMOpportunity;
+type Stage = OpportunityStage;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -85,19 +74,6 @@ const ACCOUNTS = [
   "CloudBuild Technologies", "Manufactura Group", "LogisticsPro", "Quantum Data AI",
 ];
 
-// ── Seed Data ─────────────────────────────────────────────────────────────────
-
-const INITIAL_OPPORTUNITIES: Opportunity[] = [
-  { id: "OPP-001", title: "Enterprise CRM Rollout", account: "TechCorp Solutions", value: 185000, probability: 75, stage: "NEGOTIATION", owner: "Marcus Williams", expectedClose: "2026-04-15", createdAt: "2026-02-10" },
-  { id: "OPP-002", title: "Cloud Migration Project", account: "Global Retail Inc.", value: 320000, probability: 60, stage: "PROPOSAL", owner: "Sarah Johnson", expectedClose: "2026-04-30", createdAt: "2026-02-14" },
-  { id: "OPP-003", title: "ERP Implementation", account: "Nexus Finance", value: 540000, probability: 90, stage: "CLOSED_WON", owner: "Marcus Williams", expectedClose: "2026-03-20", createdAt: "2026-01-05" },
-  { id: "OPP-004", title: "Security Audit & Compliance", account: "HealthPlus Systems", value: 78000, probability: 30, stage: "QUALIFICATION", owner: "Emma Davis", expectedClose: "2026-05-10", createdAt: "2026-03-01" },
-  { id: "OPP-005", title: "DevOps Transformation", account: "CloudBuild Technologies", value: 95000, probability: 20, stage: "PROSPECTING", owner: "Sarah Johnson", expectedClose: "2026-06-01", createdAt: "2026-03-15" },
-  { id: "OPP-006", title: "Data Analytics Platform", account: "Manufactura Group", value: 210000, probability: 50, stage: "PROPOSAL", owner: "Emma Davis", expectedClose: "2026-05-20", createdAt: "2026-02-28" },
-  { id: "OPP-007", title: "Logistics Optimization Suite", account: "LogisticsPro", value: 145000, probability: 5, stage: "CLOSED_LOST", owner: "Marcus Williams", expectedClose: "2026-03-01", createdAt: "2026-01-20" },
-  { id: "OPP-008", title: "AI Model Training Infrastructure", account: "Quantum Data AI", value: 430000, probability: 70, stage: "NEGOTIATION", owner: "Sarah Johnson", expectedClose: "2026-04-25", createdAt: "2026-02-20" },
-];
-
 // ── Form & Filter Config ──────────────────────────────────────────────────────
 
 const OPP_FIELDS: EntityField[] = [
@@ -130,7 +106,8 @@ const fmtK = (v: number) => `EGP ${(v / 1000).toFixed(0)}K`;
 // ── Main Page Component ───────────────────────────────────────────────────────
 
 export default function OpportunitiesPage() {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES);
+  const store = useApiDataStore();
+  const opportunities = store.crmOpportunities as Opportunity[];
   const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
   const [filters, setFilters] = useState<FilterState>({ _search: "", stage: "" });
   const [showFormModal, setShowFormModal] = useState(false);
@@ -166,36 +143,35 @@ export default function OpportunitiesPage() {
 
   const handleEdit = (opp: Opportunity) => { setEditingOpp(opp); setShowFormModal(true); };
 
-  const handleDelete = (id: string) => setOpportunities((prev) => prev.filter((o) => o.id !== id));
+  const handleDelete = (id: string) => store.remove("crmOpportunities", id);
 
   const handleAdvanceStage = (opp: Opportunity) => {
-    const next = STAGE_FLOW[opp.stage];
+    const next = STAGE_FLOW[opp.stage as Stage];
     if (!next) return;
-    setOpportunities((prev) => prev.map((o) => (o.id === opp.id ? { ...o, stage: next } : o)));
+    store.update("crmOpportunities", opp.id, { stage: next });
   };
 
   const handleMarkLost = (opp: Opportunity) => {
-    setOpportunities((prev) => prev.map((o) => o.id === opp.id ? { ...o, stage: "CLOSED_LOST" as Stage } : o));
+    store.update("crmOpportunities", opp.id, { stage: "CLOSED_LOST" });
   };
 
   const handleFormSubmit = (data: Record<string, unknown>) => {
     if (editingOpp) {
-      setOpportunities((prev) => prev.map((o) => o.id === editingOpp.id ? {
-        ...o, title: data.title as string, account: (data.account as string) || o.account,
-        value: (data.value as number) || o.value, probability: (data.probability as number) ?? o.probability,
-        stage: (data.stage as Stage) || o.stage, owner: (data.owner as string) || o.owner,
-        expectedClose: (data.expectedClose as string) || o.expectedClose,
-      } : o));
+      store.update("crmOpportunities", editingOpp.id, {
+        title: data.title as string, account: (data.account as string) || editingOpp.account,
+        value: (data.value as number) || editingOpp.value, probability: (data.probability as number) ?? editingOpp.probability,
+        stage: (data.stage as Stage) || editingOpp.stage, owner: (data.owner as string) || editingOpp.owner,
+        expectedClose: (data.expectedClose as string) || editingOpp.expectedClose,
+      });
     } else {
-      const newOpp: Opportunity = {
-        id: `OPP-${Date.now().toString(36).toUpperCase()}`,
+      store.add("crmOpportunities", {
+        id: store.genId("opp"),
         title: data.title as string, account: (data.account as string) || "",
         value: (data.value as number) || 0, probability: (data.probability as number) ?? 50,
         stage: (data.stage as Stage) || "PROSPECTING", owner: (data.owner as string) || "Unassigned",
         expectedClose: (data.expectedClose as string) || new Date().toISOString().split("T")[0],
         createdAt: new Date().toISOString().split("T")[0],
-      };
-      setOpportunities((prev) => [newOpp, ...prev]);
+      });
     }
     setShowFormModal(false);
     setEditingOpp(null);
@@ -213,7 +189,7 @@ export default function OpportunitiesPage() {
 
   // ── Action Menu Builder ─────────────────────────────────────────────────────
   const buildMenuItems = (opp: Opportunity) => {
-    const next = STAGE_FLOW[opp.stage];
+    const next = STAGE_FLOW[opp.stage as Stage];
     return [
       ...(next ? [{ label: `Advance to ${STAGE_LABELS[next]}`, onClick: () => handleAdvanceStage(opp) }] : []),
       ...(opp.stage !== "CLOSED_WON" && opp.stage !== "CLOSED_LOST"
@@ -316,7 +292,7 @@ export default function OpportunitiesPage() {
                       <p className="text-xs text-muted-foreground text-center py-4">No opportunities</p>
                     )}
                     {cards.map((opp) => {
-                      const nextStage = STAGE_FLOW[opp.stage];
+                      const nextStage = STAGE_FLOW[opp.stage as Stage];
                       return (
                         <div key={opp.id} className="bg-card rounded-lg border border-border p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                           onClick={() => setDetailOpp(opp)}>

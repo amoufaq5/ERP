@@ -670,6 +670,66 @@ export interface Candidate {
   appliedDate: string;
 }
 
+export interface CRMContact {
+  id: string;
+  firstName: string;
+  lastName: string;
+  title: string;
+  email: string;
+  phone: string;
+  account: string | null;
+  owner: string;
+  status: string;
+  createdAt: string;
+}
+
+export type OpportunityStage = "PROSPECTING" | "QUALIFICATION" | "PROPOSAL" | "NEGOTIATION" | "CLOSED_WON" | "CLOSED_LOST";
+
+export interface CRMOpportunity {
+  id: string;
+  title: string;
+  account: string;
+  value: number;
+  probability: number;
+  stage: OpportunityStage;
+  owner: string;
+  expectedClose: string;
+  createdAt: string;
+}
+
+export type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type TicketStatus = "OPEN" | "IN_PROGRESS" | "PENDING" | "RESOLVED" | "CLOSED";
+
+export interface SupportTicket {
+  id: string;
+  ticketNumber: string;
+  subject: string;
+  description: string;
+  account: string;
+  priority: TicketPriority;
+  status: TicketStatus;
+  assignedTo: string;
+  slaDeadline: string;
+  createdAt: string;
+}
+
+export type CampaignType = "EMAIL" | "SOCIAL_MEDIA" | "PPC" | "CONTENT" | "WEBINAR" | "TRADE_SHOW" | "DIRECT_MAIL";
+export type CampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "CANCELLED";
+
+export interface CRMCampaign {
+  id: string;
+  name: string;
+  type: CampaignType;
+  status: CampaignStatus;
+  budget: number;
+  spent: number;
+  leads: number;
+  conversions: number;
+  startDate: string;
+  endDate: string;
+  owner: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -731,6 +791,10 @@ export interface DataStoreState {
   employees: Employee[];
   jobs: Job[];
   candidates: Candidate[];
+  crmContacts: CRMContact[];
+  crmOpportunities: CRMOpportunity[];
+  supportTickets: SupportTicket[];
+  crmCampaigns: CRMCampaign[];
   projects: Project[];
   projectTasks: ProjectTask[];
   conversionFormulas: ConversionFormula[];
@@ -1320,6 +1384,52 @@ const SEED_PRODUCT_LIFECYCLES: ProductLifecycle[] = [
   ]},
 ];
 
+const SEED_CRM_CONTACTS: CRMContact[] = [
+  { id: "con-001", firstName: "Alexandra", lastName: "Chen", title: "VP of Engineering", email: "a.chen@techcorp.io", phone: "+1 (415) 555-0192", account: "TechCorp Solutions", owner: "Marcus Williams", status: "active", createdAt: "2024-06-15" },
+  { id: "con-002", firstName: "James", lastName: "Martinez", title: "Chief Procurement Officer", email: "j.martinez@globalretail.com", phone: "+1 (212) 555-0148", account: "Global Retail Inc.", owner: "Sarah Johnson", status: "active", createdAt: "2024-03-22" },
+  { id: "con-003", firstName: "Priya", lastName: "Patel", title: "CTO", email: "priya.patel@nexusfinance.com", phone: "+1 (312) 555-0271", account: "Nexus Finance", owner: "Marcus Williams", status: "active", createdAt: "2023-11-10" },
+  { id: "con-004", firstName: "David", lastName: "Thompson", title: "IT Director", email: "d.thompson@healthplus.org", phone: "+1 (617) 555-0334", account: "HealthPlus Systems", owner: "Emma Davis", status: "active", createdAt: "2026-01-08" },
+  { id: "con-005", firstName: "Sofia", lastName: "Nguyen", title: "Head of Operations", email: "sofia.n@cloudbuild.tech", phone: "+1 (206) 555-0417", account: "CloudBuild Technologies", owner: "Sarah Johnson", status: "active", createdAt: "2026-02-14" },
+  { id: "con-006", firstName: "Robert", lastName: "Kim", title: "Plant Manager", email: "r.kim@manufactura.com", phone: "+1 (313) 555-0509", account: "Manufactura Group", owner: "Emma Davis", status: "active", createdAt: "2024-09-03" },
+  { id: "con-007", firstName: "Isabella", lastName: "Santos", title: "Logistics Coordinator", email: "i.santos@logisticspro.net", phone: "+1 (713) 555-0623", account: "LogisticsPro", owner: "Marcus Williams", status: "active", createdAt: "2025-04-17" },
+  { id: "con-008", firstName: "Michael", lastName: "O'Brien", title: "CEO", email: "m.obrien@quantumdata.ai", phone: "+1 (650) 555-0781", account: "Quantum Data AI", owner: "Sarah Johnson", status: "active", createdAt: "2025-08-29" },
+  { id: "con-009", firstName: "Natalie", lastName: "Foster", title: "Sales Director", email: "n.foster@independentco.com", phone: "+1 (404) 555-0855", account: null, owner: "Emma Davis", status: "pending", createdAt: "2026-03-10" },
+  { id: "con-010", firstName: "Carlos", lastName: "Reyes", title: "Business Development Manager", email: "c.reyes@freeagent.biz", phone: "+1 (305) 555-0933", account: null, owner: "Marcus Williams", status: "pending", createdAt: "2026-03-20" },
+];
+
+const SEED_CRM_OPPORTUNITIES: CRMOpportunity[] = [
+  { id: "opp-001", title: "Enterprise Platform License", account: "TechCorp Solutions", value: 125000, probability: 80, stage: "NEGOTIATION", owner: "Marcus Williams", expectedClose: "2026-05-15", createdAt: "2026-02-10" },
+  { id: "opp-002", title: "Retail POS Integration", account: "Global Retail Inc.", value: 85000, probability: 60, stage: "PROPOSAL", owner: "Sarah Johnson", expectedClose: "2026-06-01", createdAt: "2026-02-20" },
+  { id: "opp-003", title: "Financial Data Migration", account: "Nexus Finance", value: 250000, probability: 90, stage: "CLOSED_WON", owner: "Marcus Williams", expectedClose: "2026-03-30", createdAt: "2026-01-15" },
+  { id: "opp-004", title: "Healthcare Compliance Module", account: "HealthPlus Systems", value: 45000, probability: 30, stage: "QUALIFICATION", owner: "Emma Davis", expectedClose: "2026-07-15", createdAt: "2026-03-05" },
+  { id: "opp-005", title: "Cloud Migration Services", account: "CloudBuild Technologies", value: 180000, probability: 50, stage: "PROPOSAL", owner: "Sarah Johnson", expectedClose: "2026-06-30", createdAt: "2026-03-01" },
+  { id: "opp-006", title: "Manufacturing ERP Upgrade", account: "Manufactura Group", value: 320000, probability: 40, stage: "PROSPECTING", owner: "Emma Davis", expectedClose: "2026-08-30", createdAt: "2026-03-18" },
+  { id: "opp-007", title: "Logistics Tracking System", account: "LogisticsPro", value: 72000, probability: 70, stage: "NEGOTIATION", owner: "Marcus Williams", expectedClose: "2026-05-20", createdAt: "2026-02-28" },
+  { id: "opp-008", title: "AI Analytics Suite", account: "Quantum Data AI", value: 195000, probability: 95, stage: "CLOSED_WON", owner: "Sarah Johnson", expectedClose: "2026-04-10", createdAt: "2026-01-20" },
+  { id: "opp-009", title: "Data Warehouse Expansion", account: "TechCorp Solutions", value: 150000, probability: 20, stage: "PROSPECTING", owner: "Marcus Williams", expectedClose: "2026-09-15", createdAt: "2026-03-25" },
+  { id: "opp-010", title: "Security Audit Package", account: "Nexus Finance", value: 55000, probability: 10, stage: "CLOSED_LOST", owner: "Emma Davis", expectedClose: "2026-04-01", createdAt: "2026-02-15" },
+];
+
+const SEED_SUPPORT_TICKETS: SupportTicket[] = [
+  { id: "tkt-001", ticketNumber: "TKT-00341", subject: "Unable to export reports to PDF", description: "Users report that clicking the Export PDF button in the Reports module returns a blank page.", account: "TechCorp Solutions", priority: "HIGH", status: "IN_PROGRESS", assignedTo: "Alex Turner", slaDeadline: "2026-04-02 17:00", createdAt: "2026-03-30" },
+  { id: "tkt-002", ticketNumber: "TKT-00340", subject: "Login issues after SSO migration", description: "After migrating to Okta SSO, approximately 30% of users are unable to authenticate.", account: "Nexus Finance", priority: "CRITICAL", status: "OPEN", assignedTo: "Maya Rodriguez", slaDeadline: "2026-04-01 09:00", createdAt: "2026-03-30" },
+  { id: "tkt-003", ticketNumber: "TKT-00339", subject: "Invoice totals not matching line items", description: "Invoice summary totals are off due to floating-point rounding.", account: "Global Retail Inc.", priority: "HIGH", status: "PENDING", assignedTo: "Alex Turner", slaDeadline: "2026-04-02 12:00", createdAt: "2026-03-29" },
+  { id: "tkt-004", ticketNumber: "TKT-00338", subject: "Custom field not saving on contact form", description: "The newly added custom dropdown does not persist after save.", account: "HealthPlus Systems", priority: "MEDIUM", status: "IN_PROGRESS", assignedTo: "Dana Park", slaDeadline: "2026-04-04 17:00", createdAt: "2026-03-28" },
+  { id: "tkt-005", ticketNumber: "TKT-00337", subject: "Email notifications not being sent", description: "Automated workflow email notifications stopped after last deployment.", account: "CloudBuild Technologies", priority: "MEDIUM", status: "OPEN", assignedTo: "Maya Rodriguez", slaDeadline: "2026-04-04 09:00", createdAt: "2026-03-27" },
+  { id: "tkt-006", ticketNumber: "TKT-00336", subject: "Dashboard loading slowly (>10 sec)", description: "Analytics dashboard takes over 10 seconds to load.", account: "Manufactura Group", priority: "LOW", status: "RESOLVED", assignedTo: "Dana Park", slaDeadline: "2026-04-06 17:00", createdAt: "2026-03-25" },
+  { id: "tkt-007", ticketNumber: "TKT-00335", subject: "Data import wizard crashes on large files", description: "Uploading CSV files larger than 50 MB causes crashes.", account: "LogisticsPro", priority: "HIGH", status: "RESOLVED", assignedTo: "Alex Turner", slaDeadline: "2026-03-28 17:00", createdAt: "2026-03-24" },
+  { id: "tkt-008", ticketNumber: "TKT-00334", subject: "API rate limit documentation unclear", description: "Public API docs do not clearly state rate limits.", account: "Quantum Data AI", priority: "LOW", status: "CLOSED", assignedTo: "Dana Park", slaDeadline: "2026-03-31 17:00", createdAt: "2026-03-22" },
+];
+
+const SEED_CRM_CAMPAIGNS: CRMCampaign[] = [
+  { id: "camp-001", name: "Spring Product Launch", type: "EMAIL", status: "ACTIVE", budget: 15000, spent: 8200, leads: 342, conversions: 45, startDate: "2026-03-01", endDate: "2026-04-30", owner: "Sarah Johnson" },
+  { id: "camp-002", name: "LinkedIn Enterprise Push", type: "SOCIAL_MEDIA", status: "ACTIVE", budget: 8000, spent: 5100, leads: 189, conversions: 22, startDate: "2026-03-15", endDate: "2026-05-15", owner: "Marcus Williams" },
+  { id: "camp-003", name: "Q1 Google Ads", type: "PPC", status: "COMPLETED", budget: 20000, spent: 19800, leads: 567, conversions: 78, startDate: "2026-01-01", endDate: "2026-03-31", owner: "Emma Davis" },
+  { id: "camp-004", name: "Healthcare Industry Whitepaper", type: "CONTENT", status: "ACTIVE", budget: 3000, spent: 1200, leads: 95, conversions: 12, startDate: "2026-04-01", endDate: "2026-06-30", owner: "Sarah Johnson" },
+  { id: "camp-005", name: "ERP Best Practices Webinar Series", type: "WEBINAR", status: "DRAFT", budget: 5000, spent: 0, leads: 0, conversions: 0, startDate: "2026-05-01", endDate: "2026-05-31", owner: "Marcus Williams" },
+  { id: "camp-006", name: "MFG Trade Show 2026", type: "TRADE_SHOW", status: "DRAFT", budget: 25000, spent: 0, leads: 0, conversions: 0, startDate: "2026-06-15", endDate: "2026-06-18", owner: "Emma Davis" },
+];
+
 export const SEED_DATA: DataStoreState = {
   businessUnits: SEED_BUS,
   products: SEED_PRODUCTS,
@@ -1373,6 +1483,10 @@ export const SEED_DATA: DataStoreState = {
   employees: SEED_EMPLOYEES,
   jobs: SEED_JOBS,
   candidates: SEED_CANDIDATES,
+  crmContacts: SEED_CRM_CONTACTS,
+  crmOpportunities: SEED_CRM_OPPORTUNITIES,
+  supportTickets: SEED_SUPPORT_TICKETS,
+  crmCampaigns: SEED_CRM_CAMPAIGNS,
   projects: SEED_PROJECTS,
   projectTasks: SEED_PROJECT_TASKS,
   conversionFormulas: [],
