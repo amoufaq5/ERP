@@ -210,186 +210,56 @@ function buildSeedData(): VendorScore[] {
     )
   );
 
-  // 2 – API Supplier (Qualified)
+  // 2 – Excipient Supplier (Qualified)
   vendors.push(
     v(
-      "vs-2", "SUP-API-002", "Cipla Quality Chemicals", "api-supplier",
-      "Uganda", "James Ochieng", "j.ochieng@ciplaqc.com",
-      "qualified", 1.5, 0.8, 1, 89, 2.5, 81,
-      ["WHO-PQ", "EAC-GMP"], "clear",
-      82, 45, daysAgo(200), futureDays(30),
-      [
-        makeAudit("a-3", "vs-2", "periodic", daysAgo(60), "completed", "Dr. Laila Farouk", 81, daysAgo(58), [
-          { id: "f-2", description: "Temperature excursion in API storage warehouse", severity: "major", correctiveAction: "Install redundant temperature monitoring system", dueDate: futureDays(15), status: "open" },
-          { id: "f-3", description: "Incomplete cleaning validation records", severity: "minor", correctiveAction: "Revised cleaning validation protocol", status: "closed" },
-        ], "Generally acceptable. One major finding requires follow-up."),
-      ],
-    )
-  );
-
-  // 3 – Excipient Supplier (Preferred)
-  vendors.push(
-    v(
-      "vs-3", "SUP-EXC-001", "BASF Pharma Solutions", "excipient-supplier",
+      "vs-2", "SUP-EXC-001", "BASF Pharma Solutions", "excipient-supplier",
       "Germany", "Dr. Hans Mueller", "h.mueller@basf.com",
-      "preferred", 0.3, 0.1, 0, 98, 0.5, 95,
-      ["EU-GMP", "ISO 9001", "ISO 14001", "EXCiPACT"], "clear",
-      65, 90, daysAgo(400), futureDays(120),
+      "qualified", 1.0, 0.5, 1, 91, 1.8, 84,
+      ["EU-GMP", "ISO 9001", "EXCiPACT"], "clear",
+      70, 75, daysAgo(200), futureDays(120),
       [
-        makeAudit("a-4", "vs-3", "periodic", daysAgo(180), "completed", "Dr. Laila Farouk", 95, daysAgo(178), [], "Excellent audit. No findings."),
-        makeAudit("a-5", "vs-3", "periodic", futureDays(180), "scheduled", "Dr. Laila Farouk"),
-      ],
-    )
-  );
-
-  // 4 – Excipient Supplier (Probation)
-  vendors.push(
-    v(
-      "vs-4", "SUP-EXC-002", "El Nasr Pharmaceutical Chemicals", "excipient-supplier",
-      "Egypt", "Eng. Moustafa Saleh", "m.saleh@enpc.com.eg",
-      "probation", 4.5, 2.8, 3, 72, 5.0, 58,
-      ["EDA-GMP"], "warning",
-      90, 30, daysAgo(500), futureDays(15),
-      [
-        makeAudit("a-6", "vs-4", "for-cause", daysAgo(30), "completed", "Dr. Rania Abdel-Aziz", 58, daysAgo(28), [
-          { id: "f-4", description: "Cross-contamination risk in Lactose processing area", severity: "critical", correctiveAction: "Implement dedicated production line", dueDate: futureDays(30), status: "open" },
-          { id: "f-5", description: "Inadequate pest control documentation", severity: "major", correctiveAction: "Contract with certified pest control provider", dueDate: futureDays(15), status: "open" },
-          { id: "f-6", description: "Calibration certificates expired for 3 balances", severity: "major", correctiveAction: "Immediate recalibration scheduled", dueDate: daysAgo(10), status: "closed" },
-          { id: "f-7", description: "Batch numbering system inconsistencies", severity: "minor", status: "open" },
-        ], "Significant concerns. Vendor placed on probation pending corrective actions."),
-        makeAudit("a-7", "vs-4", "follow-up", futureDays(45), "scheduled", "Dr. Rania Abdel-Aziz"),
-      ],
-      "Placed on probation after for-cause audit. Critical finding in cross-contamination control.",
-    )
-  );
-
-  // 5 – Packaging Supplier (Qualified)
-  vendors.push(
-    v(
-      "vs-5", "SUP-PKG-001", "Pharma Packaging Industries", "packaging-supplier",
-      "Egypt", "Eng. Amira Zaghloul", "a.zaghloul@ppi-eg.com",
-      "qualified", 2.0, 0.5, 1, 91, 1.8, 84,
-      ["ISO 9001", "ISO 15378", "EDA-GMP"], "clear",
-      85, 45, daysAgo(250), futureDays(75),
-      [
-        makeAudit("a-8", "vs-5", "periodic", daysAgo(120), "completed", "Eng. Mohamed Fathy", 84, daysAgo(118), [
-          { id: "f-8", description: "Ink migration test not performed on latest print batch", severity: "minor", correctiveAction: "Added ink migration testing to incoming QC protocol", status: "closed" },
+        makeAudit("a-3", "vs-2", "periodic", daysAgo(120), "completed", "Eng. Mohamed Fathy", 84, daysAgo(118), [
+          { id: "f-2", description: "Ink migration test not performed on latest print batch", severity: "minor", correctiveAction: "Added ink migration testing to incoming QC protocol", status: "closed" },
         ], "Acceptable. Minor finding resolved promptly."),
       ],
     )
   );
 
-  // 6 – Packaging Supplier (Qualified)
+  // 3 – Excipient Supplier (Probation)
   vendors.push(
     v(
-      "vs-6", "SUP-PKG-002", "Amcor Flexibles", "packaging-supplier",
-      "Switzerland", "Maria Bianchi", "m.bianchi@amcor.com",
-      "qualified", 0.5, 0.2, 0, 94, 1.0, 90,
-      ["ISO 9001", "ISO 15378", "EU-GMP", "BRC/IoP"], "clear",
-      60, 75, daysAgo(350), futureDays(50),
+      "vs-3", "SUP-EXC-002", "El Nasr Pharmaceutical Chemicals", "excipient-supplier",
+      "Egypt", "Eng. Moustafa Saleh", "m.saleh@enpc.com.eg",
+      "probation", 4.5, 2.8, 3, 72, 5.0, 58,
+      ["EDA-GMP"], "warning",
+      90, 30, daysAgo(500), futureDays(15),
       [
-        makeAudit("a-9", "vs-6", "periodic", daysAgo(150), "completed", "Dr. Laila Farouk", 90, daysAgo(148), [], "Excellent audit results. World-class facility."),
+        makeAudit("a-4", "vs-3", "for-cause", daysAgo(30), "completed", "Dr. Rania Abdel-Aziz", 58, daysAgo(28), [
+          { id: "f-3", description: "Cross-contamination risk in Lactose processing area", severity: "critical", correctiveAction: "Implement dedicated production line", dueDate: futureDays(30), status: "open" },
+          { id: "f-4", description: "Calibration certificates expired for 3 balances", severity: "major", correctiveAction: "Immediate recalibration scheduled", dueDate: daysAgo(10), status: "closed" },
+        ], "Significant concerns. Vendor placed on probation pending corrective actions."),
+        makeAudit("a-5", "vs-3", "follow-up", futureDays(45), "scheduled", "Dr. Rania Abdel-Aziz"),
       ],
+      "Placed on probation after for-cause audit. Critical finding in cross-contamination control.",
     )
   );
 
-  // 7 – Equipment Vendor (Preferred)
+  // 4 – API Supplier (Disqualified)
   vendors.push(
     v(
-      "vs-7", "SUP-EQP-001", "GEA Group", "equipment-vendor",
-      "Germany", "Stefan Braun", "s.braun@gea.com",
-      "preferred", 0.2, 0.0, 0, 95, 2.0, 94,
-      ["ISO 9001", "ISO 13485", "CE Mark"], "clear",
-      55, 90, daysAgo(400), futureDays(150),
-      [
-        makeAudit("a-10", "vs-7", "periodic", daysAgo(200), "completed", "Eng. Mohamed Fathy", 94, daysAgo(198), [], "Excellent. FAT/SAT documentation is exemplary."),
-      ],
-    )
-  );
-
-  // 8 – Equipment Vendor (Qualified)
-  vendors.push(
-    v(
-      "vs-8", "SUP-EQP-002", "Cadmach Machinery", "equipment-vendor",
-      "India", "Vikram Patel", "v.patel@cadmach.com",
-      "qualified", 1.0, 0.5, 1, 85, 3.5, 78,
-      ["ISO 9001", "CE Mark"], "clear",
-      88, 45, daysAgo(180), futureDays(60),
-      [
-        makeAudit("a-11", "vs-8", "periodic", daysAgo(100), "completed", "Eng. Mohamed Fathy", 78, daysAgo(98), [
-          { id: "f-9", description: "Spare parts delivery lead time exceeds contract terms", severity: "minor", correctiveAction: "Establish local spare parts inventory in Cairo", dueDate: futureDays(30), status: "open" },
-        ], "Acceptable performance. Spare parts logistics need improvement."),
-      ],
-    )
-  );
-
-  // 9 – API Supplier (Disqualified)
-  vendors.push(
-    v(
-      "vs-9", "SUP-API-003", "Zhejiang Chemical Corp", "api-supplier",
+      "vs-4", "SUP-API-003", "Zhejiang Chemical Corp", "api-supplier",
       "China", "Li Wei", "l.wei@zjchem.cn",
       "disqualified", 8.5, 5.2, 5, 65, 8.0, 42,
       ["China-GMP"], "critical",
       92, 30, daysAgo(400), daysAgo(30),
       [
-        makeAudit("a-12", "vs-9", "for-cause", daysAgo(60), "completed", "Dr. Laila Farouk", 42, daysAgo(58), [
-          { id: "f-10", description: "Data integrity failure - backdated analytical records", severity: "critical", correctiveAction: "Complete data integrity remediation program", dueDate: futureDays(90), status: "open" },
-          { id: "f-11", description: "API purity below specification in 3 consecutive batches", severity: "critical", correctiveAction: "Root cause investigation and process revalidation", dueDate: futureDays(60), status: "open" },
-          { id: "f-12", description: "Inadequate change control for process modifications", severity: "major", status: "open" },
-          { id: "f-13", description: "Environmental monitoring program deficient", severity: "major", status: "open" },
-          { id: "f-14", description: "Training records incomplete", severity: "minor", status: "open" },
+        makeAudit("a-6", "vs-4", "for-cause", daysAgo(60), "completed", "Dr. Laila Farouk", 42, daysAgo(58), [
+          { id: "f-5", description: "Data integrity failure - backdated analytical records", severity: "critical", correctiveAction: "Complete data integrity remediation program", dueDate: futureDays(90), status: "open" },
+          { id: "f-6", description: "API purity below specification in 3 consecutive batches", severity: "critical", correctiveAction: "Root cause investigation and process revalidation", dueDate: futureDays(60), status: "open" },
         ], "Vendor disqualified due to critical data integrity and quality failures."),
       ],
       "Disqualified after for-cause audit revealed critical data integrity issues.",
-    )
-  );
-
-  // 10 – Excipient Supplier (New)
-  vendors.push(
-    v(
-      "vs-10", "SUP-EXC-003", "Roquette Pharma", "excipient-supplier",
-      "France", "Pierre Dupont", "p.dupont@roquette.com",
-      "new", 0, 0, 0, 0, 0, 0,
-      ["EU-GMP", "ISO 9001", "EXCiPACT", "ISO 22000"], "clear",
-      72, 60, undefined, futureDays(30),
-      [
-        makeAudit("a-13", "vs-10", "initial", futureDays(14), "scheduled", "Dr. Laila Farouk"),
-      ],
-      "New vendor under qualification. Initial audit scheduled.",
-    )
-  );
-
-  // 11 – Service Provider (Qualified)
-  vendors.push(
-    v(
-      "vs-11", "SUP-SRV-001", "SGS Egypt", "service-provider",
-      "Egypt", "Dr. Noha Ibrahim", "n.ibrahim@sgs.com",
-      "qualified", 0.5, 0.2, 0, 93, 1.0, 88,
-      ["ISO 17025", "ISO 9001", "EDA-Approved"], "clear",
-      70, 30, daysAgo(300), futureDays(90),
-      [
-        makeAudit("a-14", "vs-11", "periodic", daysAgo(90), "completed", "Dr. Rania Abdel-Aziz", 88, daysAgo(88), [], "Contract testing lab. Excellent turnaround and accuracy."),
-      ],
-    )
-  );
-
-  // 12 – Packaging Supplier (Probation)
-  vendors.push(
-    v(
-      "vs-12", "SUP-PKG-003", "Nile Printing & Packaging", "packaging-supplier",
-      "Egypt", "Eng. Khaled Rashwan", "k.rashwan@nilepack.com.eg",
-      "probation", 5.0, 1.5, 2, 74, 4.0, 62,
-      ["EDA-GMP"], "warning",
-      91, 30, daysAgo(350), futureDays(20),
-      [
-        makeAudit("a-15", "vs-12", "for-cause", daysAgo(45), "completed", "Eng. Mohamed Fathy", 62, daysAgo(43), [
-          { id: "f-15", description: "Leaflet text errors found in 2 consecutive print batches", severity: "critical", correctiveAction: "Implement double-verification proof-reading process", dueDate: futureDays(10), status: "open" },
-          { id: "f-16", description: "Colour consistency variation beyond specification", severity: "major", correctiveAction: "Calibrate printing presses and implement spectrophotometric QC", dueDate: futureDays(20), status: "open" },
-          { id: "f-17", description: "Storage conditions for printed materials not monitored", severity: "minor", correctiveAction: "Install temperature/humidity loggers", status: "closed" },
-        ], "Quality concerns with printed packaging components. Placed on probation."),
-        makeAudit("a-16", "vs-12", "follow-up", futureDays(30), "scheduled", "Eng. Mohamed Fathy"),
-      ],
-      "Probation due to repeated leaflet printing errors.",
     )
   );
 

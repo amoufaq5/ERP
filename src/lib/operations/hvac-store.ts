@@ -170,7 +170,6 @@ interface UnitConfig {
 }
 
 const SEED_UNITS: UnitConfig[] = [
-  // 2 AHUs for Grade B (manufacturing)
   {
     name: "AHU-B01",
     type: "AHU",
@@ -191,26 +190,6 @@ const SEED_UNITS: UnitConfig[] = [
     },
   },
   {
-    name: "AHU-B02",
-    type: "AHU",
-    areaServed: "Gowning Room & Airlock",
-    grade: "B",
-    building: "Building A",
-    floor: "2nd Floor",
-    description: "AHU serving Grade B gowning area and personnel airlock",
-    designParameters: {
-      supplyAirVolume: 8000,
-      returnAirVolume: 7200,
-      freshAirPercentage: 15,
-      coolingCapacity: 55,
-      heatingCapacity: 30,
-      filterStages: "G4 + F9 + H14",
-      fanType: "Centrifugal - backward curved",
-      motorPower: 11,
-    },
-  },
-  // 2 AHUs for Grade C
-  {
     name: "AHU-C01",
     type: "AHU",
     areaServed: "Oral Solid Manufacturing Room 1",
@@ -230,25 +209,19 @@ const SEED_UNITS: UnitConfig[] = [
     },
   },
   {
-    name: "AHU-C02",
-    type: "AHU",
-    areaServed: "Weighing & Dispensing Suite",
-    grade: "C",
-    building: "Building C",
-    floor: "1st Floor",
-    description: "AHU serving Grade C weighing and dispensing room",
+    name: "LFH-A01",
+    type: "laminar-flow",
+    areaServed: "Filling Line 1 - Aseptic Core",
+    grade: "A",
+    building: "Building A",
+    floor: "2nd Floor",
+    description: "Vertical laminar flow hood over aseptic filling line",
     designParameters: {
-      supplyAirVolume: 10000,
-      returnAirVolume: 9000,
-      freshAirPercentage: 20,
-      coolingCapacity: 65,
-      heatingCapacity: 35,
-      filterStages: "G4 + F9 + H13",
-      fanType: "Centrifugal - backward curved",
-      motorPower: 11,
+      airVelocity: 0.45,
+      filterStages: "H14",
+      supplyAirVolume: 3600,
     },
   },
-  // 1 AHU for Grade D
   {
     name: "AHU-D01",
     type: "AHU",
@@ -266,79 +239,6 @@ const SEED_UNITS: UnitConfig[] = [
       filterStages: "G4 + F9 + H13",
       fanType: "Axial",
       motorPower: 22,
-    },
-  },
-  // 2 Laminar flow hoods (Grade A)
-  {
-    name: "LFH-A01",
-    type: "laminar-flow",
-    areaServed: "Filling Line 1 - Aseptic Core",
-    grade: "A",
-    building: "Building A",
-    floor: "2nd Floor",
-    description: "Vertical laminar flow hood over aseptic filling line",
-    designParameters: {
-      airVelocity: 0.45,
-      filterStages: "H14",
-      supplyAirVolume: 3600,
-    },
-  },
-  {
-    name: "LFH-A02",
-    type: "laminar-flow",
-    areaServed: "QC Lab - Sterility Testing",
-    grade: "A",
-    building: "Building B",
-    floor: "1st Floor",
-    description: "Horizontal laminar flow hood for QC sterility testing",
-    designParameters: {
-      airVelocity: 0.45,
-      filterStages: "H14",
-      supplyAirVolume: 2400,
-    },
-  },
-  // 1 Isolator
-  {
-    name: "ISO-A01",
-    type: "isolator",
-    areaServed: "Aseptic Processing - Isolator Suite",
-    grade: "A",
-    building: "Building A",
-    floor: "2nd Floor",
-    description: "Closed restricted access barrier system (cRABS) for vial filling",
-    designParameters: {
-      airVelocity: 0.45,
-      filterStages: "H14 supply + H14 exhaust",
-      supplyAirVolume: 1800,
-    },
-  },
-  // 1 Exhaust
-  {
-    name: "EXH-01",
-    type: "exhaust",
-    areaServed: "Solvent Storage & Dispensing",
-    grade: "D",
-    building: "Building C",
-    floor: "Ground Floor",
-    description: "Dedicated exhaust for hazardous solvent handling area",
-    designParameters: {
-      supplyAirVolume: 5000,
-      fanType: "Explosion-proof axial",
-      motorPower: 7.5,
-    },
-  },
-  // 1 Pass-through
-  {
-    name: "PT-B01",
-    type: "pass-through",
-    areaServed: "Material Airlock B/C",
-    grade: "B",
-    building: "Building A",
-    floor: "2nd Floor",
-    description: "Dynamic pass-through hatch between Grade B and Grade C with HEPA filtered air shower",
-    designParameters: {
-      filterStages: "H14",
-      airVelocity: 0.45,
     },
   },
 ];
@@ -480,8 +380,7 @@ function buildSeedData(): SeedStoreData {
     for (const cfg of configs) {
       const limits = getHVACLimits(unit.grade, cfg.parameter);
 
-      for (let day = 0; day < 30; day++) {
-        // Scale readings per day so we exceed 100 total readings
+      for (let day = 0; day < 7; day++) {
         const count = Math.max(1, Math.round(cfg.frequency * 0.7));
 
         for (let r = 0; r < count; r++) {
@@ -550,24 +449,14 @@ function buildSeedData(): SeedStoreData {
     }
   }
 
-  // ── Build 15 HEPA Filter Records ──
+  // ── Build Filter Records ──
   const filters: FilterRecord[] = [];
   const filterConfigs: { unitIdx: number; filterType: FilterType; location: string; model: string; efficiency: string }[] = [
     { unitIdx: 0, filterType: "HEPA", location: "AHU-B01 Terminal - Room 201", model: "CAMFIL Megalam ME", efficiency: "H14 - 99.995%" },
     { unitIdx: 0, filterType: "pre-filter", location: "AHU-B01 Pre-filter Bank", model: "CAMFIL Hi-Flo F9", efficiency: "F9 - 95%" },
-    { unitIdx: 1, filterType: "HEPA", location: "AHU-B02 Terminal - Gowning", model: "CAMFIL Megalam ME", efficiency: "H14 - 99.995%" },
-    { unitIdx: 1, filterType: "pre-filter", location: "AHU-B02 Pre-filter Bank", model: "CAMFIL Hi-Flo F9", efficiency: "F9 - 95%" },
-    { unitIdx: 2, filterType: "HEPA", location: "AHU-C01 Terminal - MFG Room 1", model: "AAF AstroPak H13", efficiency: "H13 - 99.95%" },
-    { unitIdx: 2, filterType: "pre-filter", location: "AHU-C01 Pre-filter Bank", model: "AAF AmAir F9", efficiency: "F9 - 95%" },
-    { unitIdx: 3, filterType: "HEPA", location: "AHU-C02 Terminal - Weighing", model: "AAF AstroPak H13", efficiency: "H13 - 99.95%" },
-    { unitIdx: 4, filterType: "HEPA", location: "AHU-D01 Terminal - Packaging", model: "AAF AstroPak H13", efficiency: "H13 - 99.95%" },
-    { unitIdx: 5, filterType: "HEPA", location: "LFH-A01 HEPA Face", model: "CAMFIL Megalam ME", efficiency: "H14 - 99.995%" },
-    { unitIdx: 6, filterType: "HEPA", location: "LFH-A02 HEPA Face", model: "CAMFIL Megalam ME", efficiency: "H14 - 99.995%" },
-    { unitIdx: 7, filterType: "HEPA", location: "ISO-A01 Supply HEPA", model: "CAMFIL Absolute VG", efficiency: "H14 - 99.995%" },
-    { unitIdx: 7, filterType: "HEPA", location: "ISO-A01 Exhaust HEPA", model: "CAMFIL Absolute VG", efficiency: "H14 - 99.995%" },
-    { unitIdx: 9, filterType: "HEPA", location: "PT-B01 HEPA Shower", model: "CAMFIL Megalam ME", efficiency: "H14 - 99.995%" },
-    { unitIdx: 3, filterType: "pre-filter", location: "AHU-C02 Pre-filter Bank", model: "AAF AmAir F9", efficiency: "F9 - 95%" },
-    { unitIdx: 4, filterType: "pre-filter", location: "AHU-D01 Pre-filter Bank", model: "AAF AmAir F9", efficiency: "F9 - 95%" },
+    { unitIdx: 1, filterType: "HEPA", location: "AHU-C01 Terminal - MFG Room 1", model: "AAF AstroPak H13", efficiency: "H13 - 99.95%" },
+    { unitIdx: 2, filterType: "HEPA", location: "LFH-A01 HEPA Face", model: "CAMFIL Megalam ME", efficiency: "H14 - 99.995%" },
+    { unitIdx: 3, filterType: "HEPA", location: "AHU-D01 Terminal - Packaging", model: "AAF AstroPak H13", efficiency: "H13 - 99.95%" },
   ];
 
   for (let i = 0; i < filterConfigs.length; i++) {
@@ -596,16 +485,13 @@ function buildSeedData(): SeedStoreData {
     });
   }
 
-  // ── Build 6 Qualification Records ──
+  // ── Build Qualification Records ──
   const qualifications: HVACQualification[] = [];
 
   const qualConfigs: { unitIdx: number; type: QualificationType; status: QualificationStatus; daysAgo: number }[] = [
     { unitIdx: 0, type: "OQ", status: "passed", daysAgo: 120 },
-    { unitIdx: 0, type: "PQ", status: "passed", daysAgo: 90 },
-    { unitIdx: 2, type: "IQ", status: "passed", daysAgo: 200 },
-    { unitIdx: 5, type: "PQ", status: "in-progress", daysAgo: 5 },
-    { unitIdx: 7, type: "OQ", status: "requalification-due", daysAgo: 365 },
-    { unitIdx: 3, type: "PQ", status: "planned", daysAgo: -14 },
+    { unitIdx: 1, type: "PQ", status: "passed", daysAgo: 90 },
+    { unitIdx: 2, type: "PQ", status: "in-progress", daysAgo: 5 },
   ];
 
   for (let i = 0; i < qualConfigs.length; i++) {

@@ -229,10 +229,10 @@ function generateSeedData(): MatchRecord[] {
     return `INV-2026-${String(Math.floor(Math.random() * 9000) + 1000)}`;
   }
 
-  // 8 fully matched
-  for (let i = 0; i < 8; i++) {
+  // 2 fully matched
+  for (let i = 0; i < 2; i++) {
     const vendor = VENDORS[i % VENDORS.length];
-    const lineItems = buildLineItems(Math.floor(Math.random() * 3) + 2, "none", config);
+    const lineItems = buildLineItems(Math.floor(Math.random() * 2) + 2, "none", config);
     const totalPO = lineItems.reduce((s, l) => s + l.qtyOrdered * l.unitPricePO, 0);
     const totalGRN = lineItems.reduce((s, l) => s + l.qtyReceived * l.unitPricePO, 0);
     const totalInv = lineItems.reduce((s, l) => s + l.qtyInvoiced * l.unitPriceInvoice, 0);
@@ -260,10 +260,10 @@ function generateSeedData(): MatchRecord[] {
     });
   }
 
-  // 4 partial matches (within tolerance)
-  for (let i = 0; i < 4; i++) {
-    const vendor = VENDORS[(i + 2) % VENDORS.length];
-    const lineItems = buildLineItems(Math.floor(Math.random() * 3) + 2, "within-tolerance", config);
+  // 1 partial match (within tolerance)
+  {
+    const vendor = VENDORS[2];
+    const lineItems = buildLineItems(3, "within-tolerance", config);
     const totalPO = lineItems.reduce((s, l) => s + l.qtyOrdered * l.unitPricePO, 0);
     const totalGRN = lineItems.reduce((s, l) => s + l.qtyReceived * l.unitPricePO, 0);
     const totalInv = lineItems.reduce((s, l) => s + l.qtyInvoiced * l.unitPriceInvoice, 0);
@@ -271,11 +271,11 @@ function generateSeedData(): MatchRecord[] {
       id: `match-${uid()}`,
       matchNumber: nextNum(),
       poNumber: makePO(),
-      poDate: daysAgo(Math.floor(Math.random() * 10) + 25),
+      poDate: daysAgo(25),
       grnNumber: makeGRN(),
-      grnDate: daysAgo(Math.floor(Math.random() * 5) + 12),
+      grnDate: daysAgo(12),
       invoiceNumber: makeInv(),
-      invoiceDate: daysAgo(Math.floor(Math.random() * 5) + 10),
+      invoiceDate: daysAgo(10),
       vendorId: vendor.id,
       vendorName: vendor.name,
       status: "partial-match",
@@ -285,16 +285,16 @@ function generateSeedData(): MatchRecord[] {
       currency: "EGP",
       lineItems,
       exceptions: [],
-      createdAt: daysAgo(Math.floor(Math.random() * 10) + 8),
-      matchedAt: daysAgo(Math.floor(Math.random() * 3) + 3),
+      createdAt: daysAgo(8),
+      matchedAt: daysAgo(3),
     });
   }
 
-  // 3 exceptions – quantity variance
-  for (let i = 0; i < 3; i++) {
-    const vendor = VENDORS[(i + 4) % VENDORS.length];
+  // 1 exception – quantity variance
+  {
+    const vendor = VENDORS[4];
     const matchId = `match-${uid()}`;
-    const lineItems = buildLineItems(Math.floor(Math.random() * 2) + 2, "qty-mismatch", config);
+    const lineItems = buildLineItems(2, "qty-mismatch", config);
     const exceptions = buildExceptions(matchId, lineItems, config);
     const totalPO = lineItems.reduce((s, l) => s + l.qtyOrdered * l.unitPricePO, 0);
     const totalGRN = lineItems.reduce((s, l) => s + l.qtyReceived * l.unitPricePO, 0);
@@ -303,11 +303,11 @@ function generateSeedData(): MatchRecord[] {
       id: matchId,
       matchNumber: nextNum(),
       poNumber: makePO(),
-      poDate: daysAgo(Math.floor(Math.random() * 10) + 20),
+      poDate: daysAgo(20),
       grnNumber: makeGRN(),
-      grnDate: daysAgo(Math.floor(Math.random() * 5) + 8),
+      grnDate: daysAgo(8),
       invoiceNumber: makeInv(),
-      invoiceDate: daysAgo(Math.floor(Math.random() * 5) + 6),
+      invoiceDate: daysAgo(6),
       vendorId: vendor.id,
       vendorName: vendor.name,
       status: "exception",
@@ -317,95 +317,44 @@ function generateSeedData(): MatchRecord[] {
       currency: "EGP",
       lineItems,
       exceptions,
-      createdAt: daysAgo(Math.floor(Math.random() * 7) + 5),
+      createdAt: daysAgo(5),
       assignedTo: "Acc. Salma Ibrahim",
     });
   }
 
-  // 2 exceptions – price variance
-  for (let i = 0; i < 2; i++) {
-    const vendor = VENDORS[i % VENDORS.length];
+  // 1 pending (missing GRN)
+  {
+    const vendor = VENDORS[3];
     const matchId = `match-${uid()}`;
-    const lineItems = buildLineItems(Math.floor(Math.random() * 2) + 2, "price-mismatch", config);
-    const exceptions = buildExceptions(matchId, lineItems, config);
+    const lineItems = buildLineItems(2, "none", config);
     const totalPO = lineItems.reduce((s, l) => s + l.qtyOrdered * l.unitPricePO, 0);
-    const totalGRN = lineItems.reduce((s, l) => s + l.qtyReceived * l.unitPricePO, 0);
-    const totalInv = lineItems.reduce((s, l) => s + l.qtyInvoiced * l.unitPriceInvoice, 0);
+    const exceptions: MatchException[] = [{
+      id: `exc-${uid()}`,
+      matchId,
+      type: "missing-grn",
+      severity: "high",
+      description: "Goods Receipt Note has not been recorded for this purchase order.",
+      resolved: false,
+    }];
     records.push({
       id: matchId,
       matchNumber: nextNum(),
       poNumber: makePO(),
-      poDate: daysAgo(Math.floor(Math.random() * 10) + 20),
-      grnNumber: makeGRN(),
-      grnDate: daysAgo(Math.floor(Math.random() * 5) + 8),
-      invoiceNumber: makeInv(),
-      invoiceDate: daysAgo(Math.floor(Math.random() * 5) + 6),
-      vendorId: vendor.id,
-      vendorName: vendor.name,
-      status: "exception",
-      totalPOAmount: Math.round(totalPO * 100) / 100,
-      totalGRNAmount: Math.round(totalGRN * 100) / 100,
-      totalInvoiceAmount: Math.round(totalInv * 100) / 100,
-      currency: "EGP",
-      lineItems,
-      exceptions,
-      createdAt: daysAgo(Math.floor(Math.random() * 7) + 5),
-      assignedTo: "Acc. Nour El-Din",
-    });
-  }
-
-  // 3 pending
-  for (let i = 0; i < 3; i++) {
-    const vendor = VENDORS[(i + 3) % VENDORS.length];
-    const hasMissingGrn = i === 0;
-    const hasMissingInv = i === 1;
-    const lineItems = buildLineItems(Math.floor(Math.random() * 2) + 2, "none", config);
-    const totalPO = lineItems.reduce((s, l) => s + l.qtyOrdered * l.unitPricePO, 0);
-    const totalGRN = hasMissingGrn ? 0 : lineItems.reduce((s, l) => s + l.qtyReceived * l.unitPricePO, 0);
-    const totalInv = hasMissingInv ? 0 : lineItems.reduce((s, l) => s + l.qtyInvoiced * l.unitPriceInvoice, 0);
-
-    const matchId = `match-${uid()}`;
-    const exceptions: MatchException[] = [];
-    if (hasMissingGrn) {
-      exceptions.push({
-        id: `exc-${uid()}`,
-        matchId,
-        type: "missing-grn",
-        severity: "high",
-        description: "Goods Receipt Note has not been recorded for this purchase order.",
-        resolved: false,
-      });
-    }
-    if (hasMissingInv) {
-      exceptions.push({
-        id: `exc-${uid()}`,
-        matchId,
-        type: "missing-invoice",
-        severity: "medium",
-        description: "Vendor invoice has not been received for this goods receipt.",
-        resolved: false,
-      });
-    }
-
-    records.push({
-      id: matchId,
-      matchNumber: nextNum(),
-      poNumber: makePO(),
-      poDate: daysAgo(Math.floor(Math.random() * 5) + 5),
-      grnNumber: hasMissingGrn ? null : makeGRN(),
-      grnDate: hasMissingGrn ? null : daysAgo(Math.floor(Math.random() * 3) + 2),
-      invoiceNumber: hasMissingInv ? null : makeInv(),
-      invoiceDate: hasMissingInv ? null : daysAgo(Math.floor(Math.random() * 3) + 1),
+      poDate: daysAgo(5),
+      grnNumber: null,
+      grnDate: null,
+      invoiceNumber: null,
+      invoiceDate: null,
       vendorId: vendor.id,
       vendorName: vendor.name,
       status: "pending",
       totalPOAmount: Math.round(totalPO * 100) / 100,
-      totalGRNAmount: Math.round(totalGRN * 100) / 100,
-      totalInvoiceAmount: Math.round(totalInv * 100) / 100,
+      totalGRNAmount: 0,
+      totalInvoiceAmount: 0,
       currency: "EGP",
       lineItems,
       exceptions,
-      createdAt: daysAgo(Math.floor(Math.random() * 3) + 1),
+      createdAt: daysAgo(1),
     });
   }
 
