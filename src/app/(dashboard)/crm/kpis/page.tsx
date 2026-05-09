@@ -142,7 +142,12 @@ function KPIDashboardTab() {
 
   // Determine visible users based on role
   const visibleUsers = useMemo(() => {
-    if (user.role === "ADMIN" || user.role === "BUM") {
+    if (user.role === "ADMIN" || user.role === "NSM") {
+      return allUsers.filter((u) =>
+        u.role === "MEDICAL_REP" || u.role === "DISTRICT_MANAGER" || u.role === "MARKETEER" || u.role === "BUM"
+      );
+    }
+    if (user.role === "BUM") {
       return allUsers.filter((u) =>
         u.role === "MEDICAL_REP" || u.role === "DISTRICT_MANAGER" || u.role === "MARKETEER"
       );
@@ -152,7 +157,7 @@ function KPIDashboardTab() {
       return reports.filter((u) => u.role === "DISTRICT_MANAGER" || u.role === "MEDICAL_REP");
     }
     if (user.role === "DISTRICT_MANAGER") {
-      return getReportsOf(user.id);
+      return [user, ...getReportsOf(user.id)];
     }
     return [user];
   }, [user, allUsers, getReportsOf]);
@@ -675,7 +680,12 @@ function ReportsTab() {
 
   // Determine visible users
   const visibleUsers = useMemo(() => {
-    if (user.role === "ADMIN" || user.role === "BUM") {
+    if (user.role === "ADMIN" || user.role === "NSM") {
+      return allUsers.filter((u) =>
+        u.role === "MEDICAL_REP" || u.role === "DISTRICT_MANAGER" || u.role === "MARKETEER" || u.role === "BUM"
+      );
+    }
+    if (user.role === "BUM") {
       return allUsers.filter((u) =>
         u.role === "MEDICAL_REP" || u.role === "DISTRICT_MANAGER" || u.role === "MARKETEER"
       );
@@ -684,7 +694,7 @@ function ReportsTab() {
       return getReportsOf(user.id);
     }
     if (user.role === "DISTRICT_MANAGER") {
-      return getReportsOf(user.id);
+      return [user, ...getReportsOf(user.id)];
     }
     return [user];
   }, [user, allUsers, getReportsOf]);
@@ -855,7 +865,12 @@ function RankingsTab() {
 
   // Determine visible users
   const visibleUsers = useMemo(() => {
-    if (user.role === "ADMIN" || user.role === "BUM") {
+    if (user.role === "ADMIN" || user.role === "NSM") {
+      return allUsers.filter((u) =>
+        u.role === "MEDICAL_REP" || u.role === "DISTRICT_MANAGER" || u.role === "MARKETEER" || u.role === "BUM"
+      );
+    }
+    if (user.role === "BUM") {
       return allUsers.filter((u) =>
         u.role === "MEDICAL_REP" || u.role === "DISTRICT_MANAGER" || u.role === "MARKETEER"
       );
@@ -864,7 +879,7 @@ function RankingsTab() {
       return getReportsOf(user.id);
     }
     if (user.role === "DISTRICT_MANAGER") {
-      return getReportsOf(user.id);
+      return [user, ...getReportsOf(user.id)];
     }
     return [user];
   }, [user, allUsers, getReportsOf]);

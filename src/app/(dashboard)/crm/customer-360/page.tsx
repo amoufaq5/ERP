@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef } from "react";
+import { useCurrentUser } from "@/lib/user-context";
 import {
   User,
   Search,
@@ -33,7 +34,7 @@ import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import EmptyState from "@/components/shared/empty-state";
 import { useApiDataStore } from "@/lib/api/use-api-store";
-import { BUYING_LADDER_STAGES, type Doctor, type Visit, type AMAccount } from "@/lib/data-store";
+import { BUYING_LADDER_STAGES, scopeDoctors, type Doctor, type Visit, type AMAccount } from "@/lib/data-store";
 
 const CLASSIFICATION_COLORS: Record<string, string> = {
   A: "bg-green-100 text-green-800 border-green-300",
@@ -76,12 +77,17 @@ function formatDate(dateStr: string): string {
 
 export default function Customer360Page() {
   const store = useApiDataStore();
+  const { user, getReportsOf } = useCurrentUser();
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectorOpen, setSelectorOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const doctors = (store.doctors ?? []) as Doctor[];
+  const repsUnderMe = useMemo(() => getReportsOf(user.id).map(u => u.id), [user.id, getReportsOf]);
+  const doctors = useMemo(
+    () => scopeDoctors((store.doctors ?? []) as Doctor[], store.businessUnits, user.role, user.id, repsUnderMe),
+    [store.doctors, store.businessUnits, user.role, user.id, repsUnderMe]
+  );
   const visits = (store.visits ?? []) as Visit[];
   const employees = store.employees ?? [];
   const amAccounts = store.amAccounts ?? [];

@@ -34,6 +34,7 @@ import { FilterBar, type FilterState } from "@/components/shared/filter-bar";
 import { useAppConfig } from "@/lib/config-context";
 import { useCurrentUser } from "@/lib/user-context";
 import { useApiDataStore } from "@/lib/api/use-api-store";
+import { scopeVisits } from "@/lib/data-store";
 import type { Column } from "@/components/shared/data-table";
 
 const LeafletMap = dynamic(
@@ -281,7 +282,10 @@ export default function GpsTrackingPage() {
   const store = useApiDataStore();
   const repsUnderMe = useMemo(() => getReportsOf(user.id).map((u) => u.id), [user.id, getReportsOf]);
 
-  const storeVisits = store.visits ?? [];
+  const storeVisits = useMemo(
+    () => scopeVisits(store.visits ?? [], store.businessUnits, user.role, user.id, repsUnderMe),
+    [store.visits, store.businessUnits, user.role, user.id, repsUnderMe]
+  );
   const storeDoctors = store.doctors ?? [];
   const storeEmployees = store.employees ?? [];
 
