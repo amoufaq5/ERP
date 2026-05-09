@@ -259,7 +259,6 @@ export default function WeeklyPlanPage() {
   const isManager = ["DISTRICT_MANAGER", "MARKETEER", "BUM", "ADMIN"].includes(user.role);
   const isDM = user.role === "DISTRICT_MANAGER";
   const isFieldOnly = (FIELD_ONLY_ROLES as readonly string[]).includes(user.role);
-  const canMixWorkTypes = !isFieldOnly;
   const repsUnderMe = getReportsOf(user.id).map((u) => u.id);
 
   const myPendingApprovalPlan = useMemo(() => {
