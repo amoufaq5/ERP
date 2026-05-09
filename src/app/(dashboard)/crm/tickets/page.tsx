@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Ticket, Plus, AlertTriangle, Clock, CheckCircle, Download, Eye, MessageSquare,
 } from "lucide-react";
@@ -18,6 +18,7 @@ import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { useNotificationCenter } from "@/lib/notification-context";
 import { useApiDataStore } from "@/lib/api/use-api-store";
+import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 import { type SupportTicket as SupportTicketType, type TicketPriority as Priority, type TicketStatus } from "@/lib/data-store";
 
 // ─── Style maps ──────────────────────────────────────────────────────────────
@@ -121,7 +122,24 @@ function getSlaInfo(slaDeadline: string, status: TicketStatus): { label: string;
 export default function TicketsPage() {
   const { addNotification } = useNotificationCenter();
   const store = useApiDataStore();
-  const tickets = store.supportTickets as SupportTicketType[];
+  const { user, allUsers, getReportsOf } = useCurrentUser();
+
+  // Role-based ticket scoping
+  const tickets = useMemo(() => {
+    const all = store.supportTickets as SupportTicketType[];
+    // ADMIN / NSM: see all tickets
+    if (user.role === "ADMIN" || user.role === "NSM") return all;
+    // Build set of team member names for matching against assignedTo
+    const teamNames = new Set<string>();
+    teamNames.add(user.name);
+    // DM / MARKETEER / BUM: show own + reports' tickets
+    if (user.role === "DISTRICT_MANAGER" || user.role === "MARKETEER" || user.role === "BUM") {
+      const reports = getReportsOf(user.id);
+      reports.forEach((r) => teamNames.add(r.name));
+    }
+    // MEDICAL_REP (and other roles): show only tickets assigned to them
+    return all.filter((t) => teamNames.has(t.assignedTo));
+  }, [store.supportTickets, user.role, user.id, user.name, allUsers, getReportsOf]);
   const [filters, setFilters] = useState<FilterState>({ _search: "", priority: "", status: "" });
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<SupportTicketType | null>(null);
@@ -233,7 +251,7 @@ export default function TicketsPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <PageHeader title="Support Tickets" description="Track, manage, and resolve customer support tickets.">
+      <PageHeader title="Support Tickets" description={`Track, manage, and resolve customer support tickets. Viewing as ${ROLE_LABEL[user.role]}.`}>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleExport} className="gap-2">
             <Download className="w-4 h-4" /> Export CSV

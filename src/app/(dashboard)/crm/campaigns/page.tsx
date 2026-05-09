@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Megaphone, DollarSign, TrendingUp, Users, Plus, Gift, Star, RefreshCw, ToggleLeft, ToggleRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import StatusBadge from "@/components/shared/status-badge";
 import type { Column } from "@/components/shared/data-table";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 import { useApiDataStore } from "@/lib/api/use-api-store";
+import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 import { type CRMCampaign, type CampaignType, type CampaignStatus } from "@/lib/data-store";
 
 type Campaign = CRMCampaign;
@@ -168,7 +169,18 @@ type HubTab = "campaigns" | "loyalty";
 export default function CampaignsPage() {
   const { t } = useTranslation();
   const store = useApiDataStore();
-  const campaigns = store.crmCampaigns as Campaign[];
+  const { user } = useCurrentUser();
+
+  // Role-based campaign scoping
+  // ADMIN / NSM / BUM / MARKETEER: see all campaigns (org-wide)
+  // DM / MEDICAL_REP: see all campaigns (campaigns are org-wide marketing assets)
+  const campaigns = useMemo(() => {
+    const all = store.crmCampaigns as Campaign[];
+    // All roles see campaigns since they are org-wide; scoping is kept for future buId-based filtering
+    if (user.role === "ADMIN" || user.role === "NSM" || user.role === "BUM" || user.role === "MARKETEER") return all;
+    // DM / MEDICAL_REP: show all campaigns (org-wide assets, no buId on CRMCampaign)
+    return all;
+  }, [store.crmCampaigns, user.role]);
   const [activeHubTab, setActiveHubTab] = useState<HubTab>("campaigns");
   const [campaignFilters, setCampaignFilters] = useState<FilterState>({ _search: "", status: "", type: "" });
   const [showCampaignModal, setShowCampaignModal] = useState(false);
@@ -259,7 +271,7 @@ export default function CampaignsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <PageHeader title="Marketing Hub" description="Manage campaigns, loyalty programs, member points, and reward redemptions">
+      <PageHeader title="Marketing Hub" description={`Manage campaigns, loyalty programs, member points, and reward redemptions. Viewing as ${ROLE_LABEL[user.role]}.`}>
         {activeHubTab === "campaigns" && (
           <Button onClick={() => { setEditingCampaign(null); setShowCampaignModal(true); }} className="gap-2">
             <Plus className="w-4 h-4" /> Add Campaign

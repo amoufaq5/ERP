@@ -19,6 +19,7 @@ import StatusBadge from "@/components/shared/status-badge";
 import type { Column } from "@/components/shared/data-table";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { useTranslation } from "@/lib/i18n/i18n-context";
+import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 
 // ─── Tab type ─────────────────────────────────────────────────────────────────
 type ActiveTab = "accounts" | "contacts" | "tickets";
@@ -212,12 +213,30 @@ export default function AccountsPage() {
   const store = useApiDataStore();
   const router = useRouter();
   const { t } = useTranslation();
+  const { user, getReportsOf } = useCurrentUser();
 
   // ── Tab state ──
   const [activeTab, setActiveTab] = useState<ActiveTab>("accounts");
 
   // ── Account state ──
-  const [accounts, setAccounts] = useState<Account[]>(INITIAL_ACCOUNTS);
+  const [allAccounts, setAllAccounts] = useState<Account[]>(INITIAL_ACCOUNTS);
+
+  // Role-based account scoping
+  const accounts = useMemo(() => {
+    // ADMIN / NSM: see all accounts
+    if (user.role === "ADMIN" || user.role === "NSM") return allAccounts;
+    // BUM: see all accounts (org-wide visibility for managers)
+    if (user.role === "BUM") return allAccounts;
+    // DISTRICT_MANAGER / MARKETEER: see accounts owned by self or reports
+    const teamNames = new Set<string>();
+    teamNames.add(user.name);
+    const reports = getReportsOf(user.id);
+    reports.forEach((r) => teamNames.add(r.name));
+    return allAccounts.filter((a) => teamNames.has(a.owner));
+  }, [allAccounts, user.role, user.id, user.name, getReportsOf]);
+
+  // Wrapper to update allAccounts (preserving scoping)
+  const setAccounts: React.Dispatch<React.SetStateAction<Account[]>> = setAllAccounts;
   const [accountFilters, setAccountFilters] = useState<FilterState>({ _search: "", type: "", industry: "" });
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -448,22 +467,23 @@ export default function AccountsPage() {
   ];
 
   // ── Per-tab header info ──
+  const roleLabel = ROLE_LABEL[user.role];
   const tabConfig: Record<ActiveTab, { title: string; description: string; buttonLabel: string; onAdd: () => void }> = {
     accounts: {
       title: t("account.title"),
-      description: t("account.manageAccounts"),
+      description: `${t("account.manageAccounts")} Viewing as ${roleLabel}.`,
       buttonLabel: "Add Account",
       onAdd: () => { setEditingAccount(null); setShowAccountModal(true); },
     },
     contacts: {
       title: t("contact.title"),
-      description: t("contact.manageContacts"),
+      description: `${t("contact.manageContacts")} Viewing as ${roleLabel}.`,
       buttonLabel: "Add Contact",
       onAdd: () => { setEditingContact(null); setShowContactModal(true); },
     },
     tickets: {
       title: t("ticket.title"),
-      description: t("ticket.manageTickets"),
+      description: `${t("ticket.manageTickets")} Viewing as ${roleLabel}.`,
       buttonLabel: "New Ticket",
       onAdd: () => { setEditingTicket(null); setShowTicketModal(true); },
     },
