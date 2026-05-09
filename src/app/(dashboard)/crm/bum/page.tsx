@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Crown, Users, DollarSign, TrendingUp, Plus } from "lucide-react";
+import { Crown, Users, DollarSign, TrendingUp, Plus, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
@@ -85,10 +87,15 @@ export default function BUMPage() {
     ) ?? null;
   }, [store.businessUnits, user.id]);
 
-  // ── Team members: all direct reports ──────────────────────────────────
-  const teamMembers = useMemo(() => getReportsOf(user.id), [user.id, getReportsOf]);
+  // ── Team members: scoped to this BU's memberIds ──────────────────────
+  const teamMembers = useMemo(() => {
+    if (!myBU) return [];
+    const buMemberSet = new Set(myBU.memberIds);
+    return allUsers.filter((u) => buMemberSet.has(u.id));
+  }, [myBU, allUsers]);
   const teamMemberIds = useMemo(() => new Set(teamMembers.map((m) => m.id)), [teamMembers]);
 
+  const marketeers = useMemo(() => teamMembers.filter((u) => u.role === "MARKETEER"), [teamMembers]);
   const dms = useMemo(() => teamMembers.filter((u) => u.role === "DISTRICT_MANAGER"), [teamMembers]);
   const reps = useMemo(() => teamMembers.filter((u) => u.role === "MEDICAL_REP"), [teamMembers]);
 
@@ -209,6 +216,28 @@ export default function BUMPage() {
     });
   }, [dms, getReportsOf, visitsThisMonth, teamPlans, thisMonthKpis]);
 
+  // ── Market request approval state ──────────────────────────────────────
+  const [rejectDialogRequest, setRejectDialogRequest] = useState<MarketRequest | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+
+  function handleApproveRequest(req: MarketRequest) {
+    store.update("marketRequests", req.id, {
+      status: "APPROVED",
+      approvedById: user.id,
+      approvedAt: new Date().toISOString(),
+    });
+  }
+
+  function handleRejectRequest() {
+    if (!rejectDialogRequest) return;
+    store.update("marketRequests", rejectDialogRequest.id, {
+      status: "REJECTED",
+      rejectionReason: rejectionReason,
+    });
+    setRejectDialogRequest(null);
+    setRejectionReason("");
+  }
+
   // ── Market request list for approval table ────────────────────────────
   const [approvalFilters, setApprovalFilters] = useState<FilterState>({ _search: "", status: "" });
 
@@ -263,31 +292,69 @@ export default function BUMPage() {
     );
   }, [bumVisits, visitFilters]);
 
-  // ── Hierarchy for Org tab ─────────────────────────────────────────────
-  const hierarchy = useMemo(() => {
-    return dms.map((dm) => {
-      const dmReps = getReportsOf(dm.id).filter((u) => u.role === "MEDICAL_REP");
-      const dmDoctors = buDoctors.filter(
-        (d) => d.assignedRepId && (dmReps.some((r) => r.id === d.assignedRepId) || d.assignedRepId === dm.id)
-      );
-      return {
-        dm,
-        reps: dmReps,
-        doctorCount: dmDoctors.length,
-      };
-    });
-  }, [dms, getReportsOf, buDoctors]);
+  // ── Hierarchy for Org tab (BUM -> Marketeer -> DM -> Rep) ─────────────
+  type DMGroup = { dm: AppUser; reps: AppUser[]; doctorCount: number };
+  type MarketeerGroup = { type: "marketeer"; marketeer: AppUser; dmGroups: DMGroup[]; directReps: AppUser[] };
+  type FlatDMGroup = { type: "dm"; dm: AppUser; reps: AppUser[]; doctorCount: number };
+  type HierarchyItem = MarketeerGroup | FlatDMGroup;
 
-  // Reps not under any DM
+  const hierarchy = useMemo((): HierarchyItem[] => {
+    const allDMs = teamMembers.filter((u) => u.role === "DISTRICT_MANAGER");
+    const allReps = teamMembers.filter((u) => u.role === "MEDICAL_REP");
+
+    if (marketeers.length > 0) {
+      return marketeers.map((mkt) => {
+        const mktReports = getReportsOf(mkt.id).filter((u) => teamMemberIds.has(u.id));
+        const mktDMs = mktReports.filter((u) => u.role === "DISTRICT_MANAGER");
+        const mktRepsUnderDMs = new Set<string>();
+
+        const dmGroups: DMGroup[] = mktDMs.map((dm) => {
+          const dmReps = getReportsOf(dm.id).filter(
+            (u) => u.role === "MEDICAL_REP" && teamMemberIds.has(u.id)
+          );
+          dmReps.forEach((r) => mktRepsUnderDMs.add(r.id));
+          const dmDoctors = buDoctors.filter(
+            (d) => d.assignedRepId && dmReps.some((r) => r.id === d.assignedRepId)
+          );
+          return { dm, reps: dmReps, doctorCount: dmDoctors.length };
+        });
+
+        // Reps under this marketeer but not under any DM
+        const directReps = mktReports.filter(
+          (u) => u.role === "MEDICAL_REP" && !mktRepsUnderDMs.has(u.id)
+        );
+
+        return { type: "marketeer" as const, marketeer: mkt, dmGroups, directReps };
+      });
+    }
+
+    // Fallback: no marketeers, show DM -> Rep directly
+    return allDMs.map((dm) => {
+      const dmReps = getReportsOf(dm.id).filter(
+        (u) => u.role === "MEDICAL_REP" && teamMemberIds.has(u.id)
+      );
+      const dmDoctors = buDoctors.filter(
+        (d) => d.assignedRepId && dmReps.some((r) => r.id === d.assignedRepId)
+      );
+      return { type: "dm" as const, dm, reps: dmReps, doctorCount: dmDoctors.length };
+    });
+  }, [teamMembers, marketeers, teamMemberIds, getReportsOf, buDoctors]);
+
+  // Reps not under any DM or Marketeer
   const unattachedReps = useMemo(() => {
     const attachedRepIds = new Set<string>();
-    for (const dm of dms) {
-      for (const rep of getReportsOf(dm.id).filter((u) => u.role === "MEDICAL_REP")) {
-        attachedRepIds.add(rep.id);
+    for (const item of hierarchy) {
+      if (item.type === "marketeer") {
+        item.directReps.forEach((r) => attachedRepIds.add(r.id));
+        for (const dmGroup of item.dmGroups) {
+          dmGroup.reps.forEach((r) => attachedRepIds.add(r.id));
+        }
+      } else {
+        item.reps.forEach((r) => attachedRepIds.add(r.id));
       }
     }
     return reps.filter((r) => !attachedRepIds.has(r.id));
-  }, [dms, reps, getReportsOf]);
+  }, [hierarchy, reps]);
 
   return (
     <div className="space-y-6">
@@ -301,7 +368,7 @@ export default function BUMPage() {
           icon={Users}
           title="Total Field Force"
           value={totalForce}
-          subtitle={`${dms.length} DMs, ${reps.length} Reps - ${totalDoctors} doctors`}
+          subtitle={`${marketeers.length > 0 ? `${marketeers.length} Marketeers, ` : ""}${dms.length} DMs, ${reps.length} Reps - ${totalDoctors} doctors`}
           iconColor="bg-blue-100 text-blue-700"
         />
         <StatsCard
@@ -348,7 +415,7 @@ export default function BUMPage() {
               <CardHeader>
                 <CardTitle>Organization Hierarchy</CardTitle>
                 <CardDescription>
-                  BUM {myBU ? `(${myBU.name})` : ""} - District Managers - Medical Reps
+                  BUM {myBU ? `(${myBU.name})` : ""}{marketeers.length > 0 ? " - Marketeers" : ""} - District Managers - Medical Reps
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -369,33 +436,88 @@ export default function BUMPage() {
                   </div>
                 )}
 
-                {hierarchy.map((group) => (
-                  <div key={group.dm.id} className="ml-4 border-l-2 pl-4 space-y-3">
-                    <div className="rounded-lg border p-3 bg-blue-50 dark:bg-blue-900/10">
-                      <div className="font-medium">
-                        {group.dm.name}{" "}
-                        <span className="text-xs text-muted-foreground">
-                          - DM{group.dm.territory ? ` - ${group.dm.territory}` : ""}
-                        </span>
+                {hierarchy.map((group) =>
+                  group.type === "marketeer" ? (
+                    <div key={group.marketeer.id} className="ml-4 border-l-2 border-sky-300 pl-4 space-y-3">
+                      <div className="rounded-lg border p-3 bg-sky-50 dark:bg-sky-900/10">
+                        <div className="font-medium">
+                          {group.marketeer.name}{" "}
+                          <span className="text-xs text-muted-foreground">
+                            - Marketeer{group.marketeer.territory ? ` - ${group.marketeer.territory}` : ""}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {group.dmGroups.length} DMs, {group.directReps.length} direct reps
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {group.reps.length} reps - {group.doctorCount} doctors
-                      </div>
-                    </div>
-                    {group.reps.length > 0 && (
-                      <div className="ml-4 grid gap-2 md:grid-cols-2">
-                        {group.reps.map((rep) => (
-                          <div key={rep.id} className="rounded border p-2 text-sm">
-                            <div className="font-medium">{rep.name}</div>
+                      {group.dmGroups.map((dmGroup) => (
+                        <div key={dmGroup.dm.id} className="ml-4 border-l-2 pl-4 space-y-3">
+                          <div className="rounded-lg border p-3 bg-blue-50 dark:bg-blue-900/10">
+                            <div className="font-medium">
+                              {dmGroup.dm.name}{" "}
+                              <span className="text-xs text-muted-foreground">
+                                - DM{dmGroup.dm.territory ? ` - ${dmGroup.dm.territory}` : ""}
+                              </span>
+                            </div>
                             <div className="text-xs text-muted-foreground">
-                              Medical Rep{rep.territory ? ` - ${rep.territory}` : ""}
+                              {dmGroup.reps.length} reps - {dmGroup.doctorCount} doctors
                             </div>
                           </div>
-                        ))}
+                          {dmGroup.reps.length > 0 && (
+                            <div className="ml-4 grid gap-2 md:grid-cols-2">
+                              {dmGroup.reps.map((rep) => (
+                                <div key={rep.id} className="rounded border p-2 text-sm">
+                                  <div className="font-medium">{rep.name}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Medical Rep{rep.territory ? ` - ${rep.territory}` : ""}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {group.directReps.length > 0 && (
+                        <div className="ml-4 grid gap-2 md:grid-cols-2">
+                          {group.directReps.map((rep) => (
+                            <div key={rep.id} className="rounded border p-2 text-sm">
+                              <div className="font-medium">{rep.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Medical Rep (direct){rep.territory ? ` - ${rep.territory}` : ""}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div key={group.dm.id} className="ml-4 border-l-2 pl-4 space-y-3">
+                      <div className="rounded-lg border p-3 bg-blue-50 dark:bg-blue-900/10">
+                        <div className="font-medium">
+                          {group.dm.name}{" "}
+                          <span className="text-xs text-muted-foreground">
+                            - DM{group.dm.territory ? ` - ${group.dm.territory}` : ""}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {group.reps.length} reps - {group.doctorCount} doctors
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {group.reps.length > 0 && (
+                        <div className="ml-4 grid gap-2 md:grid-cols-2">
+                          {group.reps.map((rep) => (
+                            <div key={rep.id} className="rounded border p-2 text-sm">
+                              <div className="font-medium">{rep.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Medical Rep{rep.territory ? ` - ${rep.territory}` : ""}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
 
                 {unattachedReps.length > 0 && (
                   <div className="ml-4 border-l-2 pl-4 space-y-3">
@@ -496,6 +618,30 @@ export default function BUMPage() {
                     { key: "priority", label: "Priority", render: (v) => <StatusBadge status={v as string} /> },
                     { key: "status", label: "Status", render: (v) => <StatusBadge status={v as string} /> },
                     { key: "createdAt", label: "Date", render: (v) => <span className="text-sm">{formatDate(v as string)}</span> },
+                    { key: "_actions", label: "Actions", render: (_v, row) => {
+                      const req = row as unknown as MarketRequest;
+                      if (req.status !== "PENDING") return null;
+                      return (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-green-600 hover:bg-green-50 hover:text-green-700"
+                            onClick={() => handleApproveRequest(req)}
+                          >
+                            <Check className="h-3.5 w-3.5 mr-1" />Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-red-600 hover:bg-red-50 hover:text-red-700"
+                            onClick={() => { setRejectDialogRequest(req); setRejectionReason(""); }}
+                          >
+                            <X className="h-3.5 w-3.5 mr-1" />Reject
+                          </Button>
+                        </div>
+                      );
+                    }},
                   ] as Column<Record<string, unknown>>[]}
                   data={filteredRequests as unknown as Record<string, unknown>[]}
                   exportable exportFilename="crm-bum-requests.csv" emptyMessage="No market requests."
@@ -633,6 +779,12 @@ export default function BUMPage() {
                     <span className="text-muted-foreground">Total Headcount</span>
                     <span className="font-bold">{totalForce}</span>
                   </div>
+                  {marketeers.length > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Marketeers</span>
+                      <span className="font-bold">{marketeers.length}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">District Managers</span>
                     <span className="font-bold">{dms.length}</span>
@@ -688,6 +840,36 @@ export default function BUMPage() {
               <div className="col-span-2"><span className="text-sm text-muted-foreground">Action Items</span><p className="font-medium">{viewVisit.actions || "-"}</p></div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Rejection Reason Dialog */}
+      <Dialog open={!!rejectDialogRequest} onOpenChange={(open) => { if (!open) { setRejectDialogRequest(null); setRejectionReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Market Request</DialogTitle>
+            <DialogDescription>
+              Provide a reason for rejecting request {rejectDialogRequest?.id}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            <Label htmlFor="rejection-reason">Rejection Reason</Label>
+            <Textarea
+              id="rejection-reason"
+              placeholder="Enter reason for rejection..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setRejectDialogRequest(null); setRejectionReason(""); }}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleRejectRequest} disabled={!rejectionReason.trim()}>
+              Reject Request
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

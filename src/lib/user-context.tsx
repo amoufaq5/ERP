@@ -198,16 +198,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
   function getReportsOf(managerId: string): AppUser[] {
     const manager = allUsers.find((u) => u.id === managerId);
     if (!manager) return [];
-    // Simple hierarchy: DM manages reps in same territory/region;
-    // Marketeer manages DMs; BUM manages marketeers & DMs in their BU.
-    // NSM oversees all BUMs, DMs, and reps.
     if (manager.role === "NSM") {
       return allUsers.filter(
-        (u) => u.role === "BUM" || u.role === "DISTRICT_MANAGER" || u.role === "MEDICAL_REP"
+        (u) =>
+          u.role === "BUM" ||
+          u.role === "MARKETEER" ||
+          u.role === "DISTRICT_MANAGER" ||
+          u.role === "MEDICAL_REP"
       );
     }
     if (manager.role === "DISTRICT_MANAGER") {
-      return allUsers.filter((u) => u.role === "MEDICAL_REP" && u.department === manager.department);
+      return allUsers.filter(
+        (u) => u.role === "MEDICAL_REP" && u.department === manager.department
+      );
     }
     if (manager.role === "MARKETEER") {
       return allUsers.filter(
@@ -216,7 +219,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
     if (manager.role === "BUM") {
       return allUsers.filter(
-        (u) => u.role === "DISTRICT_MANAGER" || u.role === "MEDICAL_REP"
+        (u) =>
+          u.role === "MARKETEER" ||
+          u.role === "DISTRICT_MANAGER" ||
+          u.role === "MEDICAL_REP"
       );
     }
     return [];

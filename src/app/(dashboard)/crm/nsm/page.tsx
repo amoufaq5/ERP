@@ -13,10 +13,14 @@ import {
   ChevronRight,
   MapPin,
   Eye,
+  Check,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import PageHeader from "@/components/shared/page-header";
@@ -239,7 +243,8 @@ export default function NSMPage() {
       const buReps = reps.filter((r) => bu.memberIds.includes(r.id));
 
       const marketeersWithTeam = buMarketeers.map((mkt) => {
-        const mktDMs = buDMs.filter(() => true);
+        const mktDMs = getReportsOf(mkt.id)
+          .filter((u) => u.role === "DISTRICT_MANAGER" && bu.memberIds.includes(u.id));
         const mktDMsWithReps = mktDMs.map((dm) => {
           const dmReps = getReportsOf(dm.id).filter((u) => u.role === "MEDICAL_REP");
           const dmDoctorCount = allDoctors.filter(
@@ -255,13 +260,15 @@ export default function NSMPage() {
             visitCount: dmVisitCount,
           };
         });
+        const mktRepIds = mktDMsWithReps.flatMap((dm) => dm.reps.map((r) => r.id));
+        const mktDMIds = mktDMs.map((dm) => dm.id);
         const mktDoctorCount = allDoctors.filter(
           (d) =>
             d.assignedRepId &&
-            (buReps.some((r) => r.id === d.assignedRepId) || buDMs.some((dm) => dm.id === d.assignedRepId)),
+            (mktRepIds.includes(d.assignedRepId) || mktDMIds.includes(d.assignedRepId)),
         ).length;
         const mktVisitCount = visitsThisMonth.filter(
-          (v) => buReps.some((r) => r.id === v.repId) || buDMs.some((dm) => dm.id === v.repId),
+          (v) => mktRepIds.includes(v.repId) || mktDMIds.includes(v.repId),
         ).length;
         return {
           ...mkt,
@@ -366,6 +373,9 @@ export default function NSMPage() {
   }, [pendingRequests, approvalFilters, userMap]);
 
   const [viewRequest, setViewRequest] = useState<MarketRequest | null>(null);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null);
 
   const assignedTerritoryBUIds = useMemo(() => {
     const assigned = new Set<string>();
@@ -858,13 +868,41 @@ export default function NSMPage() {
                     },
                     {
                       key: "_actions",
-                      label: "",
+                      label: "Actions",
                       render: (_v, row) => {
                         const r = row as unknown as MarketRequest;
                         return (
-                          <Button variant="ghost" size="sm" onClick={() => setViewRequest(r)}>
-                            <Eye className="h-4 w-4 mr-1" />View Details
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => setViewRequest(r)}>
+                              <Eye className="h-4 w-4 mr-1" />View
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                              onClick={() => {
+                                store.update("marketRequests", r.id, {
+                                  status: "APPROVED",
+                                  approvedById: user.id,
+                                  approvedAt: new Date().toISOString(),
+                                });
+                              }}
+                            >
+                              <Check className="h-4 w-4 mr-1" />Approve
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => {
+                                setRejectingRequestId(r.id);
+                                setRejectReason("");
+                                setRejectDialogOpen(true);
+                              }}
+                            >
+                              <X className="h-4 w-4 mr-1" />Reject
+                            </Button>
+                          </div>
                         );
                       },
                     },
@@ -1049,6 +1087,49 @@ export default function NSMPage() {
         }}
         submitLabel="Create"
       />
+
+      <Dialog open={rejectDialogOpen} onOpenChange={(open) => { if (!open) { setRejectDialogOpen(false); setRejectingRequestId(null); setRejectReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Request</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="reject-reason">Reason for Rejection</Label>
+              <Textarea
+                id="reject-reason"
+                placeholder="Enter the reason for rejecting this request..."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setRejectDialogOpen(false); setRejectingRequestId(null); setRejectReason(""); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!rejectReason.trim()}
+              onClick={() => {
+                if (rejectingRequestId && rejectReason.trim()) {
+                  store.update("marketRequests", rejectingRequestId, {
+                    status: "REJECTED",
+                    rejectionReason: rejectReason.trim(),
+                    approvedById: user.id,
+                  });
+                  setRejectDialogOpen(false);
+                  setRejectingRequestId(null);
+                  setRejectReason("");
+                }
+              }}
+            >
+              Reject Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
