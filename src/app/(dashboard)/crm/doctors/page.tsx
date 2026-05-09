@@ -24,6 +24,7 @@ import {
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 import { useNotificationCenter } from "@/lib/notification-context";
+import { useAuditLogger } from "@/lib/audit-logger";
 
 // ─── Specialty → Product Matching ─────────────────────────────────────────────
 const SPECIALTY_PRODUCT_MAP: Record<string, string[]> = {
@@ -49,6 +50,7 @@ export default function DoctorsPage() {
   const { user, allUsers, getReportsOf } = useCurrentUser();
   const { t } = useTranslation();
   const { addNotification } = useNotificationCenter();
+  const { logAction } = useAuditLogger();
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
@@ -210,6 +212,17 @@ export default function DoctorsPage() {
         });
       } else {
         store.update("doctors", editing.id, payload);
+        logAction({
+          userId: user.id,
+          userName: user.name,
+          userRole: user.role,
+          action: "UPDATE",
+          module: "CRM",
+          entity: "Doctor",
+          entityId: editing.id,
+          entityName: editing.name,
+          details: `Updated doctor ${editing.name}`,
+        });
         if (payload.classification && payload.classification !== editing.classification) {
           addNotification({
             type: "INFO",
@@ -240,6 +253,17 @@ export default function DoctorsPage() {
         linkedPharmacyIds: payload.linkedPharmacyIds ?? [],
         createdAt: new Date().toISOString(),
       });
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "CREATE",
+        module: "CRM",
+        entity: "Doctor",
+        entityId: newId,
+        entityName: payload.name,
+        details: `Created doctor ${payload.name}`,
+      });
       addNotification({
         type: "INFO",
         title: "New Doctor Added",
@@ -256,6 +280,17 @@ export default function DoctorsPage() {
 
   function handleDelete(d: Doctor) {
     store.remove("doctors", d.id);
+    logAction({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      action: "DELETE",
+      module: "CRM",
+      entity: "Doctor",
+      entityId: d.id,
+      entityName: d.name,
+      details: `Deleted doctor ${d.name}`,
+    });
   }
 
   return (

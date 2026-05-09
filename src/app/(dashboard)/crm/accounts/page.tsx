@@ -20,6 +20,7 @@ import type { Column } from "@/components/shared/data-table";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
+import { useAuditLogger } from "@/lib/audit-logger";
 
 // ─── Tab type ─────────────────────────────────────────────────────────────────
 type ActiveTab = "accounts" | "contacts" | "tickets";
@@ -214,6 +215,7 @@ export default function AccountsPage() {
   const router = useRouter();
   const { t } = useTranslation();
   const { user, getReportsOf } = useCurrentUser();
+  const { logAction } = useAuditLogger();
 
   // ── Tab state ──
   const [activeTab, setActiveTab] = useState<ActiveTab>("accounts");
@@ -382,7 +384,20 @@ export default function AccountsPage() {
         return (
           <EditDeleteMenu
             onEdit={() => { setEditingAccount(a); setShowAccountModal(true); }}
-            onDelete={() => setAccounts((prev) => prev.filter((x) => x.id !== a.id))}
+            onDelete={() => {
+              setAccounts((prev) => prev.filter((x) => x.id !== a.id));
+              logAction({
+                userId: user.id,
+                userName: user.name,
+                userRole: user.role,
+                action: "DELETE",
+                module: "CRM",
+                entity: "Account",
+                entityId: a.id,
+                entityName: a.name,
+                details: `Deleted account ${a.name}`,
+              });
+            }}
             onView={() => setDetailAccount(a)}
             canView
             itemLabel={a.name}
@@ -424,7 +439,20 @@ export default function AccountsPage() {
         return (
           <EditDeleteMenu
             onEdit={() => { setEditingContact(c); setShowContactModal(true); }}
-            onDelete={() => setContacts((prev) => prev.filter((x) => x.id !== c.id))}
+            onDelete={() => {
+              setContacts((prev) => prev.filter((x) => x.id !== c.id));
+              logAction({
+                userId: user.id,
+                userName: user.name,
+                userRole: user.role,
+                action: "DELETE",
+                module: "CRM",
+                entity: "Contact",
+                entityId: c.id,
+                entityName: `${c.firstName} ${c.lastName}`,
+                details: `Deleted contact ${c.firstName} ${c.lastName}`,
+              });
+            }}
             onView={() => setDetailContact(c)}
             canView
             itemLabel={`${c.firstName} ${c.lastName}`}
@@ -614,6 +642,17 @@ export default function AccountsPage() {
               revenue: (data.revenue as number) || a.revenue,
               owner: (data.owner as string) || a.owner,
             } : a));
+            logAction({
+              userId: user.id,
+              userName: user.name,
+              userRole: user.role,
+              action: "UPDATE",
+              module: "CRM",
+              entity: "Account",
+              entityId: editingAccount.id,
+              entityName: editingAccount.name,
+              details: `Updated account ${editingAccount.name}`,
+            });
           } else {
             const newAccount: Account = {
               id: `ACC-${Date.now().toString(36)}`,
@@ -628,6 +667,17 @@ export default function AccountsPage() {
               createdAt: new Date().toISOString().split("T")[0],
             };
             setAccounts((prev) => [newAccount, ...prev]);
+            logAction({
+              userId: user.id,
+              userName: user.name,
+              userRole: user.role,
+              action: "CREATE",
+              module: "CRM",
+              entity: "Account",
+              entityId: newAccount.id,
+              entityName: newAccount.name,
+              details: `Created account ${newAccount.name}`,
+            });
           }
           setShowAccountModal(false);
           setEditingAccount(null);
@@ -695,6 +745,17 @@ export default function AccountsPage() {
               account: (data.account as string) || null,
               owner: (data.owner as string) || c.owner,
             } : c));
+            logAction({
+              userId: user.id,
+              userName: user.name,
+              userRole: user.role,
+              action: "UPDATE",
+              module: "CRM",
+              entity: "Contact",
+              entityId: editingContact.id,
+              entityName: `${editingContact.firstName} ${editingContact.lastName}`,
+              details: `Updated contact ${editingContact.firstName} ${editingContact.lastName}`,
+            });
           } else {
             const newContact: Contact = {
               id: `CON-${Date.now().toString(36)}`,
@@ -709,6 +770,17 @@ export default function AccountsPage() {
               createdAt: new Date().toISOString().split("T")[0],
             };
             setContacts((prev) => [newContact, ...prev]);
+            logAction({
+              userId: user.id,
+              userName: user.name,
+              userRole: user.role,
+              action: "CREATE",
+              module: "CRM",
+              entity: "Contact",
+              entityId: newContact.id,
+              entityName: `${newContact.firstName} ${newContact.lastName}`,
+              details: `Created contact ${newContact.firstName} ${newContact.lastName}`,
+            });
           }
           setShowContactModal(false);
           setEditingContact(null);
@@ -774,6 +846,17 @@ export default function AccountsPage() {
               assignedTo: (data.assignedTo as string) || tk.assignedTo,
               slaDeadline: (data.slaDeadline as string) || tk.slaDeadline,
             } : tk));
+            logAction({
+              userId: user.id,
+              userName: user.name,
+              userRole: user.role,
+              action: "UPDATE",
+              module: "CRM",
+              entity: "Ticket",
+              entityId: editingTicket.id,
+              entityName: editingTicket.ticketNumber,
+              details: `Updated ticket ${editingTicket.ticketNumber}`,
+            });
           } else {
             const uniqueId = Date.now().toString(36);
             const newTicket: SupportTicket = {
@@ -788,6 +871,17 @@ export default function AccountsPage() {
               createdAt: new Date().toISOString().split("T")[0],
             };
             setTickets((prev) => [newTicket, ...prev]);
+            logAction({
+              userId: user.id,
+              userName: user.name,
+              userRole: user.role,
+              action: "CREATE",
+              module: "CRM",
+              entity: "Ticket",
+              entityId: newTicket.id,
+              entityName: newTicket.ticketNumber,
+              details: `Created ticket ${newTicket.ticketNumber}: ${newTicket.subject}`,
+            });
           }
           setShowTicketModal(false);
           setEditingTicket(null);

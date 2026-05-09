@@ -17,6 +17,9 @@ import StatusBadge from "@/components/shared/status-badge";
 import { downloadCSV } from "@/lib/download";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { type CRMContact } from "@/lib/data-store";
+import { useCurrentUser } from "@/lib/user-context";
+import { useAuditLogger } from "@/lib/audit-logger";
+import { useNotificationCenter } from "@/lib/notification-context";
 
 // ─── Account options for form select ──────────────────────────────────────────
 
@@ -62,6 +65,9 @@ const FILTER_FIELDS = [
 
 export default function ContactsPage() {
   const store = useApiDataStore();
+  const { user } = useCurrentUser();
+  const { logAction } = useAuditLogger();
+  const { addNotification } = useNotificationCenter();
   const contacts = store.crmContacts;
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", account: "" });
   const [showFormModal, setShowFormModal] = useState(false);
@@ -97,11 +103,25 @@ export default function ContactsPage() {
         owner: (data.owner as string) || editingContact.owner,
         status: (data.status as string) || editingContact.status,
       });
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "UPDATE",
+        module: "CRM",
+        entity: "Contact",
+        entityId: editingContact.id,
+        entityName: `${editingContact.firstName} ${editingContact.lastName}`,
+        details: `Updated contact ${editingContact.firstName} ${editingContact.lastName}`,
+      });
     } else {
+      const newId = store.genId("con");
+      const firstName = data.firstName as string;
+      const lastName = (data.lastName as string) || "";
       store.add("crmContacts", {
-        id: store.genId("con"),
-        firstName: data.firstName as string,
-        lastName: (data.lastName as string) || "",
+        id: newId,
+        firstName,
+        lastName,
         title: (data.title as string) || "",
         email: data.email as string,
         phone: (data.phone as string) || "",
@@ -110,13 +130,45 @@ export default function ContactsPage() {
         status: (data.status as string) || "active",
         createdAt: new Date().toISOString().split("T")[0],
       });
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "CREATE",
+        module: "CRM",
+        entity: "Contact",
+        entityId: newId,
+        entityName: `${firstName} ${lastName}`,
+        details: `Created contact ${firstName} ${lastName}`,
+      });
+      addNotification({
+        type: "SUCCESS",
+        title: "New Contact Created",
+        message: `${firstName} ${lastName} has been added to the contact directory`,
+        module: "CRM",
+        entityType: "Contact",
+        entityId: newId,
+        actionUrl: "/crm/contacts",
+      });
     }
     setShowFormModal(false);
     setEditingContact(null);
   };
 
   const handleDelete = (id: string) => {
+    const contact = contacts.find((c) => c.id === id);
     store.remove("crmContacts", id);
+    logAction({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      action: "DELETE",
+      module: "CRM",
+      entity: "Contact",
+      entityId: id,
+      entityName: contact ? `${contact.firstName} ${contact.lastName}` : id,
+      details: `Deleted contact ${contact ? `${contact.firstName} ${contact.lastName}` : id}`,
+    });
   };
 
   const handleExport = () => {

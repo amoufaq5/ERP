@@ -244,6 +244,7 @@ type MarketRequestExt = MarketRequest & {
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 import { useNotificationCenter } from "@/lib/notification-context";
 import { useAuditLogger } from "@/lib/audit-logger";
+import { useCrossModuleActions } from "@/lib/cross-module-actions";
 
 export default function MarketRequestsPage() {
   const store = useApiDataStore();
@@ -253,6 +254,7 @@ export default function MarketRequestsPage() {
   // ─── Notification & Audit hooks ──────────────────────────────────────────
   const { addNotification } = useNotificationCenter();
   const { logAction } = useAuditLogger();
+  const crossModule = useCrossModuleActions();
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
@@ -905,6 +907,17 @@ export default function MarketRequestsPage() {
             },
           }));
         }
+      }
+
+      // ── Cross-module actions on approval ──
+      const rType = r.type?.toUpperCase?.() ?? "";
+      if (rType === "SAMPLE") {
+        crossModule.onSampleRequestApproved(r);
+      } else if (rType === "EVENT" || rType === "CME" || rType === "SPONSORSHIP") {
+        crossModule.onEventRequestApproved(r);
+      }
+      if ((r.amount ?? 0) > 0) {
+        crossModule.onExpenseApproved(r);
       }
     }
     // If not yet fully approved, keep status PENDING (multi-level)

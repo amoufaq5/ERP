@@ -47,6 +47,7 @@ import {
 } from "@/lib/data-store";
 import { useCurrentUser } from "@/lib/user-context";
 import { useAppConfig } from "@/lib/config-context";
+import { useAuditLogger } from "@/lib/audit-logger";
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
@@ -62,6 +63,7 @@ export default function MedicalRepPage() {
   const store = useApiDataStore();
   const { user, allUsers, getReportsOf } = useCurrentUser();
   const { config } = useAppConfig();
+  const { logAction } = useAuditLogger();
 
   const [search, setSearch] = useState("");
   const [doctorFilters, setDoctorFilters] = useState<FilterState>({});
@@ -430,6 +432,17 @@ export default function MedicalRepPage() {
       const id = store.genId("v");
       store.add("visits", { id, ...payload });
       store.update("doctors", payload.doctorId, { lastVisitAt: payload.dateTime });
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "CREATE",
+        module: "CRM",
+        entity: "Visit",
+        entityId: id,
+        entityName: `Visit to ${doctor?.name ?? payload.doctorId}`,
+        details: `Logged ${payload.type} visit to ${doctor?.name ?? payload.doctorId}`,
+      });
     }
     setVisitFormOpen(false);
     setEditingVisit(null);
@@ -441,6 +454,17 @@ export default function MedicalRepPage() {
 
   function handleApproveVisit(v: Visit) {
     store.update("visits", v.id, { status: "APPROVED" });
+    logAction({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      action: "APPROVE",
+      module: "CRM",
+      entity: "Visit",
+      entityId: v.id,
+      entityName: `Visit to ${store.doctors.find((d) => d.id === v.doctorId)?.name ?? v.doctorId}`,
+      details: `Approved visit ${v.id}`,
+    });
   }
 
   function handleUnplannedVisitSubmit(data: EntityFormData) {
@@ -497,6 +521,17 @@ export default function MedicalRepPage() {
     const id = store.genId("v");
     store.add("visits", { id, ...payload });
     store.update("doctors", doctor.id, { lastVisitAt: payload.dateTime });
+    logAction({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      action: "CREATE",
+      module: "CRM",
+      entity: "Visit",
+      entityId: id,
+      entityName: `Unplanned visit to ${doctor.name}`,
+      details: `Logged unplanned ${payload.type} visit to ${doctor.name}`,
+    });
     setUnplannedFormOpen(false);
     setUnplannedSelectedDoctor(null);
     setUnplannedDoctorSearch("");

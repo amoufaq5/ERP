@@ -34,6 +34,9 @@ import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { type CRMOpportunity, type OpportunityStage } from "@/lib/data-store";
+import { useCurrentUser } from "@/lib/user-context";
+import { useAuditLogger } from "@/lib/audit-logger";
+import { useNotificationCenter } from "@/lib/notification-context";
 
 type Opportunity = CRMOpportunity;
 type Stage = OpportunityStage;
@@ -107,6 +110,9 @@ const fmtK = (v: number) => `EGP ${(v / 1000).toFixed(0)}K`;
 
 export default function OpportunitiesPage() {
   const store = useApiDataStore();
+  const { user } = useCurrentUser();
+  const { logAction } = useAuditLogger();
+  const { addNotification } = useNotificationCenter();
   const opportunities = store.crmOpportunities as Opportunity[];
   const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
   const [filters, setFilters] = useState<FilterState>({ _search: "", stage: "" });
@@ -143,12 +149,48 @@ export default function OpportunitiesPage() {
 
   const handleEdit = (opp: Opportunity) => { setEditingOpp(opp); setShowFormModal(true); };
 
-  const handleDelete = (id: string) => store.remove("crmOpportunities", id);
+  const handleDelete = (id: string) => {
+    const opp = opportunities.find((o) => o.id === id);
+    store.remove("crmOpportunities", id);
+    logAction({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      action: "DELETE",
+      module: "CRM",
+      entity: "Opportunity",
+      entityId: id,
+      entityName: opp?.title ?? id,
+      details: `Deleted opportunity ${opp?.title ?? id}`,
+    });
+  };
 
   const handleAdvanceStage = (opp: Opportunity) => {
     const next = STAGE_FLOW[opp.stage as Stage];
     if (!next) return;
     store.update("crmOpportunities", opp.id, { stage: next });
+    logAction({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      action: "UPDATE",
+      module: "CRM",
+      entity: "Opportunity",
+      entityId: opp.id,
+      entityName: opp.title,
+      details: `Advanced opportunity ${opp.title} from ${STAGE_LABELS[opp.stage]} to ${STAGE_LABELS[next]}`,
+    });
+    if (next === "CLOSED_WON") {
+      addNotification({
+        type: "SUCCESS",
+        title: "Opportunity Won",
+        message: `${opp.title} marked as won - EGP ${opp.value.toLocaleString()}`,
+        module: "CRM",
+        entityType: "Opportunity",
+        entityId: opp.id,
+        actionUrl: "/crm/opportunities",
+      });
+    }
   };
 
   const handleMarkLost = (opp: Opportunity) => {
