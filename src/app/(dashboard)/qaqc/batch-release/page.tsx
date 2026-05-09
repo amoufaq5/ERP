@@ -39,7 +39,7 @@ import {
 import StatsCard from "@/components/shared/stats-card";
 import PageHeader from "@/components/shared/page-header";
 import ReleaseChecklistComponent from "@/components/shared/release-checklist";
-import { cn } from "@/lib/utils";
+import { cn, formatDate, formatDateTime } from "@/lib/utils";
 import {
   CheckSquare,
   Clock,
@@ -83,24 +83,6 @@ function daysSince(dateStr: string): number {
   return Math.round(
     (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24)
   );
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatDateTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 // ─── Status Config ───────────────────────────────────────────────────────────

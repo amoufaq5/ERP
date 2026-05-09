@@ -1391,8 +1391,8 @@ export default function InventoryPage() {
                           items: (so.items || []).map((i) => ({ productId: i.productId, description: i.description, quantity: i.quantity })),
                           status: "SHIPPED",
                           createdAt: new Date().toISOString(),
-                        } as any);
-                        store.update("salesOrders", so.id, { status: "SHIPPED", dnId } as any);
+                        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any -- store type does not include all DN fields
+                        store.update("salesOrders", so.id, { status: "SHIPPED", dnId } as any); // eslint-disable-line @typescript-eslint/no-explicit-any -- dnId not in SO type
                       }}>
                         <Truck className="h-3.5 w-3.5 mr-1" /> Mark as Shipped
                       </Button>
@@ -1431,7 +1431,7 @@ export default function InventoryPage() {
                       <Button size="sm" variant="outline" className="h-8 text-xs text-green-700 border-green-200 hover:bg-green-50" onClick={() => {
                         if (!dn) return;
                         // Confirm delivery — mark as DELIVERED, create draft JE, deduct stock
-                        store.update("deliveryNotes", dn.id, { status: "DELIVERED" } as any);
+                        store.update("deliveryNotes", dn.id, { status: "DELIVERED" } as any); // eslint-disable-line @typescript-eslint/no-explicit-any -- status value not in DN type
 
                         const totalDiscountAmount = so.discountAmount ?? 0;
                         const jeLines = [
@@ -1454,7 +1454,7 @@ export default function InventoryPage() {
                           status: "DRAFT",
                           createdBy: "u-admin",
                           createdAt: new Date().toISOString(),
-                        } as any);
+                        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any -- store type does not include all JE fields
 
                         // Deduct stock
                         (so.items || []).forEach((item) => {
@@ -1464,7 +1464,7 @@ export default function InventoryPage() {
                           }
                         });
 
-                        store.update("salesOrders", so.id, { status: "DELIVERED", jeId } as any);
+                        store.update("salesOrders", so.id, { status: "DELIVERED", jeId } as any); // eslint-disable-line @typescript-eslint/no-explicit-any -- jeId not in SO type
                       }}>
                         <CheckCircle className="h-3.5 w-3.5 mr-1" /> Confirm Delivery
                       </Button>

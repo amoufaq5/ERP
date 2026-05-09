@@ -68,7 +68,7 @@ function RevenueAreaChart() {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmtCurrency(n: number): string {
-  return new Intl.NumberFormat("en-EG", { style: "currency", currency: "EGP", minimumFractionDigits: 0 }).format(n)
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "EGP" }).format(n)
 }
 
 function fmtTimestamp(d: Date): string {

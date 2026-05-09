@@ -32,6 +32,7 @@ import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
+import { formatDate } from "@/lib/utils";
 import type {
   Visit,
   MarketRequest,
@@ -49,18 +50,6 @@ function thisMonthISO(): string {
 
 function isThisMonth(iso: string): boolean {
   return iso.startsWith(thisMonthISO());
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return iso;
-  }
 }
 
 function monthLabel(offset: number): string {

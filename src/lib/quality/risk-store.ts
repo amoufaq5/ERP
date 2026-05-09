@@ -866,10 +866,15 @@ class RiskAssessmentStore {
   create(
     data: Omit<RiskAssessment, "id" | "number" | "createdAt" | "updatedAt">
   ): RiskAssessment {
+    if (!data.title?.trim()) throw new Error("Risk assessment title is required");
+    if (!data.product?.trim()) throw new Error("Risk assessment product is required");
+    if (!data.process?.trim()) throw new Error("Risk assessment process is required");
+    if (!data.scope?.trim()) throw new Error("Risk assessment scope is required");
+    if (!data.createdBy?.trim()) throw new Error("Risk assessment createdBy is required");
     const all = this.load();
     const newRA: RiskAssessment = {
       ...data,
-      id: `ra-${Date.now()}`,
+      id: `ra-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       number: this.generateNumber(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -907,7 +912,7 @@ class RiskAssessmentStore {
     const rpn = calculateRPN(entry.severity, entry.occurrence, entry.detection);
     const newEntry: FMEAEntry = {
       ...entry,
-      id: `fmea-${Date.now()}`,
+      id: `fmea-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       rpn,
       riskLevel: classifyRiskLevel(rpn),
     };

@@ -219,11 +219,19 @@ export function BottomNav() {
     return pathname === href || pathname.startsWith(href + "/");
   }
 
-  // Filter "More" sections to only show items the user can access
+  // Filter "More" sections — hide orphan/debug routes and items the user
+  // cannot access based on their role (canAccess checks ROLE_ROUTES).
+  const HIDDEN_ROUTES = ["/test-auth", "/integration-hub"];
+
   const visibleMoreSections = MORE_SECTIONS
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => canAccess(item.href)),
+      items: section.items.filter((item) => {
+        if (HIDDEN_ROUTES.some((r) => item.href === r || item.href.startsWith(r + "/"))) {
+          return false;
+        }
+        return canAccess(item.href);
+      }),
     }))
     .filter((section) => section.items.length > 0);
 

@@ -149,6 +149,7 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
   const [hasNewEvent, setHasNewEvent] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const bellTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const router = useRouter();
   const {
     notifications,
@@ -184,7 +185,8 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
 
       // Trigger bell animation
       setHasNewEvent(true);
-      setTimeout(() => setHasNewEvent(false), 2000);
+      if (bellTimerRef.current) clearTimeout(bellTimerRef.current);
+      bellTimerRef.current = setTimeout(() => setHasNewEvent(false), 2000);
 
       // Play sound for critical notifications
       if (soundEnabled && isCritical((payload.type as NotificationType) ?? "INFO")) {
@@ -198,6 +200,13 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
     onEvent: handleSSEEvent,
     enabled: !!userId,
   });
+
+  // --- Cleanup bell animation timer on unmount ---
+  useEffect(() => {
+    return () => {
+      if (bellTimerRef.current) clearTimeout(bellTimerRef.current);
+    };
+  }, []);
 
   // --- Close on outside click ---
   useEffect(() => {
@@ -282,6 +291,7 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
                 }}
                 className="flex items-center justify-center h-7 w-7 rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                 title={soundEnabled ? "Mute critical sounds" : "Enable critical sounds"}
+                aria-label={soundEnabled ? "Mute critical sounds" : "Enable critical sounds"}
               >
                 {soundEnabled ? (
                   <Volume2 className="h-3.5 w-3.5" />

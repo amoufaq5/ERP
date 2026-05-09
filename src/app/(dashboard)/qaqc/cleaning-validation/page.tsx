@@ -38,7 +38,7 @@ import {
   EffectivenessTrend,
   MethodIcon,
 } from "@/components/shared/cleaning-diagram";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import {
   Droplets,
   FileText,
@@ -123,14 +123,6 @@ function resultBadge(result: "pass" | "fail" | "pending") {
       Pending
     </Badge>
   );
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 function shortEquipmentName(name: string): string {

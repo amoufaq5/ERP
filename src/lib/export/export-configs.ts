@@ -3,6 +3,7 @@
 // ready for CSV, Excel, or PDF export.
 
 import type { Doctor, Visit, WeeklyPlan, MarketRequest, KPIRecord } from "@/lib/data-store";
+import { formatDate } from "@/lib/utils";
 
 // ── Shared helpers ──────────────────────────────────────────────────────────
 
@@ -10,19 +11,6 @@ function safe(val: unknown): string {
   if (val == null) return "";
   if (val instanceof Date) return val.toISOString().slice(0, 10);
   return String(val);
-}
-
-function formatDate(dateStr: string | undefined): string {
-  if (!dateStr) return "";
-  try {
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return dateStr;
-  }
 }
 
 function pct(num: number, den: number): string {

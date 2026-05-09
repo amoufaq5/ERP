@@ -40,7 +40,7 @@ import {
 import StatsCard from "@/components/shared/stats-card";
 import PageHeader from "@/components/shared/page-header";
 import RecallProgress from "@/components/shared/recall-progress";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import {
   ShieldAlert,
   AlertTriangle,
@@ -85,14 +85,6 @@ function daysSince(dateStr: string): number {
   return Math.round(
     (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24)
   );
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────

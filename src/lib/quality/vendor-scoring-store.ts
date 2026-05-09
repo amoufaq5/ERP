@@ -312,10 +312,13 @@ class VendorScoringStore {
   }
 
   create(vendor: Omit<VendorScore, "id" | "overallScore" | "scoreHistory" | "createdAt" | "updatedAt">): VendorScore {
+    if (!vendor.vendorName?.trim()) throw new Error("Vendor name is required");
+    if (!vendor.vendorCode?.trim()) throw new Error("Vendor code is required");
+    if (!vendor.category?.trim()) throw new Error("Vendor category is required");
     const all = this.load();
     const newVendor: VendorScore = {
       ...vendor,
-      id: `vs-${Date.now()}`,
+      id: `vs-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       overallScore: calcOverallScore(
         vendor.quality.score,
         vendor.delivery.score,
@@ -485,7 +488,7 @@ class VendorScoringStore {
 
     const newAudit: VendorAudit = {
       ...audit,
-      id: `a-${Date.now()}`,
+      id: `a-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       vendorId,
       correctiveActionsRequired: audit.findings.length,
       correctiveActionsClosed: audit.findings.filter((f) => f.status === "closed").length,

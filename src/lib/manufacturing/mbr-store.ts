@@ -648,6 +648,9 @@ class ManufacturingRecordsStore {
   }
 
   createMBR(mbr: Omit<MasterBatchRecord, "id" | "number" | "createdAt">): MasterBatchRecord {
+    if (!mbr.product?.trim()) throw new Error("MBR product is required");
+    if (!mbr.dosageForm?.trim()) throw new Error("MBR dosage form is required");
+    if (!mbr.strength?.trim()) throw new Error("MBR strength is required");
     const data = this.load();
     const newMBR: MasterBatchRecord = {
       ...mbr,
@@ -730,6 +733,9 @@ class ManufacturingRecordsStore {
   }
 
   createBPR(bpr: Omit<BatchProductionRecord, "id" | "number" | "createdAt" | "stepExecutions" | "materialUsage">): BatchProductionRecord {
+    if (!bpr.product?.trim()) throw new Error("BPR product is required");
+    if (!bpr.batchNumber?.trim()) throw new Error("BPR batch number is required");
+    if (!bpr.mbrId?.trim()) throw new Error("BPR master batch record ID is required");
     const data = this.load();
     const newBPR: BatchProductionRecord = {
       ...bpr,

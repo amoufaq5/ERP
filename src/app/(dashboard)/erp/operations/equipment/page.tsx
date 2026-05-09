@@ -59,7 +59,7 @@ import {
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import EquipmentCalendar from "@/components/shared/equipment-calendar";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 import { equipmentStore } from "@/lib/operations/equipment-store";
 import type {
@@ -132,15 +132,6 @@ const CAL_RESULT_BADGE: Record<CalibrationResult, { label: string; variant: "def
   fail:     { label: "Fail",     variant: "destructive" },
   adjusted: { label: "Adjusted", variant: "outline" },
 };
-
-function formatDate(d: string | undefined): string {
-  if (!d) return "--";
-  return new Date(d).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function daysUntil(d: string | undefined): number {
   if (!d) return 999;

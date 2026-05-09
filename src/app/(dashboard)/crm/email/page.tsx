@@ -355,7 +355,7 @@ const SEED_SENT: SentEmail[] = [
   },
 ];
 
-function formatDate(iso: string) {
+function formatRelativeDate(iso: string) {
   const d = new Date(iso);
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
@@ -470,7 +470,7 @@ export default function EmailIntegrationPage() {
       setComposeTo(replyTo.senderEmail);
       setComposeToSearch(replyTo.senderName);
       setComposeSubject(`Re: ${replyTo.subject}`);
-      setComposeBody(`\n\n---\nOn ${formatDate(replyTo.date)}, ${replyTo.senderName} wrote:\n> ${replyTo.body.split("\n").join("\n> ")}`);
+      setComposeBody(`\n\n---\nOn ${formatRelativeDate(replyTo.date)}, ${replyTo.senderName} wrote:\n> ${replyTo.body.split("\n").join("\n> ")}`);
       setComposeDoctorId(replyTo.linkedDoctorId || "");
       setComposeAccountId(replyTo.linkedAccountId || "");
     } else {
@@ -603,7 +603,7 @@ export default function EmailIntegrationPage() {
         key: "date",
         label: "Date",
         sortable: true,
-        render: (v: string) => formatDate(v),
+        render: (v: string) => formatRelativeDate(v),
       },
       {
         key: "linkedDoctorId",
@@ -729,7 +729,7 @@ export default function EmailIntegrationPage() {
                             {CATEGORY_LABELS[email.category]}
                           </span>
                           <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
-                            {formatDate(email.date)}
+                            {formatRelativeDate(email.date)}
                           </span>
                         </div>
                         <p className={`text-sm mt-0.5 ${!email.read ? "font-medium text-foreground" : "text-foreground"}`}>
@@ -922,7 +922,7 @@ export default function EmailIntegrationPage() {
                               {item.contactName}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              {formatDate(item.date)}
+                              {formatRelativeDate(item.date)}
                             </span>
                           </div>
                           <p className="text-sm text-muted-foreground truncate mt-0.5">

@@ -193,6 +193,8 @@ class TenantStore {
   }
 
   createTenant(input: CreateTenantInput): Tenant {
+    if (!input.name?.trim()) throw new Error("Tenant name is required");
+    if (!input.slug?.trim()) throw new Error("Tenant slug is required");
     const plan: TenantPlanName = input.plan ?? "STARTER";
     const planDef = TENANT_PLANS[plan];
     const now = new Date().toISOString();

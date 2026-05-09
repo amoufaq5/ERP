@@ -916,10 +916,19 @@ class CAPAStore {
   }
 
   create(capa: Omit<CAPARecord, "id" | "number">): CAPARecord {
+    if (!capa.title?.trim()) throw new Error("CAPA title is required");
+    if (!capa.description?.trim()) throw new Error("CAPA description is required");
+    if (!capa.source?.trim()) throw new Error("CAPA source is required");
+    if (!capa.type?.trim()) throw new Error("CAPA type is required");
+    if (!capa.priority?.trim()) throw new Error("CAPA priority is required");
+    if (!capa.department?.trim()) throw new Error("CAPA department is required");
+    if (!capa.initiatedBy?.trim()) throw new Error("CAPA initiatedBy is required");
+    if (!capa.dueDate?.trim()) throw new Error("CAPA due date is required");
+    if (isNaN(new Date(capa.dueDate).getTime())) throw new Error("CAPA due date is invalid");
     const all = this.load();
     const newCapa: CAPARecord = {
       ...capa,
-      id: `capa-${Date.now()}`,
+      id: `capa-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       number: this.generateNumber(),
     };
     all.push(newCapa);
@@ -1014,7 +1023,7 @@ class CAPAStore {
     if (!capa) return undefined;
     const newCheck: EffectivenessCheck = {
       ...check,
-      id: `ec-${Date.now()}`,
+      id: `ec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     };
     return this.update(id, {
       effectivenessChecks: [...capa.effectivenessChecks, newCheck],

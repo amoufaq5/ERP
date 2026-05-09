@@ -496,10 +496,12 @@ class BatchReleaseStore {
   }
 
   create(release: Omit<BatchRelease, "id" | "number" | "createdAt" | "updatedAt">): BatchRelease {
+    if (!release.product?.trim()) throw new Error("Batch release product is required");
+    if (!release.batchNumber?.trim()) throw new Error("Batch release batch number is required");
     const all = this.load();
     const newRelease: BatchRelease = {
       ...release,
-      id: `rel-${Date.now()}`,
+      id: `rel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       number: this.generateNumber(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

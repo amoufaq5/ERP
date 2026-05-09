@@ -56,12 +56,12 @@ export function EditDeleteMenu({
       <>
         <div className="flex items-center gap-1">
           {canView && onView && (
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onView} title="View">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onView} title="View" aria-label="View">
               <Eye className="h-3.5 w-3.5" />
             </Button>
           )}
           {canEdit && onEdit && (
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit} title="Edit">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit} title="Edit" aria-label="Edit">
               <Pencil className="h-3.5 w-3.5" />
             </Button>
           )}
@@ -72,6 +72,7 @@ export function EditDeleteMenu({
               className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
               onClick={() => setConfirmOpen(true)}
               title="Delete"
+              aria-label="Delete"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>

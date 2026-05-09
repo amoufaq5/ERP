@@ -414,6 +414,8 @@ class BatchStore {
   }
 
   createBatch(data: Omit<Batch, "id" | "createdAt" | "updatedAt">): Batch {
+    if (!data.batchNumber?.trim()) throw new Error("Batch number is required");
+    if (!data.productName?.trim()) throw new Error("Batch product name is required");
     this.load();
     const now = new Date().toISOString();
     const batch: Batch = {

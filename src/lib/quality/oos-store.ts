@@ -612,9 +612,13 @@ export class OOSStore {
   create(
     investigation: Omit<OOSInvestigation, "id" | "number" | "initiatedAt">
   ): OOSInvestigation {
+    if (!investigation.productName?.trim()) throw new Error("OOS product name is required");
+    if (!investigation.batchNumber?.trim()) throw new Error("OOS batch number is required");
+    if (!investigation.testName?.trim()) throw new Error("OOS test name is required");
+    if (!investigation.initiatedBy?.trim()) throw new Error("OOS initiatedBy is required");
     const newInv: OOSInvestigation = {
       ...investigation,
-      id: `oos-${Date.now()}`,
+      id: `oos-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       number: this.generateNumber(),
       initiatedAt: new Date().toISOString(),
     };

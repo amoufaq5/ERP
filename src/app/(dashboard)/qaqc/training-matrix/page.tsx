@@ -17,7 +17,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import TrainingMatrixGrid from "@/components/shared/training-matrix-grid";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { trainingStore } from "@/lib/quality/training-store";
 import type {
   TrainingRecord,
@@ -55,15 +55,6 @@ import {
 } from "lucide-react";
 
 /* ─── helpers ─── */
-
-function formatDate(iso?: string): string {
-  if (!iso) return "--";
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function statusVariant(
   status: TrainingStatus
@@ -610,7 +601,7 @@ export default function TrainingMatrixPage() {
                         </TableCell>
                         <TableCell className="text-sm">{rec.trainer}</TableCell>
                         <TableCell className="text-sm">{formatDate(rec.scheduledDate)}</TableCell>
-                        <TableCell className="text-sm">{formatDate(rec.completionDate)}</TableCell>
+                        <TableCell className="text-sm">{rec.completionDate ? formatDate(rec.completionDate) : '—'}</TableCell>
                         <TableCell className="text-sm">
                           {rec.expiryDate ? (
                             <span

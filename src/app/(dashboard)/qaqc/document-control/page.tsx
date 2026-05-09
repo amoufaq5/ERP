@@ -33,7 +33,7 @@ import {
 import StatsCard from "@/components/shared/stats-card";
 import PageHeader from "@/components/shared/page-header";
 import DocumentWorkflow from "@/components/shared/document-workflow";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import {
   FileText,
   CheckCircle,
@@ -64,15 +64,6 @@ import type {
 } from "@/lib/quality/document-control-types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return "N/A";
-  return new Date(dateStr).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function daysBetween(a: string, b: string): number {
   return Math.round(

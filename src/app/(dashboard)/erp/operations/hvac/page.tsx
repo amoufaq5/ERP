@@ -68,7 +68,7 @@ import {
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import HVACFloorPlan from "@/components/shared/hvac-floor-plan";
-import { cn } from "@/lib/utils";
+import { cn, formatDate, formatDateTime } from "@/lib/utils";
 
 import { hvacStore } from "@/lib/operations/hvac-store";
 import type {
@@ -95,26 +95,6 @@ import {
 } from "@/lib/operations/hvac-types";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
-
-function formatDate(iso: string): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-EG", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function formatDateTime(iso: string): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("en-EG", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function resultBadge(result: ReadingResult) {
   switch (result) {

@@ -121,7 +121,7 @@ export async function GET(
   try {
     if (prisma) {
       try {
-        const record = await (prisma as any)[config.model].findUnique({
+        const record = await prisma[config.model].findUnique({
           where: { id },
           include: config.include,
         });
@@ -170,7 +170,7 @@ export async function PATCH(
     if (prisma) {
       try {
         // Verify the record exists first
-        const existing = await (prisma as any)[config.model].findUnique({
+        const existing = await prisma[config.model].findUnique({
           where: { id },
         });
         if (!existing) {
@@ -199,7 +199,7 @@ export async function PATCH(
           }
         }
 
-        const record = await (prisma as any)[config.model].update({
+        const record = await prisma[config.model].update({
           where: { id },
           data: body,
           include: config.include,
@@ -238,7 +238,7 @@ export async function DELETE(
   try {
     if (prisma) {
       try {
-        const existing = await (prisma as any)[config.model].findUnique({
+        const existing = await prisma[config.model].findUnique({
           where: { id },
         });
         if (!existing) {
@@ -256,7 +256,7 @@ export async function DELETE(
                   : "CANCELLED"
               : false;
 
-          const record = await (prisma as any)[config.model].update({
+          const record = await prisma[config.model].update({
             where: { id },
             data: { [config.softDeleteField]: softValue },
           });
@@ -264,7 +264,7 @@ export async function DELETE(
         }
 
         // Hard delete
-        await (prisma as any)[config.model].delete({ where: { id } });
+        await prisma[config.model].delete({ where: { id } });
         return apiResponse({ id, deleted: true });
       } catch {}
     }

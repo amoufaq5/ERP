@@ -111,8 +111,8 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
         // Support nested members creation
         if (data.members && Array.isArray(data.members)) {
-          (createData as any).members = {
-            create: data.members.map((m: any) => ({
+          createData.members = {
+            create: data.members.map((m: Record<string, unknown>) => ({
               userId: m.userId,
               role: m.role || "MEDICAL_REP",
             })),
@@ -121,8 +121,8 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
 
         // Support nested products creation
         if (data.products && Array.isArray(data.products)) {
-          (createData as any).products = {
-            create: data.products.map((p: any) => ({
+          createData.products = {
+            create: data.products.map((p: Record<string, unknown>) => ({
               productId: p.productId,
             })),
           };

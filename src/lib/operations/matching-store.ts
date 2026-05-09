@@ -427,6 +427,8 @@ class ThreeWayMatchingStore {
   }
 
   create(record: Omit<MatchRecord, "id" | "matchNumber">): MatchRecord {
+    if (!record.poNumber?.trim()) throw new Error("Match record PO number is required");
+    if (!record.vendorName?.trim()) throw new Error("Match record vendor name is required");
     const all = this.load();
     const newRecord: MatchRecord = {
       ...record,

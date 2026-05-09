@@ -39,7 +39,7 @@ import {
   ChevronUp,
   XCircle,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -133,13 +133,6 @@ function priorityBadge(priority: string) {
 function zoneLabel(zones: WarehouseZone[], zoneId: string) {
   const z = zones.find((z) => z.id === zoneId);
   return z ? z.name : zoneId;
-}
-
-function formatDate(d?: string): string {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-EG", {
-    day: "2-digit", month: "short", year: "numeric",
-  });
 }
 
 /* ────────────────────────────────────────────────────────────

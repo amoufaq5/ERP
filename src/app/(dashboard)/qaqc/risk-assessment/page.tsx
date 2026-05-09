@@ -40,7 +40,7 @@ import StatsCard from "@/components/shared/stats-card";
 import PageHeader from "@/components/shared/page-header";
 import RiskMatrix from "@/components/shared/risk-matrix";
 import type { RiskDot } from "@/components/shared/risk-matrix";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import {
   TriangleAlert,
   Shield,
@@ -101,14 +101,6 @@ const METHOD_LABELS: Record<RiskMethod, string> = {
   FTA: "Fault Tree Analysis",
   PHA: "Preliminary Hazard Analysis",
 };
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function rpnColor(rpn: number): string {
   if (rpn >= 200) return "text-red-600 font-bold";

@@ -747,10 +747,18 @@ class ComplaintStore {
   }
 
   create(complaint: Omit<Complaint, "id" | "number">): Complaint {
+    if (!complaint.title?.trim()) throw new Error("Complaint title is required");
+    if (!complaint.description?.trim()) throw new Error("Complaint description is required");
+    if (!complaint.source?.trim()) throw new Error("Complaint source is required");
+    if (!complaint.category?.trim()) throw new Error("Complaint category is required");
+    if (!complaint.product?.trim()) throw new Error("Complaint product is required");
+    if (!complaint.severity?.trim()) throw new Error("Complaint severity is required");
+    if (!complaint.receivedAt?.trim()) throw new Error("Complaint received date is required");
+    if (isNaN(new Date(complaint.receivedAt).getTime())) throw new Error("Complaint received date is invalid");
     const all = this.load();
     const newComplaint: Complaint = {
       ...complaint,
-      id: `cmp-${Date.now()}`,
+      id: `cmp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       number: this.generateNumber(),
     };
     all.push(newComplaint);

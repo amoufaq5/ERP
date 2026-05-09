@@ -19,6 +19,7 @@ import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
+import { formatDate } from "@/lib/utils";
 import {
   scopeDoctors,
   scopeVisits,
@@ -50,18 +51,6 @@ function isLast30Days(iso: string): boolean {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 30);
   return date >= cutoff;
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return iso;
-  }
 }
 
 function fmtCurrency(n: number): string {

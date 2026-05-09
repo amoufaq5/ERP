@@ -2,6 +2,7 @@
 
 import { useDataStore } from "./data-store"
 import type { DataStoreState } from "./data-store"
+import { emitNotification } from "./notification-context"
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,25 @@ export interface DataStore extends DataStoreState {
 type EntityKey = {
   [K in keyof DataStoreState]: DataStoreState[K] extends Array<unknown> ? K : never
 }[keyof DataStoreState]
+
+// ─── Idempotency Guard ─────────────────────────────────────────────────────────
+
+/**
+ * Tracks entity IDs that have already been processed by each action to
+ * prevent duplicate side-effects (double-reserve, double-add, etc.).
+ */
+const processedIds = new Set<string>()
+
+/**
+ * Returns `true` if the action+entity combination has already been processed.
+ * Otherwise records it and returns `false`.
+ */
+function alreadyProcessed(actionKey: string, entityId: string): boolean {
+  const key = `${actionKey}::${entityId}`
+  if (processedIds.has(key)) return true
+  processedIds.add(key)
+  return false
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -46,6 +66,7 @@ function daysBetween(a: string, b: string): number {
  * Amount in EGP.
  */
 export function createJournalEntryFromExpense(store: DataStore, expense: any): void {
+  if (alreadyProcessed("journalFromExpense", expense.id)) return
   const amount = expense.amount ?? 0
   if (amount <= 0) return
 
@@ -78,6 +99,16 @@ export function createJournalEntryFromExpense(store: DataStore, expense: any): v
       },
     ],
   })
+
+  emitNotification({
+    type: "SUCCESS",
+    title: "Journal Entry Created from Expense",
+    message: `Journal entry ${jeNumber} (EGP ${amount.toLocaleString()}) auto-generated from expense ${expense.id}.`,
+    module: "FINANCE",
+    entityType: "journal_entry",
+    entityId: jeId,
+    actionUrl: "/erp/accounting",
+  })
 }
 
 // ─── 2. Approved Sample Request → Purchase Order ────────────────────────────
@@ -88,6 +119,7 @@ export function createJournalEntryFromExpense(store: DataStore, expense: any): v
  * Status: DRAFT (requires further approval).
  */
 export function createPOFromSampleRequest(store: DataStore, request: any): void {
+  if (alreadyProcessed("poFromSample", request.id)) return
   const product = store.products.find((p) => p.id === request.productId)
   if (!product) return
 
@@ -126,6 +158,16 @@ export function createPOFromSampleRequest(store: DataStore, request: any): void 
     status: "DRAFT" as const,
     createdAt: isoNow(),
   })
+
+  emitNotification({
+    type: "INFO",
+    title: "PO Created from Sample Request",
+    message: `Draft PO ${poNumber} created for ${product.name} samples (qty ${quantity}).`,
+    module: "PROCUREMENT",
+    entityType: "purchase_order",
+    entityId: poId,
+    actionUrl: "/erp/procurement",
+  })
 }
 
 // ─── 3. PO Received → Stock Movement / Inventory Update ────────────────────
@@ -135,6 +177,7 @@ export function createPOFromSampleRequest(store: DataStore, request: any): void 
  * and updates each product's stockQty in the product catalogue.
  */
 export function updateInventoryFromPO(store: DataStore, po: any): void {
+  if (alreadyProcessed("inventoryFromPO", po.id)) return
   if (!po.items || po.items.length === 0) return
 
   // Create GRN
@@ -169,6 +212,16 @@ export function updateInventoryFromPO(store: DataStore, po: any): void {
 
   // Link GRN back to PO
   store.update("purchaseOrders", po.id, { grnId, status: "RECEIVED" as const })
+
+  emitNotification({
+    type: "SUCCESS",
+    title: `PO ${po.number ?? po.id} Received`,
+    message: `GRN ${grnNumber} created. Stock levels updated for ${po.items.length} item(s).`,
+    module: "INVENTORY",
+    entityType: "goods_receipt",
+    entityId: grnId,
+    actionUrl: "/erp/inventory",
+  })
 }
 
 // ─── 4. Invoice Overdue → Support Ticket (Task) ────────────────────────────
@@ -178,6 +231,7 @@ export function updateInventoryFromPO(store: DataStore, po: any): void {
  * Priority is determined by amount and days overdue.
  */
 export function createTicketForOverdueInvoice(store: DataStore, invoice: any): void {
+  if (alreadyProcessed("ticketOverdue", invoice.id)) return
   const daysOverdue = daysBetween(invoice.dueDate, isoNow())
   if (daysOverdue <= 0) return
 
@@ -215,6 +269,16 @@ export function createTicketForOverdueInvoice(store: DataStore, invoice: any): v
   if (invoice.status !== "OVERDUE") {
     store.update("invoices", invoice.id, { status: "OVERDUE" as const })
   }
+
+  emitNotification({
+    type: "WARNING",
+    title: `Invoice ${invoice.number} Overdue`,
+    message: `Invoice for ${customerName} (EGP ${invoice.total?.toLocaleString()}) is ${daysOverdue} day(s) overdue. Recovery task created.`,
+    module: "FINANCE",
+    entityType: "invoice",
+    entityId: invoice.id,
+    actionUrl: "/erp/finance",
+  })
 }
 
 // ─── 5. Low Stock → Purchase Order Suggestion ──────────────────────────────
@@ -225,6 +289,7 @@ export function createTicketForOverdueInvoice(store: DataStore, invoice: any): v
  * Order quantity = reorderLevel * 2 to provide buffer stock.
  */
 export function createPOSuggestionForLowStock(store: DataStore, product: any): void {
+  if (alreadyProcessed("lowStockPO", product.id)) return
   if (product.stockQty >= product.reorderLevel) return
 
   // Check if there's already a pending PO for this product
@@ -269,6 +334,16 @@ export function createPOSuggestionForLowStock(store: DataStore, product: any): v
     status: "DRAFT" as const,
     createdAt: isoNow(),
   })
+
+  emitNotification({
+    type: "WARNING",
+    title: `Low Stock: ${product.name}`,
+    message: `Stock is ${product.stockQty} (below reorder level ${product.reorderLevel}). Draft PO ${poNumber} created for ${orderQty} units.`,
+    module: "INVENTORY",
+    entityType: "purchase_order",
+    entityId: poId,
+    actionUrl: "/erp/procurement",
+  })
 }
 
 // ─── 6. Sales Order Confirmed → Invoice Draft ──────────────────────────────
@@ -278,6 +353,7 @@ export function createPOSuggestionForLowStock(store: DataStore, product: any): v
  * Copies line items and calculates 14% Egyptian VAT.
  */
 export function createInvoiceFromSalesOrder(store: DataStore, salesOrder: any): void {
+  if (alreadyProcessed("invoiceFromSO", salesOrder.id)) return
   if (!salesOrder.items || salesOrder.items.length === 0) return
 
   // Don't create duplicate invoices
@@ -316,6 +392,16 @@ export function createInvoiceFromSalesOrder(store: DataStore, salesOrder: any): 
 
   // Link invoice back to the sales order
   store.update("salesOrders", salesOrder.id, { invoiceId: invId })
+
+  emitNotification({
+    type: "INFO",
+    title: `Draft Invoice from SO ${salesOrder.number ?? salesOrder.id}`,
+    message: `Invoice ${invNumber} (EGP ${total.toLocaleString()}) created. Awaiting approval.`,
+    module: "FINANCE",
+    entityType: "invoice",
+    entityId: invId,
+    actionUrl: "/erp/finance",
+  })
 }
 
 // ─── 7. Approved Market Request (EVENT type) → Project Task ─────────────────
@@ -325,6 +411,7 @@ export function createInvoiceFromSalesOrder(store: DataStore, salesOrder: any): 
  * (e.g., CME sponsorships, symposiums, product launches).
  */
 export function createProjectTaskFromEvent(store: DataStore, request: any): void {
+  if (alreadyProcessed("taskFromEvent", request.id)) return
   // Find a relevant project or default to first project
   const project =
     store.projects.find((p) => p.status === "In Progress") ?? store.projects[0]
@@ -342,6 +429,15 @@ export function createProjectTaskFromEvent(store: DataStore, request: any): void
     hours: 16,
     status: "Todo",
   })
+
+  emitNotification({
+    type: "INFO",
+    title: "Project Task Created from Event Request",
+    message: `Task "${request.description?.slice(0, 40) ?? "Market event"}" added to project "${project.name}".`,
+    module: "CRM",
+    entityType: "project_task",
+    entityId: taskId,
+  })
 }
 
 // ─── 8. Employee Termination → Asset Recovery ───────────────────────────────
@@ -351,6 +447,7 @@ export function createProjectTaskFromEvent(store: DataStore, request: any): void
  * any company assets and revoke system access.
  */
 export function triggerAssetRecoveryOnTermination(store: DataStore, employee: any): void {
+  if (alreadyProcessed("assetRecovery", employee.id)) return
   // Create an asset-recovery task
   const taskId = store.genId("t")
 
@@ -374,6 +471,16 @@ export function triggerAssetRecoveryOnTermination(store: DataStore, employee: an
   if (employee.status !== "TERMINATED") {
     store.update("employees", employee.id, { status: "TERMINATED" as const })
   }
+
+  emitNotification({
+    type: "WARNING",
+    title: `Employee Terminated: ${employee.name}`,
+    message: `Asset recovery task created for ${employee.name} (${employee.employeeId}).`,
+    module: "HR",
+    entityType: "employee",
+    entityId: employee.id,
+    actionUrl: "/erp/hr",
+  })
 }
 
 // ─── 9. Visit Approved → Consume Samples from Inventory ───────────────────
@@ -383,6 +490,7 @@ export function triggerAssetRecoveryOnTermination(store: DataStore, employee: an
  * for those products and creates a stock movement (message) record.
  */
 export function consumeSamplesFromVisit(store: DataStore, visit: any): void {
+  if (alreadyProcessed("samplesFromVisit", visit.id)) return
   if (!visit.samplesGiven || visit.samplesGiven.length === 0) return
 
   const rep = store.employees.find((e) => e.id === visit.repId)
@@ -419,6 +527,15 @@ export function consumeSamplesFromVisit(store: DataStore, visit: any): void {
       createdAt: isoNow(),
     })
   }
+
+  emitNotification({
+    type: "INFO",
+    title: "Samples Consumed from Visit",
+    message: `${visit.samplesGiven.length} sample type(s) consumed for visit ${visit.id} by ${repName}.`,
+    module: "INVENTORY",
+    entityType: "visit",
+    entityId: visit.id,
+  })
 }
 
 // ─── 10. Work Order IN_PROGRESS → Consume Raw Materials ───────────────────
@@ -428,6 +545,7 @@ export function consumeSamplesFromVisit(store: DataStore, visit: any): void {
  * for each raw material in the WO's materials list. Reduces inventory quantities.
  */
 export function consumeRawMaterialsFromWO(store: DataStore, workOrder: any): void {
+  if (alreadyProcessed("rawMatsFromWO", workOrder.id)) return
   if (!workOrder.materials || workOrder.materials.length === 0) return
 
   for (const material of workOrder.materials) {
@@ -460,6 +578,16 @@ export function consumeRawMaterialsFromWO(store: DataStore, workOrder: any): voi
       createdAt: isoNow(),
     })
   }
+
+  emitNotification({
+    type: "INFO",
+    title: `Raw Materials Consumed — WO ${workOrder.id}`,
+    message: `${workOrder.materials.length} material(s) consumed for Work Order ${workOrder.id}.`,
+    module: "MANUFACTURING",
+    entityType: "work_order",
+    entityId: workOrder.id,
+    actionUrl: "/erp/manufacturing",
+  })
 }
 
 // ─── 11. Work Order COMPLETED → Create Finished Goods ─────────────────────
@@ -469,6 +597,7 @@ export function consumeRawMaterialsFromWO(store: DataStore, workOrder: any): voi
  * inventory by updating product stock quantities and recording the batch.
  */
 export function createFinishedGoodsFromWO(store: DataStore, workOrder: any): void {
+  if (alreadyProcessed("finishedGoodsFromWO", workOrder.id)) return
   if (!workOrder.productId) return
 
   const product = store.products.find((p) => p.id === workOrder.productId)
@@ -519,6 +648,16 @@ export function createFinishedGoodsFromWO(store: DataStore, workOrder: any): voi
     priority: "HIGH" as const,
     createdAt: isoNow(),
   })
+
+  emitNotification({
+    type: "SUCCESS",
+    title: `Finished Goods Produced — ${product.name}`,
+    message: `WO ${workOrder.id} completed. ${producedQty} units of ${product.name} added to inventory. QA inspection task created.`,
+    module: "MANUFACTURING",
+    entityType: "work_order",
+    entityId: workOrder.id,
+    actionUrl: "/erp/manufacturing",
+  })
 }
 
 // ─── 12. Sales Order CONFIRMED → Reserve Inventory ────────────────────────
@@ -529,6 +668,7 @@ export function createFinishedGoodsFromWO(store: DataStore, workOrder: any): voi
  * Returns an array of warnings for items with insufficient stock.
  */
 export function reserveInventoryFromSO(store: DataStore, salesOrder: any): string[] {
+  if (alreadyProcessed("reserveFromSO", salesOrder.id)) return []
   if (!salesOrder.items || salesOrder.items.length === 0) return []
 
   const warnings: string[] = []
@@ -576,6 +716,18 @@ export function reserveInventoryFromSO(store: DataStore, salesOrder: any): strin
     })
   }
 
+  emitNotification({
+    type: warnings.length > 0 ? "WARNING" : "SUCCESS",
+    title: `Inventory Reserved — SO ${salesOrder.number ?? salesOrder.id}`,
+    message: warnings.length > 0
+      ? `Reservation completed with ${warnings.length} warning(s): ${warnings[0]}`
+      : `Stock reserved for ${salesOrder.items.length} item(s) in SO ${salesOrder.number ?? salesOrder.id}.`,
+    module: "INVENTORY",
+    entityType: "SalesOrder",
+    entityId: salesOrder.id,
+    actionUrl: "/erp/sales-order",
+  })
+
   return warnings
 }
 
@@ -587,6 +739,7 @@ export function reserveInventoryFromSO(store: DataStore, salesOrder: any): strin
  * task for the DM.
  */
 export function blockVisitsOnLeave(store: DataStore, leave: any): void {
+  if (alreadyProcessed("blockVisitsLeave", leave.id)) return
   if (!leave.employeeId || !leave.startDate || !leave.endDate) return
 
   const leaveStart = new Date(leave.startDate).getTime()
@@ -643,6 +796,16 @@ export function blockVisitsOnLeave(store: DataStore, leave: any): void {
     priority: "HIGH" as const,
     createdAt: isoNow(),
   })
+
+  emitNotification({
+    type: "WARNING",
+    title: `Visit Conflicts — ${employee?.name ?? repId} on Leave`,
+    message: `${totalConflicts} visit(s) in ${conflictingPlans.length} plan(s) conflict with approved leave (${leave.startDate} to ${leave.endDate}).`,
+    module: "HR",
+    entityType: "leave_request",
+    entityId: leave.id,
+    actionUrl: "/crm/weekly-plan",
+  })
 }
 
 // ─── 14. QA Batch Released → Unlock Batch in Inventory ────────────────────
@@ -652,6 +815,7 @@ export function blockVisitsOnLeave(store: DataStore, leave: any): void {
  * as saleable in inventory and notifies the sales team.
  */
 export function unlockBatchOnQARelease(store: DataStore, batchRelease: any): void {
+  if (alreadyProcessed("unlockBatchQA", batchRelease.id)) return
   if (!batchRelease.product) return
 
   // Find the product by name or ID
@@ -659,6 +823,11 @@ export function unlockBatchOnQARelease(store: DataStore, batchRelease: any): voi
     (p) => p.id === batchRelease.product || p.name === batchRelease.product
   )
   if (!product) return
+
+  // Clear any quality hold on the product
+  if (product.qualityHold) {
+    store.update("products", product.id, { qualityHold: false })
+  }
 
   // Record the release in a message to inventory/sales team
   const msgId = store.genId("msg")
@@ -697,6 +866,16 @@ export function unlockBatchOnQARelease(store: DataStore, batchRelease: any): voi
     priority: "MEDIUM" as const,
     createdAt: isoNow(),
   })
+
+  emitNotification({
+    type: "SUCCESS",
+    title: `Batch Released to Market: ${product.name}`,
+    message: `Batch ${batchRelease.batchNumber ?? batchRelease.number} for ${product.name} is now available for commercial distribution.`,
+    module: "QUALITY",
+    entityType: "batch",
+    entityId: batchRelease.id,
+    actionUrl: "/qaqc/batch-release",
+  })
 }
 
 // ─── 15. QA Deviation CRITICAL → Hold Related Work Orders ─────────────────
@@ -706,6 +885,7 @@ export function unlockBatchOnQARelease(store: DataStore, batchRelease: any): voi
  * and sets them to ON_HOLD via a task alert. Alerts manufacturing supervisor.
  */
 export function holdProductionOnDeviation(store: DataStore, deviation: any): void {
+  if (alreadyProcessed("holdOnDeviation", deviation.id)) return
   if (!deviation.classification || deviation.classification !== "critical") return
 
   const affectedProducts = deviation.productsAffected ?? []
@@ -756,6 +936,16 @@ export function holdProductionOnDeviation(store: DataStore, deviation: any): voi
     read: false,
     starred: true,
     createdAt: isoNow(),
+  })
+
+  emitNotification({
+    type: "ERROR",
+    title: `CRITICAL DEVIATION: ${deviation.number ?? deviation.id}`,
+    message: `Production hold required. ${affectedProducts.length} product(s) and ${affectedBatches.length} batch(es) affected.`,
+    module: "QUALITY",
+    entityType: "deviation",
+    entityId: deviation.id,
+    actionUrl: "/qaqc/deviations",
   })
 }
 
@@ -838,6 +1028,7 @@ export function validateMaterialExpiryForWO(
  * Credit: 2100 (Accrued Liabilities — Employee Reimbursement)
  */
 export function createReimbursementFromExpense(store: DataStore, expense: any): void {
+  if (alreadyProcessed("reimbursementFromExpense", expense.id)) return
   const amount = expense.amount ?? 0
   if (amount <= 0) return
 
@@ -896,6 +1087,16 @@ export function createReimbursementFromExpense(store: DataStore, expense: any): 
     priority: "MEDIUM" as const,
     createdAt: isoNow(),
   })
+
+  emitNotification({
+    type: "SUCCESS",
+    title: `Reimbursement Created: ${employeeName}`,
+    message: `JE ${jeNumber} for EGP ${amount.toLocaleString()} created. Payroll task added.`,
+    module: "FINANCE",
+    entityType: "journal_entry",
+    entityId: jeId,
+    actionUrl: "/erp/accounting",
+  })
 }
 
 // ─── 18. PO RECEIVED → Update Vendor Score ────────────────────────────────
@@ -906,6 +1107,7 @@ export function createReimbursementFromExpense(store: DataStore, expense: any): 
  * Logs scoring details as a message for audit.
  */
 export function updateVendorScoreFromPO(store: DataStore, po: any): void {
+  if (alreadyProcessed("vendorScoreFromPO", po.id)) return
   if (!po.vendorId) return
 
   const vendor = store.vendors.find((v) => v.id === po.vendorId)
@@ -987,6 +1189,16 @@ export function updateVendorScoreFromPO(store: DataStore, po: any): void {
       createdAt: isoNow(),
     })
   }
+
+  emitNotification({
+    type: compositeScore < 60 ? "WARNING" : "INFO",
+    title: `Vendor Score: ${vendor.name} — ${compositeScore}/100`,
+    message: `PO ${po.number}: Delivery ${deliveryScore}, Quality ${qualityScore}, Price ${priceScore}.${compositeScore < 60 ? " Review required." : ""}`,
+    module: "PROCUREMENT",
+    entityType: "vendor",
+    entityId: vendor.id,
+    actionUrl: "/erp/procurement",
+  })
 }
 
 // ─── 19. GL Account Drill-Through → Journal Entries ───────────────────────
@@ -1056,6 +1268,126 @@ export function drillThroughGLToJournals(
   return { account, entries, totalDebit, totalCredit }
 }
 
+// ─── 20. Quality Hold → Inventory Block ──────────────────────────────────────
+
+/**
+ * When a quality hold is placed on a batch/product, marks the product
+ * as on quality hold in inventory. This prevents the product from being
+ * sold or consumed until the hold is released.
+ */
+export function placeQualityHold(
+  store: DataStore,
+  hold: { productId?: string; productName?: string; batchNumber?: string; reason: string; placedBy: string }
+): void {
+  // Find by ID or name
+  const product = hold.productId
+    ? store.products.find((p) => p.id === hold.productId)
+    : store.products.find((p) => p.name === hold.productName)
+  if (!product) return
+
+  const holdKey = `qualityHold::${product.id}::${hold.batchNumber ?? "all"}`
+  if (processedIds.has(holdKey)) return
+  processedIds.add(holdKey)
+
+  store.update("products", product.id, { qualityHold: true })
+
+  const msgId = store.genId("msg")
+  store.add("messages", {
+    id: msgId,
+    fromUserId: "system",
+    toUserId: "u-admin",
+    subject: `QUALITY HOLD: ${product.name}${hold.batchNumber ? ` — Batch ${hold.batchNumber}` : ""}`,
+    body:
+      `[QUALITY HOLD PLACED]\n\n` +
+      `Product: ${product.name} ${product.strength} ${product.form}\n` +
+      `Batch: ${hold.batchNumber ?? "All batches"}\n` +
+      `Reason: ${hold.reason}\n` +
+      `Placed By: ${hold.placedBy}\n` +
+      `Date: ${isoNow()}\n\n` +
+      `This product is now blocked from sales, distribution, and consumption until the hold is released.`,
+    read: false,
+    starred: true,
+    createdAt: isoNow(),
+  })
+
+  // Create task for QA to investigate and resolve
+  const taskId = store.genId("t")
+  store.add("tasks", {
+    id: taskId,
+    title: `Quality Hold: ${product.name}${hold.batchNumber ? ` — Batch ${hold.batchNumber}` : ""}`,
+    description:
+      `A quality hold has been placed on ${product.name}.\n\n` +
+      `Reason: ${hold.reason}\n` +
+      `Placed by: ${hold.placedBy}\n\n` +
+      `Investigate the issue and release the hold when resolved.`,
+    assignedById: "system",
+    assignedToId: "u-admin",
+    dueDate: daysFromNow(3).slice(0, 10),
+    status: "TODO" as const,
+    priority: "URGENT" as const,
+    createdAt: isoNow(),
+  })
+
+  emitNotification({
+    type: "ERROR",
+    title: `Quality Hold Placed: ${product.name}`,
+    message: `${product.name}${hold.batchNumber ? ` (Batch ${hold.batchNumber})` : ""} is now on quality hold. Reason: ${hold.reason}`,
+    module: "QUALITY",
+    entityType: "product",
+    entityId: product.id,
+    actionUrl: "/erp/inventory",
+  })
+}
+
+/**
+ * Releases a quality hold on a product, making it available for sales
+ * and consumption again.
+ */
+export function releaseQualityHold(
+  store: DataStore,
+  release: { productId?: string; productName?: string; batchNumber?: string; releasedBy: string; reason?: string }
+): void {
+  const product = release.productId
+    ? store.products.find((p) => p.id === release.productId)
+    : store.products.find((p) => p.name === release.productName)
+  if (!product) return
+
+  // Remove the idempotency key so future holds can be placed
+  const holdKey = `qualityHold::${product.id}::${release.batchNumber ?? "all"}`
+  processedIds.delete(holdKey)
+
+  store.update("products", product.id, { qualityHold: false })
+
+  const msgId = store.genId("msg")
+  store.add("messages", {
+    id: msgId,
+    fromUserId: "system",
+    toUserId: "u-admin",
+    subject: `Quality Hold RELEASED: ${product.name}${release.batchNumber ? ` — Batch ${release.batchNumber}` : ""}`,
+    body:
+      `[QUALITY HOLD RELEASED]\n\n` +
+      `Product: ${product.name} ${product.strength} ${product.form}\n` +
+      `Batch: ${release.batchNumber ?? "All batches"}\n` +
+      `Released By: ${release.releasedBy}\n` +
+      `Reason: ${release.reason ?? "Issue resolved"}\n` +
+      `Date: ${isoNow()}\n\n` +
+      `This product is now cleared for sales, distribution, and consumption.`,
+    read: false,
+    starred: false,
+    createdAt: isoNow(),
+  })
+
+  emitNotification({
+    type: "SUCCESS",
+    title: `Quality Hold Released: ${product.name}`,
+    message: `${product.name}${release.batchNumber ? ` (Batch ${release.batchNumber})` : ""} is now available. Released by ${release.releasedBy}.`,
+    module: "QUALITY",
+    entityType: "product",
+    entityId: product.id,
+    actionUrl: "/erp/inventory",
+  })
+}
+
 // ─── Hook: useCrossModuleActions ────────────────────────────────────────────
 
 /**
@@ -1122,5 +1454,11 @@ export function useCrossModuleActions() {
 
     onGLDrillThrough: (accountId: string, startDate: string, endDate: string) =>
       drillThroughGLToJournals(store, accountId, startDate, endDate),
+
+    onQualityHoldPlaced: (hold: { productId?: string; productName?: string; batchNumber?: string; reason: string; placedBy: string }) =>
+      placeQualityHold(store, hold),
+
+    onQualityHoldReleased: (release: { productId?: string; productName?: string; batchNumber?: string; releasedBy: string; reason?: string }) =>
+      releaseQualityHold(store, release),
   }
 }

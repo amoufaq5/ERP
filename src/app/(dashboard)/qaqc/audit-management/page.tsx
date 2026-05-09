@@ -39,7 +39,7 @@ import {
 import StatsCard from "@/components/shared/stats-card";
 import PageHeader from "@/components/shared/page-header";
 import AuditFindingsChart from "@/components/shared/audit-findings-chart";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import {
   ClipboardCheck,
   Search,
@@ -76,14 +76,6 @@ import type {
 } from "@/lib/quality/audit-types";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function daysSince(dateStr: string): number {
   return Math.round(

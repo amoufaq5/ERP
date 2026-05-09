@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import WaterSystemDiagram from "@/components/shared/water-system-diagram";
-import { cn } from "@/lib/utils";
+import { cn, formatDate, formatDateTime } from "@/lib/utils";
 import {
   Droplet,
   Activity,
@@ -96,34 +96,6 @@ const SYSTEM_STATUS_STYLES: Record<WaterSystemStatus, string> = {
 const PAGE_SIZE = 25;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
-
-function formatDate(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function formatDateTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
-}
 
 function formatValue(value: number, unit: string): string {
   if (unit === "ppb" && value >= 1000) {

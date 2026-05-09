@@ -289,20 +289,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
 export function useCurrentUser(): UserContextValue {
   const ctx = useContext(UserContext);
   if (!ctx) {
-    // Safe fallback when used outside provider — return full-access admin
-    return {
-      user: DEMO_USERS[0],
-      setUser: () => {},
-      allUsers: DEMO_USERS,
-      navOverrides: {},
-      setNavOverride: () => {},
-      canAccess: () => true,
-      allowedRoutes: ["*"],
-      createUser: (u) => ({ ...u, id: u.id ?? "u-stub" } as AppUser),
-      updateUser: () => {},
-      deleteUser: () => {},
-      getReportsOf: () => [],
-    };
+    throw new Error(
+      "useCurrentUser must be used within a <UserProvider>. " +
+      "Wrap your component tree with <UserProvider> to provide user context."
+    );
   }
   return ctx;
 }

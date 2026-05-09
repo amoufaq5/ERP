@@ -211,17 +211,6 @@ function formatTimestamp(iso: string | null): string {
   return d.toLocaleDateString("en-EG", { month: "short", day: "numeric", year: "numeric" })
 }
 
-function formatDateTime(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleString("en-EG", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })
-}
-
 // ─── Status badge helper ────────────────────────────────────────────────────
 
 function logStatusBadge(status: ExecutionLog["status"]) {

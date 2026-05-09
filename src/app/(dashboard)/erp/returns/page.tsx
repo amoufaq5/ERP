@@ -286,7 +286,7 @@ export default function ReturnsPage() {
         ),
       },
       {
-        key: "actions" as any,
+        key: "actions",
         label: "",
         render: (_: unknown, row: SalesReturn) => {
           const nextStatus = STATUS_FLOW[row.status];
@@ -346,7 +346,7 @@ export default function ReturnsPage() {
         render: () => <StatusBadge status="Credit Note Issued" />,
       },
       {
-        key: "actions" as any,
+        key: "actions",
         label: "",
         render: (_: unknown, row: SalesReturn) => (
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDetailReturn(row)}>

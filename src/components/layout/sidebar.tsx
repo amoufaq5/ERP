@@ -443,12 +443,36 @@ export function Sidebar({
     return section.items.some((item) => isActive(item.href));
   }
 
-  const baseSections = getOrderedSections(user?.role ?? "ADMIN");
+  const role = user?.role ?? "ADMIN";
+  const baseSections = getOrderedSections(role);
+
+  // ---------------------------------------------------------------------------
+  // Role-based nav filtering — only show routes the current user can access.
+  //
+  // 1. Remove orphan/debug routes that should never appear in navigation
+  // 2. Block /admin/* routes for non-ADMIN roles (canAccess checks ROLE_ROUTES
+  //    which only grants /admin/* to ADMIN via wildcard, plus explicit entries
+  //    like /admin/audit-log for NSM)
+  // 3. Check every remaining item against canAccess() backed by ROLE_ROUTES
+  //    (src/lib/auth/role-routes.ts) — ADMIN has wildcard "*" so sees everything
+  // 4. Drop entire sections when all their items are filtered out
+  // ---------------------------------------------------------------------------
+  const HIDDEN_ROUTES = ["/test-auth", "/integration-hub"];
 
   const visibleSections: NavSection[] = baseSections
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => canAccess(item.href)),
+      items: section.items.filter((item) => {
+        // Always exclude orphan / debug routes from navigation
+        if (HIDDEN_ROUTES.some((r) => item.href === r || item.href.startsWith(r + "/"))) {
+          return false;
+        }
+        // For /admin/* routes, non-ADMIN roles must have an explicit grant in
+        // ROLE_ROUTES (e.g. NSM has /admin/audit-log). canAccess() handles this
+        // because ADMIN's wildcard "*" allows everything while other roles need
+        // the route listed explicitly.
+        return canAccess(item.href);
+      }),
     }))
     .filter((section) => section.items.length > 0);
 

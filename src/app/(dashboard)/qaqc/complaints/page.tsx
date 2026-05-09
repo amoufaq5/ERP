@@ -35,7 +35,7 @@ import StatsCard from "@/components/shared/stats-card";
 import PageHeader from "@/components/shared/page-header";
 import ComplaintTimeline from "@/components/shared/complaint-timeline";
 import { PieChartWidget, BarChartWidget } from "@/components/shared/charts";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { complaintStore } from "@/lib/quality/complaint-store";
 import type {
   Complaint,
@@ -151,14 +151,6 @@ const REGULATORY_STATUS_COLORS: Record<string, string> = {
 };
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function isOverdue(dueDate: string, status: string): boolean {
   return status !== "closed" && new Date(dueDate) < new Date();

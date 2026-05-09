@@ -477,11 +477,13 @@ export default function WeeklyPlanPage() {
     // Deduct samples from inventory for all visits with samples
     for (const day of plan.days) {
       for (const visit of day.visits) {
-        if ((visit as any).samplesGiven && (visit as any).samplesGiven.length > 0) {
+        // PlannedVisit may carry runtime-only fields (id, samplesGiven) not in the static type
+        const visitExt = visit as PlannedVisit & { id?: string; samplesGiven?: { productId: string; quantity: number }[] };
+        if (visitExt.samplesGiven && visitExt.samplesGiven.length > 0) {
           crossModule.onVisitApprovedWithSamples({
-            id: (visit as any).id ?? `${plan.id}-${day.date}`,
+            id: visitExt.id ?? `${plan.id}-${day.date}`,
             repId: plan.repId,
-            samplesGiven: (visit as any).samplesGiven,
+            samplesGiven: visitExt.samplesGiven,
           });
         }
       }

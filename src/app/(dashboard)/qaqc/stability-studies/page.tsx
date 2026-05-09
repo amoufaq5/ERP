@@ -32,7 +32,7 @@ import {
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import StabilityChart from "@/components/shared/stability-chart";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import {
   FlaskConical,
   Activity,
@@ -121,15 +121,6 @@ function trendIcon(trend: string) {
   if (trend === "increasing") return <TrendingUp className="h-3.5 w-3.5 text-amber-500" />;
   if (trend === "decreasing") return <TrendingDown className="h-3.5 w-3.5 text-red-500" />;
   return <Minus className="h-3.5 w-3.5 text-green-500" />;
-}
-
-function formatDate(iso: string | undefined): string {
-  if (!iso) return "--";
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 function daysFromNow(iso: string): number {

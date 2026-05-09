@@ -625,7 +625,7 @@ class WarehouseStore {
     if (from.status !== "occupied" || !from.currentItemName) return undefined;
 
     const transfer: LocationTransfer = {
-      id: `tr-${Date.now()}`,
+      id: `tr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       fromLocationId,
       toLocationId,
       itemName: from.currentItemName,
@@ -727,10 +727,12 @@ class WarehouseStore {
   }
 
   createPutawayTask(task: Omit<PutawayTask, "id" | "createdAt">): PutawayTask {
+    if (!task.itemName?.trim()) throw new Error("Putaway task item name is required");
+    if (!task.suggestedZoneId?.trim()) throw new Error("Putaway task zone is required");
     const data = this.load();
     const newTask: PutawayTask = {
       ...task,
-      id: `pt-${Date.now()}`,
+      id: `pt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       createdAt: new Date().toISOString().slice(0, 10),
     };
     data.putawayTasks.push(newTask);
@@ -798,11 +800,14 @@ class WarehouseStore {
   }
 
   createCycleCount(count: Omit<CycleCount, "id" | "countNumber">): CycleCount {
+    if (!count.zoneId?.trim()) throw new Error("Cycle count zone is required");
+    if (!count.scheduledDate?.trim()) throw new Error("Cycle count scheduled date is required");
+    if (isNaN(new Date(count.scheduledDate).getTime())) throw new Error("Cycle count scheduled date is invalid");
     const data = this.load();
     const num = data.cycleCounts.length + 50;
     const newCount: CycleCount = {
       ...count,
-      id: `cc-${Date.now()}`,
+      id: `cc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       countNumber: `CC-2026-${String(num).padStart(4, "0")}`,
     };
     data.cycleCounts.push(newCount);

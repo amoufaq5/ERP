@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -43,13 +43,6 @@ function varianceColor(status: MatchLineItem["lineStatus"]) {
     case "mismatch":
       return "bg-red-50 dark:bg-red-950/30";
   }
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-EG", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
 }
 
 export default function MatchComparison({ record, className }: MatchComparisonProps) {

@@ -26,6 +26,7 @@ import StatsCard from "@/components/shared/stats-card";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { useCurrentUser, ROLE_LABEL, type AppUser } from "@/lib/user-context";
 import { useTranslation } from "@/lib/i18n/i18n-context";
+import { formatDate } from "@/lib/utils";
 import type {
   Visit,
   WeeklyPlan,
@@ -35,18 +36,6 @@ import type {
 } from "@/lib/data-store";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return iso;
-  }
-}
 
 function thisMonthISO(): string {
   const d = new Date();

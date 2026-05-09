@@ -640,6 +640,8 @@ export class EnvMonitoringStore {
   }
 
   createLocation(data: Omit<MonitoringLocation, "id">): MonitoringLocation {
+    if (!data.name?.trim()) throw new Error("Monitoring location name is required");
+    if (!data.zone?.trim()) throw new Error("Monitoring location zone is required");
     this.load();
     const location: MonitoringLocation = { ...data, id: uid() };
     this.locations.push(location);
@@ -679,6 +681,8 @@ export class EnvMonitoringStore {
   }
 
   createPoint(data: Omit<MonitoringPoint, "id">): MonitoringPoint {
+    if (!data.locationId?.trim()) throw new Error("Monitoring point locationId is required");
+    if (!data.parameter?.trim()) throw new Error("Monitoring point parameter is required");
     this.load();
     const point: MonitoringPoint = { ...data, id: uid() };
     this.points.push(point);
@@ -775,6 +779,8 @@ export class EnvMonitoringStore {
   }
 
   createExcursion(data: Omit<ExcursionRecord, "id">): ExcursionRecord {
+    if (!data.locationId?.trim()) throw new Error("Excursion location ID is required");
+    if (!data.parameter?.trim()) throw new Error("Excursion parameter is required");
     this.load();
     const excursion: ExcursionRecord = { ...data, id: uid() };
     this.excursions.unshift(excursion);

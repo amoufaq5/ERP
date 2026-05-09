@@ -23,6 +23,17 @@ export interface ApprovalRequest {
   comments?: string;
 }
 
+/**
+ * Callback invoked after an approval request has been approved.
+ * Receives the full ApprovalRequest (with status already set to APPROVED).
+ */
+export type OnApproveCallback = (request: ApprovalRequest) => void;
+
+/**
+ * Callback invoked after an approval request has been rejected.
+ */
+export type OnRejectCallback = (request: ApprovalRequest) => void;
+
 interface ApprovalContextValue {
   requests: ApprovalRequest[];
   pendingCount: number;
@@ -30,8 +41,13 @@ interface ApprovalContextValue {
   approve: (id: string, comments?: string) => void;
   reject: (id: string, comments?: string) => void;
   escalate: (id: string, newAssignee: string, newAssigneeName: string) => void;
+  resubmit: (id: string) => void;
   getByAssignee: (userId: string) => ApprovalRequest[];
   getByModule: (module: string) => ApprovalRequest[];
+  /** Register a callback to be invoked whenever any request is approved. */
+  onApprove: (callback: OnApproveCallback) => () => void;
+  /** Register a callback to be invoked whenever any request is rejected. */
+  onReject: (callback: OnRejectCallback) => () => void;
 }
 
 const ApprovalContext = createContext<ApprovalContextValue | null>(null);
@@ -46,6 +62,10 @@ const SEED_APPROVALS: ApprovalRequest[] = [
 export function ApprovalProvider({ children }: { children: ReactNode }) {
   const [requests, setRequests] = useState<ApprovalRequest[]>(SEED_APPROVALS);
 
+  // Callback registries
+  const [approveCallbacks, setApproveCallbacks] = useState<Set<OnApproveCallback>>(() => new Set());
+  const [rejectCallbacks, setRejectCallbacks] = useState<Set<OnRejectCallback>>(() => new Set());
+
   const submit = useCallback((req: Omit<ApprovalRequest, "id" | "createdAt" | "status">) => {
     setRequests((prev) => [
       { ...req, id: `apr-${Date.now()}`, createdAt: new Date().toISOString(), status: "PENDING" },
@@ -54,24 +74,62 @@ export function ApprovalProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const approve = useCallback((id: string, comments?: string) => {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? { ...r, status: "APPROVED" as const, resolvedAt: new Date().toISOString(), comments: comments || r.comments }
-          : r
-      )
-    );
-  }, []);
+    let approvedRequest: ApprovalRequest | undefined;
+
+    setRequests((prev) => {
+      const target = prev.find((r) => r.id === id);
+      // Prevent double-approval: only PENDING or ESCALATED items can be approved
+      if (!target || target.status === "APPROVED") return prev;
+
+      return prev.map((r) => {
+        if (r.id === id) {
+          const updated = { ...r, status: "APPROVED" as const, resolvedAt: new Date().toISOString(), comments: comments || r.comments };
+          approvedRequest = updated;
+          return updated;
+        }
+        return r;
+      });
+    });
+
+    // Fire callbacks asynchronously so state update completes first
+    if (approvedRequest) {
+      const req = approvedRequest;
+      // Use setTimeout to ensure the state update has been committed
+      setTimeout(() => {
+        for (const cb of approveCallbacks) {
+          try { cb(req); } catch { /* ignore callback errors */ }
+        }
+      }, 0);
+    }
+  }, [approveCallbacks]);
 
   const reject = useCallback((id: string, comments?: string) => {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? { ...r, status: "REJECTED" as const, resolvedAt: new Date().toISOString(), comments: comments || r.comments }
-          : r
-      )
-    );
-  }, []);
+    let rejectedRequest: ApprovalRequest | undefined;
+
+    setRequests((prev) => {
+      const target = prev.find((r) => r.id === id);
+      // Prevent double-rejection: only PENDING or ESCALATED items can be rejected
+      if (!target || target.status === "REJECTED") return prev;
+
+      return prev.map((r) => {
+        if (r.id === id) {
+          const updated = { ...r, status: "REJECTED" as const, resolvedAt: new Date().toISOString(), comments: comments || r.comments };
+          rejectedRequest = updated;
+          return updated;
+        }
+        return r;
+      });
+    });
+
+    if (rejectedRequest) {
+      const req = rejectedRequest;
+      setTimeout(() => {
+        for (const cb of rejectCallbacks) {
+          try { cb(req); } catch { /* ignore callback errors */ }
+        }
+      }, 0);
+    }
+  }, [rejectCallbacks]);
 
   const escalate = useCallback((id: string, newAssignee: string, newAssigneeName: string) => {
     setRequests((prev) =>
@@ -80,6 +138,29 @@ export function ApprovalProvider({ children }: { children: ReactNode }) {
           ? { ...r, status: "ESCALATED" as const, assignedTo: newAssignee, assignedToName: newAssigneeName }
           : r
       )
+    );
+  }, []);
+
+  /**
+   * Resubmit a REJECTED approval request, changing its status back to PENDING.
+   * Only works for items with REJECTED status.
+   * Clears the previous resolution timestamp so it can be re-reviewed.
+   */
+  const resubmit = useCallback((id: string) => {
+    setRequests((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        // Only REJECTED items can be resubmitted
+        if (r.status !== "REJECTED") return r;
+        return {
+          ...r,
+          status: "PENDING" as const,
+          resolvedAt: undefined,
+          comments: r.comments
+            ? `${r.comments} | Resubmitted on ${new Date().toISOString().slice(0, 10)}`
+            : `Resubmitted on ${new Date().toISOString().slice(0, 10)}`,
+        };
+      })
     );
   }, []);
 
@@ -93,10 +174,48 @@ export function ApprovalProvider({ children }: { children: ReactNode }) {
     [requests]
   );
 
+  /**
+   * Register a callback that fires whenever an approval request is approved.
+   * Returns an unsubscribe function.
+   */
+  const registerOnApprove = useCallback((callback: OnApproveCallback): (() => void) => {
+    setApproveCallbacks((prev) => {
+      const next = new Set(prev);
+      next.add(callback);
+      return next;
+    });
+    return () => {
+      setApproveCallbacks((prev) => {
+        const next = new Set(prev);
+        next.delete(callback);
+        return next;
+      });
+    };
+  }, []);
+
+  /**
+   * Register a callback that fires whenever an approval request is rejected.
+   * Returns an unsubscribe function.
+   */
+  const registerOnReject = useCallback((callback: OnRejectCallback): (() => void) => {
+    setRejectCallbacks((prev) => {
+      const next = new Set(prev);
+      next.add(callback);
+      return next;
+    });
+    return () => {
+      setRejectCallbacks((prev) => {
+        const next = new Set(prev);
+        next.delete(callback);
+        return next;
+      });
+    };
+  }, []);
+
   const pendingCount = requests.filter((r) => r.status === "PENDING").length;
 
   return (
-    <ApprovalContext.Provider value={{ requests, pendingCount, submit, approve, reject, escalate, getByAssignee, getByModule }}>
+    <ApprovalContext.Provider value={{ requests, pendingCount, submit, approve, reject, escalate, resubmit, getByAssignee, getByModule, onApprove: registerOnApprove, onReject: registerOnReject }}>
       {children}
     </ApprovalContext.Provider>
   );

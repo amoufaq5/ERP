@@ -647,6 +647,12 @@ export class StabilityStore {
     initiatedBy: string;
     notes?: string;
   }): StabilityStudy {
+    if (!data.product?.trim()) throw new Error("Stability study product is required");
+    if (!data.productCode?.trim()) throw new Error("Stability study product code is required");
+    if (!data.batchNumber?.trim()) throw new Error("Stability study batch number is required");
+    if (!data.batchSize?.trim()) throw new Error("Stability study batch size is required");
+    if (!data.packagingType?.trim()) throw new Error("Stability study packaging type is required");
+    if (!data.initiatedBy?.trim()) throw new Error("Stability study initiatedBy is required");
     this.load();
     const now = new Date().toISOString().slice(0, 10);
     const year = new Date().getFullYear();

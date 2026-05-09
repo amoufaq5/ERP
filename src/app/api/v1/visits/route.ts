@@ -37,9 +37,10 @@ export async function GET(req: NextRequest) {
         if (status) where.status = status.toUpperCase();
         if (doctorId) where.doctorId = doctorId;
         if (dateFrom || dateTo) {
-          where.date = {};
-          if (dateFrom) (where.date as any).gte = new Date(dateFrom);
-          if (dateTo) (where.date as any).lte = new Date(dateTo);
+          const dateFilter: Record<string, Date> = {};
+          if (dateFrom) dateFilter.gte = new Date(dateFrom);
+          if (dateTo) dateFilter.lte = new Date(dateTo);
+          where.date = dateFilter;
         }
         if (search) {
           where.OR = [

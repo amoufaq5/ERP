@@ -53,7 +53,7 @@ import {
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import MatchComparison from "@/components/shared/match-comparison";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { matchingStore } from "@/lib/operations/matching-store";
 import type {
   MatchRecord,
@@ -71,22 +71,6 @@ import type {
    ──────────────────────────────────────────────────────────── */
 
 // ── Helpers ─────────────────────────────────────────────────
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-EG", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
-
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-EG", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function statusBadge(status: MatchStatus) {
   const map: Record<MatchStatus, { label: string; variant: string; icon: typeof CheckCircle2 }> = {
@@ -559,7 +543,7 @@ export default function ThreeWayMatchingPage() {
                               )}
                               {exc.resolvedBy && (
                                 <p className="text-xs text-muted-foreground">
-                                  Resolved by {exc.resolvedBy} on {formatDate(exc.resolvedAt)}
+                                  Resolved by {exc.resolvedBy} on {exc.resolvedAt ? formatDate(exc.resolvedAt) : '—'}
                                   {exc.resolutionNotes && ` — ${exc.resolutionNotes}`}
                                 </p>
                               )}

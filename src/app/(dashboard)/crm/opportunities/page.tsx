@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   DollarSign,
   Plus,
@@ -34,7 +34,7 @@ import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { type CRMOpportunity, type OpportunityStage } from "@/lib/data-store";
-import { useCurrentUser } from "@/lib/user-context";
+import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 import { useAuditLogger } from "@/lib/audit-logger";
 import { useNotificationCenter } from "@/lib/notification-context";
 
@@ -110,10 +110,24 @@ const fmtK = (v: number) => `EGP ${(v / 1000).toFixed(0)}K`;
 
 export default function OpportunitiesPage() {
   const store = useApiDataStore();
-  const { user } = useCurrentUser();
+  const { user, getReportsOf } = useCurrentUser();
   const { logAction } = useAuditLogger();
   const { addNotification } = useNotificationCenter();
-  const opportunities = store.crmOpportunities as Opportunity[];
+
+  // Role-based opportunity scoping
+  const opportunities = useMemo(() => {
+    const all = store.crmOpportunities as Opportunity[];
+    // ADMIN / NSM: see all opportunities
+    if (user.role === "ADMIN" || user.role === "NSM") return all;
+    // BUM: see all opportunities (org-wide visibility for managers)
+    if (user.role === "BUM") return all;
+    // DISTRICT_MANAGER / MARKETEER: see opportunities owned by self or reports
+    const teamNames = new Set<string>();
+    teamNames.add(user.name);
+    const reports = getReportsOf(user.id);
+    reports.forEach((r) => teamNames.add(r.name));
+    return all.filter((o) => teamNames.has(o.owner));
+  }, [store.crmOpportunities, user.role, user.id, user.name, getReportsOf]);
   const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
   const [filters, setFilters] = useState<FilterState>({ _search: "", stage: "" });
   const [showFormModal, setShowFormModal] = useState(false);
@@ -218,6 +232,14 @@ export default function OpportunitiesPage() {
   };
 
   const handleFormSubmit = (data: Record<string, unknown>) => {
+    // Validate required fields
+    const title = (data.title as string || "").trim();
+    const account = (data.account as string || "").trim();
+    if (!title || !account) {
+      alert("Title and Account are required.");
+      return;
+    }
+
     if (editingOpp) {
       store.update("crmOpportunities", editingOpp.id, {
         title: data.title as string, account: (data.account as string) || editingOpp.account,
@@ -323,7 +345,7 @@ export default function OpportunitiesPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <PageHeader title="Opportunities Pipeline" description="Track and manage sales opportunities across pipeline stages">
+      <PageHeader title="Opportunities Pipeline" description={`Track and manage sales opportunities across pipeline stages. Viewing as ${ROLE_LABEL[user.role]}.`}>
         <div className="flex items-center gap-2">
           <Button variant={viewMode === "kanban" ? "default" : "outline"} size="sm" onClick={() => setViewMode("kanban")} className="gap-1.5">
             <LayoutGrid className="w-4 h-4" /> Kanban
@@ -410,7 +432,7 @@ export default function OpportunitiesPage() {
                             <span>{opp.owner}</span>
                             <span>{opp.expectedClose}</span>
                           </div>
-                          {nextStage && (
+                          {nextStage && opp.stage !== "CLOSED_WON" && opp.stage !== "CLOSED_LOST" && (
                             <Button variant="ghost" size="sm" className="w-full mt-2 h-7 text-xs gap-1"
                               onClick={(e) => { e.stopPropagation(); handleAdvanceStage(opp); }}>
                               <ArrowRight className="w-3 h-3" /> Move to {STAGE_LABELS[nextStage]}

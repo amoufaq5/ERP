@@ -35,6 +35,7 @@ import StatsCard from "@/components/shared/stats-card";
 import EmptyState from "@/components/shared/empty-state";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { BUYING_LADDER_STAGES, scopeDoctors, type Doctor, type Visit, type AMAccount } from "@/lib/data-store";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
 const CLASSIFICATION_COLORS: Record<string, string> = {
   A: "bg-green-100 text-green-800 border-green-300",
@@ -56,23 +57,6 @@ function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes % 60);
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-EG", {
-    style: "currency",
-    currency: "EGP",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 export default function Customer360Page() {

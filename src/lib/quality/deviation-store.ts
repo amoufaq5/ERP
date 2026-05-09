@@ -868,10 +868,17 @@ export class DeviationStore {
   create(
     data: Omit<Deviation, "id" | "number" | "status" | "isOverdue" | "impactOnProduct">
   ): Deviation {
+    if (!data.title?.trim()) throw new Error("Deviation title is required");
+    if (!data.description?.trim()) throw new Error("Deviation description is required");
+    if (!data.department?.trim()) throw new Error("Deviation department is required");
+    if (!data.area?.trim()) throw new Error("Deviation area is required");
+    if (!data.classification?.trim()) throw new Error("Deviation classification is required");
+    if (!data.dueDate?.trim()) throw new Error("Deviation due date is required");
+    if (isNaN(new Date(data.dueDate).getTime())) throw new Error("Deviation due date is invalid");
     this.load();
     const dev: Deviation = {
       ...data,
-      id: `dev-${Date.now()}`,
+      id: `dev-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       number: this.generateNumber(),
       status: "open",
       impactOnProduct: "potential",

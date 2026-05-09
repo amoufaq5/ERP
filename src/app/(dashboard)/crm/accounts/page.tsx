@@ -245,14 +245,42 @@ export default function AccountsPage() {
   const [detailAccount, setDetailAccount] = useState<Account | null>(null);
 
   // ── Contact state ──
-  const [contacts, setContacts] = useState<Contact[]>(INITIAL_CONTACTS);
+  const [allContacts, setAllContacts] = useState<Contact[]>(INITIAL_CONTACTS);
+
+  // Role-based contact scoping
+  const contacts = useMemo(() => {
+    if (user.role === "ADMIN" || user.role === "NSM") return allContacts;
+    if (user.role === "BUM") return allContacts;
+    const teamNames = new Set<string>();
+    teamNames.add(user.name);
+    const reports = getReportsOf(user.id);
+    reports.forEach((r) => teamNames.add(r.name));
+    return allContacts.filter((c) => teamNames.has(c.owner));
+  }, [allContacts, user.role, user.id, user.name, getReportsOf]);
+
+  const setContacts: React.Dispatch<React.SetStateAction<Contact[]>> = setAllContacts;
   const [contactFilters, setContactFilters] = useState<FilterState>({ _search: "", status: "" });
   const [showContactModal, setShowContactModal] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [detailContact, setDetailContact] = useState<Contact | null>(null);
 
   // ── Ticket state ──
-  const [tickets, setTickets] = useState<SupportTicket[]>(INITIAL_TICKETS);
+  const [allTickets, setAllTickets] = useState<SupportTicket[]>(INITIAL_TICKETS);
+
+  // Role-based ticket scoping
+  const tickets = useMemo(() => {
+    if (user.role === "ADMIN" || user.role === "NSM") return allTickets;
+    if (user.role === "BUM") return allTickets;
+    const teamNames = new Set<string>();
+    teamNames.add(user.name);
+    if (user.role === "DISTRICT_MANAGER" || user.role === "MARKETEER") {
+      const reports = getReportsOf(user.id);
+      reports.forEach((r) => teamNames.add(r.name));
+    }
+    return allTickets.filter((t) => teamNames.has(t.assignedTo));
+  }, [allTickets, user.role, user.id, user.name, getReportsOf]);
+
+  const setTickets: React.Dispatch<React.SetStateAction<SupportTicket[]>> = setAllTickets;
   const [ticketFilters, setTicketFilters] = useState<FilterState>({ _search: "", status: "", priority: "" });
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [editingTicket, setEditingTicket] = useState<SupportTicket | null>(null);
@@ -344,8 +372,13 @@ export default function AccountsPage() {
   const avgResolution = "4.2 hrs";
   const satisfaction = "94%";
 
-  const statusFlow: Record<string, TicketStatus> = {
-    OPEN: "IN_PROGRESS", IN_PROGRESS: "RESOLVED", PENDING: "IN_PROGRESS", RESOLVED: "CLOSED",
+  // Status transition guards: only allow forward transitions; CLOSED cannot be reopened
+  const STATUS_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
+    OPEN: ["IN_PROGRESS"],
+    IN_PROGRESS: ["PENDING", "RESOLVED"],
+    PENDING: ["IN_PROGRESS"],
+    RESOLVED: ["CLOSED"],
+    CLOSED: [],
   };
 
   // ── Account columns ──
@@ -479,7 +512,7 @@ export default function AccountsPage() {
       render: (_v, row) => {
         const tk = tickets.find((x) => x.id === row.id);
         if (!tk) return null;
-        const next = statusFlow[tk.status];
+        const nextStates = STATUS_TRANSITIONS[tk.status] || [];
         return (
           <EditDeleteMenu
             onEdit={() => { setEditingTicket(tk); setShowTicketModal(true); }}
@@ -487,7 +520,10 @@ export default function AccountsPage() {
             onView={() => setDetailTicket(tk)}
             canView
             itemLabel={tk.ticketNumber}
-            extraItems={next ? [{ label: `Move to ${next.replace(/_/g, " ")}`, onClick: () => setTickets((prev) => prev.map((x) => x.id === tk.id ? { ...x, status: next } : x)) }] : []}
+            extraItems={nextStates.map((ns) => ({
+              label: `Move to ${ns.replace(/_/g, " ")}`,
+              onClick: () => setTickets((prev) => prev.map((x) => x.id === tk.id ? { ...x, status: ns } : x)),
+            }))}
           />
         );
       },
@@ -631,10 +667,17 @@ export default function AccountsPage() {
         fields={ACCOUNT_FIELDS}
         initialData={editingAccount ? { name: editingAccount.name, industry: editingAccount.industry, type: editingAccount.type, phone: editingAccount.phone, city: editingAccount.city, revenue: editingAccount.revenue, owner: editingAccount.owner } : undefined}
         onSubmit={(data) => {
+          // Validate required fields
+          const accountName = (data.name as string || "").trim();
+          if (!accountName) {
+            alert("Account Name is required.");
+            return;
+          }
+
           if (editingAccount) {
             setAccounts((prev) => prev.map((a) => a.id === editingAccount.id ? {
               ...a,
-              name: data.name as string,
+              name: accountName,
               industry: (data.industry as Industry) || a.industry,
               type: (data.type as AccountType) || a.type,
               phone: (data.phone as string) || a.phone,
@@ -656,7 +699,7 @@ export default function AccountsPage() {
           } else {
             const newAccount: Account = {
               id: `ACC-${Date.now().toString(36)}`,
-              name: data.name as string,
+              name: accountName,
               industry: (data.industry as Industry) || "Technology",
               type: (data.type as AccountType) || "PROSPECT",
               phone: (data.phone as string) || "",
@@ -734,13 +777,21 @@ export default function AccountsPage() {
         fields={CONTACT_FIELDS}
         initialData={editingContact ? { firstName: editingContact.firstName, lastName: editingContact.lastName, title: editingContact.title, email: editingContact.email, phone: editingContact.phone, account: editingContact.account || "", owner: editingContact.owner } : undefined}
         onSubmit={(data) => {
+          // Validate required fields
+          const firstName = (data.firstName as string || "").trim();
+          const email = (data.email as string || "").trim();
+          if (!firstName || !email) {
+            alert("First Name and Email are required.");
+            return;
+          }
+
           if (editingContact) {
             setContacts((prev) => prev.map((c) => c.id === editingContact.id ? {
               ...c,
-              firstName: data.firstName as string,
+              firstName,
               lastName: (data.lastName as string) || c.lastName,
               title: (data.title as string) || c.title,
-              email: data.email as string,
+              email,
               phone: (data.phone as string) || c.phone,
               account: (data.account as string) || null,
               owner: (data.owner as string) || c.owner,
@@ -759,10 +810,10 @@ export default function AccountsPage() {
           } else {
             const newContact: Contact = {
               id: `CON-${Date.now().toString(36)}`,
-              firstName: data.firstName as string,
+              firstName,
               lastName: (data.lastName as string) || "",
               title: (data.title as string) || "",
-              email: data.email as string,
+              email,
               phone: (data.phone as string) || "",
               account: (data.account as string) || null,
               owner: (data.owner as string) || "Unassigned",
@@ -837,11 +888,19 @@ export default function AccountsPage() {
         fields={TICKET_FIELDS}
         initialData={editingTicket ? { subject: editingTicket.subject, account: editingTicket.account, priority: editingTicket.priority, assignedTo: editingTicket.assignedTo, slaDeadline: editingTicket.slaDeadline } : undefined}
         onSubmit={(data) => {
+          // Validate required fields
+          const subject = (data.subject as string || "").trim();
+          const ticketAccount = (data.account as string || "").trim();
+          if (!subject || !ticketAccount) {
+            alert("Subject and Account are required.");
+            return;
+          }
+
           if (editingTicket) {
             setTickets((prev) => prev.map((tk) => tk.id === editingTicket.id ? {
               ...tk,
-              subject: data.subject as string,
-              account: (data.account as string) || tk.account,
+              subject,
+              account: ticketAccount,
               priority: (data.priority as Priority) || tk.priority,
               assignedTo: (data.assignedTo as string) || tk.assignedTo,
               slaDeadline: (data.slaDeadline as string) || tk.slaDeadline,
@@ -862,8 +921,8 @@ export default function AccountsPage() {
             const newTicket: SupportTicket = {
               id: uniqueId,
               ticketNumber: `TKT-${uniqueId}`,
-              subject: data.subject as string,
-              account: (data.account as string) || "",
+              subject,
+              account: ticketAccount,
               priority: (data.priority as Priority) || "MEDIUM",
               status: "OPEN",
               assignedTo: (data.assignedTo as string) || "Unassigned",

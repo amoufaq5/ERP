@@ -35,7 +35,7 @@ import StatsCard from "@/components/shared/stats-card";
 import PageHeader from "@/components/shared/page-header";
 import CAPAWorkflow from "@/components/shared/capa-workflow";
 import { PieChartWidget, BarChartWidget } from "@/components/shared/charts";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { capaStore } from "@/lib/quality/capa-store";
 import type {
   CAPARecord,
@@ -157,14 +157,6 @@ const ROOT_CAUSE_LABELS: Record<RootCauseMethod, string> = {
 };
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function isOverdue(dueDate: string): boolean {
   return new Date(dueDate) < new Date();

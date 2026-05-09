@@ -622,6 +622,11 @@ export class SPCStore {
     specLimits?: SpecificationLimits;
     manualLimits?: ControlLimits;
   }): SPCChart {
+    if (!data.name?.trim()) throw new Error("SPC chart name is required");
+    if (!data.product?.trim()) throw new Error("SPC chart product is required");
+    if (!data.process?.trim()) throw new Error("SPC chart process is required");
+    if (!data.parameter?.trim()) throw new Error("SPC chart parameter is required");
+    if (!data.unit?.trim()) throw new Error("SPC chart unit is required");
     this.load();
     const now = new Date().toISOString().slice(0, 10);
     const controlLimits = data.manualLimits ?? {

@@ -26,6 +26,7 @@ import { EntityFormModal, type EntityField } from "@/components/shared/entity-fo
 import { FilterBar, type FilterState } from "@/components/shared/filter-bar"
 import DataTable from "@/components/shared/data-table"
 import type { Column } from "@/components/shared/data-table"
+import { formatCurrency } from "@/lib/utils"
 
 const initialStrategicGoals = [
   { id: "SG-001", goal: "Expand APAC Market Presence", owner: "Sarah Chen", department: "Sales", target: "15% revenue share", progress: 72, status: "On Track", deadline: "2026-12-31" },
@@ -116,10 +117,6 @@ const resourceAllocations = [
   { resource: "Mechanical Engineers", department: "R&D", totalFTE: 14, allocated: 12.5, available: 1.5, utilization: 89, topProject: "Robotic Arm v2" },
   { resource: "Customer Success Managers", department: "Customer Support", totalFTE: 9, allocated: 8.0, available: 1.0, utilization: 89, topProject: "Churn Reduction Program" },
 ]
-
-function formatCurrency(value: number) {
-  return `EGP ${value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-}
 
 function getStatusBadge(status: string): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {

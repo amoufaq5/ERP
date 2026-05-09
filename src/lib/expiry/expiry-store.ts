@@ -238,6 +238,10 @@ export class ExpiryStore {
   }
 
   addItem(item: Omit<ExpiryItem, "id" | "daysUntilExpiry" | "status">): ExpiryItem {
+    if (!item.productName?.trim()) throw new Error("Expiry item product name is required");
+    if (!item.batchNumber?.trim()) throw new Error("Expiry item batch number is required");
+    if (!item.expiryDate?.trim()) throw new Error("Expiry item expiry date is required");
+    if (isNaN(new Date(item.expiryDate).getTime())) throw new Error("Expiry item expiry date is invalid");
     const items = this.getItems();
     const days = daysUntil(item.expiryDate);
     const newItem: ExpiryItem = {

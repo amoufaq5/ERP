@@ -180,7 +180,9 @@ function loadTemplates(): WorkflowTemplate[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
-  } catch {}
+  } catch (error) {
+    console.error("Failed to load workflow templates from localStorage:", error);
+  }
   localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(SEED_TEMPLATES));
   return SEED_TEMPLATES;
 }
@@ -193,7 +195,9 @@ function loadInstances(): WorkflowInstance[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
-  } catch {}
+  } catch (error) {
+    console.error("Failed to load workflow instances from localStorage:", error);
+  }
   localStorage.setItem(INSTANCES_STORAGE_KEY, JSON.stringify(SEED_INSTANCES));
   return SEED_INSTANCES;
 }

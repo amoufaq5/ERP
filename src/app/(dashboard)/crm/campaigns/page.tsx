@@ -510,9 +510,16 @@ export default function CampaignsPage() {
         fields={CAMPAIGN_FIELDS}
         initialData={editingCampaign ? { name: editingCampaign.name, type: editingCampaign.type, budget: editingCampaign.budget, startDate: editingCampaign.startDate, endDate: editingCampaign.endDate, owner: editingCampaign.owner } : undefined}
         onSubmit={(data) => {
+          // Validate required fields
+          const campaignName = (data.name as string || "").trim();
+          if (!campaignName) {
+            alert("Campaign Name is required.");
+            return;
+          }
+
           if (editingCampaign) {
             store.update("crmCampaigns", editingCampaign.id, {
-              name: data.name as string,
+              name: campaignName,
               type: (data.type as CampaignType) || editingCampaign.type,
               budget: (data.budget as number) || editingCampaign.budget,
               startDate: (data.startDate as string) || editingCampaign.startDate,
@@ -532,7 +539,6 @@ export default function CampaignsPage() {
             });
           } else {
             const newId = store.genId("camp");
-            const campaignName = data.name as string;
             store.add("crmCampaigns", {
               id: newId,
               name: campaignName,
@@ -641,18 +647,26 @@ export default function CampaignsPage() {
         fields={MEMBER_FIELDS}
         initialData={editingMember ? { name: editingMember.name, account: editingMember.account, program: editingMember.program } : undefined}
         onSubmit={(data) => {
+          // Validate required fields
+          const memberName = (data.name as string || "").trim();
+          const memberAccount = (data.account as string || "").trim();
+          if (!memberName || !memberAccount) {
+            alert("Member Name and Account are required.");
+            return;
+          }
+
           if (editingMember) {
             setMembers((prev) => prev.map((m) => m.id === editingMember.id ? {
               ...m,
-              name: data.name as string,
-              account: (data.account as string) || m.account,
+              name: memberName,
+              account: memberAccount,
               program: (data.program as string) || m.program,
             } : m));
           } else {
             const newMember: LoyaltyMember = {
               id: `LM-${Date.now().toString(36)}`,
-              name: data.name as string,
-              account: (data.account as string) || "",
+              name: memberName,
+              account: memberAccount,
               program: (data.program as string) || INITIAL_PROGRAMS[0].name,
               points: 0,
               tier: "BRONZE",

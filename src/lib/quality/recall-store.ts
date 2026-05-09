@@ -1142,10 +1142,17 @@ class RecallStore {
   }
 
   create(recall: Omit<RecallRecord, "id" | "number">): RecallRecord {
+    if (!recall.product?.trim()) throw new Error("Recall product is required");
+    if (!recall.reason?.trim()) throw new Error("Recall reason is required");
+    if (!recall.description?.trim()) throw new Error("Recall description is required");
+    if (!recall.recallClass?.trim()) throw new Error("Recall class is required");
+    if (!recall.type?.trim()) throw new Error("Recall type is required");
+    if (!recall.priority?.trim()) throw new Error("Recall priority is required");
+    if (!recall.initiatedBy?.trim()) throw new Error("Recall initiatedBy is required");
     const all = this.load();
     const newRecall: RecallRecord = {
       ...recall,
-      id: `rcl-${Date.now()}`,
+      id: `rcl-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       number: this.generateNumber(),
     };
     all.push(newRecall);

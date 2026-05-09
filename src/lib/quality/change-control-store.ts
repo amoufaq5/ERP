@@ -726,10 +726,15 @@ class ChangeControlStore {
   }
 
   create(change: Omit<ChangeRequest, "id" | "number">): ChangeRequest {
+    if (!change.title?.trim()) throw new Error("Change request title is required");
+    if (!change.description?.trim()) throw new Error("Change request description is required");
+    if (!change.category?.trim()) throw new Error("Change request category is required");
+    if (!change.department?.trim()) throw new Error("Change request department is required");
+    if (!change.requestedBy?.trim()) throw new Error("Change request requestedBy is required");
     const all = this.load();
     const newChange: ChangeRequest = {
       ...change,
-      id: `cc-${Date.now()}`,
+      id: `cc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       number: this.generateNumber(),
     };
     all.push(newChange);

@@ -320,11 +320,19 @@ export default function TicketsPage() {
           slaDeadline: editing.slaDeadline,
         } : undefined}
         onSubmit={(data) => {
+          // Validate required fields
+          const subject = (data.subject as string || "").trim();
+          const account = (data.account as string || "").trim();
+          if (!subject || !account) {
+            alert("Subject and Account are required.");
+            return;
+          }
+
           if (editing) {
             store.update("supportTickets", editing.id, {
-              subject: data.subject as string,
+              subject,
               description: (data.description as string) || editing.description,
-              account: (data.account as string) || editing.account,
+              account,
               priority: (data.priority as Priority) || editing.priority,
               assignedTo: (data.assignedTo as string) || editing.assignedTo,
               slaDeadline: (data.slaDeadline as string) || editing.slaDeadline,
@@ -345,9 +353,9 @@ export default function TicketsPage() {
             const newTicket: SupportTicketType = {
               id: newId,
               ticketNumber: `TKT-${newId.toUpperCase()}`,
-              subject: data.subject as string,
+              subject,
               description: (data.description as string) || "",
-              account: (data.account as string) || "",
+              account,
               priority: (data.priority as Priority) || "MEDIUM",
               status: "OPEN",
               assignedTo: (data.assignedTo as string) || "Unassigned",

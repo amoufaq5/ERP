@@ -617,6 +617,9 @@ export class HVACStore {
   }
 
   createUnit(data: Omit<HVACUnit, "id">): HVACUnit {
+    if (!data.name?.trim()) throw new Error("HVAC unit name is required");
+    if (!data.type?.trim()) throw new Error("HVAC unit type is required");
+    if (!data.location?.trim()) throw new Error("HVAC unit location is required");
     this.load();
     const unit: HVACUnit = { ...data, id: uid() };
     this.units.push(unit);

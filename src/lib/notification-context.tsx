@@ -255,6 +255,35 @@ function saveToStorage(notifications: Notification[]) {
 }
 
 // ---------------------------------------------------------------------------
+// Global notification emitter (usable outside React components)
+// ---------------------------------------------------------------------------
+
+type NotificationPayload = Omit<Notification, "id" | "createdAt" | "isRead">;
+type NotificationListener = (n: NotificationPayload) => void;
+
+const _listeners = new Set<NotificationListener>();
+
+/**
+ * Register a listener that will be called whenever `emitNotification` is invoked.
+ * Returns an unsubscribe function.
+ */
+export function subscribeNotifications(listener: NotificationListener): () => void {
+  _listeners.add(listener);
+  return () => { _listeners.delete(listener); };
+}
+
+/**
+ * Fire a notification from anywhere (including non-React code such as
+ * cross-module-actions.ts).  The EnhancedNotificationProvider subscribes
+ * to these events and adds them to the React state / localStorage.
+ */
+export function emitNotification(n: NotificationPayload): void {
+  for (const listener of _listeners) {
+    try { listener(n); } catch { /* ignore broken listeners */ }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
 
@@ -289,6 +318,14 @@ export function EnhancedNotificationProvider({
     },
     []
   );
+
+  // Bridge: subscribe to the global emitter so that notifications fired from
+  // non-React code (e.g. cross-module-actions.ts) appear in the React state.
+  useEffect(() => {
+    return subscribeNotifications((payload) => {
+      addNotification(payload);
+    });
+  }, [addNotification]);
 
   const markAsRead = useCallback((id: string) => {
     setNotifications((prev) =>

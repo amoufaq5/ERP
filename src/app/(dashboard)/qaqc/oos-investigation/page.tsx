@@ -30,7 +30,7 @@ import StatsCard from "@/components/shared/stats-card";
 import PageHeader from "@/components/shared/page-header";
 import OOSWorkflowDiagram from "@/components/shared/oos-workflow-diagram";
 import RootCauseTools from "@/components/shared/root-cause-tools";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import {
   AlertTriangle,
   Search,
@@ -109,14 +109,6 @@ function formatSpec(inv: OOSInvestigation): string {
   const { min, max, unit } = inv.specification;
   if (min === 0) return `NMT ${max}${unit}`;
   return `${min}-${max}${unit}`;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────────

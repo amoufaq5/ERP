@@ -1142,10 +1142,15 @@ class DocumentControlStore {
   create(
     doc: Omit<ControlledDocument, "id" | "documentNumber" | "createdAt" | "updatedAt">
   ): ControlledDocument {
+    if (!doc.title?.trim()) throw new Error("Document title is required");
+    if (!doc.category?.trim()) throw new Error("Document category is required");
+    if (!doc.department?.trim()) throw new Error("Document department is required");
+    if (!doc.description?.trim()) throw new Error("Document description is required");
+    if (!doc.author?.trim()) throw new Error("Document author is required");
     const all = this.load();
     const newDoc: ControlledDocument = {
       ...doc,
-      id: `doc-${Date.now()}`,
+      id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       documentNumber: this.generateNumber(doc.category),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

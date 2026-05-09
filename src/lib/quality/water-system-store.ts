@@ -654,6 +654,8 @@ export class WaterSystemStore {
   }
 
   addReading(data: Omit<WaterReading, "id">): WaterReading {
+    if (!data.pointId?.trim()) throw new Error("Water reading point ID is required");
+    if (!data.parameter?.trim()) throw new Error("Water reading parameter is required");
     this.load();
     const reading: WaterReading = { ...data, id: uid() };
     this.readings.unshift(reading);
@@ -691,6 +693,8 @@ export class WaterSystemStore {
   }
 
   createExcursion(data: Omit<WaterExcursionRecord, "id">): WaterExcursionRecord {
+    if (!data.systemId?.trim()) throw new Error("Excursion system ID is required");
+    if (!data.parameter?.trim()) throw new Error("Excursion parameter is required");
     this.load();
     const excursion: WaterExcursionRecord = { ...data, id: uid() };
     this.excursions.unshift(excursion);

@@ -36,6 +36,8 @@ export interface Product {
   shelfLife?: string;
   storageCondition?: string;
   documents?: ProductDocument[];
+  /** When true the product/batch is on quality hold and must not be sold or consumed. */
+  qualityHold?: boolean;
 }
 
 export interface ProductDocument {

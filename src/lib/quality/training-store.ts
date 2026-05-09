@@ -439,10 +439,13 @@ class TrainingStore {
   }
 
   createRecord(record: Omit<TrainingRecord, "id">): TrainingRecord {
+    if (!record.employeeName?.trim()) throw new Error("Training record employee name is required");
+    if (!record.trainingType?.trim()) throw new Error("Training record training type is required");
+    if (!record.documentTitle?.trim()) throw new Error("Training record document title is required");
     const data = this.load();
     const newRecord: TrainingRecord = {
       ...record,
-      id: `tr-${Date.now()}`,
+      id: `tr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     };
     data.records.push(newRecord);
     this.save(data);
@@ -522,10 +525,13 @@ class TrainingStore {
   }
 
   createSession(session: Omit<TrainingSession, "id">): TrainingSession {
+    if (!session.title?.trim()) throw new Error("Training session title is required");
+    if (!session.scheduledDate?.trim()) throw new Error("Training session scheduled date is required");
+    if (isNaN(new Date(session.scheduledDate).getTime())) throw new Error("Training session scheduled date is invalid");
     const data = this.load();
     const newSession: TrainingSession = {
       ...session,
-      id: `sess-${Date.now()}`,
+      id: `sess-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     };
     data.sessions.push(newSession);
     this.save(data);

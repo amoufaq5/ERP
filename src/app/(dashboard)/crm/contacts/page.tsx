@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Users, Plus, Mail, Phone, Building2, Download, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,7 @@ import StatusBadge from "@/components/shared/status-badge";
 import { downloadCSV } from "@/lib/download";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { type CRMContact } from "@/lib/data-store";
-import { useCurrentUser } from "@/lib/user-context";
+import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 import { useAuditLogger } from "@/lib/audit-logger";
 import { useNotificationCenter } from "@/lib/notification-context";
 
@@ -65,10 +65,24 @@ const FILTER_FIELDS = [
 
 export default function ContactsPage() {
   const store = useApiDataStore();
-  const { user } = useCurrentUser();
+  const { user, getReportsOf } = useCurrentUser();
   const { logAction } = useAuditLogger();
   const { addNotification } = useNotificationCenter();
-  const contacts = store.crmContacts;
+
+  // Role-based contact scoping
+  const contacts = useMemo(() => {
+    const all = store.crmContacts;
+    // ADMIN / NSM: see all contacts
+    if (user.role === "ADMIN" || user.role === "NSM") return all;
+    // BUM: see all contacts (org-wide visibility)
+    if (user.role === "BUM") return all;
+    // DISTRICT_MANAGER / MARKETEER: see contacts owned by self or reports
+    const teamNames = new Set<string>();
+    teamNames.add(user.name);
+    const reports = getReportsOf(user.id);
+    reports.forEach((r) => teamNames.add(r.name));
+    return all.filter((c) => teamNames.has(c.owner));
+  }, [store.crmContacts, user.role, user.id, user.name, getReportsOf]);
   const [filters, setFilters] = useState<FilterState>({ _search: "", status: "", account: "" });
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingContact, setEditingContact] = useState<CRMContact | null>(null);
@@ -92,6 +106,14 @@ export default function ContactsPage() {
 
   // ── CRUD handlers ──
   const handleSubmit = (data: EntityFormData) => {
+    // Validate required fields
+    const firstName = (data.firstName as string || "").trim();
+    const email = (data.email as string || "").trim();
+    if (!firstName || !email) {
+      alert("First Name and Email are required.");
+      return;
+    }
+
     if (editingContact) {
       store.update("crmContacts", editingContact.id, {
         firstName: data.firstName as string,
@@ -256,7 +278,7 @@ export default function ContactsPage() {
   return (
     <div className="p-6 space-y-6">
       {/* ── Header ── */}
-      <PageHeader title="Contacts" description="Manage your contact directory">
+      <PageHeader title="Contacts" description={`Manage your contact directory. Viewing as ${ROLE_LABEL[user.role]}.`}>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={handleExport} className="gap-2">
             <Download className="w-4 h-4" /> Export CSV

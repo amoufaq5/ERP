@@ -714,10 +714,16 @@ class AuditStore {
   }
 
   create(audit: Omit<Audit, "id" | "number">): Audit {
+    if (!audit.title?.trim()) throw new Error("Audit title is required");
+    if (!audit.type?.trim()) throw new Error("Audit type is required");
+    if (!audit.scope?.trim()) throw new Error("Audit scope is required");
+    if (!audit.department?.trim()) throw new Error("Audit department is required");
+    if (!audit.scheduledDate?.trim()) throw new Error("Audit scheduled date is required");
+    if (isNaN(new Date(audit.scheduledDate).getTime())) throw new Error("Audit scheduled date is invalid");
     const data = this.load();
     const newAudit: Audit = {
       ...audit,
-      id: `a-${Date.now()}`,
+      id: `a-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       number: this.generateNumber(),
     };
     data.audits.push(newAudit);
@@ -799,7 +805,7 @@ class AuditStore {
     if (idx === -1) return undefined;
     const newFinding: AuditFinding = {
       ...finding,
-      id: `f-${Date.now()}`,
+      id: `f-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       findingNumber: this.generateFindingNumber(),
       auditId,
       auditNumber: data.audits[idx].number,
