@@ -27,6 +27,11 @@ import {
   ChevronUp,
   Eye,
   Bell,
+  Briefcase,
+  ClipboardList,
+  GraduationCap,
+  Settings2,
+  Lightbulb,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +50,8 @@ import {
   type PlannedVisitCategory,
   type PlannedVisitOutcome,
   type ApprovalEntry,
+  type WorkType,
+  type OfficeActivityType,
 } from "@/lib/data-store";
 import { useCurrentUser } from "@/lib/user-context";
 import { useNotificationCenter } from "@/lib/notification-context";
@@ -105,6 +112,24 @@ const ESCALATION_CHAIN_LABELS: Record<string, string> = {
   DISTRICT_MANAGER: "DM",
   BUM: "BUM",
 };
+
+const OFFICE_ACTIVITY_OPTIONS: { value: OfficeActivityType; label: string; icon: typeof Briefcase }[] = [
+  { value: "TEAM_MEETING", label: "Team Meeting", icon: Users },
+  { value: "REPORT_PREPARATION", label: "Report Preparation", icon: ClipboardList },
+  { value: "TRAINING_SESSION", label: "Training Session", icon: GraduationCap },
+  { value: "ADMINISTRATIVE_TASK", label: "Administrative Task", icon: Settings2 },
+  { value: "STRATEGY_PLANNING", label: "Strategy Planning", icon: Lightbulb },
+];
+
+const OFFICE_ACTIVITY_LABELS: Record<OfficeActivityType, string> = {
+  TEAM_MEETING: "Team Meeting",
+  REPORT_PREPARATION: "Report Preparation",
+  TRAINING_SESSION: "Training Session",
+  ADMINISTRATIVE_TASK: "Administrative Task",
+  STRATEGY_PLANNING: "Strategy Planning",
+};
+
+const FIELD_ONLY_ROLES = ["MEDICAL_REP"] as const;
 
 /* ─── Conflict Detection Helpers ─── */
 interface PlanConflict {
@@ -232,7 +257,16 @@ export default function WeeklyPlanPage() {
 
   const isRep = user.role === "MEDICAL_REP";
   const isManager = ["DISTRICT_MANAGER", "MARKETEER", "BUM", "ADMIN"].includes(user.role);
+  const isDM = user.role === "DISTRICT_MANAGER";
+  const isFieldOnly = (FIELD_ONLY_ROLES as readonly string[]).includes(user.role);
   const repsUnderMe = getReportsOf(user.id).map((u) => u.id);
+
+  const pendingRepPlans = useMemo(() => {
+    if (!isDM) return [];
+    return store.weeklyPlans.filter(
+      (p) => p.status === "SUBMITTED" && repsUnderMe.includes(p.repId) && p.repId !== user.id
+    );
+  }, [store.weeklyPlans, isDM, repsUnderMe, user.id]);
 
   const myPlans = useMemo(() => {
     if (isRep) return store.weeklyPlans.filter((p) => p.repId === user.id);
@@ -314,6 +348,7 @@ export default function WeeklyPlanPage() {
   }, []);
 
   function createNewPlan() {
+    const defaultDayWorkType: WorkType = isFieldOnly ? "FIELD" : "FIELD";
     const newPlan: WeeklyPlan = {
       id: store.genId("wp"),
       repId: user.id,
@@ -323,6 +358,7 @@ export default function WeeklyPlanPage() {
         startingPointAM: myStartingPoints.find((s) => s.type === "AM")?.id,
         startingPointPM: myStartingPoints.find((s) => s.type === "PM")?.id,
         visits: [],
+        dayWorkType: defaultDayWorkType,
       })),
       status: "DRAFT",
       createdAt: new Date().toISOString(),
@@ -822,6 +858,7 @@ export default function WeeklyPlanPage() {
       <PlanEditor
         plan={editing}
         store={store}
+        allUsers={allUsers}
         onClose={() => setEditing(null)}
         onSave={(days) => {
           if (editing) updatePlanDays(editing.id, days);
@@ -1080,6 +1117,18 @@ function PlanCard({
                       {d.visits.length}/{MAX_VISITS_PER_DAY}
                     </p>
                   )}
+                  {(() => {
+                    const dblCount = d.visits.filter((v) => v.visitType === "DOUBLE").length;
+                    const trpCount = d.visits.filter((v) => v.visitType === "TRIPLE").length;
+                    if (dblCount === 0 && trpCount === 0) return null;
+                    return (
+                      <p className="text-[9px] text-blue-600 font-medium">
+                        {dblCount > 0 && `${dblCount}D`}
+                        {dblCount > 0 && trpCount > 0 && " "}
+                        {trpCount > 0 && `${trpCount}T`}
+                      </p>
+                    );
+                  })()}
                   {dayConflicts.length > 0 && (
                     <p className="text-[9px] text-yellow-700 font-medium">{dayConflicts.length} issue{dayConflicts.length !== 1 ? "s" : ""}</p>
                   )}
@@ -1246,11 +1295,13 @@ function ApprovalAuditTrail({ history }: { history: ApprovalEntry[] }) {
 function PlanEditor({
   plan,
   store,
+  allUsers,
   onClose,
   onSave,
 }: {
   plan: WeeklyPlan | null;
   store: ReturnType<typeof useApiDataStore>;
+  allUsers: ReturnType<typeof useCurrentUser>["allUsers"];
   onClose: () => void;
   onSave: (days: DailyPlan[]) => void;
 }) {
@@ -1321,6 +1372,9 @@ function PlanEditor({
     label: `${d.name} — ${d.hospital}${d.isKOL ? " ★KOL" : ""}`,
     value: d.id,
   }));
+  const seniorUsers = allUsers.filter((u) =>
+    ["DISTRICT_MANAGER", "MARKETEER", "BUM"].includes(u.role)
+  );
 
   return (
     <Dialog open={!!plan} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -1486,11 +1540,20 @@ function PlanEditor({
                               <select
                                 className="w-full rounded border p-1 text-xs"
                                 value={v.visitType}
-                                onChange={(e) => updateVisit(dayIdx, vIdx, { visitType: e.target.value as "SINGLE" | "DOUBLE" })}
+                                onChange={(e) => {
+                                  const newType = e.target.value as "SINGLE" | "DOUBLE" | "TRIPLE";
+                                  const patch: Partial<PlannedVisit> = { visitType: newType };
+                                  if (newType === "SINGLE") {
+                                    patch.partnerId = undefined;
+                                    patch.partnerIds = undefined;
+                                  }
+                                  updateVisit(dayIdx, vIdx, patch);
+                                }}
                                 disabled={isReadonly}
                               >
                                 <option value="SINGLE">Single</option>
                                 <option value="DOUBLE">Double</option>
+                                <option value="TRIPLE">Triple</option>
                               </select>
                             </div>
                             {/* Check-in time */}
@@ -1566,7 +1629,62 @@ function PlanEditor({
                               )}
                             </div>
                           </div>
-                          {/* Enhancement 5: Short visit duration reason */}
+                          {(v.visitType === "DOUBLE" || v.visitType === "TRIPLE") && (
+                            <div className="mt-1.5 flex items-center gap-2 p-1.5 rounded border border-blue-200 bg-blue-50/50">
+                              <Users className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                              <div className="flex items-center gap-2 flex-1 flex-wrap text-xs">
+                                <label className="text-[10px] font-medium text-blue-800 shrink-0">Partner 1:</label>
+                                {!isReadonly ? (
+                                  <select
+                                    className="rounded border p-1 text-[10px] min-w-[140px]"
+                                    value={v.partnerId ?? ""}
+                                    onChange={(e) => updateVisit(dayIdx, vIdx, { partnerId: e.target.value || undefined })}
+                                  >
+                                    <option value="">— Select —</option>
+                                    {seniorUsers.map((su) => (
+                                      <option key={su.id} value={su.id}>{su.name} ({su.role.replace("_", " ")})</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <span className="text-[10px] text-blue-700 font-medium">
+                                    {v.partnerId ? (allUsers.find((u) => u.id === v.partnerId)?.name ?? "—") : "—"}
+                                  </span>
+                                )}
+                                {v.visitType === "TRIPLE" && (
+                                  <>
+                                    <label className="text-[10px] font-medium text-blue-800 shrink-0">Partner 2:</label>
+                                    {!isReadonly ? (
+                                      <select
+                                        className="rounded border p-1 text-[10px] min-w-[140px]"
+                                        value={v.partnerIds?.[0] ?? ""}
+                                        onChange={(e) => updateVisit(dayIdx, vIdx, { partnerIds: e.target.value ? [e.target.value] : [] })}
+                                      >
+                                        <option value="">— Select —</option>
+                                        {seniorUsers
+                                          .filter((su) => su.id !== v.partnerId)
+                                          .map((su) => (
+                                            <option key={su.id} value={su.id}>{su.name} ({su.role.replace("_", " ")})</option>
+                                          ))}
+                                      </select>
+                                    ) : (
+                                      <span className="text-[10px] text-blue-700 font-medium">
+                                        {v.partnerIds?.[0] ? (allUsers.find((u) => u.id === v.partnerIds![0])?.name ?? "—") : "—"}
+                                      </span>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {(v.visitType === "DOUBLE" || v.visitType === "TRIPLE") && isReadonly && (v.partnerId || (v.partnerIds && v.partnerIds.length > 0)) && (
+                            <div className="mt-0.5 flex items-center gap-1 pl-8 text-[10px] text-blue-700">
+                              <Users className="h-2.5 w-2.5" />
+                              {v.partnerId && <span>{allUsers.find((u) => u.id === v.partnerId)?.name}</span>}
+                              {v.partnerIds && v.partnerIds.length > 0 && v.partnerIds.map((pid) => (
+                                <span key={pid}>, {allUsers.find((u) => u.id === pid)?.name}</span>
+                              ))}
+                            </div>
+                          )}
                           {dur !== null && dur < MIN_VISIT_DURATION_MIN && (
                             <div className="mt-1.5 flex items-start gap-2 p-1.5 rounded border border-orange-300 bg-orange-50">
                               <AlertTriangle className="h-3.5 w-3.5 text-orange-600 shrink-0 mt-0.5" />

@@ -188,7 +188,7 @@ export interface StartingPoint {
 }
 
 // ─── Visit ──────────────────────────────────────────────────────────────────
-export type VisitType = "SINGLE" | "DOUBLE";
+export type VisitType = "SINGLE" | "DOUBLE" | "TRIPLE";
 export type VisitStatus = "LOGGED" | "APPROVED" | "REJECTED";
 
 export interface SampleGiven {
@@ -211,6 +211,7 @@ export interface Visit {
   dateTime: string;
   type: VisitType;
   partnerId?: string;
+  partnerIds?: string[];
   durationMin: number;
   productIds: string[];
   samplesGiven: SampleGiven[];
@@ -236,6 +237,15 @@ export type PlanStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
 export type PlannedVisitCategory = "planned" | "unplanned" | "follow-up";
 export type PlannedVisitOutcome = "successful" | "follow-up needed" | "no show" | "pending";
 
+export type WorkType = "FIELD" | "OFFICE";
+
+export type OfficeActivityType =
+  | "TEAM_MEETING"
+  | "REPORT_PREPARATION"
+  | "TRAINING_SESSION"
+  | "ADMINISTRATIVE_TASK"
+  | "STRATEGY_PLANNING";
+
 export interface PlannedVisit {
   doctorId?: string;
   amAccountId?: string;
@@ -243,12 +253,15 @@ export interface PlannedVisit {
   session: "AM" | "PM";
   visitType: VisitType;
   partnerId?: string;
+  partnerIds?: string[];
   notes?: string;
   checkInTime?: string;
   checkOutTime?: string;
   category?: PlannedVisitCategory;
   outcome?: PlannedVisitOutcome;
   shortDurationReason?: string;
+  workType?: WorkType;
+  officeActivityType?: OfficeActivityType;
 }
 
 export interface DailyPlan {
@@ -256,6 +269,7 @@ export interface DailyPlan {
   startingPointAM?: string;
   startingPointPM?: string;
   visits: PlannedVisit[];
+  dayWorkType?: WorkType;
 }
 
 export type ApprovalAction = "SUBMITTED" | "APPROVED" | "REJECTED" | "ESCALATED" | "AUTO_ESCALATED";

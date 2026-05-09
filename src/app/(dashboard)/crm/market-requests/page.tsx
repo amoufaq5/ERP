@@ -170,7 +170,8 @@ const SLA_DAYS: Record<string, number> = {
 const APPROVAL_CHAIN = [
   { level: 0, role: "MEDICAL_REP", label: "Medical Rep", action: "Submit" },
   { level: 1, role: "DISTRICT_MANAGER", label: "District Manager", action: "Level 1" },
-  { level: 2, role: "BUM", label: "BUM", action: "Level 2" },
+  { level: 2, role: "MARKETEER", label: "Marketeer", action: "Level 2" },
+  { level: 3, role: "BUM", label: "BUM", action: "Level 3" },
 ] as const;
 
 // ─── Request Value Limits ────────────────────────────────────────────────────
@@ -186,18 +187,17 @@ const MONTHLY_QUOTA_REP = 10;
 const MONTHLY_QUOTA_MANAGER = 25; // DM
 // BUM and ADMIN are unlimited
 
-/**
- * Determine which approval levels are required for a given request.
- * Returns the max level needed (1 = DM only, 2 = DM+BUM).
- */
 function getRequiredApprovalLevel(type: string, amount?: number, discountPercent?: number): number {
-  if (type === "EVENT") return 2;
+  if (type === "EVENT") return 3;
   if (type === "DOCTOR_EDIT") return 1;
-  if (type === "DISCOUNT" && (discountPercent ?? 0) > 15) return 2;
+  if (type === "DISCOUNT" && (discountPercent ?? 0) > 15) return 3;
   if (type === "DISCOUNT") return 1;
-  if (type === "LITERATURE") return 1;
-  if (type === "SAMPLE" && (amount ?? 0) >= 5000) return 2;
+  if (type === "LITERATURE") return 2;
+  if (type === "SAMPLE" && (amount ?? 0) >= 5000) return 3;
+  if (type === "SAMPLE" && (amount ?? 0) >= 2000) return 2;
   if (type === "SAMPLE") return 1;
+  if ((amount ?? 0) >= 10000) return 3;
+  if ((amount ?? 0) >= 5000) return 2;
   return 1;
 }
 
@@ -328,6 +328,7 @@ export default function MarketRequestsPage() {
   const canApprove =
     user.role === "ADMIN" ||
     user.role === "BUM" ||
+    user.role === "MARKETEER" ||
     user.role === "DISTRICT_MANAGER";
 
   // ─── Audit trail helpers ────────────────────────────────────────────────
@@ -1969,11 +1970,11 @@ export default function MarketRequestsPage() {
             <CardHeader>
               <CardTitle className="text-base">Approval Workflow</CardTitle>
               <CardDescription>
-                Multi-level approval chain: Medical Rep → DM → BUM
+                Multi-level approval chain: Medical Rep → DM → Marketeer → BUM
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-4">
                 {[
                   {
                     level: 0,
@@ -1998,6 +1999,16 @@ export default function MarketRequestsPage() {
                   },
                   {
                     level: 2,
+                    label: "Marketeer",
+                    desc: "Second-line approval (medium value)",
+                    count: myRequests.filter(
+                      (r) =>
+                        r.status === "PENDING" && getRequiredApprovalLevel(r.type, r.amount, (r as MarketRequestExt).discountPercent) >= 2
+                    ).length,
+                    bg: "bg-purple-50",
+                  },
+                  {
+                    level: 3,
                     label: "BUM",
                     desc: "Final approval (high-value/priority)",
                     count: myRequests.filter(
@@ -2028,6 +2039,8 @@ export default function MarketRequestsPage() {
                 <span className="font-medium">Medical Rep</span>
                 <ArrowRight className="h-3 w-3" />
                 <span className="font-medium">DM</span>
+                <ArrowRight className="h-3 w-3" />
+                <span className="font-medium">Marketeer</span>
                 <ArrowRight className="h-3 w-3" />
                 <span className="font-medium">BUM</span>
               </div>

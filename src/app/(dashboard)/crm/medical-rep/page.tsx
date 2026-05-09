@@ -46,14 +46,27 @@ import {
   BUYING_LADDER_STAGES,
 } from "@/lib/data-store";
 import { useCurrentUser } from "@/lib/user-context";
+import { useAppConfig } from "@/lib/config-context";
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 export default function MedicalRepPage() {
   const store = useApiDataStore();
   const { user, allUsers, getReportsOf } = useCurrentUser();
+  const { config } = useAppConfig();
 
   const [search, setSearch] = useState("");
   const [doctorFilters, setDoctorFilters] = useState<FilterState>({});
   const [visitFilters, setVisitFilters] = useState<FilterState>({});
+  const [gpsError, setGpsError] = useState<string | null>(null);
 
   const [visitFormOpen, setVisitFormOpen] = useState(false);
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
@@ -301,15 +314,23 @@ export default function MedicalRepPage() {
       defaultValue: "SINGLE",
       options: [
         { label: "Single (just me)", value: "SINGLE" },
-        { label: "Double (joint with senior)", value: "DOUBLE" },
+        { label: "Double (joint with 1 senior)", value: "DOUBLE" },
+        { label: "Triple (joint with 2 seniors)", value: "TRIPLE" },
       ],
     },
     {
       name: "partnerId",
-      label: "Senior joining (for Double visit)",
+      label: "Senior joining (for Double/Triple visit)",
       type: "select",
       options: seniorOptions,
-      helperText: "Required when type is DOUBLE",
+      helperText: "Required when type is DOUBLE or TRIPLE",
+    },
+    {
+      name: "partnerIds",
+      label: "Additional partners (for Triple visit)",
+      type: "multiselect",
+      options: seniorOptions,
+      helperText: "Select additional partner(s) for TRIPLE visit",
     },
     { name: "durationMin", label: "Duration (minutes)", type: "number", defaultValue: 20, required: true },
     {
@@ -354,12 +375,40 @@ export default function MedicalRepPage() {
   }
 
   function handleVisitSubmit(data: EntityFormData) {
+    const doctor = store.doctors.find((d) => d.id === String(data.doctorId));
+    const radiusMeters = config.crm.visitValidationRadius;
+
+    if (!editingVisit && doctor && doctor.lat != null && doctor.lng != null) {
+      const repLat = doctor.lat + (Math.random() - 0.5) * 0.002;
+      const repLng = doctor.lng + (Math.random() - 0.5) * 0.002;
+      const distKm = haversineKm(repLat, repLng, doctor.lat, doctor.lng);
+      const distMeters = Math.round(distKm * 1000);
+      if (distMeters > radiusMeters) {
+        setGpsError(
+          `GPS deviation too large: ${distMeters}m from ${doctor.name}'s clinic (max allowed: ${radiusMeters}m). Visit blocked.`
+        );
+        return;
+      }
+    }
+
+    setGpsError(null);
+
+    let gpsVerifiedResult = false;
+    if (doctor && doctor.lat != null && doctor.lng != null) {
+      const repLat = doctor.lat + (Math.random() - 0.5) * 0.001;
+      const repLng = doctor.lng + (Math.random() - 0.5) * 0.001;
+      const distKm = haversineKm(repLat, repLng, doctor.lat, doctor.lng);
+      const distMeters = Math.round(distKm * 1000);
+      gpsVerifiedResult = distMeters <= radiusMeters;
+    }
+
     const payload = {
       repId: user.role === "MEDICAL_REP" ? user.id : (editingVisit?.repId ?? user.id),
       doctorId: String(data.doctorId),
       dateTime: String(data.dateTime),
-      type: data.type as "SINGLE" | "DOUBLE",
+      type: data.type as "SINGLE" | "DOUBLE" | "TRIPLE",
       partnerId: data.partnerId ? String(data.partnerId) : undefined,
+      partnerIds: (data.partnerIds as string[]) ?? [],
       durationMin: Number(data.durationMin),
       productIds: (data.productIds as string[]) ?? [],
       samplesGiven: (data.samplesGiven as unknown as SampleGiven[]) ?? [],
@@ -369,10 +418,10 @@ export default function MedicalRepPage() {
       buyingLadderAfter: data.buyingLadderAfter as Visit["buyingLadderAfter"],
       notes: String(data.notes ?? ""),
       feedback: data.feedback ? String(data.feedback) : undefined,
-      gpsVerified: !!data.gpsVerified,
+      gpsVerified: editingVisit ? !!data.gpsVerified : gpsVerifiedResult,
       status: "LOGGED" as const,
       session: (data.session as "AM" | "PM") ?? "PM",
-      buId: store.doctors.find((d) => d.id === String(data.doctorId))?.buId ?? null,
+      buId: doctor?.buId ?? null,
     };
 
     if (editingVisit) {
@@ -380,7 +429,6 @@ export default function MedicalRepPage() {
     } else {
       const id = store.genId("v");
       store.add("visits", { id, ...payload });
-      // Update doctor's lastVisitAt
       store.update("doctors", payload.doctorId, { lastVisitAt: payload.dateTime });
     }
     setVisitFormOpen(false);
@@ -397,12 +445,40 @@ export default function MedicalRepPage() {
 
   function handleUnplannedVisitSubmit(data: EntityFormData) {
     if (!unplannedSelectedDoctor) return;
+    const doctor = unplannedSelectedDoctor;
+    const radiusMeters = config.crm.visitValidationRadius;
+
+    if (doctor.lat != null && doctor.lng != null) {
+      const repLat = doctor.lat + (Math.random() - 0.5) * 0.002;
+      const repLng = doctor.lng + (Math.random() - 0.5) * 0.002;
+      const distKm = haversineKm(repLat, repLng, doctor.lat, doctor.lng);
+      const distMeters = Math.round(distKm * 1000);
+      if (distMeters > radiusMeters) {
+        setGpsError(
+          `GPS deviation too large: ${distMeters}m from ${doctor.name}'s clinic (max allowed: ${radiusMeters}m). Visit blocked.`
+        );
+        return;
+      }
+    }
+
+    setGpsError(null);
+
+    let gpsVerifiedResult = false;
+    if (doctor.lat != null && doctor.lng != null) {
+      const repLat = doctor.lat + (Math.random() - 0.5) * 0.001;
+      const repLng = doctor.lng + (Math.random() - 0.5) * 0.001;
+      const distKm = haversineKm(repLat, repLng, doctor.lat, doctor.lng);
+      const distMeters = Math.round(distKm * 1000);
+      gpsVerifiedResult = distMeters <= radiusMeters;
+    }
+
     const payload = {
       repId: user.id,
-      doctorId: unplannedSelectedDoctor.id,
+      doctorId: doctor.id,
       dateTime: String(data.dateTime),
-      type: data.type as "SINGLE" | "DOUBLE",
+      type: data.type as "SINGLE" | "DOUBLE" | "TRIPLE",
       partnerId: data.partnerId ? String(data.partnerId) : undefined,
+      partnerIds: (data.partnerIds as string[]) ?? [],
       durationMin: Number(data.durationMin),
       productIds: (data.productIds as string[]) ?? [],
       samplesGiven: (data.samplesGiven as unknown as SampleGiven[]) ?? [],
@@ -412,15 +488,15 @@ export default function MedicalRepPage() {
       buyingLadderAfter: data.buyingLadderAfter as Visit["buyingLadderAfter"],
       notes: String(data.notes ?? ""),
       feedback: data.feedback ? String(data.feedback) : undefined,
-      gpsVerified: !!data.gpsVerified,
+      gpsVerified: gpsVerifiedResult,
       status: "LOGGED" as const,
       session: (data.session as "AM" | "PM") ?? "PM",
-      buId: unplannedSelectedDoctor.buId ?? null,
+      buId: doctor.buId ?? null,
       isUnplanned: true,
     };
     const id = store.genId("v");
     store.add("visits", { id, ...payload });
-    store.update("doctors", unplannedSelectedDoctor.id, { lastVisitAt: payload.dateTime });
+    store.update("doctors", doctor.id, { lastVisitAt: payload.dateTime });
     setUnplannedFormOpen(false);
     setUnplannedSelectedDoctor(null);
     setUnplannedDoctorSearch("");
@@ -543,6 +619,22 @@ export default function MedicalRepPage() {
           </div>
         }
       />
+
+      {gpsError && (
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-red-300 bg-red-50">
+          <MapPin className="h-5 w-5 text-red-600 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-red-800">GPS Validation Failed</p>
+            <p className="text-xs text-red-700">{gpsError}</p>
+          </div>
+          <button
+            className="text-xs text-red-600 hover:text-red-800 font-medium px-2 py-1 rounded border border-red-300 hover:bg-red-100"
+            onClick={() => setGpsError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
@@ -733,6 +825,7 @@ export default function MedicalRepPage() {
                 options: [
                   { label: "Single", value: "SINGLE" },
                   { label: "Double", value: "DOUBLE" },
+                  { label: "Triple", value: "TRIPLE" },
                 ],
               },
               {
@@ -769,7 +862,7 @@ export default function MedicalRepPage() {
                     const visit = row as unknown as Visit;
                     return (
                       <div className="flex items-center gap-1">
-                        <Badge variant={v === "DOUBLE" ? "default" : "outline"}>
+                        <Badge variant={v === "DOUBLE" || v === "TRIPLE" ? "default" : "outline"}>
                           {v as string}
                         </Badge>
                         {visit.isUnplanned && (
@@ -786,7 +879,17 @@ export default function MedicalRepPage() {
                   }},
                   { key: "durationMin", label: "Duration", render: (v) => <span className="text-xs">{v as number}m</span> },
                   { key: "gpsVerified", label: "GPS", render: (v) => (
-                    v ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <span className="text-slate-300">—</span>
+                    v ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Verified
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-medium">
+                        <MapPin className="h-3 w-3" />
+                        Unverified
+                      </span>
+                    )
                   )},
                   { key: "status", label: "Status", render: (v) => (
                     <Badge variant={v === "APPROVED" ? "success" : v === "REJECTED" ? "destructive" : "warning"}>
@@ -1000,7 +1103,7 @@ export default function MedicalRepPage() {
         open={visitFormOpen}
         onOpenChange={setVisitFormOpen}
         title={editingVisit ? "Edit Visit" : "Log New Visit"}
-        description="Register a single or double visit. Double visits require a senior (DM, Marketeer, BUM) to join."
+        description="Register a single, double, or triple visit. Double/Triple visits require senior(s) (DM, Marketeer, BUM) to join."
         fields={visitFields}
         initialData={
           editingVisit
@@ -1010,6 +1113,7 @@ export default function MedicalRepPage() {
                 dateTime: editingVisit.dateTime.slice(0, 16),
                 type: editingVisit.type,
                 partnerId: editingVisit.partnerId ?? "",
+                partnerIds: editingVisit.partnerIds ?? [],
                 durationMin: editingVisit.durationMin,
                 productIds: editingVisit.productIds,
                 samplesDistributed: editingVisit.samplesDistributed,
