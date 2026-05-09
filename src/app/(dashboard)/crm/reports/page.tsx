@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback } from "react";
 import { useCurrentUser } from "@/lib/user-context";
+import { useApiDataStore } from "@/lib/api/use-api-store";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { Button } from "@/components/ui/button";
@@ -462,6 +463,25 @@ function scaleMetrics(p: FieldForcePerson, days: number): FieldForcePerson {
 
 export default function CRMReportsPage() {
   const { user, getReportsOf } = useCurrentUser();
+  const store = useApiDataStore();
+
+  const storeVisits = store.visits ?? [];
+  const storeDoctors = store.doctors ?? [];
+  const storeEmployees = store.employees ?? [];
+
+  const storeMetrics = useMemo(() => {
+    const totalDoctors = storeDoctors.length;
+    const totalVisits = storeVisits.length;
+    const gpsVerifiedPct = totalVisits > 0
+      ? Math.round((storeVisits.filter((v) => v.gpsVerified).length / totalVisits) * 100)
+      : 0;
+    const avgDuration = totalVisits > 0
+      ? Math.round(storeVisits.reduce((s, v) => s + v.durationMin, 0) / totalVisits)
+      : 0;
+    const doubleVisits = storeVisits.filter((v) => v.type === "DOUBLE").length;
+    const uniqueReps = new Set(storeVisits.map((v) => v.repId)).size;
+    return { totalDoctors, totalVisits, gpsVerifiedPct, avgDuration, doubleVisits, uniqueReps };
+  }, [storeVisits, storeDoctors]);
 
   // ── Role-based filtering of fieldForce data ──
   const myTeamFieldForce = useMemo(() => {
@@ -650,15 +670,18 @@ export default function CRMReportsPage() {
 
   const summary = useMemo(() => {
     const reps = scaledFieldForce.filter((p) => p.role === "MEDICAL_REP");
+    const localDoctors = reps.reduce((s, r) => s + r.doctorsAssigned, 0);
+    const localCovered = reps.reduce((s, r) => s + r.doctorsCovered, 0);
+    const localVisits = reps.reduce((s, r) => s + r.visitsThisMonth, 0);
     return {
-      totalDoctors: reps.reduce((s, r) => s + r.doctorsAssigned, 0),
-      totalCovered: reps.reduce((s, r) => s + r.doctorsCovered, 0),
-      totalVisits: reps.reduce((s, r) => s + r.visitsThisMonth, 0),
+      totalDoctors: storeMetrics.totalDoctors > 0 ? Math.max(localDoctors, storeMetrics.totalDoctors) : localDoctors,
+      totalCovered: storeMetrics.totalDoctors > 0 ? Math.max(localCovered, storeMetrics.totalDoctors) : localCovered,
+      totalVisits: storeMetrics.totalVisits > 0 ? Math.max(localVisits, storeMetrics.totalVisits) : localVisits,
       avgAchievement: Math.round(
         scaledFieldForce.reduce((s, p) => s + p.achievementPct, 0) / scaledFieldForce.length
       ),
     };
-  }, [scaledFieldForce]);
+  }, [scaledFieldForce, storeMetrics]);
 
   const selected = selectedId ? scaledFieldForce.find((p) => p.id === selectedId) : null;
 
@@ -848,7 +871,7 @@ export default function CRMReportsPage() {
         <StatsCard
           title="Visits MTD"
           value={summary.totalVisits.toLocaleString()}
-          subtitle="GPS-validated"
+          subtitle={`${storeMetrics.gpsVerifiedPct}% GPS verified · ${storeMetrics.avgDuration} min avg`}
           icon={MapPin}
           iconColor="bg-purple-100 text-purple-700"
           change={6.8}
@@ -1343,6 +1366,11 @@ export default function CRMReportsPage() {
                     {myTeamFieldForce.filter((p) => p.role === "MEDICAL_REP").map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
+                    {storeEmployees
+                      .filter((e) => e.department === "Sales" && !myTeamFieldForce.some((p) => p.id === e.id))
+                      .map((e) => (
+                        <option key={e.id} value={e.id}>{e.name}</option>
+                      ))}
                   </select>
                 </div>
                 <div className="space-y-1.5">
