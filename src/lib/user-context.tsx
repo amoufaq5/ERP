@@ -14,16 +14,17 @@ export interface AppUser {
   role: UserRole;
   department: string;
   territory?: string;
+  managerId?: string;
 }
 
 // Default demo users — admin can edit per-user nav overrides via settings
 export const DEMO_USERS: AppUser[] = [
   { id: "u-admin", name: "System Administrator", email: "admin@pharma.com", role: "ADMIN", department: "IT" },
   { id: "u-nsm", name: "Eng. Tarek Mansour", email: "tarek@pharma.com", role: "NSM", department: "Sales & Marketing" },
-  { id: "u-bum", name: "Dr. Hossam Tarek", email: "hossam@pharma.com", role: "BUM", department: "Executive" },
-  { id: "u-mkt-1", name: "Dr. Yasmin Salem", email: "yasmin@pharma.com", role: "MARKETEER", department: "Marketing", territory: "North Region" },
-  { id: "u-dm-1", name: "Ahmed Mostafa", email: "ahmed.m@pharma.com", role: "DISTRICT_MANAGER", department: "Sales", territory: "Cairo North" },
-  { id: "u-rep-1", name: "Mohamed El-Sayed", email: "mohamed@pharma.com", role: "MEDICAL_REP", department: "Sales", territory: "Giza" },
+  { id: "u-bum", name: "Dr. Hossam Tarek", email: "hossam@pharma.com", role: "BUM", department: "Executive", managerId: "u-nsm" },
+  { id: "u-mkt-1", name: "Dr. Yasmin Salem", email: "yasmin@pharma.com", role: "MARKETEER", department: "Marketing", territory: "North Region", managerId: "u-bum" },
+  { id: "u-dm-1", name: "Ahmed Mostafa", email: "ahmed.m@pharma.com", role: "DISTRICT_MANAGER", department: "Sales", territory: "Cairo North", managerId: "u-mkt-1" },
+  { id: "u-rep-1", name: "Mohamed El-Sayed", email: "mohamed@pharma.com", role: "MEDICAL_REP", department: "Sales", territory: "Giza", managerId: "u-dm-1" },
   { id: "u-acc-1", name: "Fatima El-Masry", email: "fatima@pharma.com", role: "ACCOUNTANT", department: "Finance" },
   { id: "u-wh-1", name: "Khaled Farouk", email: "khaled@pharma.com", role: "WAREHOUSE", department: "Warehouse" },
   { id: "u-hr-1", name: "Laila Abdel-Rahman", email: "laila@pharma.com", role: "HR", department: "Human Resources" },
@@ -195,9 +196,27 @@ export function UserProvider({ children }: { children: ReactNode }) {
     });
   }
 
-  function getReportsOf(managerId: string): AppUser[] {
-    const manager = allUsers.find((u) => u.id === managerId);
+  function getReportsOf(mgrId: string): AppUser[] {
+    const manager = allUsers.find((u) => u.id === mgrId);
     if (!manager) return [];
+
+    // Direct reports: users whose managerId points to this manager
+    const directReports = allUsers.filter((u) => u.managerId === mgrId);
+
+    // If we have explicit managerId links, walk the full tree
+    if (directReports.length > 0) {
+      const result: AppUser[] = [...directReports];
+      const queue = directReports.map((u) => u.id);
+      while (queue.length > 0) {
+        const parentId = queue.shift()!;
+        const children = allUsers.filter((u) => u.managerId === parentId && !result.includes(u));
+        result.push(...children);
+        queue.push(...children.map((u) => u.id));
+      }
+      return result;
+    }
+
+    // Fallback: role-based hierarchy for users without managerId
     if (manager.role === "NSM") {
       return allUsers.filter(
         (u) =>
@@ -207,9 +226,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
           u.role === "MEDICAL_REP"
       );
     }
-    if (manager.role === "DISTRICT_MANAGER") {
+    if (manager.role === "BUM") {
       return allUsers.filter(
-        (u) => u.role === "MEDICAL_REP" && u.department === manager.department
+        (u) =>
+          u.role === "MARKETEER" ||
+          u.role === "DISTRICT_MANAGER" ||
+          u.role === "MEDICAL_REP"
       );
     }
     if (manager.role === "MARKETEER") {
@@ -217,12 +239,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         (u) => u.role === "DISTRICT_MANAGER" || u.role === "MEDICAL_REP"
       );
     }
-    if (manager.role === "BUM") {
+    if (manager.role === "DISTRICT_MANAGER") {
       return allUsers.filter(
-        (u) =>
-          u.role === "MARKETEER" ||
-          u.role === "DISTRICT_MANAGER" ||
-          u.role === "MEDICAL_REP"
+        (u) => u.role === "MEDICAL_REP" && u.department === manager.department
       );
     }
     return [];
