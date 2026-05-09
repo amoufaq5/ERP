@@ -71,6 +71,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 import { useAppConfig } from "@/lib/config-context";
@@ -2523,10 +2524,21 @@ function HRDashboard() {
 
 // ─── Router ─────────────────────────────────────────────────────────────────
 
+function NSMRedirect() {
+  const router = useRouter();
+  useEffect(() => { router.replace("/crm/nsm"); }, [router]);
+  return (
+    <div className="flex items-center justify-center h-64">
+      <p className="text-muted-foreground">Redirecting to NSM Dashboard...</p>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { user } = useCurrentUser();
   switch (user.role) {
     case "ADMIN": return <AdminDashboard />;
+    case "NSM": return <NSMRedirect />;
     case "BUM": return <BUMDashboard />;
     case "MARKETEER": return <MarketeerDashboard />;
     case "DISTRICT_MANAGER": return <DistrictManagerDashboard />;
