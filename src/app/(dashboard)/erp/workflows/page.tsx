@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   GitBranch,
   Play,
@@ -84,6 +84,9 @@ interface WorkflowInstance {
 
 // ── Seed data ──────────────────────────────────────────────────────────────
 
+const TEMPLATES_STORAGE_KEY = "pharma.erp.workflow-templates";
+const INSTANCES_STORAGE_KEY = "pharma.erp.workflow-instances";
+
 const SEED_TEMPLATES: WorkflowTemplate[] = [
   {
     id: "wf-invoice",
@@ -126,20 +129,6 @@ const SEED_TEMPLATES: WorkflowTemplate[] = [
     activeInstances: 1,
   },
   {
-    id: "wf-sales",
-    name: "Sales Order Pipeline",
-    description: "Validate sales orders through credit and stock checks before confirmation.",
-    steps: [
-      { name: "Draft", role: "Sales Rep", actionType: "process" },
-      { name: "Credit Check", role: "Finance", actionType: "review" },
-      { name: "Stock Check", role: "Warehouse", actionType: "review" },
-      { name: "Confirmed", role: "Sales Manager", actionType: "approve" },
-      { name: "Dispatched", role: "System", actionType: "notify" },
-    ],
-    active: false,
-    activeInstances: 0,
-  },
-  {
     id: "wf-visit",
     name: "Visit Approval",
     description: "Medical rep visit logs reviewed and approved by district managers.",
@@ -150,46 +139,6 @@ const SEED_TEMPLATES: WorkflowTemplate[] = [
     ],
     active: true,
     activeInstances: 4,
-  },
-  {
-    id: "wf-expense",
-    name: "Expense Approval",
-    description: "Expense claims routed through management and finance for reimbursement.",
-    steps: [
-      { name: "Submit", role: "Employee", actionType: "process" },
-      { name: "DM Approval", role: "District Manager", actionType: "approve" },
-      { name: "Finance Review", role: "Finance", actionType: "approve" },
-      { name: "Reimbursement", role: "System", actionType: "notify" },
-    ],
-    active: false,
-    activeInstances: 0,
-  },
-  {
-    id: "wf-doctor",
-    name: "New Doctor Listing",
-    description: "Add new doctors to the directory with verification by DM and marketing.",
-    steps: [
-      { name: "Rep Request", role: "Medical Rep", actionType: "process" },
-      { name: "DM Verify", role: "District Manager", actionType: "review" },
-      { name: "Marketing Approval", role: "Marketing", actionType: "approve" },
-      { name: "Added", role: "System", actionType: "notify" },
-    ],
-    active: true,
-    activeInstances: 1,
-  },
-  {
-    id: "wf-launch",
-    name: "Product Launch",
-    description: "End-to-end product launch workflow from planning through distribution.",
-    steps: [
-      { name: "Planning", role: "Product Manager", actionType: "process" },
-      { name: "Regulatory", role: "Regulatory Affairs", actionType: "review" },
-      { name: "Manufacturing", role: "Production", actionType: "process" },
-      { name: "Distribution", role: "Supply Chain", actionType: "approve" },
-      { name: "Launched", role: "System", actionType: "notify" },
-    ],
-    active: false,
-    activeInstances: 0,
   },
 ];
 
@@ -221,34 +170,43 @@ const SEED_INSTANCES: WorkflowInstance[] = [
     status: "Active",
     startedAt: "2026-04-29T08:00:00Z",
   },
-  {
-    id: "inst-4",
-    workflowId: "wf-visit",
-    workflowName: "Visit Approval",
-    initiatedBy: "Sara Mahmoud",
-    currentStep: 1,
-    status: "Active",
-    startedAt: "2026-04-30T10:45:00Z",
-  },
-  {
-    id: "inst-5",
-    workflowId: "wf-invoice",
-    workflowName: "Invoice Approval",
-    initiatedBy: "Khaled Ibrahim",
-    currentStep: 3,
-    status: "Completed",
-    startedAt: "2026-04-25T11:20:00Z",
-  },
-  {
-    id: "inst-6",
-    workflowId: "wf-doctor",
-    workflowName: "New Doctor Listing",
-    initiatedBy: "Nour El-Din",
-    currentStep: 2,
-    status: "Rejected",
-    startedAt: "2026-04-26T16:00:00Z",
-  },
 ];
+
+function loadTemplates(): WorkflowTemplate[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(TEMPLATES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(SEED_TEMPLATES));
+  return SEED_TEMPLATES;
+}
+
+function loadInstances(): WorkflowInstance[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(INSTANCES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  localStorage.setItem(INSTANCES_STORAGE_KEY, JSON.stringify(SEED_INSTANCES));
+  return SEED_INSTANCES;
+}
+
+function saveTemplates(templates: WorkflowTemplate[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+}
+
+function saveInstances(instances: WorkflowInstance[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(INSTANCES_STORAGE_KEY, JSON.stringify(instances));
+}
 
 const ROLE_OPTIONS = [
   "Employee",
@@ -283,9 +241,32 @@ const ACTION_TYPES: WorkflowStep["actionType"][] = [
 
 export default function WorkflowsPage() {
   const [tab, setTab] = useState("templates");
-  const [templates, setTemplates] = useState<WorkflowTemplate[]>(SEED_TEMPLATES);
-  const [instances, setInstances] = useState<WorkflowInstance[]>(SEED_INSTANCES);
+  const [templates, setTemplatesRaw] = useState<WorkflowTemplate[]>([]);
+  const [instances, setInstancesRaw] = useState<WorkflowInstance[]>([]);
+  const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    setTemplatesRaw(loadTemplates());
+    setInstancesRaw(loadInstances());
+    setMounted(true);
+  }, []);
+
+  const setTemplates = useCallback((updater: WorkflowTemplate[] | ((prev: WorkflowTemplate[]) => WorkflowTemplate[])) => {
+    setTemplatesRaw((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      saveTemplates(next);
+      return next;
+    });
+  }, []);
+
+  const setInstances = useCallback((updater: WorkflowInstance[] | ((prev: WorkflowInstance[]) => WorkflowInstance[])) => {
+    setInstancesRaw((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      saveInstances(next);
+      return next;
+    });
+  }, []);
   const [instanceSearch, setInstanceSearch] = useState("");
 
   // Custom builder dialog state (also used for edit)
@@ -548,6 +529,8 @@ export default function WorkflowsPage() {
   // ════════════════════════════════════════════════════════════════════════
   // Render
   // ════════════════════════════════════════════════════════════════════════
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-6 p-6">
