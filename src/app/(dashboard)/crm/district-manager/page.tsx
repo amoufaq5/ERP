@@ -11,11 +11,13 @@ import {
   Stethoscope,
   MapPin,
   Plus,
+  UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import DataTable from "@/components/shared/data-table";
 import type { Column } from "@/components/shared/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -45,6 +47,11 @@ export default function DistrictManagerPage() {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>({});
   const [viewRep, setViewRep] = useState<any>(null);
+  const [registerDoubleOpen, setRegisterDoubleOpen] = useState(false);
+  const [doubleVisitRepId, setDoubleVisitRepId] = useState("");
+  const [doubleVisitDoctorId, setDoubleVisitDoctorId] = useState("");
+  const [doubleVisitType, setDoubleVisitType] = useState<"DOUBLE" | "TRIPLE">("DOUBLE");
+  const [doubleVisitNotes, setDoubleVisitNotes] = useState("");
 
   // My reps (team)
   const myReps = useMemo(() => {
@@ -116,6 +123,48 @@ export default function DistrictManagerPage() {
     });
   }
 
+  const doubleTripleVisits = useMemo(() => {
+    return myVisits.filter(
+      (v) => v.type === "DOUBLE" || v.type === "TRIPLE"
+    ).sort((a, b) => (b.dateTime > a.dateTime ? 1 : -1));
+  }, [myVisits]);
+
+  function handleRegisterDoubleVisit() {
+    if (!doubleVisitRepId || !doubleVisitDoctorId) return;
+    const doctor = store.doctors.find((d) => d.id === doubleVisitDoctorId);
+    const id = store.genId("v");
+    store.add("visits", {
+      id,
+      repId: doubleVisitRepId,
+      doctorId: doubleVisitDoctorId,
+      dateTime: new Date().toISOString(),
+      type: doubleVisitType,
+      partnerId: user.id,
+      partnerIds: [],
+      durationMin: 30,
+      productIds: [],
+      samplesGiven: [],
+      samplesDistributed: 0,
+      activityRequests: [],
+      notes: doubleVisitNotes || `${doubleVisitType} visit registered by DM`,
+      gpsVerified: false,
+      status: "LOGGED" as const,
+      session: "PM" as const,
+      buId: doctor?.buId ?? null,
+    });
+    store.update("doctors", doubleVisitDoctorId, { lastVisitAt: new Date().toISOString() });
+    setRegisterDoubleOpen(false);
+    setDoubleVisitRepId("");
+    setDoubleVisitDoctorId("");
+    setDoubleVisitType("DOUBLE");
+    setDoubleVisitNotes("");
+  }
+
+  const repDoctors = useMemo(() => {
+    if (!doubleVisitRepId) return [];
+    return store.doctors.filter((d) => d.assignedRepId === doubleVisitRepId);
+  }, [doubleVisitRepId, store.doctors]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -143,6 +192,10 @@ export default function DistrictManagerPage() {
           <TabsTrigger value="requests">
             <ClipboardList className="h-3.5 w-3.5 mr-1.5" />
             Pending Requests ({pendingRequests.length})
+          </TabsTrigger>
+          <TabsTrigger value="double-triple">
+            <UserCheck className="h-3.5 w-3.5 mr-1.5" />
+            Double/Triple Visits ({doubleTripleVisits.length})
           </TabsTrigger>
         </TabsList>
 

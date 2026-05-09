@@ -259,7 +259,13 @@ export default function WeeklyPlanPage() {
   const isManager = ["DISTRICT_MANAGER", "MARKETEER", "BUM", "ADMIN"].includes(user.role);
   const isDM = user.role === "DISTRICT_MANAGER";
   const isFieldOnly = (FIELD_ONLY_ROLES as readonly string[]).includes(user.role);
+  const canMixWorkTypes = !isFieldOnly;
   const repsUnderMe = getReportsOf(user.id).map((u) => u.id);
+
+  const myPendingApprovalPlan = useMemo(() => {
+    if (!isRep) return null;
+    return store.weeklyPlans.find((p) => p.repId === user.id && p.status === "SUBMITTED") ?? null;
+  }, [store.weeklyPlans, isRep, user.id]);
 
   const pendingRepPlans = useMemo(() => {
     if (!isDM) return [];
@@ -348,7 +354,7 @@ export default function WeeklyPlanPage() {
   }, []);
 
   function createNewPlan() {
-    const defaultDayWorkType: WorkType = isFieldOnly ? "FIELD" : "FIELD";
+    const defaultDayWorkType: WorkType = "FIELD";
     const newPlan: WeeklyPlan = {
       id: store.genId("wp"),
       repId: user.id,
@@ -622,6 +628,41 @@ export default function WeeklyPlanPage() {
           </div>
           <Button size="sm" variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-100" onClick={() => setAutoEscalationAlert(0)}>
             Dismiss
+          </Button>
+        </div>
+      )}
+
+      {isRep && myPendingApprovalPlan && (
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-amber-300 bg-amber-50">
+          <Clock className="h-5 w-5 text-amber-600 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-800">Pending Approval</p>
+            <p className="text-xs text-amber-700">
+              Your weekly plan for {fmtDate(myPendingApprovalPlan.weekStartDate)} has been submitted and is awaiting DM approval. You cannot execute this plan until it is approved.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {isDM && pendingRepPlans.length > 0 && (
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-blue-300 bg-blue-50">
+          <ClipboardList className="h-5 w-5 text-blue-600 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-blue-800">
+              {pendingRepPlans.length} Rep Plan{pendingRepPlans.length !== 1 ? "s" : ""} Awaiting Your Approval
+            </p>
+            <p className="text-xs text-blue-700">
+              {pendingRepPlans.map((p) => {
+                const rep = allUsers.find((u) => u.id === p.repId);
+                return rep?.name ?? p.repId;
+              }).join(", ")}
+            </p>
+          </div>
+          <Button size="sm" variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100" onClick={() => {
+            const tabTrigger = document.querySelector('[data-value="approvals"]') as HTMLElement | null;
+            tabTrigger?.click();
+          }}>
+            Review
           </Button>
         </div>
       )}
