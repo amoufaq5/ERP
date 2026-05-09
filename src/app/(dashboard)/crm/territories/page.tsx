@@ -26,6 +26,7 @@ import {
   type Territory,
 } from "@/lib/data-store";
 import { useCurrentUser } from "@/lib/user-context";
+import { useAuditLogger } from "@/lib/audit-logger";
 
 const LEVEL_COLORS: Record<Territory["level"], string> = {
   region: "bg-red-100 text-red-800",
@@ -51,6 +52,7 @@ const LEVEL_ICONS: Record<Territory["level"], typeof Globe> = {
 export default function TerritoriesPage() {
   const store = useApiDataStore();
   const { user, allUsers } = useCurrentUser();
+  const { logAction } = useAuditLogger();
   const canEdit = user.role === "ADMIN" || user.role === "BUM" || user.role === "MARKETEER";
 
   const [activeTab, setActiveTab] = useState<"hierarchy" | "optimization">("hierarchy");
@@ -146,10 +148,23 @@ export default function TerritoriesPage() {
         parentId: data.parentId ? String(data.parentId) : null,
         geoShare: data.geoShare ? Number(data.geoShare) : undefined,
       });
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "UPDATE",
+        module: "CRM",
+        entity: "Territory",
+        entityId: editing.id,
+        entityName: editing.name,
+        details: `Updated territory ${editing.name}`,
+      });
     } else {
+      const newId = store.genId("ter");
+      const territoryName = String(data.name);
       store.add("territories", {
-        id: store.genId("ter"),
-        name: String(data.name),
+        id: newId,
+        name: territoryName,
         nameAr: String(data.nameAr),
         level: String(data.level) as Territory["level"],
         parentId: data.parentId ? String(data.parentId) : null,
@@ -158,6 +173,17 @@ export default function TerritoriesPage() {
         assignedRepIds: [],
         assignedBUIds: [],
       } as Territory);
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "CREATE",
+        module: "CRM",
+        entity: "Territory",
+        entityId: newId,
+        entityName: territoryName,
+        details: `Created territory ${territoryName}`,
+      });
     }
     setFormOpen(false);
     setEditing(null);
@@ -594,6 +620,17 @@ export default function TerritoriesPage() {
                         </Button>
                         <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => {
                           store.remove("territories", selectedTerritory.id);
+                          logAction({
+                            userId: user.id,
+                            userName: user.name,
+                            userRole: user.role,
+                            action: "DELETE",
+                            module: "CRM",
+                            entity: "Territory",
+                            entityId: selectedTerritory.id,
+                            entityName: selectedTerritory.name,
+                            details: `Deleted territory ${selectedTerritory.name}`,
+                          });
                           setSelectedTerritory(null);
                         }}>
                           <Trash2 className="h-3 w-3 mr-1" /> Delete

@@ -18,6 +18,8 @@ import { useTranslation } from "@/lib/i18n/i18n-context";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 import { type CRMCampaign, type CampaignType, type CampaignStatus } from "@/lib/data-store";
+import { useAuditLogger } from "@/lib/audit-logger";
+import { useNotificationCenter } from "@/lib/notification-context";
 
 type Campaign = CRMCampaign;
 
@@ -170,6 +172,8 @@ export default function CampaignsPage() {
   const { t } = useTranslation();
   const store = useApiDataStore();
   const { user } = useCurrentUser();
+  const { logAction } = useAuditLogger();
+  const { addNotification } = useNotificationCenter();
 
   // Role-based campaign scoping
   // ADMIN / NSM / BUM / MARKETEER: see all campaigns (org-wide)
@@ -260,8 +264,45 @@ export default function CampaignsPage() {
             canView
             itemLabel={c.name}
             extraItems={[
-              ...(next ? [{ label: `Set ${next}`, onClick: () => store.update("crmCampaigns", c.id, { status: next }) }] : []),
-              ...(c.status === "ACTIVE" ? [{ label: "Complete", onClick: () => store.update("crmCampaigns", c.id, { status: "COMPLETED" }) }] : []),
+              ...(next ? [{ label: `Set ${next}`, onClick: () => {
+                store.update("crmCampaigns", c.id, { status: next });
+                logAction({
+                  userId: user.id,
+                  userName: user.name,
+                  userRole: user.role,
+                  action: "UPDATE",
+                  module: "CRM",
+                  entity: "Campaign",
+                  entityId: c.id,
+                  entityName: c.name,
+                  details: `Changed campaign ${c.name} status from ${c.status} to ${next}`,
+                });
+                if (next === "ACTIVE") {
+                  addNotification({
+                    type: "SUCCESS",
+                    title: "Campaign Launched",
+                    message: `Campaign "${c.name}" is now active`,
+                    module: "CRM",
+                    entityType: "Campaign",
+                    entityId: c.id,
+                    actionUrl: "/crm/campaigns",
+                  });
+                }
+              } }] : []),
+              ...(c.status === "ACTIVE" ? [{ label: "Complete", onClick: () => {
+                store.update("crmCampaigns", c.id, { status: "COMPLETED" });
+                logAction({
+                  userId: user.id,
+                  userName: user.name,
+                  userRole: user.role,
+                  action: "UPDATE",
+                  module: "CRM",
+                  entity: "Campaign",
+                  entityId: c.id,
+                  entityName: c.name,
+                  details: `Completed campaign ${c.name}`,
+                });
+              } }] : []),
             ]}
           />
         );
@@ -478,10 +519,23 @@ export default function CampaignsPage() {
               endDate: (data.endDate as string) || editingCampaign.endDate,
               owner: (data.owner as string) || editingCampaign.owner,
             });
+            logAction({
+              userId: user.id,
+              userName: user.name,
+              userRole: user.role,
+              action: "UPDATE",
+              module: "CRM",
+              entity: "Campaign",
+              entityId: editingCampaign.id,
+              entityName: editingCampaign.name,
+              details: `Updated campaign ${editingCampaign.name}`,
+            });
           } else {
+            const newId = store.genId("camp");
+            const campaignName = data.name as string;
             store.add("crmCampaigns", {
-              id: store.genId("camp"),
-              name: data.name as string,
+              id: newId,
+              name: campaignName,
               type: (data.type as CampaignType) || "EMAIL",
               status: "DRAFT",
               budget: (data.budget as number) || 0,
@@ -491,6 +545,26 @@ export default function CampaignsPage() {
               startDate: (data.startDate as string) || new Date().toISOString().split("T")[0],
               endDate: (data.endDate as string) || "",
               owner: (data.owner as string) || "Unassigned",
+            });
+            logAction({
+              userId: user.id,
+              userName: user.name,
+              userRole: user.role,
+              action: "CREATE",
+              module: "CRM",
+              entity: "Campaign",
+              entityId: newId,
+              entityName: campaignName,
+              details: `Created campaign ${campaignName}`,
+            });
+            addNotification({
+              type: "INFO",
+              title: "New Campaign Created",
+              message: `Campaign "${campaignName}" has been created as draft`,
+              module: "CRM",
+              entityType: "Campaign",
+              entityId: newId,
+              actionUrl: "/crm/campaigns",
             });
           }
           setShowCampaignModal(false);

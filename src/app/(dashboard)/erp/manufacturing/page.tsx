@@ -332,7 +332,9 @@ export default function ManufacturingPage() {
     if (editingWo) {
       setWorkOrders((prev) => prev.map((w) => w.id === editingWo.id ? { ...w, bomId: woBomId, bomName: bom?.name || w.bomName, productCode: bom?.productCode || w.productCode, quantity: woQuantity, priority: woPriority, status: woStatus, startDate: woStartDate, endDate: woEndDate, assignedTo: woAssignedTo, notes: woNotes || undefined, materials, materialsIssued: w.materialsIssued } : w));
     } else {
-      setWorkOrders((prev) => [...prev, { id: genId("wo"), bomId: woBomId, bomName: bom?.name || "—", productCode: bom?.productCode || "", quantity: woQuantity, priority: woPriority, status: "PLANNED" as const, startDate: woStartDate, endDate: woEndDate, assignedTo: woAssignedTo, notes: woNotes || undefined, materials, materialsIssued: false }]);
+      const newWo = { id: genId("wo"), bomId: woBomId, bomName: bom?.name || "—", productCode: bom?.productCode || "", quantity: woQuantity, priority: woPriority, status: "PLANNED" as const, startDate: woStartDate, endDate: woEndDate, assignedTo: woAssignedTo, notes: woNotes || undefined, materials, materialsIssued: false };
+      setWorkOrders((prev) => [...prev, newWo]);
+      crossModule.onWorkOrderValidateMaterials(newWo);
     }
     setWoFormOpen(false); setEditingWo(null);
   }

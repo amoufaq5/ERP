@@ -17,6 +17,7 @@ import { downloadCSV } from "@/lib/download";
 import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import { useNotificationCenter } from "@/lib/notification-context";
+import { useAuditLogger } from "@/lib/audit-logger";
 import { useApiDataStore } from "@/lib/api/use-api-store";
 import { useCurrentUser, ROLE_LABEL } from "@/lib/user-context";
 import { type SupportTicket as SupportTicketType, type TicketPriority as Priority, type TicketStatus } from "@/lib/data-store";
@@ -121,6 +122,7 @@ function getSlaInfo(slaDeadline: string, status: TicketStatus): { label: string;
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function TicketsPage() {
   const { addNotification } = useNotificationCenter();
+  const { logAction } = useAuditLogger();
   const store = useApiDataStore();
   const { user, allUsers, getReportsOf } = useCurrentUser();
 
@@ -182,6 +184,19 @@ export default function TicketsPage() {
     const ticket = tickets.find((t) => t.id === id);
     store.update("supportTickets", id, { status: newStatus });
     setDetailTicket((prev) => (prev && prev.id === id ? { ...prev, status: newStatus } : prev));
+    if (ticket) {
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "UPDATE",
+        module: "CRM",
+        entity: "Ticket",
+        entityId: id,
+        entityName: ticket.ticketNumber,
+        details: `Changed ticket ${ticket.ticketNumber} status from ${ticket.status} to ${newStatus}`,
+      });
+    }
     if (newStatus === "RESOLVED" && ticket) {
       addNotification({
         type: "SUCCESS",
@@ -314,6 +329,17 @@ export default function TicketsPage() {
               assignedTo: (data.assignedTo as string) || editing.assignedTo,
               slaDeadline: (data.slaDeadline as string) || editing.slaDeadline,
             });
+            logAction({
+              userId: user.id,
+              userName: user.name,
+              userRole: user.role,
+              action: "UPDATE",
+              module: "CRM",
+              entity: "Ticket",
+              entityId: editing.id,
+              entityName: editing.ticketNumber,
+              details: `Updated ticket ${editing.ticketNumber}`,
+            });
           } else {
             const newId = store.genId("tkt");
             const newTicket: SupportTicketType = {
@@ -329,6 +355,17 @@ export default function TicketsPage() {
               createdAt: new Date().toISOString().split("T")[0],
             };
             store.add("supportTickets", newTicket);
+            logAction({
+              userId: user.id,
+              userName: user.name,
+              userRole: user.role,
+              action: "CREATE",
+              module: "CRM",
+              entity: "Ticket",
+              entityId: newId,
+              entityName: newTicket.ticketNumber,
+              details: `Created ticket ${newTicket.ticketNumber}: ${newTicket.subject}`,
+            });
             addNotification({
               type: "INFO",
               title: "New Ticket Created",

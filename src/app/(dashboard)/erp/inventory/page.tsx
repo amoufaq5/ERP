@@ -31,6 +31,7 @@ import type { Column } from "@/components/shared/data-table";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 import { useNotificationCenter } from "@/lib/notification-context";
 import { useAuditLogger } from "@/lib/audit-logger";
+import { useCrossModuleActions } from "@/lib/cross-module-actions";
 
 /* ─── Types ──────────────────────────────────────────────────────── */
 
@@ -188,6 +189,7 @@ export default function InventoryPage() {
   const { config } = useAppConfig();
   const store = useApiDataStore();
   const { t } = useTranslation();
+  const crossModule = useCrossModuleActions();
   const [tab, setTab] = useState<Tab>("raw");
 
   const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>(SEED_RM);
@@ -248,6 +250,7 @@ export default function InventoryPage() {
           entityId: rm.id,
           actionUrl: "/erp/inventory",
         });
+        crossModule.onLowStockDetected({ id: rm.id, code: rm.code, name: rm.name, quantityKg: rm.quantityKg, reorderLevel: rm.reorderLevel });
       }
     });
 
@@ -263,6 +266,7 @@ export default function InventoryPage() {
           entityId: fc.productCode,
           actionUrl: "/erp/inventory",
         });
+        crossModule.onLowStockDetected({ id: fc.id, code: fc.productCode, name: fc.product, currentStock: fc.currentStock, reorderPoint: fc.reorderPoint, unit: fc.unit });
       }
     });
 
@@ -573,6 +577,10 @@ export default function InventoryPage() {
         oldValues: { quantityKg: oldQty },
         newValues: { quantityKg: payload.quantityKg },
       });
+      // Check if stock fell below reorder level after update
+      if (payload.quantityKg < payload.reorderLevel) {
+        crossModule.onLowStockDetected({ id: editingRm.id, code: payload.code, name: payload.name, quantityKg: payload.quantityKg, reorderLevel: payload.reorderLevel });
+      }
     } else {
       const newId = genId("rm");
       setRawMaterials((prev) => [...prev, { id: newId, ...payload }]);

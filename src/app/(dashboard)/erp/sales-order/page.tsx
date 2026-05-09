@@ -751,6 +751,11 @@ export default function SalesOrderPage() {
                                 <ArrowRight className="h-3 w-3 mr-1" /> Submit for Approval
                               </Button>
                             )}
+                            {so.status === "PENDING_APPROVAL" && (
+                              <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => approveSO(so)}>
+                                <CheckCircle className="h-3 w-3 mr-1" /> Approve
+                              </Button>
+                            )}
                             {so.status === "PREPARING" && (
                               <Button size="sm" className="h-7 text-xs bg-cyan-600 hover:bg-cyan-700" onClick={() => markShipped(so)}>
                                 <Truck className="h-3 w-3 mr-1" /> Mark Shipped
