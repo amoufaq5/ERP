@@ -1846,6 +1846,7 @@ export function scopeDoctors(
   repsUnderMe: string[] = []
 ): Doctor[] {
   if (role === "ADMIN") return allDoctors;
+  if (role === "ACCOUNTANT" || role === "WAREHOUSE" || role === "HR") return [];
   if (role === "MEDICAL_REP") return allDoctors.filter((d) => d.assignedRepId === userId);
   if (role === "DISTRICT_MANAGER") {
     return allDoctors.filter(
@@ -1876,6 +1877,7 @@ export function scopeVisits(
   repsUnderMe: string[] = []
 ): Visit[] {
   if (role === "ADMIN" || role === "NSM") return allVisits;
+  if (role === "ACCOUNTANT" || role === "WAREHOUSE" || role === "HR") return [];
   if (role === "MEDICAL_REP") return allVisits.filter((v) => v.repId === userId);
   if (role === "DISTRICT_MANAGER") {
     return allVisits.filter((v) => repsUnderMe.includes(v.repId) || v.partnerId === userId || v.repId === userId);
@@ -1906,6 +1908,7 @@ export function scopeMarketRequests(
   repsUnderMe: string[] = []
 ): MarketRequest[] {
   if (role === "ADMIN" || role === "NSM") return all;
+  if (role === "ACCOUNTANT" || role === "WAREHOUSE" || role === "HR") return [];
   if (role === "MEDICAL_REP") return all.filter((r) => r.requestedById === userId);
   if (role === "DISTRICT_MANAGER") {
     return all.filter(
