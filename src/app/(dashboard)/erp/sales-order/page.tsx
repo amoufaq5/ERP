@@ -24,6 +24,7 @@ import { type SalesOrder, type DeliveryNote } from "@/lib/data-store";
 import { CustomerLink } from "@/components/shared/entity-detail-dialog";
 import { useTranslation } from "@/lib/i18n/i18n-context";
 import { useNotificationCenter } from "@/lib/notification-context";
+import { useCrossModuleActions } from "@/lib/cross-module-actions";
 
 interface SOLine {
   productId: string;
@@ -200,6 +201,7 @@ export default function SalesOrderPage() {
   const [soFilters, setSOFilters] = useState<FilterState>({});
 
   const { addNotification } = useNotificationCenter();
+  const crossModule = useCrossModuleActions();
 
   // Multi-line-item SO form state
   const [soCustomerId, setSOCustomerId] = useState("");
@@ -525,6 +527,22 @@ export default function SalesOrderPage() {
   function cancelOrder(so: SalesOrder) {
     if (so.status !== "DRAFT" && so.status !== "PENDING_APPROVAL") return;
     store.update("salesOrders", so.id, { status: "CANCELLED" });
+  }
+
+  // ─── Approve SO (PENDING_APPROVAL → CONFIRMED) ───
+  function approveSO(so: SalesOrder) {
+    if (so.status !== "PENDING_APPROVAL") return;
+    store.update("salesOrders", so.id, { status: "CONFIRMED" });
+    crossModule.onSalesOrderConfirmed(so);
+    crossModule.onSalesOrderReserveStock(so);
+    addNotification({
+      type: "SUCCESS",
+      title: `SO ${so.number} Confirmed`,
+      message: `Sales Order ${so.number} for ${customerName(so.customerId)} (EGP ${(so.total ?? 0).toLocaleString()}) has been confirmed. Inventory reserved.`,
+      module: "FINANCE",
+      entityType: "SalesOrder",
+      entityId: so.id,
+    });
   }
 
   // ─── Helper: get stock availability for a product vs required qty ───

@@ -195,6 +195,26 @@ export default function OpportunitiesPage() {
 
   const handleMarkLost = (opp: Opportunity) => {
     store.update("crmOpportunities", opp.id, { stage: "CLOSED_LOST" });
+    logAction({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      action: "UPDATE",
+      module: "CRM",
+      entity: "Opportunity",
+      entityId: opp.id,
+      entityName: opp.title,
+      details: `Marked opportunity ${opp.title} as lost`,
+    });
+    addNotification({
+      type: "WARNING",
+      title: "Opportunity Lost",
+      message: `${opp.title} has been marked as lost - EGP ${opp.value.toLocaleString()}`,
+      module: "CRM",
+      entityType: "Opportunity",
+      entityId: opp.id,
+      actionUrl: "/crm/opportunities",
+    });
   };
 
   const handleFormSubmit = (data: Record<string, unknown>) => {
@@ -205,14 +225,47 @@ export default function OpportunitiesPage() {
         stage: (data.stage as Stage) || editingOpp.stage, owner: (data.owner as string) || editingOpp.owner,
         expectedClose: (data.expectedClose as string) || editingOpp.expectedClose,
       });
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "UPDATE",
+        module: "CRM",
+        entity: "Opportunity",
+        entityId: editingOpp.id,
+        entityName: editingOpp.title,
+        details: `Updated opportunity ${editingOpp.title}`,
+      });
     } else {
+      const newId = store.genId("opp");
+      const title = data.title as string;
       store.add("crmOpportunities", {
-        id: store.genId("opp"),
-        title: data.title as string, account: (data.account as string) || "",
+        id: newId,
+        title, account: (data.account as string) || "",
         value: (data.value as number) || 0, probability: (data.probability as number) ?? 50,
         stage: (data.stage as Stage) || "PROSPECTING", owner: (data.owner as string) || "Unassigned",
         expectedClose: (data.expectedClose as string) || new Date().toISOString().split("T")[0],
         createdAt: new Date().toISOString().split("T")[0],
+      });
+      logAction({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "CREATE",
+        module: "CRM",
+        entity: "Opportunity",
+        entityId: newId,
+        entityName: title,
+        details: `Created opportunity ${title}`,
+      });
+      addNotification({
+        type: "INFO",
+        title: "New Opportunity Created",
+        message: `${title} - EGP ${((data.value as number) || 0).toLocaleString()} added to pipeline`,
+        module: "CRM",
+        entityType: "Opportunity",
+        entityId: newId,
+        actionUrl: "/crm/opportunities",
       });
     }
     setShowFormModal(false);
