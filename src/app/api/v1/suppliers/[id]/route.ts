@@ -6,7 +6,7 @@ import { withAuthParams } from "@/lib/api/with-auth";
 let prisma: any = null;
 try {
   prisma = require("@/lib/prisma").default;
-} catch {}
+} catch (error) { console.error("Failed to process suppliers:", error); }
 
 export async function OPTIONS() {
   return corsOptions();
@@ -29,7 +29,7 @@ export async function GET(
         });
         if (!record) return apiError("Supplier not found", 404);
         return apiResponse(record);
-      } catch {}
+      } catch (error) { console.error("Failed to process suppliers:", error); }
     }
 
     return apiError("Supplier not found", 404);
@@ -65,7 +65,7 @@ export const PATCH = withAuthParams(async (req: NextRequest, { params }: { param
           data: body,
         });
         return apiResponse(record);
-      } catch {}
+      } catch (error) { console.error("Failed to process suppliers:", error); }
     }
 
     return apiError("Supplier not found", 404);
@@ -91,7 +91,7 @@ export const DELETE = withAuthParams(async (_req: NextRequest, { params }: { par
           data: { status: "INACTIVE" },
         });
         return apiResponse({ ...record, _softDeleted: true });
-      } catch {}
+      } catch (error) { console.error("Failed to process suppliers:", error); }
     }
 
     return apiError("Supplier not found", 404);

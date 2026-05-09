@@ -148,7 +148,7 @@ function loadFromStorage<T>(key: string, fallback: T): T {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed as T;
     }
-  } catch {}
+  } catch (error) { console.error("Failed to load from localStorage:", error); }
   return fallback;
 }
 

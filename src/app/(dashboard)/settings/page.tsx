@@ -304,19 +304,19 @@ export default function SettingsPage() {
   function deleteCustomRole(id: string) {
     const next = customRoles.filter((r) => r.id !== id);
     setCustomRoles(next);
-    try { localStorage.setItem("pharma.customRoles", JSON.stringify(next)); } catch {}
+    try { localStorage.setItem("pharma.customRoles", JSON.stringify(next)); } catch (error) { console.error("Failed to persist settings to localStorage:", error); }
   }
 
   function saveCompanyProfile(patch: Partial<CompanyProfile>) {
     const next = { ...companyProfile, ...patch };
     setCompanyProfile(next);
-    try { localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify(next)); } catch {}
+    try { localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify(next)); } catch (error) { console.error("Failed to persist settings to localStorage:", error); }
   }
 
   function saveGeneralSettings(patch: Partial<GeneralSettings>) {
     const next = { ...generalSettings, ...patch };
     setGeneralSettings(next);
-    try { localStorage.setItem(GENERAL_SETTINGS_KEY, JSON.stringify(next)); } catch {}
+    try { localStorage.setItem(GENERAL_SETTINGS_KEY, JSON.stringify(next)); } catch (error) { console.error("Failed to persist settings to localStorage:", error); }
   }
 
   function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -331,7 +331,7 @@ export default function SettingsPage() {
 
   function saveIpWhitelist(value: string) {
     setIpWhitelist(value);
-    try { localStorage.setItem(IP_WHITELIST_KEY, value); } catch {}
+    try { localStorage.setItem(IP_WHITELIST_KEY, value); } catch (error) { console.error("Failed to persist settings to localStorage:", error); }
   }
 
   function toggleNotifEvent(key: string, channel: "email" | "inApp" | "escalation") {
@@ -340,7 +340,7 @@ export default function SettingsPage() {
       [key]: { ...notifEvents[key], [channel]: !notifEvents[key]?.[channel] },
     };
     setNotifEvents(updated);
-    try { localStorage.setItem("pharma.notifEvents", JSON.stringify(updated)); } catch {}
+    try { localStorage.setItem("pharma.notifEvents", JSON.stringify(updated)); } catch (error) { console.error("Failed to persist settings to localStorage:", error); }
   }
 
   const userFormFields: EntityField[] = [
@@ -845,7 +845,7 @@ export default function SettingsPage() {
               try {
                 localStorage.setItem(COMPANY_PROFILE_KEY, JSON.stringify(DEFAULT_COMPANY));
                 localStorage.setItem(GENERAL_SETTINGS_KEY, JSON.stringify(DEFAULT_GENERAL));
-              } catch {}
+              } catch (error) { console.error("Failed to persist settings to localStorage:", error); }
             }} disabled={!isAdmin}>
               <RotateCcw className="h-4 w-4 mr-2" /> Reset to Defaults
             </Button>
@@ -2380,7 +2380,7 @@ export default function SettingsPage() {
                   };
                   const next = [...customRoles, role];
                   setCustomRoles(next);
-                  try { localStorage.setItem("pharma.customRoles", JSON.stringify(next)); } catch {}
+                  try { localStorage.setItem("pharma.customRoles", JSON.stringify(next)); } catch (error) { console.error("Failed to persist settings to localStorage:", error); }
                   setNewRoleName("");
                   setNewRoleDesc("");
                   setNewRoleRoutes([]);

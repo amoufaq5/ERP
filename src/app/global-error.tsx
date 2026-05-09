@@ -20,7 +20,7 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
                   localStorage.removeItem("token");
                   localStorage.removeItem("pharma.currentUser");
                   localStorage.removeItem("pharma.dataStore.v1");
-                } catch {}
+                } catch (error) { console.error("Failed to clear localStorage during error recovery:", error); }
                 window.location.href = "/login";
               }}
               style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: "#ef4444", color: "white", cursor: "pointer", fontSize: 14 }}

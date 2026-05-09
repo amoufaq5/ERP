@@ -8,7 +8,7 @@ import {
 let prisma: any = null;
 try {
   prisma = require("@/lib/prisma").default;
-} catch {}
+} catch (error) { console.error("Failed to process approval logs:", error); }
 
 export async function OPTIONS() {
   return corsOptions();
@@ -38,7 +38,7 @@ export async function GET(
           return apiError(`Approval log with id '${id}' not found`, 404);
         }
         return apiResponse(record);
-      } catch {}
+      } catch (error) { console.error("Failed to process approval logs:", error); }
     }
 
     // Mock fallback

@@ -178,11 +178,11 @@ export default function AccountingPage() {
   try {
     const nc = useNotificationCenter();
     addNotification = nc.addNotification;
-  } catch {}
+  } catch (error) { console.error("Failed to process accounting data:", error); }
   try {
     const al = useAuditLogger();
     logAction = al.logAction;
-  } catch {}
+  } catch (error) { console.error("Failed to process accounting data:", error); }
 
   const fiscalPeriods = store.fiscalPeriods ?? [];
 
@@ -326,12 +326,12 @@ export default function AccountingPage() {
 
   // ─── E-Invoicing helpers ────────────────────────────────────────────
   useEffect(() => {
-    try { const saved = localStorage.getItem("eta-config"); if (saved) setEtaConfig(JSON.parse(saved)) } catch {}
-    try { const saved = localStorage.getItem("einvoices"); if (saved) setEinvoices(JSON.parse(saved)) } catch {}
+    try { const saved = localStorage.getItem("eta-config"); if (saved) setEtaConfig(JSON.parse(saved)) } catch (error) { console.error("Failed to process accounting data:", error); }
+    try { const saved = localStorage.getItem("einvoices"); if (saved) setEinvoices(JSON.parse(saved)) } catch (error) { console.error("Failed to process accounting data:", error); }
   }, []);
 
   useEffect(() => {
-    try { localStorage.setItem("einvoices", JSON.stringify(einvoices)) } catch {}
+    try { localStorage.setItem("einvoices", JSON.stringify(einvoices)) } catch (error) { console.error("Failed to process accounting data:", error); }
   }, [einvoices]);
 
   function submitToETA(inv: EInvoice) {
@@ -360,7 +360,7 @@ export default function AccountingPage() {
   }
 
   function saveETAConfig() {
-    try { localStorage.setItem("eta-config", JSON.stringify(etaConfig)) } catch {}
+    try { localStorage.setItem("eta-config", JSON.stringify(etaConfig)) } catch (error) { console.error("Failed to process accounting data:", error); }
   }
 
   const einvAccepted = einvoices.filter(e => e.status === "accepted").length;

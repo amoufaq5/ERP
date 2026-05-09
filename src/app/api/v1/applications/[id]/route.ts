@@ -10,7 +10,7 @@ import { withAuthParams } from "@/lib/api/with-auth";
 let prisma: any = null;
 try {
   prisma = require("@/lib/prisma").default;
-} catch {}
+} catch (error) { console.error("Failed to process applications:", error); }
 
 export async function OPTIONS() {
   return corsOptions();
@@ -44,7 +44,7 @@ export async function GET(
           return apiError(`Application with id '${id}' not found`, 404);
         }
         return apiResponse(record);
-      } catch {}
+      } catch (error) { console.error("Failed to process applications:", error); }
     }
 
     // Mock fallback
@@ -99,7 +99,7 @@ export const PATCH = withAuthParams(async (req: NextRequest, { params }: { param
           },
         });
         return apiResponse(record);
-      } catch {}
+      } catch (error) { console.error("Failed to process applications:", error); }
     }
 
     // Mock fallback
@@ -129,7 +129,7 @@ export const DELETE = withAuthParams(async (_req: NextRequest, { params }: { par
           data: { status: "REJECTED" },
         });
         return apiResponse({ ...record, _softDeleted: true });
-      } catch {}
+      } catch (error) { console.error("Failed to process applications:", error); }
     }
 
     // Mock fallback

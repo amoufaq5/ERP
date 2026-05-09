@@ -13,7 +13,7 @@ import { withAuth } from "@/lib/api/with-auth";
 let prisma: any = null;
 try {
   prisma = require("@/lib/prisma").default;
-} catch {}
+} catch (error) { console.error("Failed to process payments:", error); }
 
 export async function OPTIONS() {
   return corsOptions();
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
           total,
           totalPages,
         });
-      } catch {}
+      } catch (error) { console.error("Failed to process payments:", error); }
     }
 
     const mock = generateMockPayments();
@@ -94,7 +94,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
           include: { invoice: true, bill: true },
         });
         return apiResponse(record, 201);
-      } catch {}
+      } catch (error) { console.error("Failed to process payments:", error); }
     }
 
     const record = {

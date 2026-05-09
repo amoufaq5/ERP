@@ -13,7 +13,7 @@ import { withAuth } from "@/lib/api/with-auth";
 let prisma: any = null;
 try {
   prisma = require("@/lib/prisma").default;
-} catch {}
+} catch (error) { console.error("Failed to process stock movements:", error); }
 
 export async function OPTIONS() {
   return corsOptions();
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
           total,
           totalPages,
         });
-      } catch {}
+      } catch (error) { console.error("Failed to process stock movements:", error); }
     }
 
     const mock = generateMockStockMovements();
@@ -109,7 +109,7 @@ export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
           },
         });
         return apiResponse(record, 201);
-      } catch {}
+      } catch (error) { console.error("Failed to process stock movements:", error); }
     }
 
     const record = {

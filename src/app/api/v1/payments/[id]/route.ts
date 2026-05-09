@@ -6,7 +6,7 @@ import { withAuthParams } from "@/lib/api/with-auth";
 let prisma: any = null;
 try {
   prisma = require("@/lib/prisma").default;
-} catch {}
+} catch (error) { console.error("Failed to process payments:", error); }
 
 export async function OPTIONS() {
   return corsOptions();
@@ -29,7 +29,7 @@ export async function GET(
         });
         if (!record) return apiError("Payment not found", 404);
         return apiResponse(record);
-      } catch {}
+      } catch (error) { console.error("Failed to process payments:", error); }
     }
 
     return apiError("Payment not found", 404);
@@ -70,7 +70,7 @@ export const PATCH = withAuthParams(async (req: NextRequest, { params }: { param
           include: { invoice: true, bill: true },
         });
         return apiResponse(record);
-      } catch {}
+      } catch (error) { console.error("Failed to process payments:", error); }
     }
 
     return apiError("Payment not found", 404);
@@ -92,7 +92,7 @@ export const DELETE = withAuthParams(async (_req: NextRequest, { params }: { par
 
         await prisma.payment.delete({ where: { id } });
         return apiResponse({ id, deleted: true });
-      } catch {}
+      } catch (error) { console.error("Failed to process payments:", error); }
     }
 
     return apiError("Payment not found", 404);

@@ -6,7 +6,7 @@ import { withAuthParams } from "@/lib/api/with-auth";
 let prisma: any = null;
 try {
   prisma = require("@/lib/prisma").default;
-} catch {}
+} catch (error) { console.error("Failed to process campaigns:", error); }
 
 export async function OPTIONS() {
   return corsOptions();
@@ -30,7 +30,7 @@ export async function GET(
           return apiError(`Campaign with id '${id}' not found`, 404);
         }
         return apiResponse(record);
-      } catch {}
+      } catch (error) { console.error("Failed to process campaigns:", error); }
     }
 
     // Mock fallback
@@ -94,7 +94,7 @@ export const PATCH = withAuthParams(async (req: NextRequest, { params }: { param
           data: body,
         });
         return apiResponse(record);
-      } catch {}
+      } catch (error) { console.error("Failed to process campaigns:", error); }
     }
 
     // Mock fallback
@@ -128,7 +128,7 @@ export const DELETE = withAuthParams(async (_req: NextRequest, { params }: { par
           data: { status: "COMPLETED" },
         });
         return apiResponse({ ...record, _softDeleted: true });
-      } catch {}
+      } catch (error) { console.error("Failed to process campaigns:", error); }
     }
 
     // Mock fallback

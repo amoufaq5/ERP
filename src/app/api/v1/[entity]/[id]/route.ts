@@ -4,7 +4,7 @@ import { apiResponse, apiError, corsOptions } from "@/lib/api/api-helpers";
 let prisma: any = null;
 try {
   prisma = require("@/lib/prisma").default;
-} catch {}
+} catch (error) { console.error("Failed to process entity:", error); }
 
 // ─── Entity → Prisma model mapping ──────────────────────────────────────────
 
@@ -129,7 +129,7 @@ export async function GET(
           return apiError(`${entity} with id '${id}' not found`, 404);
         }
         return apiResponse(record);
-      } catch {}
+      } catch (error) { console.error("Failed to process entity:", error); }
     }
 
     // Mock fallback
@@ -205,7 +205,7 @@ export async function PATCH(
           include: config.include,
         });
         return apiResponse(record);
-      } catch {}
+      } catch (error) { console.error("Failed to process entity:", error); }
     }
 
     // Mock fallback
@@ -266,7 +266,7 @@ export async function DELETE(
         // Hard delete
         await prisma[config.model].delete({ where: { id } });
         return apiResponse({ id, deleted: true });
-      } catch {}
+      } catch (error) { console.error("Failed to process entity:", error); }
     }
 
     // Mock fallback

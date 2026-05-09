@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle, Clock, Circle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import type {
   Complaint,
   ComplaintStatus,
@@ -32,14 +32,6 @@ const STATUS_ORDER: Record<ComplaintStatus, number> = {
   "response-sent": 5,
   closed: 6,
 };
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-GB", {

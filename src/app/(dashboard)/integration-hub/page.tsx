@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import DataTable from "@/components/shared/data-table"
 import type { Column } from "@/components/shared/data-table"
+import { formatDateTime } from "@/lib/utils"
 import {
   ArrowRight,
   Activity,

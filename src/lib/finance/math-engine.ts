@@ -860,13 +860,13 @@ export function marginalTaxRate(
   return 0;
 }
 
-/** Sales tax. */
+/** Sales tax — rounded to 2 decimal places for storage. */
 export function salesTax(amount: number, rate: number): number {
-  return amount * rate;
+  return roundToDecimal(amount * rate, 2);
 }
 
 /**
- * VAT calculation.
+ * VAT calculation — amounts rounded to 2 decimal places.
  * @param inclusive - if true, amount already includes VAT
  * @returns object with net, vat, and gross
  */
@@ -876,11 +876,12 @@ export function vatCalculation(
   inclusive = false,
 ): { net: number; vat: number; gross: number } {
   if (inclusive) {
-    const net = amount / (1 + rate);
-    return { net, vat: amount - net, gross: amount };
+    const net = roundToDecimal(amount / (1 + rate), 2);
+    const vat = roundToDecimal(amount - net, 2);
+    return { net, vat, gross: amount };
   }
-  const vat = amount * rate;
-  return { net: amount, vat, gross: amount + vat };
+  const vat = roundToDecimal(amount * rate, 2);
+  return { net: amount, vat, gross: roundToDecimal(amount + vat, 2) };
 }
 
 /**
@@ -913,7 +914,7 @@ export function withholding(
  */
 export function formatCurrency(
   amount: number,
-  currency = "USD",
+  currency = "EGP",
   locale = "en-US",
 ): string {
   try {

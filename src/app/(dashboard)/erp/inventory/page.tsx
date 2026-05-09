@@ -226,11 +226,11 @@ export default function InventoryPage() {
   try {
     const nc = useNotificationCenter();
     addNotification = nc.addNotification;
-  } catch {}
+  } catch (error) { console.error("Failed to initialize hooks:", error); }
   try {
     const al = useAuditLogger();
     logAction = al.logAction;
-  } catch {}
+  } catch (error) { console.error("Failed to initialize hooks:", error); }
 
   /* ─── On-mount checks: low stock alerts, expiry alerts ─── */
   const mountCheckedRef = useRef(false);

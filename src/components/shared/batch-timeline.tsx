@@ -12,7 +12,7 @@ import {
   RotateCcw,
   ShieldAlert,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import { batchStore } from "@/lib/traceability/batch-store";
 import type { BatchEvent } from "@/lib/traceability/batch-types";
 
@@ -82,16 +82,6 @@ function eventIcon(type: BatchEvent["eventType"]) {
   }
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -140,7 +130,7 @@ export default function BatchTimeline({ batchId }: BatchTimelineProps) {
                   {event.eventType.replace(/-/g, " ")}
                 </span>
                 <span className="text-[10px] text-muted-foreground">
-                  {formatDate(event.timestamp)}
+                  {formatDateTime(event.timestamp)}
                 </span>
               </div>
               <p className="text-sm text-muted-foreground mt-0.5">

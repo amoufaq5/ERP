@@ -6,7 +6,7 @@ import { withAuthParams } from "@/lib/api/with-auth";
 let prisma: any = null;
 try {
   prisma = require("@/lib/prisma").default;
-} catch {}
+} catch (error) { console.error("Failed to process gl accounts:", error); }
 
 export async function OPTIONS() {
   return corsOptions();
@@ -29,7 +29,7 @@ export async function GET(
         });
         if (!record) return apiError("GL account not found", 404);
         return apiResponse(record);
-      } catch {}
+      } catch (error) { console.error("Failed to process gl accounts:", error); }
     }
 
     return apiError("GL account not found", 404);
@@ -66,7 +66,7 @@ export const PATCH = withAuthParams(async (req: NextRequest, { params }: { param
           include: { children: true, parent: true },
         });
         return apiResponse(record);
-      } catch {}
+      } catch (error) { console.error("Failed to process gl accounts:", error); }
     }
 
     return apiError("GL account not found", 404);
@@ -92,7 +92,7 @@ export const DELETE = withAuthParams(async (_req: NextRequest, { params }: { par
           data: { isActive: false },
         });
         return apiResponse({ ...record, _softDeleted: true });
-      } catch {}
+      } catch (error) { console.error("Failed to process gl accounts:", error); }
     }
 
     return apiError("GL account not found", 404);

@@ -186,7 +186,7 @@ function loadFromStorage(): FixedAsset[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
-  } catch {}
+  } catch (error) { console.error("Failed to load assets from localStorage:", error); }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_ASSETS));
   return SEED_ASSETS;
 }

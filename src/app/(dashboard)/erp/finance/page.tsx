@@ -80,7 +80,7 @@ export default function FinancePage() {
   const approvals = useApprovals();
   const { t } = useTranslation();
   let addNotification: (n: Omit<import("@/lib/notification-context").Notification, "id" | "createdAt" | "isRead">) => void = () => {};
-  try { const nc = useNotificationCenter(); addNotification = nc.addNotification; } catch {}
+  try { const nc = useNotificationCenter(); addNotification = nc.addNotification; } catch (error) { console.error("Failed to initialize notification center:", error); }
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [invoiceFilters, setInvoiceFilters] = useState<FilterState>({ _search: "", status: "" });
   const [paymentFilters, setPaymentFilters] = useState<FilterState>({ _search: "", type: "", method: "" });

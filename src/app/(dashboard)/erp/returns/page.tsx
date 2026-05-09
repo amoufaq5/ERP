@@ -154,7 +154,7 @@ function loadReturns(): SalesReturn[] | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw) as SalesReturn[];
-  } catch {}
+  } catch (error) { console.error("Failed to load returns from localStorage:", error); }
   return null;
 }
 
