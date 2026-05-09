@@ -721,7 +721,16 @@ export default function WeeklyPlanPage() {
         <TabsList>
           <TabsTrigger value="my">{t("tab.myPlans")}</TabsTrigger>
           {isManager && <TabsTrigger value="team">{t("tab.teamPlans")}</TabsTrigger>}
-          {isManager && <TabsTrigger value="approvals">{t("tab.pendingApprovals")}</TabsTrigger>}
+          {isManager && (
+            <TabsTrigger value="approvals" data-value="approvals" className="relative">
+              {t("tab.pendingApprovals")}
+              {pendingRepPlans.length > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                  {pendingRepPlans.length}
+                </span>
+              )}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="all">{t("tab.allPlans")}</TabsTrigger>
           <TabsTrigger value="analytics">{t("tab.analytics")}</TabsTrigger>
         </TabsList>
@@ -904,6 +913,7 @@ export default function WeeklyPlanPage() {
         onSave={(days) => {
           if (editing) updatePlanDays(editing.id, days);
         }}
+        editorIsFieldOnly={isFieldOnly}
       />
 
       {/* Starting points manager */}
@@ -1137,9 +1147,23 @@ function PlanCard({
               <div key={i} className={`border rounded p-2 text-center ${dayConflicts.length > 0 ? "border-yellow-400 bg-yellow-50/30" : ""}`}>
                 <p className="text-[10px] text-muted-foreground font-medium uppercase">{DAY_LABELS[i]}</p>
                 <p className="text-xs font-medium mt-0.5">{new Date(d.date).getDate()}</p>
+                {d.dayWorkType === "OFFICE" ? (
+                  <Badge className="bg-purple-100 text-purple-700 text-[8px] mt-1 px-1.5">
+                    <Building2 className="h-2 w-2 mr-0.5" />Office Day
+                  </Badge>
+                ) : (
+                  <Badge className="bg-green-100 text-green-700 text-[8px] mt-1 px-1.5">
+                    <MapPin className="h-2 w-2 mr-0.5" />Field Day
+                  </Badge>
+                )}
                 <div className="mt-2 space-y-1">
                   {d.visits.length === 0 ? (
                     <p className="text-[10px] text-muted-foreground">—</p>
+                  ) : d.dayWorkType === "OFFICE" ? (
+                    <p className="text-[10px] flex items-center justify-center gap-1 text-purple-600">
+                      <Building2 className="h-2.5 w-2.5" />
+                      {d.visits.length}
+                    </p>
                   ) : (
                     <>
                       <p className="text-[10px] flex items-center justify-center gap-1">
@@ -1339,12 +1363,14 @@ function PlanEditor({
   allUsers,
   onClose,
   onSave,
+  editorIsFieldOnly,
 }: {
   plan: WeeklyPlan | null;
   store: ReturnType<typeof useApiDataStore>;
   allUsers: ReturnType<typeof useCurrentUser>["allUsers"];
   onClose: () => void;
   onSave: (days: DailyPlan[]) => void;
+  editorIsFieldOnly: boolean;
 }) {
   const [days, setDays] = useState<DailyPlan[]>([]);
 
@@ -1354,20 +1380,53 @@ function PlanEditor({
 
   if (!plan) return null;
 
+  const planOwner = allUsers.find((u) => u.id === plan.repId);
+  const ownerIsFieldOnly = planOwner ? (FIELD_ONLY_ROLES as readonly string[]).includes(planOwner.role) : editorIsFieldOnly;
   const myStartingPoints = store.startingPoints.filter((s) => s.userId === plan.repId);
   const isReadonly = plan.status === "APPROVED" || plan.status === "SUBMITTED";
 
+  function toggleDayWorkType(dayIdx: number, wt: WorkType) {
+    const next = [...days];
+    next[dayIdx] = {
+      ...next[dayIdx],
+      dayWorkType: wt,
+      visits: wt === "OFFICE" ? next[dayIdx].visits.map((v) => ({ ...v, workType: "OFFICE" as WorkType })) : next[dayIdx].visits.map((v) => ({ ...v, workType: "FIELD" as WorkType })),
+    };
+    setDays(next);
+  }
+
   function addVisit(dayIdx: number, session: "AM" | "PM") {
-    // Enhancement 5: Enforce max 8 visits per day
     if (days[dayIdx].visits.length >= MAX_VISITS_PER_DAY) {
-      return; // button is disabled, but guard anyway
+      return;
     }
+    const dayWt = days[dayIdx].dayWorkType ?? "FIELD";
     const next = [...days];
     next[dayIdx] = {
       ...next[dayIdx],
       visits: [
         ...next[dayIdx].visits,
-        { session, timeSlot: session === "AM" ? "09:00" : "14:00", visitType: "SINGLE", category: "planned" as PlannedVisitCategory, outcome: "pending" as PlannedVisitOutcome },
+        { session, timeSlot: session === "AM" ? "09:00" : "14:00", visitType: "SINGLE", category: "planned" as PlannedVisitCategory, outcome: "pending" as PlannedVisitOutcome, workType: dayWt },
+      ],
+    };
+    setDays(next);
+  }
+
+  function addOfficeActivity(dayIdx: number, activityType: OfficeActivityType) {
+    if (days[dayIdx].visits.length >= MAX_VISITS_PER_DAY) return;
+    const next = [...days];
+    next[dayIdx] = {
+      ...next[dayIdx],
+      visits: [
+        ...next[dayIdx].visits,
+        {
+          session: "AM" as const,
+          timeSlot: "09:00",
+          visitType: "SINGLE" as const,
+          category: "planned" as PlannedVisitCategory,
+          outcome: "pending" as PlannedVisitOutcome,
+          workType: "OFFICE" as WorkType,
+          officeActivityType: activityType,
+        },
       ],
     };
     setDays(next);
@@ -1383,10 +1442,16 @@ function PlanEditor({
   }
 
   function updateVisit(dayIdx: number, visitIdx: number, patch: Partial<PlannedVisit>) {
+    const enrichedPatch = { ...patch };
+    if ("doctorId" in patch && patch.doctorId) {
+      enrichedPatch.workType = "FIELD";
+    } else if ("amAccountId" in patch && patch.amAccountId) {
+      enrichedPatch.workType = "OFFICE";
+    }
     const next = [...days];
     next[dayIdx] = {
       ...next[dayIdx],
-      visits: next[dayIdx].visits.map((v, i) => (i === visitIdx ? { ...v, ...patch } : v)),
+      visits: next[dayIdx].visits.map((v, i) => (i === visitIdx ? { ...v, ...enrichedPatch } : v)),
     };
     setDays(next);
   }
@@ -1437,19 +1502,37 @@ function PlanEditor({
                     <CardTitle className="text-sm">
                       {DAY_LABELS[dayIdx]} · {fmtDate(day.date)}
                     </CardTitle>
+                    {(day.dayWorkType ?? "FIELD") === "OFFICE" ? (
+                      <Badge className="bg-purple-100 text-purple-700 text-[10px]">
+                        <Building2 className="h-3 w-3 mr-0.5" />Office Day
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-green-100 text-green-700 text-[10px]">
+                        <MapPin className="h-3 w-3 mr-0.5" />Field Day
+                      </Badge>
+                    )}
                     {dayConflictsEditor.length > 0 && (
                       <Badge className="bg-yellow-100 text-yellow-800 text-[10px]">
                         <AlertTriangle className="h-3 w-3 mr-0.5" />
                         {dayConflictsEditor.length} issue{dayConflictsEditor.length !== 1 ? "s" : ""}
                       </Badge>
                     )}
-                    {/* Enhancement 5: Running total per day */}
                     <Badge className={`text-[10px] ${day.visits.length >= MAX_VISITS_PER_DAY ? "bg-red-100 text-red-800" : day.visits.length >= MAX_VISITS_PER_DAY - 2 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"}`}>
-                      {day.visits.length}/{MAX_VISITS_PER_DAY} visits planned
+                      {day.visits.length}/{MAX_VISITS_PER_DAY} {(day.dayWorkType ?? "FIELD") === "OFFICE" ? "activities" : "visits"} planned
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2">
-                    {!isReadonly && (
+                    {!isReadonly && !ownerIsFieldOnly && (
+                      <select
+                        className="rounded border p-1 text-xs h-7"
+                        value={day.dayWorkType ?? "FIELD"}
+                        onChange={(e) => toggleDayWorkType(dayIdx, e.target.value as WorkType)}
+                      >
+                        <option value="FIELD">Field Day</option>
+                        <option value="OFFICE">Office Day</option>
+                      </select>
+                    )}
+                    {!isReadonly && (day.dayWorkType ?? "FIELD") === "FIELD" && (
                       <>
                         <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => addVisit(dayIdx, "AM")} disabled={day.visits.length >= MAX_VISITS_PER_DAY}>
                           <Sun className="h-3 w-3 mr-1 text-amber-500" /> Add AM Visit
@@ -1478,53 +1561,80 @@ function PlanEditor({
                 )}
               </CardHeader>
               <CardContent className="space-y-3">
-                {/* Starting points */}
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <label className="font-medium flex items-center gap-1">
-                      <Sun className="h-3 w-3 text-amber-500" /> AM Start
-                    </label>
-                    <select
-                      className="w-full mt-1 rounded border p-1.5 text-xs"
-                      value={day.startingPointAM ?? ""}
-                      onChange={(e) => updateStartingPoint(dayIdx, "AM", e.target.value)}
-                      disabled={isReadonly}
-                    >
-                      <option value="">— Select —</option>
-                      {myStartingPoints
-                        .filter((sp) => sp.type === "AM" || sp.type === "OFFICE")
-                        .map((sp) => (
-                          <option key={sp.id} value={sp.id}>
-                            {sp.label} ({sp.type})
-                          </option>
-                        ))}
-                    </select>
+                {(day.dayWorkType ?? "FIELD") === "FIELD" && (
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="font-medium flex items-center gap-1">
+                        <Sun className="h-3 w-3 text-amber-500" /> AM Start
+                      </label>
+                      <select
+                        className="w-full mt-1 rounded border p-1.5 text-xs"
+                        value={day.startingPointAM ?? ""}
+                        onChange={(e) => updateStartingPoint(dayIdx, "AM", e.target.value)}
+                        disabled={isReadonly}
+                      >
+                        <option value="">— Select —</option>
+                        {myStartingPoints
+                          .filter((sp) => sp.type === "AM" || sp.type === "OFFICE")
+                          .map((sp) => (
+                            <option key={sp.id} value={sp.id}>
+                              {sp.label} ({sp.type})
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="font-medium flex items-center gap-1">
+                        <Moon className="h-3 w-3 text-indigo-500" /> PM Start
+                      </label>
+                      <select
+                        className="w-full mt-1 rounded border p-1.5 text-xs"
+                        value={day.startingPointPM ?? ""}
+                        onChange={(e) => updateStartingPoint(dayIdx, "PM", e.target.value)}
+                        disabled={isReadonly}
+                      >
+                        <option value="">— Select —</option>
+                        {myStartingPoints
+                          .filter((sp) => sp.type === "PM" || sp.type === "OFFICE")
+                          .map((sp) => (
+                            <option key={sp.id} value={sp.id}>
+                              {sp.label} ({sp.type})
+                            </option>
+                          ))}
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="font-medium flex items-center gap-1">
-                      <Moon className="h-3 w-3 text-indigo-500" /> PM Start
-                    </label>
-                    <select
-                      className="w-full mt-1 rounded border p-1.5 text-xs"
-                      value={day.startingPointPM ?? ""}
-                      onChange={(e) => updateStartingPoint(dayIdx, "PM", e.target.value)}
-                      disabled={isReadonly}
-                    >
-                      <option value="">— Select —</option>
-                      {myStartingPoints
-                        .filter((sp) => sp.type === "PM" || sp.type === "OFFICE")
-                        .map((sp) => (
-                          <option key={sp.id} value={sp.id}>
-                            {sp.label} ({sp.type})
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
+                )}
 
-                {/* Visits */}
+                {(day.dayWorkType ?? "FIELD") === "OFFICE" && !isReadonly && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-purple-800 flex items-center gap-1">
+                      <Building2 className="h-3.5 w-3.5" /> Add Office Activity
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {OFFICE_ACTIVITY_OPTIONS.map((opt) => {
+                        const Icon = opt.icon;
+                        return (
+                          <Button
+                            key={opt.value}
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs border-purple-200 text-purple-700 hover:bg-purple-50"
+                            onClick={() => addOfficeActivity(dayIdx, opt.value)}
+                            disabled={day.visits.length >= MAX_VISITS_PER_DAY}
+                          >
+                            <Icon className="h-3 w-3 mr-1" /> {opt.label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {day.visits.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-2">No visits planned for this day</p>
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    {(day.dayWorkType ?? "FIELD") === "OFFICE" ? "No activities planned for this day" : "No visits planned for this day"}
+                  </p>
                 ) : (
                   <div className="space-y-2">
                     {day.visits.map((v, vIdx) => {
@@ -1532,10 +1642,14 @@ function PlanEditor({
                       const isSuspicious = dur !== null && dur < SUSPICIOUS_THRESHOLD_MIN;
                       const isExtended = dur !== null && dur > EXTENDED_THRESHOLD_MIN;
                       return (
-                        <div key={vIdx} className={`p-2 rounded border ${isSuspicious ? "border-orange-300 bg-orange-50/40" : isExtended ? "border-violet-300 bg-violet-50/40" : v.session === "AM" ? "bg-amber-50/30" : "bg-indigo-50/30"}`}>
+                        <div key={vIdx} className={`p-2 rounded border ${v.workType === "OFFICE" || v.officeActivityType ? "border-purple-200 bg-purple-50/30" : isSuspicious ? "border-orange-300 bg-orange-50/40" : isExtended ? "border-violet-300 bg-violet-50/40" : v.session === "AM" ? "bg-amber-50/30" : "bg-indigo-50/30"}`}>
                           <div className="grid grid-cols-12 gap-2 items-center text-xs">
                             <div className="col-span-1">
-                              {v.session === "AM" ? (
+                              {v.officeActivityType ? (
+                                <Badge className="bg-purple-100 text-purple-800 text-[10px]">
+                                  <Building2 className="h-2.5 w-2.5" />
+                                </Badge>
+                              ) : v.session === "AM" ? (
                                 <Badge className="bg-amber-100 text-amber-800 text-[10px]">AM</Badge>
                               ) : (
                                 <Badge className="bg-indigo-100 text-indigo-800 text-[10px]">PM</Badge>
@@ -1551,7 +1665,18 @@ function PlanEditor({
                               />
                             </div>
                             <div className="col-span-3">
-                              {v.session === "AM" ? (
+                              {v.officeActivityType ? (
+                                <select
+                                  className="w-full rounded border p-1 text-xs border-purple-200"
+                                  value={v.officeActivityType}
+                                  onChange={(e) => updateVisit(dayIdx, vIdx, { officeActivityType: e.target.value as OfficeActivityType })}
+                                  disabled={isReadonly}
+                                >
+                                  {OFFICE_ACTIVITY_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              ) : v.session === "AM" ? (
                                 <select
                                   className="w-full rounded border p-1 text-xs"
                                   value={v.amAccountId ?? ""}
@@ -1578,6 +1703,9 @@ function PlanEditor({
                               )}
                             </div>
                             <div className="col-span-1">
+                              {v.officeActivityType ? (
+                                <Badge variant="outline" className="text-[10px] text-purple-600">Office</Badge>
+                              ) : (
                               <select
                                 className="w-full rounded border p-1 text-xs"
                                 value={v.visitType}
@@ -1596,6 +1724,7 @@ function PlanEditor({
                                 <option value="DOUBLE">Double</option>
                                 <option value="TRIPLE">Triple</option>
                               </select>
+                              )}
                             </div>
                             {/* Check-in time */}
                             <div className="col-span-1">
@@ -1752,8 +1881,13 @@ function PlanEditor({
                             </div>
                           )}
                           {/* Labels row under the grid for check-in/out when in read-only */}
-                          {isReadonly && (v.checkInTime || v.checkOutTime) && (
+                          {isReadonly && (v.checkInTime || v.checkOutTime || v.officeActivityType) && (
                             <div className="mt-1 flex items-center gap-3 text-[10px] text-muted-foreground pl-8">
+                              {v.officeActivityType && (
+                                <Badge variant="outline" className="text-[9px] h-4 border-purple-300 text-purple-700">
+                                  {OFFICE_ACTIVITY_LABELS[v.officeActivityType]}
+                                </Badge>
+                              )}
                               {v.checkInTime && <span>Check-in: {v.checkInTime}</span>}
                               {v.checkOutTime && <span>Check-out: {v.checkOutTime}</span>}
                               {dur !== null && (
