@@ -1828,7 +1828,7 @@ export function visibleBusinessUnits(
   role: UserRole,
   userId: string
 ): BusinessUnit[] {
-  if (role === "ADMIN") return bus;
+  if (role === "ADMIN" || role === "NSM") return bus;
   if (role === "BUM") return bus.filter((b) => b.managerId === userId);
   return bus.filter((b) => b.memberIds.includes(userId));
 }
@@ -1861,7 +1861,8 @@ export function scopeDoctors(
         (d.assignedRepId != null && repsUnderMe.includes(d.assignedRepId))
     );
   }
-  // BUM / NSM → doctors in their BU's
+  if (role === "NSM") return allDoctors;
+  // BUM → doctors in their BU's
   const myBUs = visibleBusinessUnits(allBUs, role, userId).map((b) => b.id);
   return allDoctors.filter((d) => d.buId && myBUs.includes(d.buId));
 }
@@ -1874,7 +1875,7 @@ export function scopeVisits(
   userId: string,
   repsUnderMe: string[] = []
 ): Visit[] {
-  if (role === "ADMIN") return allVisits;
+  if (role === "ADMIN" || role === "NSM") return allVisits;
   if (role === "MEDICAL_REP") return allVisits.filter((v) => v.repId === userId);
   if (role === "DISTRICT_MANAGER") {
     return allVisits.filter((v) => repsUnderMe.includes(v.repId) || v.partnerId === userId || v.repId === userId);
@@ -1904,7 +1905,7 @@ export function scopeMarketRequests(
   userId: string,
   repsUnderMe: string[] = []
 ): MarketRequest[] {
-  if (role === "ADMIN") return all;
+  if (role === "ADMIN" || role === "NSM") return all;
   if (role === "MEDICAL_REP") return all.filter((r) => r.requestedById === userId);
   if (role === "DISTRICT_MANAGER") {
     return all.filter(
@@ -1915,8 +1916,6 @@ export function scopeMarketRequests(
     );
   }
   if (role === "MARKETEER") {
-    // Marketeer sees: own requests, requests from their reports (DMs + reps),
-    // and requests in their BUs (even if requestedBy someone else).
     const myBUs = visibleBusinessUnits(allBUs, role, userId).map((b) => b.id);
     return all.filter(
       (r) =>

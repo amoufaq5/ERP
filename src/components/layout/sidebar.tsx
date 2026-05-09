@@ -64,6 +64,10 @@ import {
   GitBranch,
   Pill,
   BookOpen,
+  Heart,
+  Mail,
+  Star,
+  Network,
   FlaskConical,
   AlertTriangle,
   Bug,
@@ -175,6 +179,14 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Expenses", labelKey: "sidebar.expenses", href: "/crm/expenses", icon: Banknote },
       { label: "CRM Reports", labelKey: "sidebar.crmReports", href: "/crm/reports", icon: BarChart3 },
       { label: "Product Guide", labelKey: "sidebar.productGuide", href: "/crm/product-guide", icon: BookOpen },
+      { label: "NSM Dashboard", href: "/crm/nsm", icon: Network },
+      { label: "Customer 360", href: "/crm/customer-360", icon: Contact },
+      { label: "Loyalty Program", href: "/crm/loyalty", icon: Heart },
+      { label: "CRM Contacts", href: "/crm/contacts", icon: Contact },
+      { label: "Opportunities", href: "/crm/opportunities", icon: Star },
+      { label: "CRM Forecasting", href: "/crm/forecasting", icon: TrendingUp },
+      { label: "Email Hub", href: "/crm/email", icon: Mail },
+      { label: "Support Tickets", href: "/crm/tickets", icon: ClipboardList },
     ],
   },
   {
@@ -257,74 +269,86 @@ interface RoleSectionDef {
 
 const ROLE_SECTIONS: Record<string, RoleSectionDef[]> = {
   MEDICAL_REP: [
-    { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
+    { title: "Main", titleKey: "sidebar.main", items: ["Medical Reps", "Messages", "Tasks"] },
     {
       title: "My Field Work", titleKey: "sidebar.myFieldWork",
-      items: ["Doctor Directory", "Visit Tracking", "Weekly Plans", "GPS Tracking", "Expenses"],
+      items: ["Doctor Directory", "Weekly Plans", "Visit Tracking", "Customer 360"],
     },
     {
-      title: "Market", titleKey: "sidebar.market",
-      items: ["Market Requests", "KPIs"],
+      title: "Operations", titleKey: "sidebar.market",
+      items: ["Market Requests", "Expenses", "KPIs"],
     },
   ],
   DISTRICT_MANAGER: [
-    { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
+    { title: "Main", titleKey: "sidebar.main", items: ["District Manager", "Messages", "Tasks"] },
     {
-      title: "Team Management", titleKey: "sidebar.teamManagement",
-      items: ["Weekly Plans", "Medical Reps", "Visit Tracking", "KPIs", "Call Analysis"],
+      title: "My Team", titleKey: "sidebar.teamManagement",
+      items: ["Medical Reps", "Weekly Plans", "Visit Tracking", "KPIs", "Call Analysis"],
     },
     {
       title: "Field Operations", titleKey: "sidebar.fieldOps",
-      items: ["Doctor Directory", "Market Requests", "Expenses", "CRM Reports"],
+      items: ["Doctor Directory", "Customer 360", "Market Requests", "Expenses", "CRM Reports"],
     },
   ],
   MARKETEER: [
     { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
     {
       title: "Regional Overview", titleKey: "sidebar.regionalOverview",
-      items: ["Business Units", "District Manager", "Territories (IMS)", "KPIs", "Call Analysis", "CRM Reports"],
+      items: ["Business Units", "Territories (IMS)", "KPIs", "Call Analysis", "CRM Reports"],
     },
     {
-      title: "Field Operations", titleKey: "sidebar.fieldOps",
-      items: ["Weekly Plans", "Medical Reps", "Doctor Directory", "Visit Tracking", "Market Requests", "Expenses"],
+      title: "Sales & Marketing", titleKey: "nav.sales",
+      items: ["Marketing Hub", "Sales Pipeline", "Customer 360"],
     },
     {
-      title: "Sales", titleKey: "nav.sales",
-      items: ["Marketing Hub", "Sales Pipeline"],
+      title: "Team Management", titleKey: "sidebar.teamManagement",
+      items: ["District Manager", "Medical Reps", "Weekly Plans", "Doctor Directory", "Visit Tracking"],
+    },
+    {
+      title: "Operations",
+      items: ["Market Requests", "Expenses"],
     },
   ],
   NSM: [
-    { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
+    { title: "Main", titleKey: "sidebar.main", items: ["NSM Dashboard", "Messages", "Tasks"] },
     {
       title: "National Overview",
-      items: ["Business Units", "Territories (IMS)", "KPIs", "Call Analysis", "CRM Reports", "Product Guide"],
+      items: ["Business Units", "Territories (IMS)", "KPIs", "CRM Reports", "Product Guide"],
     },
     {
-      title: "Team & Field",
-      items: ["My Team", "Weekly Plans", "Doctor Directory", "Visit Tracking"],
+      title: "Sales & Marketing",
+      items: ["Sales Pipeline", "Marketing Hub", "Opportunities", "CRM Forecasting", "Customer 360", "Loyalty Program"],
     },
     {
-      title: "Requests & Reports",
-      items: ["Market Requests", "Expenses"],
+      title: "Field Force",
+      items: ["BUM Dashboard", "Marketeer", "District Manager", "Medical Reps", "Weekly Plans", "Doctor Directory", "Visit Tracking", "Call Analysis"],
+    },
+    {
+      title: "Operations",
+      items: ["Market Requests", "Expenses", "Email Hub", "CRM Contacts", "Support Tickets"],
     },
     {
       title: "Administration",
-      items: ["Audit Log"],
+      items: ["Audit Log", "Analytics"],
     },
   ],
   BUM: [
-    { title: "Main", titleKey: "sidebar.main", items: ["Dashboard", "Messages", "Tasks"] },
+    { title: "Main", titleKey: "sidebar.main", items: ["BUM Dashboard", "Messages", "Tasks"] },
     {
-      title: "My BU", titleKey: "sidebar.businessUnit",
-      items: ["BUM Dashboard", "Territories (IMS)", "KPIs", "Call Analysis", "CRM Reports", "Product Guide"],
+      title: "My Business Unit", titleKey: "sidebar.businessUnit",
+      items: ["Business Units", "Territories (IMS)", "KPIs", "Call Analysis", "CRM Reports"],
+    },
+    {
+      title: "Sales & Marketing",
+      items: ["Sales Pipeline", "Marketing Hub", "Opportunities", "Customer 360"],
     },
     {
       title: "Team & Field", titleKey: "sidebar.teamField",
-      items: ["My Team", "Weekly Plans", "Doctor Directory", "Visit Tracking"],
+      items: ["Marketeer", "District Manager", "Medical Reps", "Weekly Plans", "Doctor Directory", "Visit Tracking"],
     },
     {
-      title: "Requests & Reports", titleKey: "sidebar.salesMarketing",
-      items: ["Market Requests", "Expenses"],
+      title: "Requests & Operations", titleKey: "sidebar.salesMarketing",
+      items: ["Market Requests", "Expenses", "Product Guide"],
     },
   ],
   ACCOUNTANT: [
