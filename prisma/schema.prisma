@@ -538,6 +538,7 @@ model Product {
   boms            BillOfMaterials[]
   bomMaterials    BOMItem[]
   businessUnits   BusinessUnitProduct[]
+  batchReleases   BatchRelease[]
 
   @@map("products")
 }
@@ -1619,4 +1620,1155 @@ model Message {
   @@index([recipientId, isRead])
   @@index([senderId])
   @@map("messages")
+}
+
+// ==================== QAQC ENUMS ====================
+
+enum AuditType {
+  INTERNAL
+  EXTERNAL
+  SUPPLIER
+}
+
+enum AuditStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CLOSED
+}
+
+enum FindingSeverity {
+  CRITICAL
+  MAJOR
+  MINOR
+  OBSERVATION
+}
+
+enum FindingStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+enum BatchReleaseStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum CAPAType {
+  CORRECTIVE
+  PREVENTIVE
+}
+
+enum CAPAStatus {
+  OPEN
+  INVESTIGATION
+  ACTION_PLAN
+  IMPLEMENTATION
+  VERIFICATION
+  CLOSED
+}
+
+enum CAPAPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CAPAActionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+}
+
+enum ChangeControlType {
+  DOCUMENT
+  PROCESS
+  EQUIPMENT
+  SYSTEM
+}
+
+enum ChangeControlStatus {
+  INITIATED
+  UNDER_REVIEW
+  APPROVED
+  IMPLEMENTED
+  CLOSED
+  REJECTED
+}
+
+enum CleaningValidationStatus {
+  PENDING
+  IN_PROGRESS
+  PASSED
+  FAILED
+}
+
+enum ComplaintSource {
+  CUSTOMER
+  INTERNAL
+  REGULATORY
+}
+
+enum ComplaintStatus {
+  RECEIVED
+  UNDER_INVESTIGATION
+  ROOT_CAUSE_IDENTIFIED
+  CAPA_INITIATED
+  CLOSED
+}
+
+enum DeviationType {
+  PLANNED
+  UNPLANNED
+}
+
+enum DeviationStatus {
+  OPEN
+  UNDER_INVESTIGATION
+  CAPA_REQUIRED
+  CLOSED
+}
+
+enum DeviationSeverity {
+  CRITICAL
+  MAJOR
+  MINOR
+}
+
+enum QDocumentType {
+  SOP
+  PROTOCOL
+  FORM
+  REPORT
+  SPECIFICATION
+}
+
+enum QDocumentStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  EFFECTIVE
+  OBSOLETE
+}
+
+enum EnvironmentalParameter {
+  TEMPERATURE
+  HUMIDITY
+  PARTICLE_COUNT
+  MICROBIAL
+  DIFFERENTIAL_PRESSURE
+}
+
+enum MonitoringStatus {
+  WITHIN_SPEC
+  OUT_OF_SPEC
+  ALERT
+}
+
+enum OOSStatus {
+  INITIATED
+  PHASE1_LAB
+  PHASE2_FULL
+  CONCLUDED
+  CLOSED
+}
+
+enum RecallType {
+  CLASS_I
+  CLASS_II
+  CLASS_III
+}
+
+enum RecallStatus {
+  INITIATED
+  IN_PROGRESS
+  COMPLETED
+  CLOSED
+}
+
+enum RiskAssessmentType {
+  PROCESS
+  PRODUCT
+  EQUIPMENT
+  FACILITY
+}
+
+enum RiskAssessmentStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  APPROVED
+}
+
+enum RiskMethodology {
+  FMEA
+  HACCP
+  FTA
+  PHA
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SPCChartType {
+  XBAR_R
+  XBAR_S
+  P_CHART
+  C_CHART
+  U_CHART
+  INDIVIDUAL_MR
+}
+
+enum SPCStatus {
+  ACTIVE
+  IN_CONTROL
+  OUT_OF_CONTROL
+}
+
+enum StabilityStatus {
+  PLANNED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum TimepointStatus {
+  PENDING
+  COMPLETED
+  MISSED
+}
+
+enum SupplierQualityStatus {
+  APPROVED
+  CONDITIONAL
+  PROBATION
+  DISQUALIFIED
+}
+
+enum TrainingRecordStatus {
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+  EXPIRED
+}
+
+enum WaterSystem {
+  PURIFIED_WATER
+  WFI
+  CLEAN_STEAM
+}
+
+enum WaterParameter {
+  TOC
+  CONDUCTIVITY
+  PH
+  ENDOTOXIN
+  MICROBIAL
+}
+
+enum WaterReadingStatus {
+  PASS
+  FAIL
+  ALERT
+}
+
+// ==================== OPERATIONS/MANUFACTURING ENUMS ====================
+
+enum EquipmentStatus {
+  OPERATIONAL
+  MAINTENANCE
+  CALIBRATION
+  RETIRED
+}
+
+enum HVACStatus {
+  NORMAL
+  WARNING
+  CRITICAL
+}
+
+enum ThreeWayMatchStatus {
+  PENDING
+  MATCHED
+  DISCREPANCY
+  RESOLVED
+}
+
+enum WarehouseZoneType {
+  RECEIVING
+  STORAGE
+  PICKING
+  PACKING
+  SHIPPING
+  QUARANTINE
+  COLD_CHAIN
+}
+
+enum WarehouseZoneStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum ManufacturingBatchStatus {
+  IN_PROGRESS
+  COMPLETED
+  UNDER_REVIEW
+  RELEASED
+  REJECTED
+}
+
+enum TraceabilityDirection {
+  FORWARD
+  BACKWARD
+}
+
+// ==================== DATASTORE ENUMS ====================
+
+enum RFQStatus {
+  DRAFT
+  SENT
+  RECEIVED
+  EVALUATED
+  AWARDED
+  CANCELLED
+}
+
+enum GoodsReceiptStatus {
+  PENDING
+  PARTIAL
+  COMPLETED
+  REJECTED
+}
+
+enum DeliveryNoteStatus {
+  DRAFT
+  DISPATCHED
+  IN_TRANSIT
+  DELIVERED
+  RETURNED
+}
+
+enum ShipmentType {
+  INBOUND
+  OUTBOUND
+}
+
+enum ShipmentStatus {
+  PLANNED
+  IN_TRANSIT
+  DELIVERED
+  DELAYED
+  CANCELLED
+}
+
+enum ShipmentMode {
+  OCEAN
+  AIR
+  GROUND
+  RAIL
+}
+
+enum FiscalPeriodStatus {
+  OPEN
+  CLOSED
+  LOCKED
+}
+
+enum TaxType {
+  VAT
+  SALES_TAX
+  INCOME_TAX
+  WITHHOLDING
+}
+
+enum ChequeType {
+  ISSUED
+  RECEIVED
+}
+
+enum ChequeStatus {
+  PENDING
+  CLEARED
+  BOUNCED
+  CANCELLED
+  VOIDED
+}
+
+// ==================== QAQC MODELS ====================
+
+model QAudit {
+  id            String      @id @default(cuid())
+  tenantId      String
+  title         String
+  type          AuditType
+  status        AuditStatus @default(PLANNED)
+  auditor       String
+  auditee       String
+  department    String?
+  scheduledDate DateTime
+  completedDate DateTime?
+  score         Float?
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  findings QAuditFinding[]
+
+  @@index([tenantId])
+  @@map("q_audits")
+}
+
+model QAuditFinding {
+  id          String          @id @default(cuid())
+  tenantId    String
+  auditId     String
+  audit       QAudit          @relation(fields: [auditId], references: [id])
+  title       String
+  description String?
+  severity    FindingSeverity
+  status      FindingStatus   @default(OPEN)
+  assignedTo  String?
+  dueDate     DateTime?
+  evidence    String?
+  capaId      String?
+  capa        CAPA?           @relation(fields: [capaId], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([tenantId])
+  @@index([auditId])
+  @@map("q_audit_findings")
+}
+
+model BatchRelease {
+  id            String             @id @default(cuid())
+  tenantId      String
+  batchNumber   String
+  productId     String
+  product       Product            @relation(fields: [productId], references: [id])
+  status        BatchReleaseStatus @default(PENDING)
+  reviewedBy    String?
+  approvedBy    String?
+  releaseDate   DateTime?
+  expiryDate    DateTime?
+  qaDecision    String?
+  notes         String?
+  signatureHash String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@map("batch_releases")
+}
+
+model CAPA {
+  id                 String     @id @default(cuid())
+  tenantId           String
+  number             String
+  title              String
+  type               CAPAType
+  status             CAPAStatus @default(OPEN)
+  priority           CAPAPriority
+  source             String?
+  description        String?
+  rootCause          String?
+  assignedTo         String?
+  dueDate            DateTime?
+  completedDate      DateTime?
+  effectivenessCheck String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  actions  CAPAAction[]
+  findings QAuditFinding[]
+
+  @@index([tenantId])
+  @@map("capas")
+}
+
+model CAPAAction {
+  id            String           @id @default(cuid())
+  tenantId      String
+  capaId        String
+  capa          CAPA             @relation(fields: [capaId], references: [id])
+  description   String
+  assignedTo    String?
+  dueDate       DateTime?
+  completedDate DateTime?
+  status        CAPAActionStatus @default(PENDING)
+  evidence      String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([tenantId])
+  @@index([capaId])
+  @@map("capa_actions")
+}
+
+model ChangeControl {
+  id                 String              @id @default(cuid())
+  tenantId           String
+  number             String
+  title              String
+  description        String?
+  type               ChangeControlType
+  status             ChangeControlStatus @default(INITIATED)
+  priority           String?
+  requestedBy        String?
+  approvedBy         String?
+  impactAssessment   String?
+  implementationPlan String?
+  effectiveDate      DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([tenantId])
+  @@map("change_controls")
+}
+
+model CleaningValidation {
+  id                 String                   @id @default(cuid())
+  tenantId           String
+  protocol           String
+  equipment          String
+  area               String?
+  status             CleaningValidationStatus @default(PENDING)
+  method             String?
+  acceptanceCriteria String?
+  results            String?
+  validatedBy        String?
+  validationDate     DateTime?
+  nextValidationDate DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  @@index([tenantId])
+  @@map("cleaning_validations")
+}
+
+model QComplaint {
+  id            String          @id @default(cuid())
+  tenantId      String
+  number        String
+  title         String
+  source        ComplaintSource
+  status        ComplaintStatus @default(RECEIVED)
+  priority      String?
+  product       String?
+  batchNumber   String?
+  description   String?
+  investigation String?
+  rootCause     String?
+  capaId        String?
+  reportedBy    String?
+  reportedDate  DateTime?
+  closedDate    DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([tenantId])
+  @@map("q_complaints")
+}
+
+model Deviation {
+  id               String            @id @default(cuid())
+  tenantId         String
+  number           String
+  title            String
+  type             DeviationType
+  status           DeviationStatus   @default(OPEN)
+  severity         DeviationSeverity
+  department       String?
+  description      String?
+  rootCause        String?
+  impactAssessment String?
+  immediateAction  String?
+  capaId           String?
+  reportedBy       String?
+  reportedDate     DateTime?
+  closedDate       DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([tenantId])
+  @@map("deviations")
+}
+
+model QDocument {
+  id            String          @id @default(cuid())
+  tenantId      String
+  number        String
+  title         String
+  type          QDocumentType
+  status        QDocumentStatus @default(DRAFT)
+  version       String          @default("1.0")
+  department    String?
+  author        String?
+  reviewer      String?
+  approver      String?
+  effectiveDate DateTime?
+  reviewDate    DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  versions QDocumentVersion[]
+
+  @@index([tenantId])
+  @@map("q_documents")
+}
+
+model QDocumentVersion {
+  id                String    @id @default(cuid())
+  tenantId          String
+  documentId        String
+  document          QDocument @relation(fields: [documentId], references: [id])
+  version           String
+  content           String?
+  changeDescription String?
+  author            String?
+  approvedBy        String?
+  approvedDate      DateTime?
+  createdAt         DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([documentId])
+  @@map("q_document_versions")
+}
+
+model EnvironmentalMonitoring {
+  id           String                 @id @default(cuid())
+  tenantId     String
+  area         String
+  parameter    EnvironmentalParameter
+  value        Float
+  unit         String
+  minLimit     Float?
+  maxLimit     Float?
+  status       MonitoringStatus       @default(WITHIN_SPEC)
+  readingDate  DateTime
+  recordedBy   String?
+  equipment    String?
+  notes        String?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  @@index([tenantId])
+  @@map("environmental_monitorings")
+}
+
+model OOSInvestigation {
+  id             String    @id @default(cuid())
+  tenantId       String
+  number         String
+  title          String
+  status         OOSStatus @default(INITIATED)
+  batchNumber    String?
+  product        String?
+  testName       String?
+  specification  String?
+  result         String?
+  assignedTo     String?
+  phase1Findings String?
+  phase2Findings String?
+  conclusion     String?
+  capaId         String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@map("oos_investigations")
+}
+
+model Recall {
+  id                String       @id @default(cuid())
+  tenantId          String
+  number            String
+  title             String
+  type              RecallType
+  status            RecallStatus @default(INITIATED)
+  product           String?
+  batchNumbers      String?
+  reason            String?
+  affectedQuantity  Int?
+  distributionScope String?
+  healthHazard      String?
+  strategy          String?
+  effectiveness     String?
+  initiatedBy       String?
+  initiatedDate     DateTime?
+  closedDate        DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([tenantId])
+  @@map("recalls")
+}
+
+model RiskAssessment {
+  id               String               @id @default(cuid())
+  tenantId         String
+  title            String
+  type             RiskAssessmentType
+  status           RiskAssessmentStatus  @default(DRAFT)
+  methodology      RiskMethodology
+  scope            String?
+  team             String?
+  hazards          Json?
+  overallRiskLevel RiskLevel?
+  mitigations      String?
+  reviewDate       DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([tenantId])
+  @@map("risk_assessments")
+}
+
+model SPCChart {
+  id          String       @id @default(cuid())
+  tenantId    String
+  name        String
+  type        SPCChartType
+  parameter   String?
+  product     String?
+  specification String?
+  ucl         Float
+  lcl         Float
+  centerLine  Float
+  status      SPCStatus    @default(ACTIVE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  dataPoints SPCDataPoint[]
+
+  @@index([tenantId])
+  @@map("spc_charts")
+}
+
+model SPCDataPoint {
+  id           String   @id @default(cuid())
+  tenantId     String
+  chartId      String
+  chart        SPCChart @relation(fields: [chartId], references: [id])
+  value        Float
+  sampleSize   Int?
+  timestamp    DateTime
+  recordedBy   String?
+  notes        String?
+  outOfControl Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([chartId])
+  @@map("spc_data_points")
+}
+
+model StabilityStudy {
+  id         String          @id @default(cuid())
+  tenantId   String
+  protocol   String
+  product    String
+  batchNumber String
+  condition  String?
+  status     StabilityStatus @default(PLANNED)
+  startDate  DateTime?
+  endDate    DateTime?
+  conclusion String?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  timepoints StabilityTimepoint[]
+
+  @@index([tenantId])
+  @@map("stability_studies")
+}
+
+model StabilityTimepoint {
+  id            String          @id @default(cuid())
+  tenantId      String
+  studyId       String
+  study         StabilityStudy  @relation(fields: [studyId], references: [id])
+  timepoint     String
+  scheduledDate DateTime?
+  actualDate    DateTime?
+  results       Json?
+  status        TimepointStatus @default(PENDING)
+  analyst       String?
+  createdAt     DateTime        @default(now())
+
+  @@index([tenantId])
+  @@index([studyId])
+  @@map("stability_timepoints")
+}
+
+model SupplierQuality {
+  id                String                @id @default(cuid())
+  tenantId          String
+  supplierId        String
+  supplierName      String
+  status            SupplierQualityStatus @default(APPROVED)
+  qualificationDate DateTime?
+  lastAuditDate     DateTime?
+  nextAuditDate     DateTime?
+  overallScore      Float?
+  qualityScore      Float?
+  deliveryScore     Float?
+  complianceScore   Float?
+  issues            Json?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([tenantId])
+  @@map("supplier_qualities")
+}
+
+model TrainingRecord {
+  id            String               @id @default(cuid())
+  tenantId      String
+  employeeId    String
+  employeeName  String
+  trainingType  String
+  title         String
+  status        TrainingRecordStatus @default(ASSIGNED)
+  assignedDate  DateTime?
+  dueDate       DateTime?
+  completedDate DateTime?
+  score         Float?
+  trainer       String?
+  certificate   String?
+  expiryDate    DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([tenantId])
+  @@map("training_records")
+}
+
+model VendorScore {
+  id             String   @id @default(cuid())
+  tenantId       String
+  vendorId       String
+  vendorName     String
+  period         String
+  qualityScore   Float
+  deliveryScore  Float
+  priceScore     Float
+  serviceScore   Float
+  overallScore   Float
+  evaluatedBy    String?
+  evaluationDate DateTime?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("vendor_scores")
+}
+
+model WaterSystemReading {
+  id          String             @id @default(cuid())
+  tenantId    String
+  system      WaterSystem
+  point       String
+  parameter   WaterParameter
+  value       Float
+  unit        String
+  limit       Float
+  status      WaterReadingStatus @default(PASS)
+  readingDate DateTime
+  recordedBy  String?
+  equipment   String?
+  notes       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@map("water_system_readings")
+}
+
+// ==================== OPERATIONS/MANUFACTURING MODELS ====================
+
+model EquipmentRecord {
+  id                  String          @id @default(cuid())
+  tenantId            String
+  name                String
+  code                String
+  type                String?
+  department          String?
+  status              EquipmentStatus @default(OPERATIONAL)
+  manufacturer        String?
+  model               String?
+  serialNumber        String?
+  installDate         DateTime?
+  lastMaintenanceDate DateTime?
+  nextMaintenanceDate DateTime?
+  calibrationDueDate  DateTime?
+  location            String?
+  notes               String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([tenantId])
+  @@map("equipment_records")
+}
+
+model HVACReading {
+  id                   String     @id @default(cuid())
+  tenantId             String
+  zone                 String
+  area                 String?
+  temperature          Float
+  humidity             Float
+  differentialPressure Float
+  airChanges           Float?
+  particleCount        Int?
+  status               HVACStatus @default(NORMAL)
+  readingDate          DateTime
+  recordedBy           String?
+  notes                String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  @@index([tenantId])
+  @@map("hvac_readings")
+}
+
+model ThreeWayMatch {
+  id                  String              @id @default(cuid())
+  tenantId            String
+  purchaseOrderId     String
+  goodsReceiptId      String
+  invoiceId           String
+  status              ThreeWayMatchStatus @default(PENDING)
+  poAmount            Float
+  grAmount            Float
+  invoiceAmount       Float
+  variance            Float
+  variancePercentage  Float
+  resolution          String?
+  resolvedBy          String?
+  resolvedDate        DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@index([tenantId])
+  @@map("three_way_matches")
+}
+
+model WarehouseZone {
+  id               String              @id @default(cuid())
+  tenantId         String
+  name             String
+  code             String
+  warehouseId      String
+  type             WarehouseZoneType
+  temperature      Float?
+  humidity         Float?
+  capacity         Int
+  currentOccupancy Int                 @default(0)
+  status           WarehouseZoneStatus @default(ACTIVE)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([tenantId])
+  @@map("warehouse_zones")
+}
+
+model ManufacturingBatchRecord {
+  id               String                   @id @default(cuid())
+  tenantId         String
+  batchNumber      String
+  productId        String
+  workOrderId      String?
+  status           ManufacturingBatchStatus @default(IN_PROGRESS)
+  startDate        DateTime?
+  endDate          DateTime?
+  yield            Float?
+  theoreticalYield Float?
+  actualYield      Float?
+  operatorNotes    String?
+  reviewedBy       String?
+  reviewDate       DateTime?
+  approvedBy       String?
+  approvalDate     DateTime?
+  deviations       Json?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@index([tenantId])
+  @@map("manufacturing_batch_records")
+}
+
+model BatchTraceability {
+  id            String                @id @default(cuid())
+  tenantId      String
+  batchNumber   String
+  productId     String
+  direction     TraceabilityDirection
+  parentBatchId String?
+  childBatchId  String?
+  materialName  String?
+  quantity      Float?
+  unit          String?
+  stage         String?
+  timestamp     DateTime?
+  operator      String?
+  notes         String?
+  createdAt     DateTime              @default(now())
+
+  @@index([tenantId])
+  @@map("batch_traceabilities")
+}
+
+// ==================== MISSING DATASTORE MODELS ====================
+
+model RFQ {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  number             String
+  title              String
+  status             RFQStatus @default(DRAFT)
+  supplierId         String?
+  items              Json?
+  dueDate            DateTime?
+  submittedDate      DateTime?
+  evaluationCriteria String?
+  notes              String?
+  createdBy          String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@map("rfqs")
+}
+
+model GoodsReceipt {
+  id              String             @id @default(cuid())
+  tenantId        String
+  number          String
+  purchaseOrderId String?
+  status          GoodsReceiptStatus @default(PENDING)
+  receivedDate    DateTime?
+  receivedBy      String?
+  items           Json?
+  qualityCheck    Boolean            @default(false)
+  notes           String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@map("goods_receipts")
+}
+
+model DeliveryNote {
+  id           String             @id @default(cuid())
+  tenantId     String
+  number       String
+  salesOrderId String?
+  status       DeliveryNoteStatus @default(DRAFT)
+  dispatchDate DateTime?
+  deliveryDate DateTime?
+  carrier      String?
+  trackingNumber String?
+  items        Json?
+  receivedBy   String?
+  notes        String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@map("delivery_notes")
+}
+
+model Shipment {
+  id               String         @id @default(cuid())
+  tenantId         String
+  number           String
+  type             ShipmentType
+  status           ShipmentStatus @default(PLANNED)
+  origin           String?
+  destination      String?
+  carrier          String?
+  trackingNumber   String?
+  mode             ShipmentMode?
+  estimatedArrival DateTime?
+  actualArrival    DateTime?
+  items            Json?
+  cost             Float?
+  currency         String?
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([tenantId])
+  @@map("shipments")
+}
+
+model FiscalPeriod {
+  id         String             @id @default(cuid())
+  tenantId   String
+  name       String
+  year       Int
+  period     Int
+  startDate  DateTime
+  endDate    DateTime
+  status     FiscalPeriodStatus @default(OPEN)
+  closedBy   String?
+  closedDate DateTime?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@map("fiscal_periods")
+}
+
+model TaxConfiguration {
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  code          String
+  type          TaxType
+  rate          Float
+  country       String?
+  region        String?
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("tax_configurations")
+}
+
+model Cheque {
+  id            String       @id @default(cuid())
+  tenantId      String
+  number        String
+  bankAccountId String?
+  type          ChequeType
+  status        ChequeStatus @default(PENDING)
+  amount        Float
+  currency      String?
+  payee         String?
+  payer         String?
+  issueDate     DateTime?
+  clearanceDate DateTime?
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([tenantId])
+  @@map("cheques")
 }
