@@ -933,13 +933,13 @@ export function roundToDecimal(value: number, decimals: number): number {
   return Math.round(value * factor) / factor;
 }
 
-/** Convert an amount from one currency to another using exchange rates. */
+/** Convert an amount from one currency to another — rounded to 2 decimal places. */
 export function convertCurrency(
   amount: number,
   fromRate: number,
   toRate: number,
 ): number {
-  return amount * (toRate / fromRate);
+  return roundToDecimal(amount * (toRate / fromRate), 2);
 }
 
 // -----------------------------------------------------------------------------

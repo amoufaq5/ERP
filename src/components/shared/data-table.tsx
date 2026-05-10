@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n/i18n-context";
+import EmptyState from "@/components/shared/empty-state";
 
 export interface Column<T = any> {
   key: string;
@@ -294,8 +295,8 @@ export function DataTable<T extends Record<string, any> = Record<string, any>>({
               ))
             ) : paginatedData.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={columns.length + (selectable ? 1 : 0)} className="h-32 text-center text-muted-foreground text-sm">
-                  {emptyMessage}
+                <TableCell colSpan={columns.length + (selectable ? 1 : 0)} className="p-0">
+                  <EmptyState title={emptyMessage} className="py-12" />
                 </TableCell>
               </TableRow>
             ) : (
