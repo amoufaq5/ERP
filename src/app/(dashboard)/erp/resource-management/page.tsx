@@ -102,8 +102,7 @@ const skillsMatrix: SkillEntry[] = [
   { id: 'sk-3', resource: 'Fatma El-Sayed', skill: 'Figma', level: 'Expert', yearsExp: 4, certified: true },
   { id: 'sk-4', resource: 'Mohamed Ali', skill: 'PMP', level: 'Expert', yearsExp: 8, certified: true },
   { id: 'sk-5', resource: 'Omar Farouk', skill: 'AWS', level: 'Advanced', yearsExp: 4, certified: true },
-  { id: 'sk-6', resource: 'Omar Farouk', skill: 'Kubernetes', level: 'Intermediate', yearsExp: 2, certified: false },
-  { id: 'sk-7', resource: 'Yasmin Mostafa', skill: 'Python', level: 'Expert', yearsExp: 7, certified: false },
+  { id: 'sk-6', resource: 'Yasmin Mostafa', skill: 'Python', level: 'Expert', yearsExp: 7, certified: false },
 ];
 
 // --- Helpers ---

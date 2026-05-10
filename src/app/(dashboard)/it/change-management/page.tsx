@@ -429,12 +429,8 @@ export default function ChangeManagementPage() {
               <Input placeholder="High / Medium / Low" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Justification</label>
-              <Input placeholder="Why is this change needed?" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Rollback Plan</label>
-              <Input placeholder="Describe the rollback procedure" />
+              <label className="text-sm font-medium">Justification & Rollback Plan</label>
+              <Input placeholder="Why is this change needed? How to roll back?" />
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setSubmitDialogOpen(false)}>

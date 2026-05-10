@@ -387,11 +387,9 @@ export default function DataPrivacyPage() {
                 <Select>
                   <SelectTrigger><SelectValue placeholder="Channel" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Web Form">Web Form</SelectItem>
-                    <SelectItem value="Email">Email</SelectItem>
-                    <SelectItem value="Mobile App">Mobile App</SelectItem>
-                    <SelectItem value="In-Store">In-Store</SelectItem>
-                    <SelectItem value="Paper Form">Paper Form</SelectItem>
+                    {["Web Form", "Email", "Mobile App", "In-Store", "Paper Form"].map((ch) => (
+                      <SelectItem key={ch} value={ch}>{ch}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <Select>
@@ -410,10 +408,9 @@ export default function DataPrivacyPage() {
                 <Select>
                   <SelectTrigger><SelectValue placeholder="Severity" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Low">Low</SelectItem>
-                    <SelectItem value="Medium">Medium</SelectItem>
-                    <SelectItem value="High">High</SelectItem>
-                    <SelectItem value="Critical">Critical</SelectItem>
+                    {["Low", "Medium", "High", "Critical"].map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <Input type="date" placeholder="Date Detected" />
