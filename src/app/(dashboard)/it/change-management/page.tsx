@@ -43,12 +43,10 @@ const changeRequests = [
   { id: "CR-304", title: "Office 365 tenant migration", type: "Normal", priority: "High", status: "Scheduled", requester: "IT Operations", impact: "High", scheduled: "2026-05-20" },
   { id: "CR-305", title: "Add monitoring agents to production", type: "Standard", priority: "Low", status: "Draft", requester: "DevOps", impact: "Low", scheduled: "—" },
   { id: "CR-306", title: "Replace SSL certificates", type: "Standard", priority: "Medium", status: "Approved", requester: "Infrastructure", impact: "Medium", scheduled: "2026-05-18" },
-  { id: "CR-307", title: "Migrate legacy API to v3", type: "Normal", priority: "Medium", status: "Submitted", requester: "Dev Team", impact: "Medium", scheduled: "—" },
 ];
 
 const approvals = [
   { id: "CR-302", title: "Firewall rule update — new VPN gateway", submitter: "Network Team", submitted: "2026-05-08", approvers: ["CISO", "IT Director"], status: "Pending" },
-  { id: "CR-307", title: "Migrate legacy API to v3", submitter: "Dev Team", submitted: "2026-05-09", approvers: ["CTO", "IT Director"], status: "Pending" },
   { id: "CR-301", title: "Upgrade database to PostgreSQL 16", submitter: "DBA Team", submitted: "2026-05-05", approvers: ["IT Director"], status: "Approved" },
 ];
 

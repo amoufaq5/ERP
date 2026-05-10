@@ -59,7 +59,6 @@ const churnData = [
   { month: "Feb 2026", churned: 5, total: 795, rate: 0.63 },
   { month: "Mar 2026", churned: 12, total: 802, rate: 1.50 },
   { month: "Apr 2026", churned: 7, total: 810, rate: 0.86 },
-  { month: "May 2026", churned: 3, total: 818, rate: 0.37 },
 ];
 
 const statusColors: Record<string, string> = {
