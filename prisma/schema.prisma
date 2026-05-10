@@ -170,6 +170,7 @@ model User {
 
 model ApiToken {
   id          String    @id @default(cuid())
+  tenantId    String
   userId      String
   user        User      @relation(fields: [userId], references: [id])
   name        String
@@ -180,11 +181,13 @@ model ApiToken {
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
 
+  @@index([tenantId])
   @@map("api_tokens")
 }
 
 model AuditLog {
   id        String   @id @default(cuid())
+  tenantId  String
   userId    String?
   user      User?    @relation(fields: [userId], references: [id])
   action    String
@@ -196,6 +199,7 @@ model AuditLog {
   ipAddress String?
   createdAt DateTime @default(now())
 
+  @@index([tenantId])
   @@index([entity, entityId])
   @@index([userId])
   @@map("audit_logs")
@@ -203,6 +207,7 @@ model AuditLog {
 
 model Notification {
   id        String   @id @default(cuid())
+  tenantId  String
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   title     String
@@ -213,12 +218,14 @@ model Notification {
   module    String?  // CRM, ERP, HR, ATS, etc.
   createdAt DateTime @default(now())
 
+  @@index([tenantId])
   @@index([userId, isRead])
   @@map("notifications")
 }
 
 model CustomField {
   id         String  @id @default(cuid())
+  tenantId   String
   module     String
   fieldName  String
   fieldType  String  // TEXT, NUMBER, DATE, SELECT, BOOLEAN
@@ -228,27 +235,32 @@ model CustomField {
 
   values CustomFieldValue[]
 
+  @@index([tenantId])
   @@map("custom_fields")
 }
 
 model CustomFieldValue {
   id            String      @id @default(cuid())
+  tenantId      String
   customFieldId String
   customField   CustomField @relation(fields: [customFieldId], references: [id])
   entityId      String
   entityType    String
   value         String
 
+  @@index([tenantId])
   @@index([entityType, entityId])
   @@map("custom_field_values")
 }
 
 model SystemSetting {
   id       String @id @default(cuid())
+  tenantId String
   key      String @unique
   value    String
   category String @default("general")
 
+  @@index([tenantId])
   @@map("system_settings")
 }
 
@@ -256,6 +268,7 @@ model SystemSetting {
 
 model Workflow {
   id            String    @id @default(cuid())
+  tenantId      String
   name          String
   module        String
   triggerType   String
@@ -272,11 +285,13 @@ model Workflow {
 
   logs WorkflowLog[]
 
+  @@index([tenantId])
   @@map("workflows")
 }
 
 model WorkflowLog {
   id         String   @id @default(cuid())
+  tenantId   String
   workflowId String
   workflow   Workflow  @relation(fields: [workflowId], references: [id])
   status     String   // SUCCESS, FAILURE
@@ -284,6 +299,7 @@ model WorkflowLog {
   output     String?
   executedAt DateTime @default(now())
 
+  @@index([tenantId])
   @@map("workflow_logs")
 }
 
@@ -291,6 +307,7 @@ model WorkflowLog {
 
 model AIConfig {
   id        String   @id @default(cuid())
+  tenantId  String
   provider  String   // openai, anthropic, custom
   apiKey    String
   model     String
@@ -299,11 +316,13 @@ model AIConfig {
 
   logs AILog[]
 
+  @@index([tenantId])
   @@map("ai_configs")
 }
 
 model AILog {
   id         String   @id @default(cuid())
+  tenantId   String
   configId   String?
   config     AIConfig? @relation(fields: [configId], references: [id])
   feature    String
@@ -313,6 +332,7 @@ model AILog {
   cost       Float?
   createdAt  DateTime @default(now())
 
+  @@index([tenantId])
   @@map("ai_logs")
 }
 
@@ -320,6 +340,7 @@ model AILog {
 
 model ChartOfAccount {
   id        String   @id @default(cuid())
+  tenantId  String
   code      String   @unique
   name      String
   type      String   // ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
@@ -332,11 +353,13 @@ model ChartOfAccount {
 
   journalLines JournalEntryLine[]
 
+  @@index([tenantId])
   @@map("chart_of_accounts")
 }
 
 model JournalEntry {
   id          String   @id @default(cuid())
+  tenantId    String
   entryNumber String   @unique
   date        DateTime
   reference   String?
@@ -348,11 +371,13 @@ model JournalEntry {
 
   lines JournalEntryLine[]
 
+  @@index([tenantId])
   @@map("journal_entries")
 }
 
 model JournalEntryLine {
   id             String       @id @default(cuid())
+  tenantId       String
   journalEntryId String
   journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id])
   accountId      String
@@ -361,11 +386,13 @@ model JournalEntryLine {
   credit         Float        @default(0)
   description    String?
 
+  @@index([tenantId])
   @@map("journal_entry_lines")
 }
 
 model Invoice {
   id            String   @id @default(cuid())
+  tenantId      String
   invoiceNumber String   @unique
   customerId    String
   customer      Account  @relation(fields: [customerId], references: [id])
@@ -381,11 +408,13 @@ model Invoice {
   items    InvoiceItem[]
   payments Payment[]     @relation("InvoicePayments")
 
+  @@index([tenantId])
   @@map("invoices")
 }
 
 model InvoiceItem {
   id          String  @id @default(cuid())
+  tenantId    String
   invoiceId   String
   invoice     Invoice @relation(fields: [invoiceId], references: [id])
   description String
@@ -394,11 +423,13 @@ model InvoiceItem {
   tax         Float   @default(0)
   total       Float
 
+  @@index([tenantId])
   @@map("invoice_items")
 }
 
 model Bill {
   id         String   @id @default(cuid())
+  tenantId   String
   billNumber String   @unique
   supplierId String
   supplier   Supplier @relation(fields: [supplierId], references: [id])
@@ -414,11 +445,13 @@ model Bill {
   items    BillItem[]
   payments Payment[]  @relation("BillPayments")
 
+  @@index([tenantId])
   @@map("bills")
 }
 
 model BillItem {
   id          String @id @default(cuid())
+  tenantId    String
   billId      String
   bill        Bill   @relation(fields: [billId], references: [id])
   description String
@@ -426,11 +459,13 @@ model BillItem {
   unitPrice   Float
   total       Float
 
+  @@index([tenantId])
   @@map("bill_items")
 }
 
 model Payment {
   id        String   @id @default(cuid())
+  tenantId  String
   type      String   // INCOMING, OUTGOING
   amount    Float
   date      DateTime
@@ -442,6 +477,7 @@ model Payment {
   bill      Bill?    @relation("BillPayments", fields: [billId], references: [id])
   createdAt DateTime @default(now())
 
+  @@index([tenantId])
   @@map("payments")
 }
 
@@ -449,6 +485,7 @@ model Payment {
 
 model Supplier {
   id           String   @id @default(cuid())
+  tenantId     String
   name         String
   email        String?
   phone        String?
@@ -464,11 +501,13 @@ model Supplier {
   purchaseOrders PurchaseOrder[]
   contracts      Contract[]
 
+  @@index([tenantId])
   @@map("suppliers")
 }
 
 model PurchaseOrder {
   id           String   @id @default(cuid())
+  tenantId     String
   poNumber     String   @unique
   supplierId   String
   supplier     Supplier @relation(fields: [supplierId], references: [id])
@@ -483,11 +522,13 @@ model PurchaseOrder {
 
   items PurchaseOrderItem[]
 
+  @@index([tenantId])
   @@map("purchase_orders")
 }
 
 model PurchaseOrderItem {
   id              String        @id @default(cuid())
+  tenantId        String
   purchaseOrderId String
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
   productId       String?
@@ -497,11 +538,13 @@ model PurchaseOrderItem {
   unitPrice       Float
   total           Float
 
+  @@index([tenantId])
   @@map("purchase_order_items")
 }
 
 model Contract {
   id         String    @id @default(cuid())
+  tenantId   String
   title      String
   supplierId String
   supplier   Supplier  @relation(fields: [supplierId], references: [id])
@@ -513,6 +556,7 @@ model Contract {
   terms      String?
   createdAt  DateTime  @default(now())
 
+  @@index([tenantId])
   @@map("contracts")
 }
 
@@ -520,6 +564,7 @@ model Contract {
 
 model Product {
   id           String   @id @default(cuid())
+  tenantId     String
   sku          String   @unique
   name         String
   description  String?
@@ -540,11 +585,13 @@ model Product {
   businessUnits   BusinessUnitProduct[]
   batchReleases   BatchRelease[]
 
+  @@index([tenantId])
   @@map("products")
 }
 
 model Warehouse {
   id        String   @id @default(cuid())
+  tenantId  String
   name      String
   location  String?
   capacity  Int?
@@ -554,11 +601,13 @@ model Warehouse {
 
   stockMovements StockMovement[]
 
+  @@index([tenantId])
   @@map("warehouses")
 }
 
 model StockMovement {
   id          String    @id @default(cuid())
+  tenantId    String
   productId   String
   product     Product   @relation(fields: [productId], references: [id])
   warehouseId String?
@@ -571,11 +620,13 @@ model StockMovement {
   createdById String
   createdBy   User      @relation(fields: [createdById], references: [id])
 
+  @@index([tenantId])
   @@map("stock_movements")
 }
 
 model SalesOrder {
   id              String   @id @default(cuid())
+  tenantId        String
   orderNumber     String   @unique
   customerId      String
   customer        Account  @relation(fields: [customerId], references: [id])
@@ -588,11 +639,13 @@ model SalesOrder {
 
   items SalesOrderItem[]
 
+  @@index([tenantId])
   @@map("sales_orders")
 }
 
 model SalesOrderItem {
   id           String     @id @default(cuid())
+  tenantId     String
   salesOrderId String
   salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id])
   productId    String
@@ -601,6 +654,7 @@ model SalesOrderItem {
   unitPrice    Float
   total        Float
 
+  @@index([tenantId])
   @@map("sales_order_items")
 }
 
@@ -608,6 +662,7 @@ model SalesOrderItem {
 
 model Project {
   id          String    @id @default(cuid())
+  tenantId    String
   name        String
   description String?
   managerId   String
@@ -622,11 +677,13 @@ model Project {
 
   tasks ProjectTask[]
 
+  @@index([tenantId])
   @@map("projects")
 }
 
 model ProjectTask {
   id             String    @id @default(cuid())
+  tenantId       String
   projectId      String
   project        Project   @relation(fields: [projectId], references: [id])
   title          String
@@ -642,11 +699,13 @@ model ProjectTask {
 
   timeEntries TimeEntry[]
 
+  @@index([tenantId])
   @@map("project_tasks")
 }
 
 model TimeEntry {
   id          String      @id @default(cuid())
+  tenantId    String
   taskId      String
   task        ProjectTask @relation(fields: [taskId], references: [id])
   userId      String
@@ -656,6 +715,7 @@ model TimeEntry {
   description String?
   billable    Boolean     @default(true)
 
+  @@index([tenantId])
   @@map("time_entries")
 }
 
@@ -663,6 +723,7 @@ model TimeEntry {
 
 model Department {
   id          String   @id @default(cuid())
+  tenantId    String
   name        String
   managerId   String?
   manager     User?    @relation("DeptManager", fields: [managerId], references: [id])
@@ -674,11 +735,13 @@ model Department {
   jobs               Job[]
   onboardChecklists  OnboardingChecklist[]
 
+  @@index([tenantId])
   @@map("departments")
 }
 
 model Employee {
   id             String    @id @default(cuid())
+  tenantId       String
   userId         String?
   employeeNumber String    @unique
   firstName      String
@@ -703,11 +766,13 @@ model Employee {
   onboardingTasks     OnboardingTask[]
   trainingEnrollments TrainingEnrollment[]
 
+  @@index([tenantId])
   @@map("employees")
 }
 
 model LeaveRequest {
   id           String    @id @default(cuid())
+  tenantId     String
   employeeId   String
   employee     Employee  @relation(fields: [employeeId], references: [id])
   type         String    // ANNUAL, SICK, PERSONAL, MATERNITY, UNPAID
@@ -720,11 +785,13 @@ model LeaveRequest {
   approvedBy   User?     @relation("LeaveApprover", fields: [approvedById], references: [id])
   createdAt    DateTime  @default(now())
 
+  @@index([tenantId])
   @@map("leave_requests")
 }
 
 model Payroll {
   id          String    @id @default(cuid())
+  tenantId    String
   employeeId  String
   employee    Employee  @relation(fields: [employeeId], references: [id])
   period      String
@@ -738,11 +805,13 @@ model Payroll {
   paidDate    DateTime?
   createdAt   DateTime  @default(now())
 
+  @@index([tenantId])
   @@map("payrolls")
 }
 
 model Attendance {
   id         String   @id @default(cuid())
+  tenantId   String
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id])
   date       DateTime
@@ -751,6 +820,7 @@ model Attendance {
   status     String   @default("PRESENT") // PRESENT, ABSENT, LATE, HALF_DAY
   notes      String?
 
+  @@index([tenantId])
   @@map("attendances")
 }
 
@@ -758,6 +828,7 @@ model Attendance {
 
 model Asset {
   id               String    @id @default(cuid())
+  tenantId         String
   name             String
   assetTag         String    @unique
   category         String?
@@ -774,11 +845,13 @@ model Asset {
 
   maintenances AssetMaintenance[]
 
+  @@index([tenantId])
   @@map("assets")
 }
 
 model AssetMaintenance {
   id            String    @id @default(cuid())
+  tenantId      String
   assetId       String
   asset         Asset     @relation(fields: [assetId], references: [id])
   type          String    // PREVENTIVE, CORRECTIVE
@@ -788,6 +861,7 @@ model AssetMaintenance {
   cost          Float?
   status        String    @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
 
+  @@index([tenantId])
   @@map("asset_maintenances")
 }
 
@@ -795,6 +869,7 @@ model AssetMaintenance {
 
 model BillOfMaterials {
   id        String   @id @default(cuid())
+  tenantId  String
   productId String
   product   Product  @relation(fields: [productId], references: [id])
   name      String
@@ -805,11 +880,13 @@ model BillOfMaterials {
   items      BOMItem[]
   workOrders WorkOrder[]
 
+  @@index([tenantId])
   @@map("bill_of_materials")
 }
 
 model BOMItem {
   id             String          @id @default(cuid())
+  tenantId       String
   bomId          String
   bom            BillOfMaterials @relation(fields: [bomId], references: [id])
   materialId     String
@@ -818,11 +895,13 @@ model BOMItem {
   unit           String          @default("pcs")
   wastagePercent Float           @default(0)
 
+  @@index([tenantId])
   @@map("bom_items")
 }
 
 model WorkOrder {
   id        String    @id @default(cuid())
+  tenantId  String
   bomId     String
   bom       BillOfMaterials @relation(fields: [bomId], references: [id])
   quantity  Int
@@ -833,6 +912,7 @@ model WorkOrder {
   notes     String?
   createdAt DateTime  @default(now())
 
+  @@index([tenantId])
   @@map("work_orders")
 }
 
@@ -840,6 +920,7 @@ model WorkOrder {
 
 model Lead {
   id                 String    @id @default(cuid())
+  tenantId           String
   firstName          String
   lastName           String
   email              String?
@@ -858,11 +939,13 @@ model Lead {
 
   opportunities Opportunity[]
 
+  @@index([tenantId])
   @@map("leads")
 }
 
 model Opportunity {
   id                String    @id @default(cuid())
+  tenantId          String
   title             String
   accountId         String?
   account           Account?  @relation(fields: [accountId], references: [id])
@@ -880,11 +963,13 @@ model Opportunity {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  @@index([tenantId])
   @@map("opportunities")
 }
 
 model Activity {
   id          String   @id @default(cuid())
+  tenantId    String
   type        String   // CALL, EMAIL, MEETING, TASK, NOTE
   subject     String
   description String?
@@ -897,6 +982,7 @@ model Activity {
   status      String   @default("COMPLETED")
   createdAt   DateTime @default(now())
 
+  @@index([tenantId])
   @@map("activities")
 }
 
@@ -904,6 +990,7 @@ model Activity {
 
 model Account {
   id            String   @id @default(cuid())
+  tenantId      String
   name          String
   industry      String?
   website       String?
@@ -930,11 +1017,13 @@ model Account {
   fieldVisits    FieldVisit[]
   loyaltyMembers LoyaltyMember[]
 
+  @@index([tenantId])
   @@map("accounts")
 }
 
 model Contact {
   id         String   @id @default(cuid())
+  tenantId   String
   firstName  String
   lastName   String
   email      String?
@@ -954,6 +1043,7 @@ model Contact {
   fieldVisits    FieldVisit[]
   loyaltyMembers LoyaltyMember[]
 
+  @@index([tenantId])
   @@map("contacts")
 }
 
@@ -961,6 +1051,7 @@ model Contact {
 
 model Campaign {
   id              String    @id @default(cuid())
+  tenantId        String
   name            String
   type            String    // EMAIL, EVENT, SOCIAL, ADS, WEBINAR, CONTENT
   status          String    @default("DRAFT") // DRAFT, SCHEDULED, ACTIVE, PAUSED, COMPLETED
@@ -976,6 +1067,7 @@ model Campaign {
   owner           User?     @relation(fields: [ownerId], references: [id])
   createdAt       DateTime  @default(now())
 
+  @@index([tenantId])
   @@map("campaigns")
 }
 
@@ -983,6 +1075,7 @@ model Campaign {
 
 model Ticket {
   id           String    @id @default(cuid())
+  tenantId     String
   ticketNumber String    @unique
   subject      String
   description  String
@@ -1001,11 +1094,13 @@ model Ticket {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  @@index([tenantId])
   @@map("tickets")
 }
 
 model KnowledgeArticle {
   id         String   @id @default(cuid())
+  tenantId   String
   title      String
   content    String
   category   String?
@@ -1019,6 +1114,7 @@ model KnowledgeArticle {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  @@index([tenantId])
   @@map("knowledge_articles")
 }
 
@@ -1026,6 +1122,7 @@ model KnowledgeArticle {
 
 model FieldVisit {
   id           String    @id @default(cuid())
+  tenantId     String
   userId       String
   user         User      @relation(fields: [userId], references: [id])
   accountId    String?
@@ -1042,11 +1139,13 @@ model FieldVisit {
   distance     Float?
   createdAt    DateTime  @default(now())
 
+  @@index([tenantId])
   @@map("field_visits")
 }
 
 model GPSLocation {
   id           String   @id @default(cuid())
+  tenantId     String
   userId       String
   user         User     @relation(fields: [userId], references: [id])
   latitude     Float
@@ -1055,11 +1154,13 @@ model GPSLocation {
   timestamp    DateTime @default(now())
   batteryLevel Int?
 
+  @@index([tenantId])
   @@map("gps_locations")
 }
 
 model Territory {
   id           String          @id @default(cuid())
+  tenantId     String
   name         String
   nameAr       String?
   code         String?         @unique
@@ -1079,6 +1180,7 @@ model Territory {
   businessUnits BusinessUnitTerritory[]
   doctors       Doctor[]
 
+  @@index([tenantId])
   @@index([level])
   @@index([parentId])
   @@map("territories")
@@ -1088,6 +1190,7 @@ model Territory {
 
 model LoyaltyProgram {
   id             String   @id @default(cuid())
+  tenantId       String
   name           String
   description    String?
   pointsPerDollar Float   @default(1)
