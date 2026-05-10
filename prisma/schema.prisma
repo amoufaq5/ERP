@@ -1200,11 +1200,13 @@ model LoyaltyProgram {
 
   members LoyaltyMember[]
 
+  @@index([tenantId])
   @@map("loyalty_programs")
 }
 
 model LoyaltyMember {
   id        String         @id @default(cuid())
+  tenantId  String
   programId String
   program   LoyaltyProgram @relation(fields: [programId], references: [id])
   accountId String?
@@ -1218,11 +1220,13 @@ model LoyaltyMember {
 
   transactions LoyaltyTransaction[]
 
+  @@index([tenantId])
   @@map("loyalty_members")
 }
 
 model LoyaltyTransaction {
   id          String        @id @default(cuid())
+  tenantId    String
   memberId    String
   member      LoyaltyMember @relation(fields: [memberId], references: [id])
   type        String        // EARN, REDEEM, ADJUST, EXPIRE
@@ -1230,6 +1234,7 @@ model LoyaltyTransaction {
   description String?
   date        DateTime      @default(now())
 
+  @@index([tenantId])
   @@map("loyalty_transactions")
 }
 
@@ -1237,6 +1242,7 @@ model LoyaltyTransaction {
 
 model Job {
   id              String    @id @default(cuid())
+  tenantId        String
   title           String
   departmentId    String?
   department      Department? @relation(fields: [departmentId], references: [id])
@@ -1256,11 +1262,13 @@ model Job {
 
   applications Application[]
 
+  @@index([tenantId])
   @@map("jobs")
 }
 
 model Candidate {
   id             String   @id @default(cuid())
+  tenantId       String
   firstName      String
   lastName       String
   email          String
@@ -1278,11 +1286,13 @@ model Candidate {
 
   applications Application[]
 
+  @@index([tenantId])
   @@map("candidates")
 }
 
 model Application {
   id          String    @id @default(cuid())
+  tenantId    String
   candidateId String
   candidate   Candidate @relation(fields: [candidateId], references: [id])
   jobId       String
@@ -1296,11 +1306,13 @@ model Application {
   interviews  Interview[]
   offerLetter OfferLetter?
 
+  @@index([tenantId])
   @@map("applications")
 }
 
 model Interview {
   id             String      @id @default(cuid())
+  tenantId       String
   applicationId  String
   application    Application @relation(fields: [applicationId], references: [id])
   interviewerIds String      // comma-separated user IDs
@@ -1313,11 +1325,13 @@ model Interview {
   location       String?
   createdAt      DateTime    @default(now())
 
+  @@index([tenantId])
   @@map("interviews")
 }
 
 model OfferLetter {
   id            String      @id @default(cuid())
+  tenantId      String
   applicationId String      @unique
   application   Application @relation(fields: [applicationId], references: [id])
   salary        Float
@@ -1328,6 +1342,7 @@ model OfferLetter {
   terms         String?
   createdAt     DateTime    @default(now())
 
+  @@index([tenantId])
   @@map("offer_letters")
 }
 
@@ -1335,6 +1350,7 @@ model OfferLetter {
 
 model OnboardingChecklist {
   id           String      @id @default(cuid())
+  tenantId     String
   name         String
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id])
@@ -1343,11 +1359,13 @@ model OnboardingChecklist {
 
   tasks OnboardingTask[]
 
+  @@index([tenantId])
   @@map("onboarding_checklists")
 }
 
 model OnboardingTask {
   id           String               @id @default(cuid())
+  tenantId     String
   checklistId  String?
   checklist    OnboardingChecklist?  @relation(fields: [checklistId], references: [id])
   employeeId   String
@@ -1361,11 +1379,13 @@ model OnboardingTask {
   category     String               @default("ORIENTATION") // PAPERWORK, IT_SETUP, TRAINING, ORIENTATION, COMPLIANCE
   createdAt    DateTime             @default(now())
 
+  @@index([tenantId])
   @@map("onboarding_tasks")
 }
 
 model TrainingCourse {
   id          String   @id @default(cuid())
+  tenantId    String
   title       String
   description String?
   category    String?
@@ -1377,11 +1397,13 @@ model TrainingCourse {
 
   enrollments TrainingEnrollment[]
 
+  @@index([tenantId])
   @@map("training_courses")
 }
 
 model TrainingEnrollment {
   id            String    @id @default(cuid())
+  tenantId      String
   courseId       String
   course        TrainingCourse @relation(fields: [courseId], references: [id])
   employeeId    String
@@ -1391,6 +1413,7 @@ model TrainingEnrollment {
   completedDate DateTime?
   score         Int?
 
+  @@index([tenantId])
   @@map("training_enrollments")
 }
 
@@ -1398,6 +1421,7 @@ model TrainingEnrollment {
 
 model BusinessUnit {
   id          String   @id @default(cuid())
+  tenantId    String
   name        String
   code        String   @unique
   description String?
@@ -1414,11 +1438,13 @@ model BusinessUnit {
   approvalLogs ApprovalLog[]
   doctors      Doctor[]
 
+  @@index([tenantId])
   @@map("business_units")
 }
 
 model BusinessUnitMember {
   id             String       @id @default(cuid())
+  tenantId       String
   businessUnitId String
   businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
   userId         String
@@ -1427,11 +1453,13 @@ model BusinessUnitMember {
   assignedAt     DateTime     @default(now())
 
   @@unique([businessUnitId, userId])
+  @@index([tenantId])
   @@map("business_unit_members")
 }
 
 model BusinessUnitProduct {
   id             String       @id @default(cuid())
+  tenantId       String
   businessUnitId String
   businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
   productId      String
@@ -1439,11 +1467,13 @@ model BusinessUnitProduct {
   assignedAt     DateTime     @default(now())
 
   @@unique([businessUnitId, productId])
+  @@index([tenantId])
   @@map("business_unit_products")
 }
 
 model BusinessUnitTerritory {
   id             String       @id @default(cuid())
+  tenantId       String
   businessUnitId String
   businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
   territoryId    String
@@ -1451,6 +1481,7 @@ model BusinessUnitTerritory {
   assignedAt     DateTime     @default(now())
 
   @@unique([businessUnitId, territoryId])
+  @@index([tenantId])
   @@map("business_unit_territories")
 }
 
@@ -1458,6 +1489,7 @@ model BusinessUnitTerritory {
 
 model ApprovalLog {
   id             String        @id @default(cuid())
+  tenantId       String
   entityType     String        // WEEKLY_PLAN, EXPENSE, MARKET_REQUEST, STRATEGIC
   entityId       String
   action         String        // SUBMITTED, APPROVED, REJECTED, ESCALATED, AUTO_ESCALATED
@@ -1471,6 +1503,7 @@ model ApprovalLog {
   businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id])
   createdAt      DateTime      @default(now())
 
+  @@index([tenantId])
   @@index([entityType, entityId])
   @@map("approval_logs")
 }
@@ -1479,6 +1512,7 @@ model ApprovalLog {
 
 model Document {
   id           String   @id @default(cuid())
+  tenantId     String
   name         String
   type         String?
   category     String?
@@ -1493,6 +1527,7 @@ model Document {
   tags         String?
   createdAt    DateTime @default(now())
 
+  @@index([tenantId])
   @@index([module, entityType, entityId])
   @@map("documents")
 }
@@ -1501,6 +1536,7 @@ model Document {
 
 model Doctor {
   id                 String              @id @default(cuid())
+  tenantId           String
   name               String
   specialty          String              // IMS specialty (General Practice, Cardiology, etc.)
   hospital           String?
@@ -1531,6 +1567,7 @@ model Doctor {
   visits          Visit[]
   marketRequests  MarketRequest[]
 
+  @@index([tenantId])
   @@index([assignedRepId])
   @@index([buId])
   @@index([classification])
@@ -1542,6 +1579,7 @@ model Doctor {
 
 model Visit {
   id                  String        @id @default(cuid())
+  tenantId            String
   repId               String
   rep                 User          @relation("VisitRep", fields: [repId], references: [id])
   doctorId            String
@@ -1572,6 +1610,7 @@ model Visit {
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
+  @@index([tenantId])
   @@index([repId, dateTime])
   @@index([doctorId])
   @@index([status])
@@ -1583,6 +1622,7 @@ model Visit {
 
 model WeeklyPlan {
   id              String     @id @default(cuid())
+  tenantId        String
   repId           String
   rep             User       @relation("PlanRep", fields: [repId], references: [id])
   weekStartDate   DateTime
@@ -1599,6 +1639,7 @@ model WeeklyPlan {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
+  @@index([tenantId])
   @@index([repId, weekStartDate])
   @@index([status])
   @@map("weekly_plans")
@@ -1608,6 +1649,7 @@ model WeeklyPlan {
 
 model MarketRequest {
   id              String        @id @default(cuid())
+  tenantId        String
   type            RequestType
   requestedById   String
   requestedBy     User          @relation("RequestedBy", fields: [requestedById], references: [id])
@@ -1629,6 +1671,7 @@ model MarketRequest {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
+  @@index([tenantId])
   @@index([requestedById])
   @@index([status])
   @@index([buId])
@@ -1639,6 +1682,7 @@ model MarketRequest {
 
 model Expense {
   id             String        @id @default(cuid())
+  tenantId       String
   type           String        // TRAVEL, MEALS, CONFERENCE, OFFICE, SAMPLES, etc.
   amount         Float
   date           DateTime
@@ -1656,6 +1700,7 @@ model Expense {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
+  @@index([tenantId])
   @@index([submittedById])
   @@index([status])
   @@map("expenses")
@@ -1665,6 +1710,7 @@ model Expense {
 
 model KPI {
   id        String   @id @default(cuid())
+  tenantId  String
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   metric    String   // e.g., "Visits", "New Doctors", "Market Requests"
@@ -1675,6 +1721,7 @@ model KPI {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([userId, period])
   @@index([metric])
   @@map("kpis")
@@ -1684,6 +1731,7 @@ model KPI {
 
 model StandaloneTask {
   id           String       @id @default(cuid())
+  tenantId     String
   title        String
   description  String?
   assignedById String
@@ -1700,6 +1748,7 @@ model StandaloneTask {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
+  @@index([tenantId])
   @@index([assignedToId])
   @@index([status])
   @@map("standalone_tasks")
@@ -1709,6 +1758,7 @@ model StandaloneTask {
 
 model Message {
   id          String   @id @default(cuid())
+  tenantId    String
   subject     String
   body        String
   senderId    String
@@ -1720,6 +1770,7 @@ model Message {
   starred     Boolean  @default(false)
   createdAt   DateTime @default(now())
 
+  @@index([tenantId])
   @@index([recipientId, isRead])
   @@index([senderId])
   @@map("messages")
