@@ -386,29 +386,23 @@ export default function ChangeManagementPage() {
               <label className="text-sm font-medium">Title</label>
               <Input placeholder="Brief description of the change" />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Type</label>
-              <Input placeholder="Standard / Normal / Emergency" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Type</label>
+                <Input placeholder="Standard / Normal / Emergency" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Priority</label>
+                <Input placeholder="Critical / High / Medium / Low" />
+              </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Priority</label>
-              <Input placeholder="Critical / High / Medium / Low" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Impact</label>
-              <Input placeholder="High / Medium / Low" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Justification & Rollback Plan</label>
-              <Input placeholder="Why is this change needed? How to roll back?" />
+              <label className="text-sm font-medium">Impact & Rollback Plan</label>
+              <Input placeholder="Impact level, justification, rollback procedure" />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setSubmitDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => setSubmitDialogOpen(false)}>
-                Submit
-              </Button>
+              <Button variant="outline" onClick={() => setSubmitDialogOpen(false)}>Cancel</Button>
+              <Button onClick={() => setSubmitDialogOpen(false)}>Submit</Button>
             </div>
           </div>
         </DialogContent>

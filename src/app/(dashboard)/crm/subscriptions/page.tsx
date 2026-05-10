@@ -288,7 +288,6 @@ export default function SubscriptionsPage() {
                   { customer: "TechVision Ltd", plan: "Professional", date: "2026-06-15", amount: 1200 },
                   { customer: "Acme Corp", plan: "Enterprise", date: "2026-06-01", amount: 2500 },
                   { customer: "DataFlow Systems", plan: "Starter", date: "2026-05-28", amount: 49 },
-                  { customer: "QuickBuild Co", plan: "Professional", date: "2026-05-22", amount: 99 },
                 ].map((renewal, i) => (
                   <div key={i} className="flex items-center justify-between rounded-lg border p-3">
                     <div>
