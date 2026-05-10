@@ -1651,14 +1651,22 @@ function TrendsTab() {
   const [selectedLocationId, setSelectedLocationId] = useState("");
   const [selectedPointId, setSelectedPointId] = useState("");
   const [period, setPeriod] = useState(30);
+  const [locations, setLocations] = useState<MonitoringLocation[]>([]);
+  const [allPointsData, setAllPointsData] = useState<MonitoringPoint[]>([]);
+  const { items } = useEnvMonitoringStore();
+  const readings = items as MonitoringReading[];
 
-  const locations: MonitoringLocation[] = useMemo(() => envMonitoringStore.getAllLocations(), []);
+  useEffect(() => {
+    fetchLocations().then(setLocations);
+    fetchPoints().then(setAllPointsData);
+  }, []);
+
   const points: MonitoringPoint[] = useMemo(
     () =>
       selectedLocationId
-        ? envMonitoringStore.getPointsByLocation(selectedLocationId)
-        : envMonitoringStore.getAllPoints(),
-    [selectedLocationId]
+        ? allPointsData.filter((p: MonitoringPoint) => p.locationId === selectedLocationId)
+        : allPointsData,
+    [selectedLocationId, allPointsData]
   );
 
   // Auto-select first point
@@ -1671,24 +1679,23 @@ function TrendsTab() {
   // Get trends for selected point or all points in location
   const trends: TrendData[] = useMemo(() => {
     if (selectedPointId) {
-      const trend = envMonitoringStore.getTrend(selectedPointId, period);
+      const trend = computeTrend(selectedPointId, period, readings, allPointsData, locations);
       return trend ? [trend] : [];
     }
     if (selectedLocationId) {
-      const locPoints: MonitoringPoint[] = envMonitoringStore.getPointsByLocation(
-        selectedLocationId
+      const locPoints = allPointsData.filter(
+        (p: MonitoringPoint) => p.locationId === selectedLocationId
       );
       return locPoints
-        .map((p: MonitoringPoint) => envMonitoringStore.getTrend(p.id, period))
+        .map((p: MonitoringPoint) => computeTrend(p.id, period, readings, allPointsData, locations))
         .filter((t: TrendData | null): t is TrendData => t != null && t.data.length > 0);
     }
     // Default: show all points with excursion readings
-    const allPts: MonitoringPoint[] = envMonitoringStore.getAllPoints();
-    return allPts
-      .map((p: MonitoringPoint) => envMonitoringStore.getTrend(p.id, period))
+    return allPointsData
+      .map((p: MonitoringPoint) => computeTrend(p.id, period, readings, allPointsData, locations))
       .filter((t: TrendData | null): t is TrendData => t != null && t.data.length > 0)
       .slice(0, 6);
-  }, [selectedLocationId, selectedPointId, period]);
+  }, [selectedLocationId, selectedPointId, period, readings, allPointsData, locations]);
 
   return (
     <div className="space-y-4">
@@ -1729,8 +1736,8 @@ function TrendsTab() {
                     ? "All points in location"
                     : "Select a point..."}
                 </option>
-                {points.map((p) => {
-                  const loc = locations.find((l) => l.id === p.locationId);
+                {points.map((p: MonitoringPoint) => {
+                  const loc = locations.find((l: MonitoringLocation) => l.id === p.locationId);
                   return (
                     <option key={p.id} value={p.id}>
                       {p.name} - {PARAMETER_LABELS[p.parameter]}
@@ -1772,7 +1779,7 @@ function TrendsTab() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {trends.map((trend) => (
+          {trends.map((trend: TrendData) => (
             <Card key={trend.pointId}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center justify-between">
@@ -1796,20 +1803,20 @@ function TrendsTab() {
                   <div className="bg-muted/50 rounded p-1.5">
                     <div className="text-[10px] text-muted-foreground">Min</div>
                     <div className="text-xs font-medium">
-                      {Math.min(...trend.data.map((d) => d.value)).toFixed(2)}
+                      {Math.min(...trend.data.map((d: TrendDataPoint) => d.value)).toFixed(2)}
                     </div>
                   </div>
                   <div className="bg-muted/50 rounded p-1.5">
                     <div className="text-[10px] text-muted-foreground">Max</div>
                     <div className="text-xs font-medium">
-                      {Math.max(...trend.data.map((d) => d.value)).toFixed(2)}
+                      {Math.max(...trend.data.map((d: TrendDataPoint) => d.value)).toFixed(2)}
                     </div>
                   </div>
                   <div className="bg-muted/50 rounded p-1.5">
                     <div className="text-[10px] text-muted-foreground">Mean</div>
                     <div className="text-xs font-medium">
                       {(
-                        trend.data.reduce((s, d) => s + d.value, 0) /
+                        trend.data.reduce((s: number, d: TrendDataPoint) => s + d.value, 0) /
                         trend.data.length
                       ).toFixed(2)}
                     </div>
@@ -1820,7 +1827,7 @@ function TrendsTab() {
                     </div>
                     <div className="text-xs font-medium">
                       {(
-                        (trend.data.filter((d) => d.result === "pass").length /
+                        (trend.data.filter((d: TrendDataPoint) => d.result === "pass").length /
                           trend.data.length) *
                         100
                       ).toFixed(1)}
@@ -1842,10 +1849,23 @@ function TrendsTab() {
 export default function EnvironmentalMonitoringPage() {
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [metrics, setMetrics] = useState<EMMetrics | null>(null);
+  const { items, fetchAll } = useEnvMonitoringStore();
 
   useEffect(() => {
-    setMetrics(envMonitoringStore.getMetrics());
-  }, [activeTab]);
+    fetchAll();
+  }, [fetchAll]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([fetchLocations(), fetchPoints(), fetchExcursions()]).then(
+      ([locs, pts, excs]: [MonitoringLocation[], MonitoringPoint[], ExcursionRecord[]]) => {
+        if (!cancelled) {
+          setMetrics(computeMetrics(items as MonitoringReading[], locs, pts, excs));
+        }
+      }
+    );
+    return () => { cancelled = true; };
+  }, [activeTab, items]);
 
   if (!metrics) {
     return (

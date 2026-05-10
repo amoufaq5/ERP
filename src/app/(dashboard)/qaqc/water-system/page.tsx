@@ -59,7 +59,7 @@ import {
   WATER_TYPE_LABELS,
   SAMPLING_LOCATION_LABELS,
 } from "@/lib/quality/water-system-types";
-import { useWaterSystemStore, waterSystemStore } from "@/lib/quality/water-system-store";
+import { useWaterSystemStore } from "@/lib/quality/water-system-store";
 
 // ─── API helpers ──────────────────────────────────────────────────────────
 
@@ -1562,14 +1562,24 @@ function TrendsTab() {
   const [selectedParameter, setSelectedParameter] = useState<WaterTestParameterType | "">("");
   const [trendDays, setTrendDays] = useState(30);
 
-  const systems: WaterSystem[] = useMemo(() => waterSystemStore.getAllSystems(), []);
+  const { systems, points: allPointsAll } = useSystemsAndPoints();
+  const storeItems = useWaterSystemStore((s) => s.items) as WaterReading[];
+
   const points: WaterSamplingPoint[] = useMemo(
-    () => (selectedSystem ? waterSystemStore.getPointsBySystem(selectedSystem) : []),
-    [selectedSystem]
+    () => (selectedSystem ? allPointsAll.filter((p: WaterSamplingPoint) => p.systemId === selectedSystem) : []),
+    [allPointsAll, selectedSystem]
   );
   const parameters: WaterTestParameterType[] = useMemo(
-    () => (selectedSystem ? waterSystemStore.getParametersForSystem(selectedSystem) : []),
-    [selectedSystem]
+    () => {
+      if (!selectedSystem) return [];
+      const params = new Set(
+        storeItems
+          .filter((r: WaterReading) => r.systemId === selectedSystem)
+          .map((r: WaterReading) => r.parameter)
+      );
+      return Array.from(params);
+    },
+    [storeItems, selectedSystem]
   );
 
   // Auto-select first system
@@ -1593,22 +1603,53 @@ function TrendsTab() {
     }
   }, [parameters, selectedParameter]);
 
+  // Build trend from store items
+  const buildTrend = useCallback(
+    (pointId: string, param: WaterTestParameterType, days: number): WaterTrend | null => {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      const cutoffStr = cutoff.toISOString();
+      const filtered = storeItems.filter(
+        (r: WaterReading) => r.pointId === pointId && r.parameter === param && r.sampledAt >= cutoffStr
+      );
+      if (filtered.length === 0) return null;
+      const point = allPointsAll.find((p: WaterSamplingPoint) => p.id === pointId);
+      const system = systems.find((s: WaterSystem) => s.id === point?.systemId);
+      const sample = filtered[0];
+      return {
+        pointId,
+        pointName: point?.name ?? "Unknown",
+        systemName: system?.name ?? "Unknown",
+        parameter: param,
+        unit: sample.unit,
+        alertLimit: sample.alertLimit,
+        actionLimit: sample.actionLimit,
+        data: filtered
+          .sort((a: WaterReading, b: WaterReading) => a.sampledAt.localeCompare(b.sampledAt))
+          .map((r: WaterReading) => ({ date: r.sampledAt, value: r.value, result: r.result })),
+      };
+    },
+    [storeItems, allPointsAll, systems]
+  );
+
   // Get trend data
   const trend: WaterTrend | null = useMemo(() => {
     if (!selectedPoint || !selectedParameter) return null;
-    return waterSystemStore.getTrend(selectedPoint, selectedParameter as WaterTestParameterType, trendDays);
-  }, [selectedPoint, selectedParameter, trendDays]);
+    return buildTrend(selectedPoint, selectedParameter as WaterTestParameterType, trendDays);
+  }, [buildTrend, selectedPoint, selectedParameter, trendDays]);
 
   // Get all trends for multi-chart view
   const allPointTrends: WaterTrend[] = useMemo(() => {
     if (!selectedSystem || !selectedParameter) return [];
-    const sysPoints: WaterSamplingPoint[] = waterSystemStore.getPointsBySystem(selectedSystem);
+    const sysPoints: WaterSamplingPoint[] = allPointsAll.filter(
+      (p: WaterSamplingPoint) => p.systemId === selectedSystem
+    );
     return sysPoints
       .map((p: WaterSamplingPoint) =>
-        waterSystemStore.getTrend(p.id, selectedParameter as WaterTestParameterType, trendDays)
+        buildTrend(p.id, selectedParameter as WaterTestParameterType, trendDays)
       )
-      .filter((t: any): t is WaterTrend => t != null && t.data.length >= 2);
-  }, [selectedSystem, selectedParameter, trendDays]);
+      .filter((t: WaterTrend | null): t is WaterTrend => t != null && t.data.length >= 2);
+  }, [buildTrend, allPointsAll, selectedSystem, selectedParameter, trendDays]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -1791,10 +1832,21 @@ function TrendsTab() {
 export default function WaterSystemPage() {
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [metrics, setMetrics] = useState<WaterMetrics | null>(null);
+  const fetchAll = useWaterSystemStore((s) => s.fetchAll);
+
+  const loadMetrics = useCallback(() => {
+    apiFetch<WaterMetrics>("/metrics").then(setMetrics).catch(() => {});
+  }, []);
 
   useEffect(() => {
-    setMetrics(waterSystemStore.getMetrics());
-  }, [activeTab]);
+    fetchAll();
+    loadMetrics();
+  }, [fetchAll, loadMetrics]);
+
+  // Refresh metrics when tab changes
+  useEffect(() => {
+    loadMetrics();
+  }, [activeTab, loadMetrics]);
 
   const openExcursions = useMemo(
     () => (metrics?.excursionsOpen ?? 0),
@@ -1813,7 +1865,8 @@ export default function WaterSystemPage() {
             size="sm"
             variant="outline"
             onClick={() => {
-              setMetrics(waterSystemStore.getMetrics());
+              fetchAll();
+              loadMetrics();
             }}
           >
             <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
