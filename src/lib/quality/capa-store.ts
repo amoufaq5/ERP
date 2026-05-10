@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { CAPARecord } from './capa-types';
 
 export type { CAPARecord } from './capa-types';
@@ -23,4 +24,4 @@ export const useCAPAStore = createQualityApiStore<CAPARecord & { id: string; sta
 });
 
 /** @deprecated Use useCAPAStore (zustand hook) instead */
-export const capaStore = useCAPAStore;
+export const capaStore = createStoreCompat<CAPARecord & { id: string; status: string }>(useCAPAStore);

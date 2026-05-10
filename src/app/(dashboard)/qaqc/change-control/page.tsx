@@ -49,7 +49,7 @@ import {
   Search,
   Eye,
 } from "lucide-react";
-import { changeControlStore } from "@/lib/quality/change-control-store";
+import { useChangeControlStore } from "@/lib/quality/change-control-store";
 import type {
   ChangeRequest,
   ChangeStatus,
@@ -176,8 +176,8 @@ const AFFECTED_PRODUCT_OPTIONS = [
 // ─── Page Component ───────────────────────────────────────────────────────────
 
 export default function ChangeControlPage() {
-  const [changes, setChanges] = useState<ChangeRequest[]>([]);
-  const [metrics, setMetrics] = useState<ChangeControlMetrics | null>(null);
+  const { items, fetchAll, create, update, updateStatus } = useChangeControlStore();
+  const changes = items as unknown as ChangeRequest[];
   const [activeTab, setActiveTab] = useState("requests");
   const [selectedChange, setSelectedChange] = useState<ChangeRequest | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -200,14 +200,25 @@ export default function ChangeControlPage() {
   const [newAffectedProducts, setNewAffectedProducts] = useState<string[]>([]);
   const [newAffectedDocuments, setNewAffectedDocuments] = useState("");
 
-  const refreshData = () => {
-    setChanges(changeControlStore.getAll());
-    setMetrics(changeControlStore.getMetrics());
-  };
-
   useEffect(() => {
-    refreshData();
-  }, []);
+    fetchAll();
+  }, [fetchAll]);
+
+  // Compute metrics from items
+  const metrics = useMemo((): ChangeControlMetrics | null => {
+    if (changes.length === 0) return null;
+    const openStatuses: ChangeStatus[] = ["draft", "submitted", "impact-assessment", "review", "approved", "implementation", "verification"];
+    const openChanges = changes.filter((c) => openStatuses.includes(c.status));
+    const closedChanges = changes.filter((c) => c.status === "closed" && c.closedAt);
+    const avgCycleDays = closedChanges.length > 0
+      ? Math.round(closedChanges.reduce((sum, c) => sum + Math.round((new Date(c.closedAt!).getTime() - new Date(c.requestedAt).getTime()) / 86400000), 0) / closedChanges.length)
+      : 0;
+    const byCategory = ALL_CATEGORIES.map((cat) => ({ category: cat, count: changes.filter((c) => c.category === cat).length })).filter((i) => i.count > 0);
+    return {
+      total: changes.length, open: openChanges.length, avgCycleDays, onTimeClosurePct: closedChanges.length > 0 ? 100 : 0,
+      byCategory, byType: ALL_TYPES.map((t) => ({ type: t, count: changes.filter((c) => c.type === t).length })),
+    };
+  }, [changes]);
 
   // Filtered changes
   const filtered = useMemo(() => {
@@ -234,59 +245,17 @@ export default function ChangeControlPage() {
 
   // ─── Actions ──────────────────────────────────────────────────────────────
 
-  const handleCreateDraft = () => {
+  const handleCreateDraft = async () => {
     if (!newTitle.trim()) return;
-    changeControlStore.create({
-      title: newTitle,
-      description: newDescription,
-      category: newCategory,
-      type: newType,
-      status: "draft",
-      priority: newPriority,
-      requestedBy: "Current User",
-      requestedAt: new Date().toISOString(),
-      department: "Production",
-      affectedAreas: newAffectedAreas,
-      affectedProducts: newAffectedProducts,
-      affectedDocuments: newAffectedDocuments
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-      justification: newJustification,
-      riskLevel: "low",
-      approvals: [],
-      implementationPlan: [],
-    });
+    await create({ number: `CC-${Date.now()}`, title: newTitle, description: newDescription, category: newCategory, type: newType, status: "draft", priority: newPriority, requestedBy: "Current User", requestedAt: new Date().toISOString(), department: "Production", affectedAreas: newAffectedAreas, affectedProducts: newAffectedProducts, affectedDocuments: newAffectedDocuments.split(",").map((s) => s.trim()).filter(Boolean), justification: newJustification, riskLevel: "low", approvals: [], implementationPlan: [] } as any);
     resetForm();
-    refreshData();
     setActiveTab("requests");
   };
 
-  const handleSubmitNew = () => {
+  const handleSubmitNew = async () => {
     if (!newTitle.trim()) return;
-    changeControlStore.create({
-      title: newTitle,
-      description: newDescription,
-      category: newCategory,
-      type: newType,
-      status: "submitted",
-      priority: newPriority,
-      requestedBy: "Current User",
-      requestedAt: new Date().toISOString(),
-      department: "Production",
-      affectedAreas: newAffectedAreas,
-      affectedProducts: newAffectedProducts,
-      affectedDocuments: newAffectedDocuments
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-      justification: newJustification,
-      riskLevel: "low",
-      approvals: [],
-      implementationPlan: [],
-    });
+    await create({ number: `CC-${Date.now()}`, title: newTitle, description: newDescription, category: newCategory, type: newType, status: "submitted", priority: newPriority, requestedBy: "Current User", requestedAt: new Date().toISOString(), department: "Production", affectedAreas: newAffectedAreas, affectedProducts: newAffectedProducts, affectedDocuments: newAffectedDocuments.split(",").map((s) => s.trim()).filter(Boolean), justification: newJustification, riskLevel: "low", approvals: [], implementationPlan: [] } as any);
     resetForm();
-    refreshData();
     setActiveTab("requests");
   };
 
@@ -302,94 +271,62 @@ export default function ChangeControlPage() {
     setNewAffectedDocuments("");
   };
 
-  const handleSubmitForReview = (id: string) => {
-    changeControlStore.submitForReview(id);
-    refreshData();
-    const updated = changeControlStore.getById(id);
-    if (updated) setSelectedChange(updated);
+  const handleSubmitForReview = async (id: string) => {
+    const updated = await updateStatus(id, "submitted");
+    setSelectedChange(updated as unknown as ChangeRequest);
   };
 
-  const handleSaveAssessment = (id: string, assessment: ImpactAssessment) => {
+  const handleSaveAssessment = async (id: string, assessment: ImpactAssessment) => {
     const riskLevel: RiskLevel =
-      assessment.qualityImpact === "high" ||
-      assessment.regulatoryImpact === "high" ||
-      assessment.safetyImpact === "high"
+      assessment.qualityImpact === "high" || assessment.regulatoryImpact === "high" || assessment.safetyImpact === "high"
         ? "high"
-        : assessment.qualityImpact === "medium" ||
-          assessment.regulatoryImpact === "medium" ||
-          assessment.safetyImpact === "medium"
+        : assessment.qualityImpact === "medium" || assessment.regulatoryImpact === "medium" || assessment.safetyImpact === "medium"
         ? "medium"
         : "low";
-    changeControlStore.update(id, {
-      impactAssessment: assessment,
-      riskLevel,
-      status: "review",
-    });
-    refreshData();
-    const updated = changeControlStore.getById(id);
-    if (updated) setSelectedChange(updated);
+    const updated = await update(id, { impactAssessment: assessment, riskLevel, status: "review" } as any);
+    setSelectedChange(updated as unknown as ChangeRequest);
   };
 
-  const handleApprove = (id: string, role: string, name: string) => {
-    changeControlStore.addApproval(id, {
-      role,
-      name,
-      status: "approved",
-      date: new Date().toISOString(),
-    });
-    const updated = changeControlStore.getById(id);
-    if (updated) {
-      // Check if all approvals are now approved
-      const allApproved = updated.approvals.every((a) => a.status === "approved");
-      if (allApproved) {
-        changeControlStore.update(id, { status: "approved" });
-      }
-      refreshData();
-      setSelectedChange(changeControlStore.getById(id) ?? null);
-    }
+  const handleApprove = async (id: string, role: string, name: string) => {
+    const current = changes.find((i) => i.id === id);
+    if (!current) return;
+    const newApprovals = current.approvals.map((a: Approval) =>
+      a.role === role && a.name === name ? { ...a, status: "approved" as const, date: new Date().toISOString() } : a
+    );
+    const allApproved = newApprovals.every((a: Approval) => a.status === "approved");
+    const updated = await update(id, { approvals: newApprovals, ...(allApproved ? { status: "approved" } : {}) } as any);
+    setSelectedChange(updated as unknown as ChangeRequest);
   };
 
-  const handleRejectApproval = (id: string, role: string, name: string) => {
-    changeControlStore.addApproval(id, {
-      role,
-      name,
-      status: "rejected",
-      date: new Date().toISOString(),
-      comments: "Rejected during review",
-    });
-    refreshData();
-    const updated = changeControlStore.getById(id);
-    if (updated) setSelectedChange(updated);
+  const handleRejectApproval = async (id: string, role: string, name: string) => {
+    const current = changes.find((i) => i.id === id);
+    if (!current) return;
+    const newApprovals = current.approvals.map((a: Approval) =>
+      a.role === role && a.name === name ? { ...a, status: "rejected" as const, date: new Date().toISOString(), comments: "Rejected during review" } : a
+    );
+    const updated = await update(id, { approvals: newApprovals } as any);
+    setSelectedChange(updated as unknown as ChangeRequest);
   };
 
-  const handleStartImplementation = (id: string) => {
-    changeControlStore.startImplementation(id);
-    refreshData();
-    const updated = changeControlStore.getById(id);
-    if (updated) setSelectedChange(updated);
+  const handleStartImplementation = async (id: string) => {
+    const updated = await updateStatus(id, "implementation");
+    setSelectedChange(updated as unknown as ChangeRequest);
   };
 
-  const handleCompleteStep = (id: string, stepId: string) => {
-    changeControlStore.completeStep(id, stepId);
-    refreshData();
-    const updated = changeControlStore.getById(id);
-    if (updated) {
-      const allComplete = updated.implementationPlan.every(
-        (s) => s.status === "completed"
-      );
-      if (allComplete) {
-        changeControlStore.update(id, { status: "verification" });
-        refreshData();
-      }
-      setSelectedChange(changeControlStore.getById(id) ?? null);
-    }
+  const handleCompleteStep = async (id: string, stepId: string) => {
+    const current = changes.find((i) => i.id === id);
+    if (!current) return;
+    const newPlan = current.implementationPlan.map((s) =>
+      s.id === stepId ? { ...s, status: "completed" as const, completedAt: new Date().toISOString() } : s
+    );
+    const allComplete = newPlan.every((s) => s.status === "completed");
+    const updated = await update(id, { implementationPlan: newPlan, ...(allComplete ? { status: "verification" } : {}) } as any);
+    setSelectedChange(updated as unknown as ChangeRequest);
   };
 
-  const handleCloseChange = (id: string) => {
-    changeControlStore.closeChange(id);
-    refreshData();
-    const updated = changeControlStore.getById(id);
-    if (updated) setSelectedChange(updated);
+  const handleCloseChange = async (id: string) => {
+    const updated = await updateStatus(id, "closed");
+    setSelectedChange(updated as unknown as ChangeRequest);
   };
 
   const toggleArrayItem = (arr: string[], item: string, setter: (v: string[]) => void) => {
@@ -1384,14 +1321,9 @@ export default function ChangeControlPage() {
                   )}
                   {selectedChange.status === "submitted" && (
                     <Button
-                      onClick={() => {
-                        changeControlStore.update(selectedChange.id, {
-                          status: "impact-assessment",
-                        });
-                        refreshData();
-                        setSelectedChange(
-                          changeControlStore.getById(selectedChange.id) ?? null
-                        );
+                      onClick={async () => {
+                        const updated = await update(selectedChange.id, { status: "impact-assessment" } as any);
+                        setSelectedChange(updated as unknown as ChangeRequest);
                       }}
                     >
                       <Shield className="mr-2 h-4 w-4" />

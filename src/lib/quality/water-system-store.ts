@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { WaterReading } from './water-system-types';
 
 export type { WaterReading } from './water-system-types';
@@ -19,4 +20,4 @@ export const useWaterSystemStore = createQualityApiStore<WaterReading & { id: st
 });
 
 /** @deprecated Use useWaterSystemStore (zustand hook) instead */
-export const waterSystemStore = useWaterSystemStore;
+export const waterSystemStore = createStoreCompat<WaterReading & { id: string; status: string }>(useWaterSystemStore);

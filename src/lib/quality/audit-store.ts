@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { Audit } from './audit-types';
 
 export type { Audit } from './audit-types';
@@ -21,4 +22,4 @@ export const useAuditStore = createQualityApiStore<Audit & { id: string; status:
 });
 
 /** @deprecated Use useAuditStore (zustand hook) instead */
-export const auditStore = useAuditStore;
+export const auditStore = createStoreCompat<Audit & { id: string; status: string }>(useAuditStore);

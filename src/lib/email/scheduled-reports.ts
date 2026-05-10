@@ -79,36 +79,47 @@ function generateSummary(reportType: ReportType): string {
 }
 
 // ---------------------------------------------------------------------------
-// Storage helpers (localStorage on client, in-memory on server)
+// API helpers
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = "pharmacrm_report_schedules";
+const API_BASE = "/api/v1/scheduled-reports";
 
-function isClient(): boolean {
-  return typeof window !== "undefined";
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { "Content-Type": "application/json", ...init?.headers },
+    ...init,
+  });
+  if (!res.ok) {
+    throw new Error(`API error ${res.status}: ${res.statusText}`);
+  }
+  return res.json() as Promise<T>;
 }
 
-// In-memory store for server-side usage
-let serverStore: ScheduleConfig[] = [];
+// ---------------------------------------------------------------------------
+// In-memory cache
+// ---------------------------------------------------------------------------
 
-function loadSchedules(): ScheduleConfig[] {
-  if (isClient()) {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as ScheduleConfig[]) : [];
-    } catch {
-      return [];
-    }
+let cache: ScheduleConfig[] = [];
+let initPromise: Promise<void> | null = null;
+
+async function initialize(): Promise<void> {
+  try {
+    cache = await apiFetch<ScheduleConfig[]>("");
+  } catch {
+    cache = [];
   }
-  return serverStore;
 }
 
-function saveSchedules(schedules: ScheduleConfig[]): void {
-  if (isClient()) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(schedules));
-  } else {
-    serverStore = schedules;
+async function ensureLoaded(): Promise<ScheduleConfig[]> {
+  if (initPromise === null) {
+    initPromise = initialize();
   }
+  await initPromise;
+  return cache;
+}
+
+async function refreshCache(): Promise<void> {
+  cache = await apiFetch<ScheduleConfig[]>("");
 }
 
 // ---------------------------------------------------------------------------
@@ -144,41 +155,59 @@ export function generateReportEmail(config: ScheduleConfig): EmailOptions {
 /**
  * Return all active (enabled) schedules.
  */
-export function getActiveSchedules(): ScheduleConfig[] {
-  return loadSchedules().filter((s) => s.enabled !== false);
+export async function getActiveSchedules(): Promise<ScheduleConfig[]> {
+  const schedules = await ensureLoaded();
+  return schedules.filter((s) => s.enabled !== false);
 }
 
 /**
  * Return all schedules regardless of enabled status.
  */
-export function getAllSchedules(): ScheduleConfig[] {
-  return loadSchedules();
+export async function getAllSchedules(): Promise<ScheduleConfig[]> {
+  await ensureLoaded();
+  return cache;
 }
 
 /**
  * Create or add a new schedule.
  */
-export function createSchedule(config: Omit<ScheduleConfig, "id" | "createdAt">): ScheduleConfig {
-  const schedules = loadSchedules();
-  const newSchedule: ScheduleConfig = {
-    ...config,
-    id: `sched-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    enabled: config.enabled ?? true,
-    createdAt: new Date().toISOString(),
-  };
-  schedules.push(newSchedule);
-  saveSchedules(schedules);
+export async function createSchedule(config: Omit<ScheduleConfig, "id" | "createdAt">): Promise<ScheduleConfig> {
+  const newSchedule = await apiFetch<ScheduleConfig>("", {
+    method: "POST",
+    body: JSON.stringify({
+      ...config,
+      enabled: config.enabled ?? true,
+    }),
+  });
+  await refreshCache();
   return newSchedule;
+}
+
+/**
+ * Update a schedule by ID.
+ */
+export async function updateSchedule(id: string, updates: Partial<ScheduleConfig>): Promise<ScheduleConfig | undefined> {
+  try {
+    const updated = await apiFetch<ScheduleConfig>(`/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    });
+    await refreshCache();
+    return updated;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
  * Delete a schedule by ID.
  */
-export function deleteSchedule(id: string): boolean {
-  const schedules = loadSchedules();
-  const idx = schedules.findIndex((s) => s.id === id);
-  if (idx === -1) return false;
-  schedules.splice(idx, 1);
-  saveSchedules(schedules);
-  return true;
+export async function deleteSchedule(id: string): Promise<boolean> {
+  try {
+    await apiFetch(`/${id}`, { method: "DELETE" });
+    await refreshCache();
+    return true;
+  } catch {
+    return false;
+  }
 }

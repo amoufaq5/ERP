@@ -73,7 +73,7 @@ import {
   TIMEPOINT_SCHEDULES,
   DEFAULT_TEST_PARAMETERS,
 } from "@/lib/quality/stability-types";
-import { StabilityStore, stabilityStore } from "@/lib/quality/stability-store";
+import { useStabilityStore } from "@/lib/quality/stability-store";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -132,8 +132,8 @@ function daysFromNow(iso: string): number {
 // ─── Page Component ───────────────────────────────────────────────────────
 
 export default function StabilityStudiesPage() {
-  const [studies, setStudies] = useState<StabilityStudy[]>([]);
-  const [metrics, setMetrics] = useState<StabilityMetrics | null>(null);
+  const { items, loading, fetchAll, create, update } = useStabilityStore();
+  const studies = items as unknown as StabilityStudy[];
   const [activeTab, setActiveTab] = useState("studies");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -170,19 +170,64 @@ export default function StabilityStudiesPage() {
 
   // ── Load data ─────────────────────────────────────────────────────────
 
-  const refreshData = useCallback(() => {
-    setStudies(stabilityStore.getAll());
-    setMetrics(stabilityStore.getMetrics());
-  }, []);
-
   useEffect(() => {
-    refreshData();
-  }, [refreshData]);
+    fetchAll();
+  }, [fetchAll]);
+
+  // ── Compute metrics from items ──────────────────────────────────────
+
+  const metrics: StabilityMetrics | null = useMemo(() => {
+    if (studies.length === 0) return null;
+    const activeStudies = studies.filter((s) => s.status === "ongoing").length;
+    const completedStudies = studies.filter((s) => s.status === "completed").length;
+    const plannedStudies = studies.filter((s) => s.status === "planned").length;
+    const allTimepoints = studies.flatMap((s) => s.timepoints);
+    const upcomingTPs = allTimepoints.filter((tp: StabilityTimepoint) => {
+      if (tp.status !== "scheduled") return false;
+      const d = daysFromNow(tp.scheduledDate);
+      return d >= 0 && d <= 30;
+    }).length;
+    const overdueTPs = allTimepoints.filter((tp: StabilityTimepoint) => tp.status === "overdue").length;
+    const productsOnStability = new Set(studies.map((s) => s.product)).size;
+    const predictions = studies
+      .filter((s) => s.shelfLifePrediction)
+      .map((s) => s.shelfLifePrediction!.estimatedShelfLifeMonths);
+    const avgShelfLifeMonths =
+      predictions.length > 0
+        ? Math.round(predictions.reduce((a: number, b: number) => a + b, 0) / predictions.length)
+        : 0;
+    const totalTPs = allTimepoints.length;
+    const completedTPs = allTimepoints.filter((tp: StabilityTimepoint) => tp.status === "completed").length;
+    const complianceRate = totalTPs > 0 ? Math.round((completedTPs / totalTPs) * 100) : 100;
+
+    const studiesByType = {} as Record<StabilityStudyType, number>;
+    for (const t of ["long-term", "accelerated", "intermediate", "in-use", "photostability"] as StabilityStudyType[]) {
+      studiesByType[t] = studies.filter((s) => s.studyType === t).length;
+    }
+    const studiesByStatus = {} as Record<StabilityStatus, number>;
+    for (const st of ["planned", "ongoing", "completed", "cancelled", "failed"] as StabilityStatus[]) {
+      studiesByStatus[st] = studies.filter((s) => s.status === st).length;
+    }
+
+    return {
+      totalStudies: studies.length,
+      activeStudies,
+      completedStudies,
+      plannedStudies,
+      upcomingTimepoints: upcomingTPs,
+      overdueTimepoints: overdueTPs,
+      productsOnStability,
+      avgShelfLifeMonths,
+      complianceRate,
+      studiesByType,
+      studiesByStatus,
+    };
+  }, [studies]);
 
   // ── Derived data ──────────────────────────────────────────────────────
 
   const uniqueProducts = useMemo(
-    () => stabilityStore.getUniqueProducts(),
+    () => [...new Set(studies.map((s) => s.product))],
     [studies]
   );
 
@@ -209,15 +254,33 @@ export default function StabilityStudiesPage() {
     return result;
   }, [studies, filterStatus, filterType, filterProduct, searchTerm]);
 
-  const upcomingTimepoints = useMemo(
-    () => stabilityStore.getUpcomingTimepoints(60),
-    [studies]
-  );
+  const upcomingTimepoints = useMemo(() => {
+    const result: { study: StabilityStudy; timepoint: StabilityTimepoint; daysUntil: number }[] = [];
+    for (const study of studies) {
+      if (study.status !== "ongoing" && study.status !== "planned") continue;
+      for (const tp of study.timepoints) {
+        if (tp.status !== "scheduled") continue;
+        const d = daysFromNow(tp.scheduledDate);
+        if (d >= 0 && d <= 60) {
+          result.push({ study, timepoint: tp, daysUntil: d });
+        }
+      }
+    }
+    return result.sort((a, b) => a.daysUntil - b.daysUntil);
+  }, [studies]);
 
-  const overdueTimepoints = useMemo(
-    () => stabilityStore.getOverdueTimepoints(),
-    [studies]
-  );
+  const overdueTimepoints = useMemo(() => {
+    const result: { study: StabilityStudy; timepoint: StabilityTimepoint; daysOverdue: number }[] = [];
+    for (const study of studies) {
+      if (study.status !== "ongoing" && study.status !== "planned") continue;
+      for (const tp of study.timepoints) {
+        if (tp.status !== "overdue") continue;
+        const d = -daysFromNow(tp.scheduledDate);
+        result.push({ study, timepoint: tp, daysOverdue: Math.max(d, 1) });
+      }
+    }
+    return result.sort((a, b) => b.daysOverdue - a.daysOverdue);
+  }, [studies]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -245,7 +308,7 @@ export default function StabilityStudiesPage() {
                 ? "LOS-050"
                 : "PROD-001";
 
-    stabilityStore.create({
+    create({
       product: formProduct,
       productCode,
       batchNumber: formBatch,
@@ -257,7 +320,7 @@ export default function StabilityStudiesPage() {
       packagingType: formPackaging || "Standard packaging",
       initiatedBy: formInitiatedBy,
       notes: formNotes || undefined,
-    });
+    } as any);
 
     // Reset form
     setFormProduct("");
@@ -271,7 +334,7 @@ export default function StabilityStudiesPage() {
     setFormNotes("");
     setFormTestParams(["assay", "dissolution", "moisture", "appearance"]);
     setActiveTab("studies");
-    refreshData();
+    fetchAll();
   }, [
     formProduct,
     formBatch,
@@ -283,7 +346,8 @@ export default function StabilityStudiesPage() {
     formInitiatedBy,
     formNotes,
     formTestParams,
-    refreshData,
+    fetchAll,
+    create,
   ]);
 
   const handleToggleTestParam = useCallback(
@@ -321,16 +385,33 @@ export default function StabilityStudiesPage() {
 
     if (results.length === 0) return;
 
-    stabilityStore.recordTimepointResults(
-      recordStudyId,
-      recordTpId,
-      results,
-      recordPerformedBy
-    );
+    // Find the study and update its timepoint results via update()
+    const study = studies.find((s) => s.id === recordStudyId);
+    if (!study) return;
+
+    const updatedTimepoints = study.timepoints.map((tp: StabilityTimepoint) => {
+      if (tp.id !== recordTpId) return tp;
+      const updatedTests = tp.tests.map((test: StabilityTest) => {
+        const found = results.find((r) => r.parameter === test.parameter);
+        if (!found) return test;
+        const passesSpec =
+          (test.specificationMin == null || found.result >= test.specificationMin) &&
+          (test.specificationMax == null || found.result <= test.specificationMax);
+        return { ...test, result: found.result, passesSpec, trend: "stable" as const };
+      });
+      return {
+        ...tp,
+        status: "completed" as TimepointStatus,
+        actualDate: new Date().toISOString(),
+        performedBy: recordPerformedBy,
+        tests: updatedTests,
+      };
+    });
+
+    update(recordStudyId, { timepoints: updatedTimepoints } as any);
 
     setRecordDialogOpen(false);
-    refreshData();
-  }, [recordStudyId, recordTpId, recordPerformedBy, recordResults, refreshData]);
+  }, [recordStudyId, recordTpId, recordPerformedBy, recordResults, studies, update]);
 
   // ── Auto-generate timepoint schedule display ─────────────────────────
 
@@ -1372,8 +1453,9 @@ function RecordResultsForm({
   onSubmit: () => void;
   onCancel: () => void;
 }) {
-  const study = stabilityStore.getById(studyId);
-  const timepoint = study?.timepoints.find((tp) => tp.id === timepointId);
+  const { items } = useStabilityStore();
+  const study = (items as unknown as StabilityStudy[]).find((i) => i.id === studyId);
+  const timepoint = study?.timepoints.find((tp: StabilityTimepoint) => tp.id === timepointId);
 
   if (!study || !timepoint) {
     return (

@@ -46,7 +46,7 @@ import {
   scoreBg,
 } from "@/components/shared/vendor-scorecard";
 import { cn } from "@/lib/utils";
-import { vendorScoringStore } from "@/lib/quality/vendor-scoring-store";
+import { useVendorScoringStore } from "@/lib/quality/vendor-scoring-store";
 import type {
   VendorScore,
   VendorAudit,
@@ -166,14 +166,68 @@ export default function VendorScoringPage() {
   const [vfCountry, setVfCountry] = useState("");
   const [deleteVendorId, setDeleteVendorId] = useState<string | null>(null);
 
+  const store = useVendorScoringStore();
+
   const reload = useCallback(() => {
-    setVendors(vendorScoringStore.getAll());
-    setMetrics(vendorScoringStore.getMetrics());
-  }, []);
+    store.fetchAll();
+  }, [store]);
 
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Derive vendors & metrics from store.items
+  useEffect(() => {
+    const all = (store.items || []) as unknown as VendorScore[];
+    setVendors(all);
+    if (all.length > 0) {
+      const qualified = all.filter((v) => v.qualificationStatus === "qualified");
+      const preferred = all.filter((v) => v.qualificationStatus === "preferred");
+      const probation = all.filter((v) => v.qualificationStatus === "probation");
+      const newVendors = all.filter((v) => v.qualificationStatus === "new");
+      const disqualified = all.filter((v) => v.qualificationStatus === "disqualified");
+      const active = all.filter((v) => v.qualificationStatus !== "new" && v.qualificationStatus !== "disqualified");
+      const avgScore = active.length > 0 ? Math.round(active.reduce((s, v) => s + v.overallScore, 0) / active.length) : 0;
+
+      const catMap = new Map<string, { count: number; total: number }>();
+      for (const v of active) {
+        const e = catMap.get(v.category) || { count: 0, total: 0 };
+        e.count++;
+        e.total += v.overallScore;
+        catMap.set(v.category, e);
+      }
+
+      const topPerformers = [...active]
+        .sort((a, b) => b.overallScore - a.overallScore)
+        .slice(0, 5)
+        .map((v) => ({ vendorName: v.vendorName, score: v.overallScore }));
+
+      const atRiskVendors = all
+        .filter((v) => v.qualificationStatus === "probation" || v.overallScore < 60)
+        .map((v) => ({
+          vendorName: v.vendorName,
+          score: v.overallScore,
+          reason: v.qualificationStatus === "probation" ? "On probation" : "Low score",
+        }));
+
+      setMetrics({
+        totalVendors: all.length,
+        qualifiedCount: qualified.length,
+        preferredCount: preferred.length,
+        probationCount: probation.length,
+        newCount: newVendors.length,
+        disqualifiedCount: disqualified.length,
+        averageScore: avgScore,
+        topPerformers,
+        atRiskVendors,
+        byCategory: Array.from(catMap.entries()).map(([category, data]) => ({
+          category: category as any,
+          count: data.count,
+          avgScore: Math.round(data.total / data.count),
+        })),
+      });
+    }
+  }, [store.items]);
 
   /* ── Filtered & sorted vendors ── */
 
@@ -250,13 +304,20 @@ export default function VendorScoringPage() {
 
   function handleScheduleAudit() {
     if (!auditVendorId || !auditDate || !auditAuditor) return;
-    vendorScoringStore.addAudit(auditVendorId, {
-      auditType: auditType as VendorAudit["auditType"],
-      scheduledDate: new Date(auditDate).toISOString(),
-      auditor: auditAuditor,
-      status: "scheduled",
-      findings: [],
-    });
+    const vendor = vendors.find((v) => v.id === auditVendorId);
+    if (vendor) {
+      const newAudit = {
+        id: `AUD-${Date.now()}`,
+        auditType: auditType as VendorAudit["auditType"],
+        scheduledDate: new Date(auditDate).toISOString(),
+        auditor: auditAuditor,
+        status: "scheduled" as const,
+        findings: [],
+        correctiveActionsRequired: 0,
+        correctiveActionsClosed: 0,
+      };
+      store.update(auditVendorId, { audits: [...vendor.audits, newAudit] } as any);
+    }
     setShowAuditForm(false);
     setAuditVendorId("");
     setAuditType("periodic");
@@ -267,7 +328,7 @@ export default function VendorScoringPage() {
 
   function handleQualificationChange() {
     if (!qualVendorId || !qualAction) return;
-    vendorScoringStore.setQualificationStatus(qualVendorId, qualAction as QualificationStatus);
+    store.updateStatus(qualVendorId, qualAction as QualificationStatus);
     setQualVendorId("");
     setQualAction("");
     reload();
@@ -275,7 +336,7 @@ export default function VendorScoringPage() {
 
   function handleCreateVendor() {
     if (!vfName) return;
-    vendorScoringStore.create({
+    store.create({
       vendorName: vfName,
       vendorCode: `V-${Date.now().toString(36).toUpperCase()}`,
       contactPerson: vfContact || "N/A",
@@ -298,7 +359,10 @@ export default function VendorScoringPage() {
       incidents: [],
       contractValue: 0,
       activeContracts: 0,
-    });
+      overallScore: 0,
+      scoreHistory: [],
+      status: "new",
+    } as any);
     setShowVendorForm(false);
     setVfName(""); setVfContact(""); setVfCategory("api-manufacturer"); setVfCountry("");
     reload();
@@ -306,7 +370,7 @@ export default function VendorScoringPage() {
 
   function handleDeleteVendor() {
     if (!deleteVendorId) return;
-    vendorScoringStore.delete(deleteVendorId);
+    store.remove(deleteVendorId);
     setDeleteVendorId(null);
     if (selectedVendor?.id === deleteVendorId) { setSelectedVendor(null); setDetailOpen(false); }
     reload();

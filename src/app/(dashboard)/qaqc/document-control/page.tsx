@@ -52,7 +52,7 @@ import {
   Shield,
   RefreshCw,
 } from "lucide-react";
-import { documentControlStore } from "@/lib/quality/document-control-store";
+import { useDocumentControlStore } from "@/lib/quality/document-control-store";
 import type {
   ControlledDocument,
   DocumentStatus,
@@ -135,8 +135,8 @@ const CONFIDENTIALITY_OPTIONS = [
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DocumentControlPage() {
-  const [documents, setDocuments] = useState<ControlledDocument[]>([]);
-  const [metrics, setMetrics] = useState<DocumentMetrics | null>(null);
+  const { items, fetchAll, create, update } = useDocumentControlStore();
+  const documents = items as unknown as ControlledDocument[];
   const [selectedDoc, setSelectedDoc] = useState<ControlledDocument | null>(null);
   const [activeTab, setActiveTab] = useState("documents");
 
@@ -160,14 +160,29 @@ export default function DocumentControlPage() {
   const [reviewFilter, setReviewFilter] = useState<string>("all");
 
   useEffect(() => {
-    loadData();
-  }, []);
+    fetchAll();
+  }, [fetchAll]);
 
-  function loadData() {
-    const allDocs = documentControlStore.getAll();
-    setDocuments(allDocs);
-    setMetrics(documentControlStore.getMetrics());
-  }
+  // Compute metrics from items
+  const metrics = useMemo((): DocumentMetrics | null => {
+    if (documents.length === 0) return null;
+    const effective = documents.filter((d) => d.status === "effective").length;
+    const dueForReview = documents.filter((d) => d.status === "effective" && d.nextReviewDate && daysFromNow(d.nextReviewDate) <= 30 && daysFromNow(d.nextReviewDate) >= 0).length;
+    const overdueReviews = documents.filter((d) => d.status === "effective" && d.nextReviewDate && daysFromNow(d.nextReviewDate) < 0).length;
+    const trainingPending = documents.filter((d) => d.training && d.training.pendingFor.length > 0).length;
+    const byCategory = CATEGORY_OPTIONS.map((c) => ({ category: c, count: documents.filter((d) => d.category === c).length })).filter((i) => i.count > 0);
+    const byDepartment = DEPARTMENT_OPTIONS.map((dept) => ({ department: dept, count: documents.filter((d) => d.department === dept).length })).filter((i) => i.count > 0);
+    const byStatus = (Object.keys(STATUS_LABELS) as DocumentStatus[]).map((s) => ({ status: s, count: documents.filter((d) => d.status === s).length })).filter((i) => i.count > 0);
+    const totalVersions = documents.reduce((sum, d) => sum + d.versions.length, 0);
+    const totalReviews = documents.reduce((sum, d) => sum + d.reviews.length, 0);
+    const completedReviews = documents.reduce((sum, d) => sum + d.reviews.filter((r) => r.status === "completed").length, 0);
+    return {
+      total: documents.length, effective, dueForReview, overdueReviews, trainingPending,
+      byCategory, byDepartment, byStatus,
+      avgVersionsPerDoc: documents.length > 0 ? Math.round((totalVersions / documents.length) * 10) / 10 : 0,
+      reviewCompliancePct: totalReviews > 0 ? Math.round((completedReviews / totalReviews) * 100) : 100,
+    };
+  }, [documents]);
 
   // ─── Filtered Documents ─────────────────────────────────────────
 
@@ -251,7 +266,8 @@ export default function DocumentControlPage() {
     if (!newTitle.trim() || !newAuthor.trim()) return;
 
     const now = new Date().toISOString();
-    documentControlStore.create({
+    create({
+      documentNumber: `DOC-${Date.now()}`,
       title: newTitle,
       category: newCategory,
       department: newDepartment,
@@ -283,7 +299,7 @@ export default function DocumentControlPage() {
         .filter(Boolean),
       confidentiality: newConfidentiality,
       retentionYears: parseInt(newRetention, 10) || 10,
-    });
+    } as any);
 
     // Reset form
     setNewTitle("");
@@ -294,7 +310,6 @@ export default function DocumentControlPage() {
     setNewDepartment("Production");
     setNewConfidentiality("internal");
     setNewRetention("10");
-    loadData();
     setActiveTab("documents");
   }
 
@@ -322,22 +337,20 @@ export default function DocumentControlPage() {
       updates.nextReviewDate = reviewDate.toISOString();
     }
 
-    documentControlStore.update(doc.id, updates);
-    loadData();
-    if (selectedDoc?.id === doc.id) {
-      setSelectedDoc(documentControlStore.getById(doc.id) ?? null);
-    }
+    update(doc.id, updates as any).then((updated) => {
+      if (selectedDoc?.id === doc.id) {
+        setSelectedDoc(updated as unknown as ControlledDocument);
+      }
+    });
   }
 
   function handleMarkSuperseded(doc: ControlledDocument) {
-    documentControlStore.update(doc.id, { status: "superseded" });
-    loadData();
+    update(doc.id, { status: "superseded" } as any);
     setSelectedDoc(null);
   }
 
   function handleMarkObsolete(doc: ControlledDocument) {
-    documentControlStore.update(doc.id, { status: "obsolete" });
-    loadData();
+    update(doc.id, { status: "obsolete" } as any);
     setSelectedDoc(null);
   }
 

@@ -58,7 +58,7 @@ import {
   FileText,
   Trash2,
 } from "lucide-react";
-import { riskStore, calculateRPN, classifyRiskLevel } from "@/lib/quality/risk-store";
+import { useRiskStore, calculateRPN, classifyRiskLevel } from "@/lib/quality/risk-store";
 import type {
   RiskAssessment,
   RiskStatus,
@@ -112,8 +112,8 @@ function rpnColor(rpn: number): string {
 /* ───────────────────────── page ───────────────────────── */
 
 export default function RiskAssessmentPage() {
-  const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
-  const [metrics, setMetrics] = useState<RiskMetrics | null>(null);
+  const { items: riskItems, fetchAll, create: createAssessment } = useRiskStore();
+  const assessments = riskItems as unknown as RiskAssessment[];
   const [activeTab, setActiveTab] = useState("assessments");
 
   /* filters */
@@ -149,14 +149,69 @@ export default function RiskAssessmentPage() {
   const [regLevelFilter, setRegLevelFilter] = useState<string>("all");
   const [regCategoryFilter, setRegCategoryFilter] = useState<string>("all");
 
-  const reload = useCallback(() => {
-    setAssessments(riskStore.getAll());
-    setMetrics(riskStore.getMetrics());
-  }, []);
-
   useEffect(() => {
-    reload();
-  }, [reload]);
+    fetchAll();
+  }, [fetchAll]);
+
+  /* ───── compute metrics from items ───── */
+  const metrics: RiskMetrics | null = useMemo(() => {
+    if (assessments.length === 0) return null;
+    const allEntries = assessments.flatMap((a) => a.entries);
+    const highRiskItems = allEntries.filter(
+      (e) => e.riskLevel === "high" || e.riskLevel === "critical"
+    ).length;
+    const avgRPN =
+      allEntries.length > 0
+        ? Math.round(allEntries.reduce((s, e) => s + e.rpn, 0) / allEntries.length)
+        : 0;
+    const mitigationsPending = allEntries.reduce(
+      (count, e) =>
+        count +
+        e.mitigationActions.filter(
+          (m: MitigationAction) => m.status !== "completed" && m.status !== "verified"
+        ).length,
+      0
+    );
+    const mitigated = allEntries.filter((e) => e.residualRPN != null);
+    const riskReductionPct =
+      mitigated.length > 0
+        ? Math.round(
+            mitigated.reduce(
+              (s, e) => s + ((e.rpn - (e.residualRPN ?? e.rpn)) / e.rpn) * 100,
+              0
+            ) / mitigated.length
+          )
+        : 0;
+    const byStatus = (Object.keys(STATUS_CONFIG) as RiskStatus[]).map((status) => ({
+      status,
+      count: assessments.filter((a) => a.status === status).length,
+    }));
+    const byCategory = (Object.keys(CATEGORY_LABELS) as RiskCategory[]).map((category) => ({
+      category,
+      count: allEntries.filter((e) => e.category === category).length,
+    }));
+    const byMethod = (Object.keys(METHOD_LABELS) as RiskMethod[]).map((method) => ({
+      method,
+      count: assessments.filter((a) => a.method === method).length,
+    }));
+    const rpnDistribution = [
+      { range: "Low (1-39)", count: allEntries.filter((e) => e.rpn < 40).length },
+      { range: "Medium (40-99)", count: allEntries.filter((e) => e.rpn >= 40 && e.rpn < 100).length },
+      { range: "High (100-199)", count: allEntries.filter((e) => e.rpn >= 100 && e.rpn < 200).length },
+      { range: "Critical (200+)", count: allEntries.filter((e) => e.rpn >= 200).length },
+    ];
+    return {
+      totalAssessments: assessments.length,
+      highRiskItems,
+      avgRPN,
+      mitigationsPending,
+      riskReductionPct,
+      byStatus,
+      byCategory,
+      byMethod,
+      rpnDistribution,
+    };
+  }, [assessments]);
 
   /* ───── filtered assessments ───── */
   const filteredAssessments = useMemo(() => {
@@ -182,26 +237,28 @@ export default function RiskAssessmentPage() {
 
   /* ───── risk register items ───── */
   const registerItems = useMemo(() => {
-    const allItems = riskStore.getAllEntries();
-    let items = allItems.filter(
-      ({ entry }) => entry.riskLevel === "high" || entry.riskLevel === "critical"
+    const allItems = assessments.flatMap((assessment) =>
+      assessment.entries.map((entry: FMEAEntry) => ({ assessment, entry }))
+    );
+    let filtered = allItems.filter(
+      ({ entry }: { entry: FMEAEntry }) => entry.riskLevel === "high" || entry.riskLevel === "critical"
     );
     if (regLevelFilter !== "all") {
-      items = items.filter(({ entry }) => entry.riskLevel === regLevelFilter);
+      filtered = filtered.filter(({ entry }: { entry: FMEAEntry }) => entry.riskLevel === regLevelFilter);
     }
     if (regCategoryFilter !== "all") {
-      items = items.filter(({ entry }) => entry.category === regCategoryFilter);
+      filtered = filtered.filter(({ entry }: { entry: FMEAEntry }) => entry.category === regCategoryFilter);
     }
     if (regSearch.trim()) {
       const q = regSearch.toLowerCase();
-      items = items.filter(
-        ({ entry, assessment }) =>
+      filtered = filtered.filter(
+        ({ entry, assessment }: { entry: FMEAEntry; assessment: RiskAssessment }) =>
           entry.failureMode.toLowerCase().includes(q) ||
           entry.effect.toLowerCase().includes(q) ||
           assessment.title.toLowerCase().includes(q)
       );
     }
-    return items;
+    return filtered;
   }, [assessments, regLevelFilter, regCategoryFilter, regSearch]);
 
   /* ───── matrix dots for analytics ───── */
@@ -289,7 +346,7 @@ export default function RiskAssessmentPage() {
         riskLevel: classifyRiskLevel(rpn),
       };
     });
-    riskStore.create({
+    createAssessment({
       title: newTitle,
       scope: newScope,
       method: newMethod,
@@ -299,7 +356,7 @@ export default function RiskAssessmentPage() {
       category: newCategory,
       createdBy: "Current User",
       entries,
-    });
+    } as any);
     // reset form
     setNewTitle("");
     setNewScope("");
@@ -308,7 +365,7 @@ export default function RiskAssessmentPage() {
     setNewProcess("");
     setNewCategory("quality");
     setNewEntries([]);
-    reload();
+    fetchAll();
     setActiveTab("assessments");
   }
 

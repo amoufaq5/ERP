@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { ControlledDocument } from './document-control-types';
 
 export type { ControlledDocument } from './document-control-types';
@@ -22,4 +23,4 @@ export const useDocumentControlStore = createQualityApiStore<ControlledDocument 
 });
 
 /** @deprecated Use useDocumentControlStore (zustand hook) instead */
-export const documentControlStore = useDocumentControlStore;
+export const documentControlStore = createStoreCompat<ControlledDocument & { id: string; status: string }>(useDocumentControlStore);

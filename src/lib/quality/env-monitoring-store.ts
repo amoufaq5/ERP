@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { MonitoringReading } from './env-monitoring-types';
 
 export type { MonitoringReading } from './env-monitoring-types';
@@ -22,4 +23,4 @@ export const useEnvMonitoringStore = createQualityApiStore<MonitoringReading & {
 });
 
 /** @deprecated Use useEnvMonitoringStore (zustand hook) instead */
-export const envMonitoringStore = useEnvMonitoringStore;
+export const envMonitoringStore = createStoreCompat<MonitoringReading & { id: string; status: string }>(useEnvMonitoringStore);

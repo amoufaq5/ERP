@@ -36,7 +36,7 @@ import PageHeader from "@/components/shared/page-header";
 import ComplaintTimeline from "@/components/shared/complaint-timeline";
 import { PieChartWidget, BarChartWidget } from "@/components/shared/charts";
 import { cn, formatDate } from "@/lib/utils";
-import { complaintStore } from "@/lib/quality/complaint-store";
+import { useComplaintStore } from "@/lib/quality/complaint-store";
 import type {
   Complaint,
   ComplaintStatus,
@@ -165,6 +165,7 @@ function daysSince(iso: string): number {
 // ─── Page Component ────────────────────────────────────────────────────────────
 
 export default function ComplaintsPage() {
+  const store = useComplaintStore();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [metrics, setMetrics] = useState<ComplaintMetrics | null>(null);
   const [activeTab, setActiveTab] = useState("complaints");
@@ -199,13 +200,44 @@ export default function ComplaintsPage() {
   const [responseSentTo, setResponseSentTo] = useState("");
 
   const reload = useCallback(() => {
-    setComplaints(complaintStore.getAll());
-    setMetrics(complaintStore.getMetrics());
-  }, []);
+    store.fetchAll();
+  }, [store]);
 
   useEffect(() => {
     reload();
   }, [reload]);
+
+  useEffect(() => {
+    const items = store.items as Complaint[];
+    setComplaints(items);
+    const open = items.filter((c) => c.status !== "closed");
+    const overdue = items.filter((c) => c.status !== "closed" && c.dueDate && new Date(c.dueDate) < new Date());
+    const withResponse = items.filter((c) => c.response);
+    const avgResponseDays = withResponse.length > 0
+      ? Math.round(withResponse.reduce((s, c) => {
+          const recv = new Date(c.receivedAt).getTime();
+          const resp = c.response ? new Date(c.response.sentDate).getTime() : recv;
+          return s + Math.round((resp - recv) / 86400000);
+        }, 0) / withResponse.length)
+      : 0;
+    const regulatoryReports = items.filter((c) => c.regulatoryReport?.reportable).length;
+    const srcMap = new Map<string, number>();
+    items.forEach((c) => srcMap.set(c.source, (srcMap.get(c.source) || 0) + 1));
+    const catMap = new Map<string, number>();
+    items.forEach((c) => catMap.set(c.category, (catMap.get(c.category) || 0) + 1));
+    const sevMap = new Map<string, number>();
+    items.forEach((c) => sevMap.set(c.severity, (sevMap.get(c.severity) || 0) + 1));
+    setMetrics({
+      total: items.length,
+      open: open.length,
+      avgResponseDays,
+      regulatoryReports,
+      overdue: overdue.length,
+      bySource: Array.from(srcMap.entries()).map(([source, count]) => ({ source, count })),
+      byCategory: Array.from(catMap.entries()).map(([category, count]) => ({ category, count })),
+      bySeverity: Array.from(sevMap.entries()).map(([severity, count]) => ({ severity, count })),
+    });
+  }, [store.items]);
 
   // ─── Filtered Complaints ────────────────────────────────────────────────
 
@@ -342,18 +374,30 @@ export default function ComplaintsPage() {
 
   const handleAdvanceStatus = useCallback(
     (id: string) => {
-      complaintStore.advanceStatus(id);
-      reload();
-      const updated = complaintStore.getById(id);
-      if (updated) setSelectedComplaint(updated);
+      const complaint = store.items.find((i: any) => i.id === id) as Complaint | undefined;
+      if (!complaint) return;
+      const nextStatusMap: Record<string, string> = {
+        received: "acknowledged",
+        acknowledged: "investigation",
+        investigation: "root-cause",
+        "root-cause": "capa-required",
+        "capa-required": "response-sent",
+        "response-sent": "closed",
+      };
+      const nextStatus = nextStatusMap[complaint.status];
+      if (nextStatus) {
+        store.updateStatus(id, nextStatus);
+        reload();
+      }
     },
-    [reload]
+    [store, reload]
   );
 
   const handleCreateComplaint = useCallback(() => {
     if (!newTitle || !newProduct || !newBatch || !newComplainantName) return;
     const now = new Date().toISOString();
-    complaintStore.create({
+    store.create({
+      number: `CMP-${new Date().getFullYear()}-${String(Date.now()).slice(-3)}`,
       title: newTitle,
       description: newDescription,
       source: newSource,
@@ -381,7 +425,7 @@ export default function ComplaintsPage() {
           notes: "Complaint received and logged.",
         },
       ],
-    });
+    } as any);
     // Reset form
     setNewTitle("");
     setNewDescription("");
@@ -411,14 +455,15 @@ export default function ComplaintsPage() {
     newComplainantPhone,
     newComplainantEmail,
     reload,
+    store,
   ]);
 
   const handleSendResponse = useCallback(
     (id: string) => {
       if (!responseText || !responseSentTo) return;
-      const complaint = complaintStore.getById(id);
+      const complaint = store.items.find((i: any) => i.id === id) as Complaint | undefined;
       if (!complaint) return;
-      complaintStore.update(id, {
+      store.update(id, {
         response: {
           responseText,
           sentTo: responseSentTo,
@@ -435,14 +480,14 @@ export default function ComplaintsPage() {
             notes: `Response sent to ${responseSentTo}`,
           },
         ],
-      });
+      } as any);
       setResponseText("");
       setResponseSentTo("");
       reload();
-      const updated = complaintStore.getById(id);
+      const updated = store.items.find((i: any) => i.id === id) as Complaint | undefined;
       if (updated) setSelectedComplaint(updated);
     },
-    [responseText, responseSentTo, reload]
+    [responseText, responseSentTo, reload, store]
   );
 
   const openDetail = useCallback((complaint: Complaint) => {

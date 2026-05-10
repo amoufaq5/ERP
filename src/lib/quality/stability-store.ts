@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { StabilityStudy } from './stability-types';
 
 export type { StabilityStudy } from './stability-types';
@@ -21,7 +22,7 @@ export const useStabilityStore = createQualityApiStore<StabilityStudy & { id: st
 });
 
 /** @deprecated Use useStabilityStore (zustand hook) instead */
-export const stabilityStore = useStabilityStore;
+export const stabilityStore = createStoreCompat<StabilityStudy & { id: string; status: string }>(useStabilityStore);
 
 /** @deprecated Use useStabilityStore (zustand hook) instead */
-export const StabilityStore = useStabilityStore;
+export const StabilityStore = stabilityStore;

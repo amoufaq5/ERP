@@ -1,0 +1,25 @@
+import { createRouteHandlers } from '@/lib/api/route-factory';
+import { z } from 'zod';
+
+const createSchema = z.object({
+  name: z.string().min(1),
+  type: z.enum(['XBAR_R', 'XBAR_S', 'P_CHART', 'C_CHART', 'U_CHART', 'INDIVIDUAL_MR']),
+  parameter: z.string().optional(),
+  product: z.string().optional(),
+  specification: z.string().optional(),
+  ucl: z.number(),
+  lcl: z.number(),
+  centerLine: z.number(),
+  status: z.enum(['ACTIVE', 'IN_CONTROL', 'OUT_OF_CONTROL']).default('ACTIVE'),
+});
+
+const updateSchema = createSchema.partial();
+
+export const { GET, POST } = createRouteHandlers({
+  entity: 'spc',
+  modelName: 'sPCChart',
+  validationSchema: { create: createSchema, update: updateSchema },
+  searchFields: ['name', 'parameter', 'product'],
+  defaultSort: { field: 'createdAt', direction: 'desc' },
+  allowedIncludes: ['dataPoints'],
+});

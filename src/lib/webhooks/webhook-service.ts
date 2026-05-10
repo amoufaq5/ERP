@@ -7,23 +7,23 @@ import {
 } from './webhook-types';
 import { signPayload, generateTimestamp, buildSignatureHeader } from './webhook-signature';
 
-const WEBHOOKS_KEY = 'pharma.webhooks';
-const DELIVERIES_KEY = 'pharma.webhook-deliveries';
+const API_BASE = '/api/v1/webhooks';
+const DELIVERY_TIMEOUT_MS = 30_000;
 
 function generateId(): string {
-  return `wh_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  return `wh_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
 }
 
 function generateDeliveryId(): string {
-  return `del_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  return `del_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
 }
 
 export class WebhookService {
   private static instance: WebhookService | null = null;
+  private cache: WebhookConfig[] | null = null;
+  private deliveryCache: WebhookDelivery[] = [];
 
-  private constructor() {
-    this.seedDemoData();
-  }
+  private constructor() {}
 
   static getInstance(): WebhookService {
     if (!WebhookService.instance) {
@@ -32,95 +32,46 @@ export class WebhookService {
     return WebhookService.instance;
   }
 
-  // ---------------------------------------------------------------------------
-  // Storage helpers
-  // ---------------------------------------------------------------------------
-
-  private loadWebhooks(): WebhookConfig[] {
-    if (typeof window === 'undefined') return [];
+  private async loadWebhooks(): Promise<WebhookConfig[]> {
+    if (this.cache) return this.cache;
     try {
-      const raw = localStorage.getItem(WEBHOOKS_KEY);
-      return raw ? (JSON.parse(raw) as WebhookConfig[]) : [];
+      const res = await fetch(API_BASE);
+      if (!res.ok) return [];
+      const data = await res.json();
+      this.cache = data.data ?? data;
+      return this.cache!;
     } catch {
       return [];
     }
   }
 
-  private saveWebhooks(webhooks: WebhookConfig[]): void {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(WEBHOOKS_KEY, JSON.stringify(webhooks));
+  private async persistWebhook(webhook: WebhookConfig): Promise<void> {
+    await fetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(webhook),
+    }).catch(() => {});
   }
 
-  private loadDeliveries(): WebhookDelivery[] {
-    if (typeof window === 'undefined') return [];
-    try {
-      const raw = localStorage.getItem(DELIVERIES_KEY);
-      return raw ? (JSON.parse(raw) as WebhookDelivery[]) : [];
-    } catch {
-      return [];
-    }
+  private async persistWebhookUpdate(id: string, patch: Partial<WebhookConfig>): Promise<void> {
+    await fetch(`${API_BASE}/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }).catch(() => {});
   }
 
-  private saveDeliveries(deliveries: WebhookDelivery[]): void {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(DELIVERIES_KEY, JSON.stringify(deliveries));
+  private async persistDelivery(delivery: WebhookDelivery): Promise<void> {
+    await fetch(`${API_BASE}/deliveries`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(delivery),
+    }).catch(() => {});
   }
 
-  // ---------------------------------------------------------------------------
-  // Seed demo data
-  // ---------------------------------------------------------------------------
-
-  private seedDemoData(): void {
-    if (typeof window === 'undefined') return;
-    const existing = this.loadWebhooks();
-    if (existing.length > 0) return;
-
-    const now = new Date().toISOString();
-
-    const demoWebhooks: WebhookConfig[] = [
-      {
-        id: 'wh_demo_erp_sync',
-        url: 'https://erp.example.com/api/webhooks/pharma',
-        events: ['doctor.created', 'doctor.updated', 'visit.created', 'visit.completed'],
-        secret: 'whsec_erp_demo_secret_key_12345',
-        isActive: true,
-        description: 'ERP Sync - Synchronises doctor and visit data with the central ERP system',
-        headers: { 'X-Source': 'pharma-crm' },
-        retryPolicy: { maxRetries: 3, backoffMs: 5000 },
-        createdAt: now,
-        updatedAt: now,
-      },
-      {
-        id: 'wh_demo_notifications',
-        url: 'https://notify.example.com/hooks/approvals',
-        events: [
-          'plan.approved',
-          'plan.rejected',
-          'request.approved',
-          'request.rejected',
-          'expense.approved',
-        ],
-        secret: 'whsec_notify_demo_secret_key_67890',
-        isActive: true,
-        description: 'Notification Service - Sends approval/rejection alerts via email and Slack',
-        headers: {},
-        retryPolicy: { maxRetries: 5, backoffMs: 10000 },
-        createdAt: now,
-        updatedAt: now,
-      },
-    ];
-
-    this.saveWebhooks(demoWebhooks);
-  }
-
-  // ---------------------------------------------------------------------------
-  // CRUD
-  // ---------------------------------------------------------------------------
-
-  register(
+  async register(
     config: Omit<WebhookConfig, 'id' | 'createdAt' | 'updatedAt'>
-  ): WebhookConfig {
-    const webhooks = this.loadWebhooks();
+  ): Promise<WebhookConfig> {
     const now = new Date().toISOString();
     const webhook: WebhookConfig = {
       ...config,
@@ -128,60 +79,110 @@ export class WebhookService {
       createdAt: now,
       updatedAt: now,
     };
-    webhooks.push(webhook);
-    this.saveWebhooks(webhooks);
+    this.cache = null;
+    await this.persistWebhook(webhook);
     return webhook;
   }
 
-  unregister(webhookId: string): boolean {
-    const webhooks = this.loadWebhooks();
-    const idx = webhooks.findIndex((w) => w.id === webhookId);
-    if (idx === -1) return false;
-    webhooks.splice(idx, 1);
-    this.saveWebhooks(webhooks);
-    return true;
+  async unregister(webhookId: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE}/${webhookId}`, { method: 'DELETE' });
+      this.cache = null;
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
 
-  update(
+  async update(
     webhookId: string,
     patch: Partial<Omit<WebhookConfig, 'id' | 'createdAt'>>
-  ): WebhookConfig | null {
-    const webhooks = this.loadWebhooks();
-    const idx = webhooks.findIndex((w) => w.id === webhookId);
-    if (idx === -1) return null;
-    webhooks[idx] = {
-      ...webhooks[idx],
+  ): Promise<WebhookConfig | null> {
+    const webhooks = await this.loadWebhooks();
+    const existing = webhooks.find((w) => w.id === webhookId);
+    if (!existing) return null;
+
+    const updated = {
+      ...existing,
       ...patch,
       updatedAt: new Date().toISOString(),
     };
-    this.saveWebhooks(webhooks);
-    return webhooks[idx];
+    this.cache = null;
+    await this.persistWebhookUpdate(webhookId, { ...patch, updatedAt: updated.updatedAt });
+    return updated;
   }
 
-  getAll(): WebhookConfig[] {
+  async getAll(): Promise<WebhookConfig[]> {
     return this.loadWebhooks();
   }
 
-  getById(id: string): WebhookConfig | null {
-    return this.loadWebhooks().find((w) => w.id === id) ?? null;
+  async getById(id: string): Promise<WebhookConfig | null> {
+    const webhooks = await this.loadWebhooks();
+    return webhooks.find((w) => w.id === id) ?? null;
   }
 
-  getDeliveries(webhookId?: string, limit = 50): WebhookDelivery[] {
-    let deliveries = this.loadDeliveries();
-    if (webhookId) {
-      deliveries = deliveries.filter((d) => d.webhookId === webhookId);
+  async getDeliveries(webhookId?: string, limit = 50): Promise<WebhookDelivery[]> {
+    try {
+      const params = new URLSearchParams();
+      if (webhookId) params.set('webhookId', webhookId);
+      params.set('limit', String(limit));
+      const res = await fetch(`${API_BASE}/deliveries?${params}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.data ?? data;
+    } catch {
+      return this.deliveryCache
+        .filter((d) => !webhookId || d.webhookId === webhookId)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, limit);
     }
-    return deliveries
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, limit);
   }
 
-  // ---------------------------------------------------------------------------
-  // Dispatch
-  // ---------------------------------------------------------------------------
+  private async deliverToEndpoint(
+    webhook: WebhookConfig,
+    payload: WebhookPayload
+  ): Promise<{ statusCode: number; response?: string; error?: string }> {
+    const payloadStr = JSON.stringify(payload);
+    const signature = await signPayload(payloadStr, webhook.secret);
+    const signatureHeader = buildSignatureHeader(payload.timestamp, signature);
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Webhook-Signature': signatureHeader,
+      'User-Agent': 'ERP-Webhook/1.0',
+      ...(webhook.headers ?? {}),
+    };
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), DELIVERY_TIMEOUT_MS);
+
+    try {
+      const res = await fetch(webhook.url, {
+        method: 'POST',
+        headers,
+        body: payloadStr,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      const responseText = await res.text().catch(() => '');
+      return {
+        statusCode: res.status,
+        response: responseText || undefined,
+        error: res.ok ? undefined : `HTTP ${res.status}: ${res.statusText}`,
+      };
+    } catch (err) {
+      clearTimeout(timeout);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      return {
+        statusCode: 0,
+        error: message.includes('abort') ? 'Request timeout' : message,
+      };
+    }
+  }
 
   async dispatch(event: WebhookEvent, data: unknown): Promise<WebhookDelivery[]> {
-    const webhooks = this.loadWebhooks().filter(
+    const webhooks = (await this.loadWebhooks()).filter(
       (w) => w.isActive && w.events.includes(event)
     );
 
@@ -194,128 +195,90 @@ export class WebhookService {
         data,
       };
 
-      const payloadStr = JSON.stringify(payload);
-      const signature = await signPayload(payloadStr, webhook.secret);
-      const signatureHeader = buildSignatureHeader(payload.timestamp, signature);
-
-      // For demo: log to console instead of making real HTTP requests
-      console.log(`[Webhook] Dispatching ${event} to ${webhook.url}`);
-      console.log(`[Webhook] Signature: ${signatureHeader}`);
-      console.log(`[Webhook] Payload:`, payload);
-
-      // Simulate delivery — randomly succeed or fail for demo purposes
-      const success = Math.random() > 0.2;
-      const status: DeliveryStatus = success ? 'delivered' : 'failed';
+      const result = await this.deliverToEndpoint(webhook, payload);
 
       const delivery: WebhookDelivery = {
         id: generateDeliveryId(),
         webhookId: webhook.id,
         event,
         payload,
-        statusCode: success ? 200 : 500,
-        response: success ? '{"ok":true}' : undefined,
-        error: success ? undefined : 'Connection refused (simulated)',
+        statusCode: result.statusCode,
+        response: result.response,
+        error: result.error,
         attempts: 1,
-        nextRetryAt: success
-          ? undefined
-          : new Date(Date.now() + webhook.retryPolicy.backoffMs).toISOString(),
-        deliveredAt: success ? new Date().toISOString() : undefined,
+        nextRetryAt: result.error
+          ? new Date(Date.now() + webhook.retryPolicy.backoffMs).toISOString()
+          : undefined,
+        deliveredAt: !result.error ? new Date().toISOString() : undefined,
         createdAt: new Date().toISOString(),
       };
 
       deliveries.push(delivery);
-      console.log(`[Webhook] Delivery ${delivery.id}: ${status}`);
+      this.deliveryCache.push(delivery);
+      this.persistDelivery(delivery).catch(() => {});
     }
-
-    // Persist deliveries
-    const allDeliveries = this.loadDeliveries();
-    allDeliveries.push(...deliveries);
-    this.saveDeliveries(allDeliveries);
 
     return deliveries;
   }
 
-  // ---------------------------------------------------------------------------
-  // Retry
-  // ---------------------------------------------------------------------------
-
   async retry(deliveryId: string): Promise<WebhookDelivery | null> {
-    const deliveries = this.loadDeliveries();
-    const idx = deliveries.findIndex((d) => d.id === deliveryId);
-    if (idx === -1) return null;
+    const deliveries = await this.getDeliveries();
+    const delivery = deliveries.find((d) => d.id === deliveryId);
+    if (!delivery) return null;
 
-    const delivery = deliveries[idx];
-    const webhook = this.getById(delivery.webhookId);
+    const webhook = await this.getById(delivery.webhookId);
     if (!webhook) return null;
 
-    // Simulate retry
-    const success = Math.random() > 0.3;
+    const payload: WebhookPayload = delivery.payload as WebhookPayload;
+    const result = await this.deliverToEndpoint(webhook, payload);
+
     delivery.attempts += 1;
-    delivery.statusCode = success ? 200 : 500;
-    delivery.response = success ? '{"ok":true}' : delivery.response;
-    delivery.error = success ? undefined : 'Retry failed (simulated)';
-    delivery.deliveredAt = success ? new Date().toISOString() : undefined;
+    delivery.statusCode = result.statusCode;
+    delivery.response = result.response ?? delivery.response;
+    delivery.error = result.error;
+    delivery.deliveredAt = !result.error ? new Date().toISOString() : undefined;
     delivery.nextRetryAt =
-      success || delivery.attempts >= webhook.retryPolicy.maxRetries
+      !result.error || delivery.attempts >= webhook.retryPolicy.maxRetries
         ? undefined
         : new Date(Date.now() + webhook.retryPolicy.backoffMs * delivery.attempts).toISOString();
 
-    deliveries[idx] = delivery;
-    this.saveDeliveries(deliveries);
-
-    console.log(
-      `[Webhook] Retry ${deliveryId} attempt #${delivery.attempts}: ${success ? 'delivered' : 'failed'}`
-    );
+    this.persistDelivery(delivery).catch(() => {});
     return delivery;
   }
 
-  // ---------------------------------------------------------------------------
-  // Test
-  // ---------------------------------------------------------------------------
-
   async testWebhook(webhookId: string): Promise<WebhookDelivery | null> {
-    const webhook = this.getById(webhookId);
+    const webhook = await this.getById(webhookId);
     if (!webhook) return null;
 
     const payload: WebhookPayload = {
-      event: 'doctor.created' as WebhookEvent,
+      event: 'test' as WebhookEvent,
       timestamp: generateTimestamp(),
       data: {
         _test: true,
-        message: 'This is a test webhook delivery from PharmaERP',
+        message: 'Test webhook delivery from ERP',
         webhookId,
       },
     };
 
-    const payloadStr = JSON.stringify(payload);
-    const signature = await signPayload(payloadStr, webhook.secret);
-    const signatureHeader = buildSignatureHeader(payload.timestamp, signature);
-
-    console.log(`[Webhook Test] Pinging ${webhook.url}`);
-    console.log(`[Webhook Test] Signature: ${signatureHeader}`);
+    const result = await this.deliverToEndpoint(webhook, payload);
 
     const delivery: WebhookDelivery = {
       id: generateDeliveryId(),
       webhookId,
-      event: 'doctor.created' as WebhookEvent,
+      event: 'test' as WebhookEvent,
       payload,
-      statusCode: 200,
-      response: '{"ok":true,"test":true}',
+      statusCode: result.statusCode,
+      response: result.response,
+      error: result.error,
       attempts: 1,
-      deliveredAt: new Date().toISOString(),
+      deliveredAt: !result.error ? new Date().toISOString() : undefined,
       createdAt: new Date().toISOString(),
     };
 
-    const deliveries = this.loadDeliveries();
-    deliveries.push(delivery);
-    this.saveDeliveries(deliveries);
-
+    this.deliveryCache.push(delivery);
+    this.persistDelivery(delivery).catch(() => {});
     return delivery;
   }
-
-  // ---------------------------------------------------------------------------
-  // Utils
-  // ---------------------------------------------------------------------------
 
   generateSecret(): string {
     const array = new Uint8Array(24);

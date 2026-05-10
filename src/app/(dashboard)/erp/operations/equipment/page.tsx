@@ -314,9 +314,9 @@ export default function EquipmentPage() {
 
   /* ── handlers ───────────────────────────────────────────── */
 
-  function handleSubmitCalibration() {
+  async function handleSubmitCalibration() {
     if (!calFormEquipmentId || !calFormPerformedBy || !calFormStandard) return;
-    equipmentStore.createCalibration({
+    await equipmentStore.createCalibration({
       equipmentId: calFormEquipmentId,
       calibrationDate: calFormDate,
       nextDueDate: calFormNextDue,
@@ -346,9 +346,9 @@ export default function EquipmentPage() {
     setCalFormNotes("");
   }
 
-  function handleSubmitMO() {
+  async function handleSubmitMO() {
     if (!moFormEquipmentId || !moFormDescription || !moFormAssignedTo) return;
-    equipmentStore.createMaintenanceOrder({
+    await equipmentStore.createMaintenanceOrder({
       equipmentId: moFormEquipmentId,
       type: moFormType,
       priority: moFormPriority,
@@ -373,9 +373,9 @@ export default function EquipmentPage() {
     setMoFormScheduledDate(todayISO());
   }
 
-  function handleCompleteMO() {
+  async function handleCompleteMO() {
     if (!completeOrderId) return;
-    equipmentStore.completeMaintenanceOrder(
+    await equipmentStore.completeMaintenanceOrder(
       completeOrderId,
       completeDate,
       parseFloat(completeDowntime) || 0,
@@ -392,9 +392,9 @@ export default function EquipmentPage() {
     refresh();
   }
 
-  function handleCreateEquipment() {
+  async function handleCreateEquipment() {
     if (!eqFormName) return;
-    equipmentStore.createEquipment({
+    await equipmentStore.createEquipment({
       name: eqFormName,
       serialNumber: eqFormSerial || `SN-${Date.now()}`,
       model: eqFormModel || "N/A",
@@ -428,9 +428,9 @@ export default function EquipmentPage() {
     setEqFormLocation("");
   }
 
-  function handleDeleteEquipment() {
+  async function handleDeleteEquipment() {
     if (!deleteEquipId) return;
-    equipmentStore.deleteEquipment(deleteEquipId);
+    await equipmentStore.deleteEquipment(deleteEquipId);
     setDeleteEquipId(null);
     if (selectedEquipment?.id === deleteEquipId) setSelectedEquipment(null);
     refresh();

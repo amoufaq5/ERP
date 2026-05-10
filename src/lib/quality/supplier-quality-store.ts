@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { SupplierQualityAgreement } from './supplier-quality-types';
 
 export type { SupplierQualityAgreement } from './supplier-quality-types';
@@ -21,4 +22,4 @@ export const useSupplierQualityStore = createQualityApiStore<SupplierQualityAgre
 });
 
 /** @deprecated Use useSupplierQualityStore (zustand hook) instead */
-export const supplierQualityStore = useSupplierQualityStore;
+export const supplierQualityStore = createStoreCompat<SupplierQualityAgreement & { id: string; status: string }>(useSupplierQualityStore);

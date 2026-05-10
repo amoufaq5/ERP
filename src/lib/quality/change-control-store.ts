@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { ChangeRequest } from './change-control-types';
 
 export type { ChangeRequest } from './change-control-types';
@@ -25,4 +26,4 @@ export const useChangeControlStore = createQualityApiStore<ChangeRequest & { id:
 });
 
 /** @deprecated Use useChangeControlStore (zustand hook) instead */
-export const changeControlStore = useChangeControlStore;
+export const changeControlStore = createStoreCompat<ChangeRequest & { id: string; status: string }>(useChangeControlStore);

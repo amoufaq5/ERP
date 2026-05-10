@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { TrainingRecord } from './training-types';
 
 export type { TrainingRecord } from './training-types';
@@ -20,4 +21,4 @@ export const useTrainingStore = createQualityApiStore<TrainingRecord & { id: str
 });
 
 /** @deprecated Use useTrainingStore (zustand hook) instead */
-export const trainingStore = useTrainingStore;
+export const trainingStore = createStoreCompat<TrainingRecord & { id: string; status: string }>(useTrainingStore);

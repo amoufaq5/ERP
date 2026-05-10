@@ -222,24 +222,24 @@ export default function ThreeWayMatchingPage() {
     setDetailOpen(true);
   }
 
-  function handleRunMatching() {
+  async function handleRunMatching() {
     setMatchingInProgress(true);
     setMatchResult(null);
-    // Simulate async processing
-    setTimeout(() => {
-      const result = matchingStore.runMatching();
+    try {
+      const result = await matchingStore.runMatching();
       setMatchResult(result);
+    } finally {
       setMatchingInProgress(false);
       refreshData();
-    }, 1500);
+    }
   }
 
-  function handleResolveException(
+  async function handleResolveException(
     matchId: string,
     exceptionId: string,
     action: ResolutionAction
   ) {
-    matchingStore.resolveException(
+    await matchingStore.resolveException(
       matchId,
       exceptionId,
       action,
@@ -257,9 +257,9 @@ export default function ThreeWayMatchingPage() {
     }
   }
 
-  function handleBulkResolve(action: ResolutionAction) {
+  async function handleBulkResolve(action: ResolutionAction) {
     if (selectedExceptionIds.size === 0) return;
-    matchingStore.bulkResolve(
+    await matchingStore.bulkResolve(
       Array.from(selectedExceptionIds),
       action,
       "Current User",
@@ -273,9 +273,9 @@ export default function ThreeWayMatchingPage() {
     refreshData();
   }
 
-  function handleDeleteMatch() {
+  async function handleDeleteMatch() {
     if (!deleteMatchId) return;
-    matchingStore.delete(deleteMatchId);
+    await matchingStore.delete(deleteMatchId);
     setDeleteMatchId(null);
     if (selectedRecord?.id === deleteMatchId) { setSelectedRecord(null); setDetailOpen(false); }
     refreshData();

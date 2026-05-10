@@ -62,7 +62,7 @@ import {
   ChevronRight,
   RefreshCw,
 } from "lucide-react";
-import { recallStore } from "@/lib/quality/recall-store";
+import { useRecallStore } from "@/lib/quality/recall-store";
 import type {
   RecallRecord,
   RecallStatus,
@@ -157,8 +157,8 @@ const ALL_TYPES: RecallType[] = ["voluntary", "mandatory", "market-withdrawal"];
 // ─── Main Page Component ─────────────────────────────────────────────────────
 
 export default function RecallsPage() {
-  const [recalls, setRecalls] = useState<RecallRecord[]>([]);
-  const [metrics, setMetrics] = useState<RecallMetrics | null>(null);
+  const { items: recallItems, fetchAll, create: recallCreate, update: recallUpdate, updateStatus: recallUpdateStatus } = useRecallStore();
+  const recalls = recallItems as unknown as RecallRecord[];
   const [activeTab, setActiveTab] = useState("recalls");
   const [selectedRecall, setSelectedRecall] = useState<RecallRecord | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -169,15 +169,62 @@ export default function RecallsPage() {
   const [filterClass, setFilterClass] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
 
-  // Refresh helper
-  const refresh = () => {
-    setRecalls(recallStore.getAll());
-    setMetrics(recallStore.getMetrics());
-  };
-
   useEffect(() => {
-    refresh();
-  }, []);
+    fetchAll();
+  }, [fetchAll]);
+
+  // ─── Compute metrics from items ─────────────────────────────────────────
+
+  const metrics: RecallMetrics | null = useMemo(() => {
+    if (recalls.length === 0) return null;
+    const active = recalls.filter((r) => r.status !== "closed").length;
+    const classIActive = recalls.filter((r) => r.recallClass === "I" && r.status !== "closed").length;
+    const classIIActive = recalls.filter((r) => r.recallClass === "II" && r.status !== "closed").length;
+    const classIIIActive = recalls.filter((r) => r.recallClass === "III" && r.status !== "closed").length;
+    const recallsWithRetrievals = recalls.filter((r) => r.retrievals && r.retrievals.length > 0);
+    const avgRecoveryRate = recallsWithRetrievals.length > 0
+      ? Math.round(
+          recallsWithRetrievals.reduce((s, r) => {
+            const totalShipped = r.retrievals.reduce((a: number, ret: RecallRetrieval) => a + ret.quantityShipped, 0);
+            const totalReturned = r.retrievals.reduce((a: number, ret: RecallRetrieval) => a + ret.quantityReturned, 0);
+            return s + (totalShipped > 0 ? (totalReturned / totalShipped) * 100 : 0);
+          }, 0) / recallsWithRetrievals.length
+        )
+      : 0;
+    const pendingNotifications = recalls.reduce(
+      (s, r) => s + (r.notifications?.filter((n: RecallNotification) => !n.acknowledged).length ?? 0),
+      0
+    );
+    const byClass: { recallClass: RecallClass; count: number }[] = ALL_CLASSES.map((c) => ({
+      recallClass: c,
+      count: recalls.filter((r) => r.recallClass === c).length,
+    }));
+    const byType: { type: RecallType; count: number }[] = ALL_TYPES.map((t) => ({
+      type: t,
+      count: recalls.filter((r) => r.type === t).length,
+    }));
+    const byStatus: { status: RecallStatus; count: number }[] = ALL_STATUSES.map((st) => ({
+      status: st,
+      count: recalls.filter((r) => r.status === st).length,
+    }));
+    const avgResponseTimeDays = recalls.length > 0
+      ? Math.round(recalls.reduce((s, r) => s + daysSince(r.initiatedAt), 0) / recalls.length)
+      : 0;
+
+    return {
+      total: recalls.length,
+      active,
+      classIActive,
+      classIIActive,
+      classIIIActive,
+      avgRecoveryRate,
+      pendingNotifications,
+      byClass,
+      byType,
+      byStatus,
+      avgResponseTimeDays,
+    };
+  }, [recalls]);
 
   // ─── Filtered Recalls ──────────────────────────────────────────────────
 
@@ -207,7 +254,10 @@ export default function RecallsPage() {
   // ─── Recovery rate helper ──────────────────────────────────────────────
 
   const calcRecoveryRate = (r: RecallRecord): number => {
-    return recallStore.calculateRecoveryRate(r);
+    if (!r.retrievals || r.retrievals.length === 0) return 0;
+    const totalShipped = r.retrievals.reduce((a: number, ret: RecallRetrieval) => a + ret.quantityShipped, 0);
+    const totalReturned = r.retrievals.reduce((a: number, ret: RecallRetrieval) => a + ret.quantityReturned, 0);
+    return totalShipped > 0 ? Math.round((totalReturned / totalShipped) * 100) : 0;
   };
 
   // ─── Render ────────────────────────────────────────────────────────────
@@ -307,12 +357,12 @@ export default function RecallsPage() {
 
         {/* ─── Tab: Initiate Recall ──────────────────────────────────── */}
         <TabsContent value="initiate" className="space-y-4">
-          <InitiateRecallTab onCreated={refresh} />
+          <InitiateRecallTab onCreated={() => fetchAll()} />
         </TabsContent>
 
         {/* ─── Tab: Tracking ─────────────────────────────────────────── */}
         <TabsContent value="tracking" className="space-y-4">
-          <TrackingTab recalls={recalls} onUpdate={refresh} />
+          <TrackingTab recalls={recalls} onUpdate={() => fetchAll()} />
         </TabsContent>
 
         {/* ─── Tab: Analytics ────────────────────────────────────────── */}
@@ -328,8 +378,8 @@ export default function RecallsPage() {
           open={detailOpen}
           onOpenChange={setDetailOpen}
           onUpdate={() => {
-            refresh();
-            const updated = recallStore.getById(selectedRecall.id);
+            fetchAll();
+            const updated = recalls.find((i) => i.id === selectedRecall.id);
             if (updated) setSelectedRecall(updated);
           }}
         />
@@ -569,10 +619,19 @@ function RecallDetailDialog({
   onOpenChange,
   onUpdate,
 }: RecallDetailDialogProps) {
+  const { updateStatus: recallUpdateStatus } = useRecallStore();
   const [detailTab, setDetailTab] = useState("overview");
 
   const handleAdvanceStatus = () => {
-    recallStore.advanceStatus(recall.id);
+    // Determine next status from the current one
+    const statusOrder: RecallStatus[] = [
+      "initiated", "risk-assessment", "notification", "retrieval",
+      "reconciliation", "effectiveness-check", "closed",
+    ];
+    const idx = statusOrder.indexOf(recall.status);
+    if (idx >= 0 && idx < statusOrder.length - 1) {
+      recallUpdateStatus(recall.id, statusOrder[idx + 1]);
+    }
     onUpdate();
   };
 
@@ -1092,6 +1151,7 @@ interface InitiateRecallTabProps {
 }
 
 function InitiateRecallTab({ onCreated }: InitiateRecallTabProps) {
+  const { create: recallCreate } = useRecallStore();
   const [product, setProduct] = useState("");
   const [recallClass, setRecallClass] = useState<RecallClass>("II");
   const [recallType, setRecallType] = useState<RecallType>("voluntary");
@@ -1151,7 +1211,7 @@ function InitiateRecallTab({ onCreated }: InitiateRecallTabProps) {
       notes: riskNotes,
     };
 
-    recallStore.create({
+    recallCreate({
       product,
       affectedBatches: addedBatches,
       recallClass,
@@ -1167,7 +1227,7 @@ function InitiateRecallTab({ onCreated }: InitiateRecallTabProps) {
       notifications: [],
       retrievals: [],
       effectivenessChecks: [],
-    });
+    } as any);
 
     // Reset form
     setProduct("");
@@ -1677,6 +1737,7 @@ interface TrackingTabProps {
 }
 
 function TrackingTab({ recalls, onUpdate }: TrackingTabProps) {
+  const { update: recallUpdate } = useRecallStore();
   const activeRecalls = recalls.filter((r) => r.status !== "closed");
   const [selectedRecallId, setSelectedRecallId] = useState<string>("");
   const selectedRecall = recalls.find((r) => r.id === selectedRecallId);
@@ -1689,10 +1750,11 @@ function TrackingTab({ recalls, onUpdate }: TrackingTabProps) {
   const [reconQtyReturned, setReconQtyReturned] = useState("");
 
   const handleAddRetrieval = () => {
-    if (!selectedRecallId || !reconLocation) return;
+    if (!selectedRecallId || !reconLocation || !selectedRecall) return;
     const qtyShipped = parseInt(reconQtyShipped, 10) || 0;
     const qtyReturned = parseInt(reconQtyReturned, 10) || 0;
-    recallStore.addRetrieval(selectedRecallId, {
+    const newRetrieval: RecallRetrieval = {
+      id: `ret-${Date.now()}`,
       location: reconLocation,
       distributor: reconDistributor || reconLocation,
       region: reconRegion,
@@ -1702,7 +1764,10 @@ function TrackingTab({ recalls, onUpdate }: TrackingTabProps) {
       quantityRemaining: qtyShipped - qtyReturned,
       status: qtyReturned >= qtyShipped ? "completed" : "in-progress",
       lastUpdated: new Date().toISOString(),
-    });
+    };
+    recallUpdate(selectedRecallId, {
+      retrievals: [...(selectedRecall.retrievals || []), newRetrieval],
+    } as any);
     setReconLocation("");
     setReconDistributor("");
     setReconRegion("");

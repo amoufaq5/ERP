@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { VendorScore } from './vendor-scoring-types';
 
 export type { VendorScore } from './vendor-scoring-types';
@@ -20,4 +21,4 @@ export const useVendorScoringStore = createQualityApiStore<VendorScore & { id: s
 });
 
 /** @deprecated Use useVendorScoringStore (zustand hook) instead */
-export const vendorScoringStore = useVendorScoringStore;
+export const vendorScoringStore = createStoreCompat<VendorScore & { id: string; status: string }>(useVendorScoringStore);

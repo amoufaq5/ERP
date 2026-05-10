@@ -252,7 +252,7 @@ export default function AuditManagementPage() {
     const auditorMap = new Map<string, Auditor>();
     items.forEach((a) => {
       if (a.leadAuditor) {
-        auditorMap.set(a.leadAuditor, { id: a.leadAuditor, name: a.leadAuditor, role: "Lead Auditor", department: a.department, certifications: [], auditsCompleted: 0 });
+        auditorMap.set(a.leadAuditor, { id: a.leadAuditor, name: a.leadAuditor, role: "Lead Auditor", qualification: "Qualified", type: "internal" as const, department: a.department, certifications: [] });
       }
     });
     setAuditors(Array.from(auditorMap.values()));
@@ -383,7 +383,9 @@ export default function AuditManagementPage() {
     const existingFindings = currentAudit?.findings || [];
     const newFinding: AuditFinding = {
       id: `finding-${Date.now()}`,
+      findingNumber: `FND-${new Date().getFullYear()}-${String(existingFindings.length + 1).padStart(3, '0')}`,
       auditId: selectedAudit.id,
+      auditNumber: (selectedAudit as any).auditNumber || selectedAudit.id,
       category: newFindingForm.category,
       gmpArea: newFindingForm.gmpArea,
       description: newFindingForm.description,

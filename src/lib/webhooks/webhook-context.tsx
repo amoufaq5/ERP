@@ -21,12 +21,12 @@ interface WebhookContextValue {
   deliveries: WebhookDelivery[];
   register: (
     config: Omit<WebhookConfig, "id" | "createdAt" | "updatedAt">
-  ) => WebhookConfig;
-  unregister: (webhookId: string) => boolean;
+  ) => Promise<WebhookConfig>;
+  unregister: (webhookId: string) => Promise<boolean>;
   update: (
     webhookId: string,
     patch: Partial<Omit<WebhookConfig, "id" | "createdAt">>
-  ) => WebhookConfig | null;
+  ) => Promise<WebhookConfig | null>;
   dispatch: (event: WebhookEvent, data: unknown) => Promise<WebhookDelivery[]>;
   retry: (deliveryId: string) => Promise<WebhookDelivery | null>;
   testWebhook: (webhookId: string) => Promise<WebhookDelivery | null>;
@@ -44,49 +44,46 @@ function getDeliveryStatus(delivery: WebhookDelivery): DeliveryStatus {
 export function WebhookProvider({ children }: { children: React.ReactNode }) {
   const [webhooks, setWebhooks] = useState<WebhookConfig[]>([]);
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
-  const [service, setService] = useState<WebhookService | null>(null);
+  const [service] = useState(() => WebhookService.getInstance());
 
-  useEffect(() => {
-    const svc = WebhookService.getInstance();
-    setService(svc);
-    setWebhooks(svc.getAll());
-    setDeliveries(svc.getDeliveries());
-  }, []);
-
-  const refresh = useCallback(() => {
-    if (!service) return;
-    setWebhooks(service.getAll());
-    setDeliveries(service.getDeliveries());
+  const refresh = useCallback(async () => {
+    const [wh, del] = await Promise.all([
+      service.getAll(),
+      service.getDeliveries(),
+    ]);
+    setWebhooks(wh);
+    setDeliveries(del);
   }, [service]);
 
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
   const register = useCallback(
-    (config: Omit<WebhookConfig, "id" | "createdAt" | "updatedAt">) => {
-      if (!service) throw new Error("WebhookService not initialised");
-      const wh = service.register(config);
-      refresh();
+    async (config: Omit<WebhookConfig, "id" | "createdAt" | "updatedAt">) => {
+      const wh = await service.register(config);
+      await refresh();
       return wh;
     },
     [service, refresh]
   );
 
   const unregister = useCallback(
-    (webhookId: string) => {
-      if (!service) return false;
-      const result = service.unregister(webhookId);
-      refresh();
+    async (webhookId: string) => {
+      const result = await service.unregister(webhookId);
+      await refresh();
       return result;
     },
     [service, refresh]
   );
 
   const update = useCallback(
-    (
+    async (
       webhookId: string,
       patch: Partial<Omit<WebhookConfig, "id" | "createdAt">>
     ) => {
-      if (!service) return null;
-      const wh = service.update(webhookId, patch);
-      refresh();
+      const wh = await service.update(webhookId, patch);
+      await refresh();
       return wh;
     },
     [service, refresh]
@@ -94,9 +91,8 @@ export function WebhookProvider({ children }: { children: React.ReactNode }) {
 
   const dispatch = useCallback(
     async (event: WebhookEvent, data: unknown) => {
-      if (!service) return [];
       const result = await service.dispatch(event, data);
-      refresh();
+      await refresh();
       return result;
     },
     [service, refresh]
@@ -104,9 +100,8 @@ export function WebhookProvider({ children }: { children: React.ReactNode }) {
 
   const retry = useCallback(
     async (deliveryId: string) => {
-      if (!service) return null;
       const result = await service.retry(deliveryId);
-      refresh();
+      await refresh();
       return result;
     },
     [service, refresh]
@@ -114,9 +109,8 @@ export function WebhookProvider({ children }: { children: React.ReactNode }) {
 
   const testWebhook = useCallback(
     async (webhookId: string) => {
-      if (!service) return null;
       const result = await service.testWebhook(webhookId);
-      refresh();
+      await refresh();
       return result;
     },
     [service, refresh]

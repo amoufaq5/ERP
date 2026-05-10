@@ -1,12 +1,12 @@
 /**
- * Receipt Scanner (Mock OCR)
+ * Receipt Scanner
  *
- * Placeholder module that simulates OCR receipt scanning.
- * Returns mock data based on filename patterns.
- *
- * Ready for integration with Google Vision API, Tesseract.js, or any other
- * OCR provider by replacing the implementation of `scanReceipt`.
+ * Uses the document-ai service for real OCR receipt scanning via AI providers.
+ * Sends receipt text to the AI service and returns extracted fields.
  */
+
+import { classifyDocument, extractFields } from "../ai/document-ai";
+import type { DocumentExtraction } from "../ai/document-ai";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,54 +28,14 @@ export interface ReceiptScannerOptions {
 }
 
 // ---------------------------------------------------------------------------
-// Mock vendor catalogue (used to generate plausible results)
-// ---------------------------------------------------------------------------
-
-const MOCK_VENDORS: Record<string, { vendor: string; items: string[] }> = {
-  restaurant: {
-    vendor: "Al Baik Restaurant",
-    items: ["Chicken Meal", "Garlic Sauce", "Pepsi"],
-  },
-  hotel: {
-    vendor: "Hilton Hotel Riyadh",
-    items: ["Room charge - 2 nights", "Minibar", "Parking"],
-  },
-  office: {
-    vendor: "Jarir Bookstore",
-    items: ["A4 Paper (5 reams)", "Ink Cartridge", "Stapler"],
-  },
-  fuel: {
-    vendor: "Saudi Aramco Station",
-    items: ["Unleaded 91 - 45L"],
-  },
-  pharmacy: {
-    vendor: "Al-Nahdi Pharmacy",
-    items: ["Panadol Extra", "Vitamin D3", "Hand Sanitizer"],
-  },
-  grocery: {
-    vendor: "Panda Supermarket",
-    items: ["Bottled Water x12", "Snacks", "Coffee"],
-  },
-  travel: {
-    vendor: "Saudi Airlines (Saudia)",
-    items: ["One-way ticket RUH-JED", "Extra baggage 23 kg"],
-  },
-};
-
-const DEFAULT_MOCK = {
-  vendor: "General Store",
-  items: ["Item 1", "Item 2"],
-};
-
-// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 /**
  * Scan a receipt image and return extracted data.
  *
- * Currently returns mock data. Replace the body of this function with a real
- * OCR integration when ready.
+ * Sends the receipt content to the document AI service for classification
+ * and field extraction, then maps the extracted fields to ReceiptData.
  *
  * @param imageUrl - URL or path to the receipt image.
  * @param options  - Optional scanner configuration.
@@ -86,35 +46,25 @@ export async function scanReceipt(
 ): Promise<ReceiptData> {
   const { extractItems = true } = options ?? {};
 
-  // Simulate network latency of a real OCR call
-  await delay(800 + Math.random() * 700);
+  // Fetch the receipt content — if it's a URL, fetch it; otherwise treat
+  // imageUrl as text content directly (for testing / pre-extracted text).
+  let receiptText: string;
 
-  // Determine mock data based on filename keywords
-  const lower = imageUrl.toLowerCase();
-  let match = DEFAULT_MOCK;
-
-  for (const [keyword, data] of Object.entries(MOCK_VENDORS)) {
-    if (lower.includes(keyword)) {
-      match = data;
-      break;
-    }
+  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://") || imageUrl.startsWith("/")) {
+    const response = await fetch(imageUrl);
+    receiptText = await response.text();
+  } else {
+    receiptText = imageUrl;
   }
 
-  const amount = parseFloat((Math.random() * 2000 + 50).toFixed(2));
-  const daysAgo = Math.floor(Math.random() * 30);
-  const date = new Date(Date.now() - daysAgo * 86400000)
-    .toISOString()
-    .split("T")[0];
+  // Use document-ai to extract fields from the receipt
+  const extraction: DocumentExtraction = await extractFields(
+    receiptText,
+    "receipt",
+  );
 
-  const confidence = parseFloat((0.7 + Math.random() * 0.25).toFixed(2));
-
-  return {
-    vendor: match.vendor,
-    amount,
-    date,
-    items: extractItems ? match.items : undefined,
-    confidence,
-  };
+  // Map extracted fields to ReceiptData
+  return mapExtractionToReceiptData(extraction, extractItems);
 }
 
 /**
@@ -130,6 +80,68 @@ export function isScannableReceipt(mimeType: string): boolean {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function findFieldValue(fields: DocumentExtraction["fields"], ...names: string[]): string | undefined {
+  for (const name of names) {
+    const field = fields.find(
+      (f) => f.name.toLowerCase().includes(name.toLowerCase()),
+    );
+    if (field) return field.value;
+  }
+  return undefined;
+}
+
+function findFieldConfidence(fields: DocumentExtraction["fields"], ...names: string[]): number {
+  for (const name of names) {
+    const field = fields.find(
+      (f) => f.name.toLowerCase().includes(name.toLowerCase()),
+    );
+    if (field) return field.confidence;
+  }
+  return 0;
+}
+
+function mapExtractionToReceiptData(
+  extraction: DocumentExtraction,
+  extractItems: boolean,
+): ReceiptData {
+  const fields = extraction.fields;
+
+  // Extract vendor
+  const vendor = findFieldValue(fields, "store", "merchant", "vendor");
+
+  // Extract amount
+  const totalStr = findFieldValue(fields, "total", "amount", "subtotal");
+  const amount = totalStr ? parseFloat(totalStr.replace(/[^0-9.,-]/g, "").replace(",", ".")) : undefined;
+
+  // Extract date
+  const date = findFieldValue(fields, "date");
+
+  // Extract items
+  let items: string[] | undefined;
+  if (extractItems) {
+    const itemsStr = findFieldValue(fields, "items", "purchased");
+    if (itemsStr) {
+      // Items may be comma-separated or newline-separated
+      items = itemsStr
+        .split(/[,\n;]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+  }
+
+  // Compute average confidence across all extracted fields
+  const confidence =
+    fields.length > 0
+      ? parseFloat(
+          (fields.reduce((sum, f) => sum + f.confidence, 0) / fields.length).toFixed(2),
+        )
+      : 0;
+
+  return {
+    vendor,
+    amount: amount && !isNaN(amount) ? amount : undefined,
+    date,
+    items,
+    confidence,
+  };
 }

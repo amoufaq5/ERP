@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { RecallRecord } from './recall-types';
 
 export type { RecallRecord } from './recall-types';
@@ -23,4 +24,4 @@ export const useRecallStore = createQualityApiStore<RecallRecord & { id: string;
 });
 
 /** @deprecated Use useRecallStore (zustand hook) instead */
-export const recallStore = useRecallStore;
+export const recallStore = createStoreCompat<RecallRecord & { id: string; status: string }>(useRecallStore);

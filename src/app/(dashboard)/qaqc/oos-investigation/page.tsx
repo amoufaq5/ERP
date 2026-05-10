@@ -53,6 +53,7 @@ import type {
   OutOfSpecType,
   OOSMetrics,
   Phase1Investigation,
+  Phase2Investigation,
   HypothesisChecklistItem,
 } from "@/lib/quality/oos-types";
 import { OOSStore } from "@/lib/quality/oos-store";
@@ -270,7 +271,7 @@ export default function OOSInvestigationPage() {
     if (!store) return;
     const inv = store.getById(invId);
     if (!inv) return;
-    const phase2 = inv.phase2 ?? {
+    const phase2: Phase2Investigation = inv.phase2 ?? {
       productionReview: [],
       materialReview: [],
       equipmentReview: [],

@@ -88,17 +88,19 @@ export const updateGlAccountSchema = createGlAccountSchema.partial();
 
 // ─── Journal Entries ────────────────────────────────────────────────────────
 
-const journalLineSchema = z.object({
+const journalLineBaseSchema = z.object({
   accountId: z.string().min(1),
   debit: z.coerce.number().min(0).default(0),
   credit: z.coerce.number().min(0).default(0),
   description: z.string().optional().nullable(),
-}).refine(
+});
+
+const journalLineSchema = journalLineBaseSchema.refine(
   (line) => (line.debit > 0 && line.credit === 0) || (line.credit > 0 && line.debit === 0),
   { message: "Each line must have either a debit or credit amount, not both" }
 );
 
-export const createJournalEntrySchema = z.object({
+const createJournalEntryBaseSchema = z.object({
   entryNumber: z.string().min(1, "Entry number is required"),
   date: z.string().min(1, "Date is required"),
   description: z.string().min(1, "Description is required"),
@@ -106,7 +108,9 @@ export const createJournalEntrySchema = z.object({
   reference: z.string().optional().nullable(),
   status: z.enum(["DRAFT", "POSTED", "VOID"]).default("DRAFT"),
   lines: z.array(journalLineSchema).optional(),
-}).refine(
+});
+
+export const createJournalEntrySchema = createJournalEntryBaseSchema.refine(
   (je) => {
     if (!je.lines || je.lines.length === 0) return true;
     const totalDebit = je.lines.reduce((s, l) => s + l.debit, 0);
@@ -115,7 +119,7 @@ export const createJournalEntrySchema = z.object({
   },
   { message: "Journal entry is unbalanced: total debits must equal total credits" }
 );
-export const updateJournalEntrySchema = createJournalEntrySchema.partial();
+export const updateJournalEntrySchema = createJournalEntryBaseSchema.partial();
 
 // ─── Employees ──────────────────────────────────────────────────────────────
 

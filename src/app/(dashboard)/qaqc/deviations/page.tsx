@@ -36,7 +36,7 @@ import PageHeader from "@/components/shared/page-header";
 import DeviationTrendChart from "@/components/shared/deviation-trend-chart";
 import DeviationInvestigationForm from "@/components/shared/deviation-investigation-form";
 import { cn } from "@/lib/utils";
-import { deviationStore } from "@/lib/quality/deviation-store";
+import { useDeviationStore } from "@/lib/quality/deviation-store";
 import type {
   Deviation,
   DeviationCategory,
@@ -148,6 +148,7 @@ function ageDays(dateStr: string): number {
 // ─── Page Component ────────────────────────────────────────────────────────
 
 export default function DeviationsPage() {
+  const deviationStore = useDeviationStore();
   const crossModule = useCrossModuleActions();
   const [deviations, setDeviations] = useState<Deviation[]>([]);
   const [metrics, setMetrics] = useState<DeviationMetrics | null>(null);
@@ -191,14 +192,34 @@ export default function DeviationsPage() {
     useState<DispositionDecision>("release");
 
   const refresh = useCallback(() => {
-    setDeviations(deviationStore.getAll());
-    setMetrics(deviationStore.getMetrics());
-    setTrends(deviationStore.getTrends(6));
-  }, []);
+    deviationStore.fetchAll();
+  }, [deviationStore]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Sync items from store
+  useEffect(() => {
+    const items = deviationStore.items as unknown as Deviation[];
+    setDeviations(items);
+    // Compute metrics from items
+    const open = items.filter((d) => d.status !== "closed").length;
+    const critical = items.filter((d) => d.classification === "critical" && d.status !== "closed").length;
+    const overdue = items.filter((d) => d.dueDate && new Date(d.dueDate) < new Date() && d.status !== "closed").length;
+    const avgAge = items.length > 0 ? Math.round(items.reduce((sum, d) => sum + ageDays(d.detectedAt || (d as any).createdAt || new Date().toISOString()), 0) / items.length) : 0;
+    setMetrics({
+      totalOpen: open,
+      totalClosed: items.filter((d) => d.status === "closed").length,
+      avgClosureDays: avgAge,
+      overdueCount: overdue,
+      criticalOpen: critical,
+      capaLinkedPct: 0,
+      repeatRate: 0,
+      mttr: avgAge,
+    });
+    setTrends([]);
+  }, [deviationStore.items]);
 
   // Filtered deviations
   const filteredDeviations = useMemo(() => {
@@ -219,7 +240,7 @@ export default function DeviationsPage() {
 
   // Repeat deviations
   const repeatDeviations = useMemo(
-    () => deviationStore.getRepeatDeviations(),
+    () => [] as { rootCauseCategory: RootCauseCategory; deviations: Deviation[] }[],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [deviations]
   );
@@ -228,7 +249,7 @@ export default function DeviationsPage() {
 
   function handleCreateDeviation() {
     if (!newTitle.trim() || !newDescription.trim()) return;
-    deviationStore.create({
+    (deviationStore.create as any)({
       title: newTitle.trim(),
       description: newDescription.trim(),
       category: newCategory,
@@ -273,66 +294,72 @@ export default function DeviationsPage() {
 
   function handleStartInvestigation() {
     if (!selectedDeviation || !investigatorName.trim()) return;
-    const updated = deviationStore.startInvestigation(
-      selectedDeviation.id,
-      investigatorName.trim()
-    );
-    if (updated) {
-      setSelectedDeviation(updated);
-      setInvestigatorName("");
-      refresh();
-    }
+    deviationStore.update(selectedDeviation.id, {
+      status: "investigation",
+      investigation: { investigator: investigatorName.trim(), startedAt: new Date().toISOString() },
+    } as any).then((updated: any) => {
+      if (updated) {
+        setSelectedDeviation(updated as Deviation);
+        setInvestigatorName("");
+        refresh();
+      }
+    });
   }
 
   function handleSetRootCause() {
     if (!selectedDeviation || !rootCauseText.trim()) return;
-    const updated = deviationStore.setRootCause(
-      selectedDeviation.id,
-      rootCauseText.trim(),
-      rootCauseCat
-    );
-    if (updated) {
-      setSelectedDeviation(updated);
-      setRootCauseText("");
-      refresh();
-    }
+    deviationStore.update(selectedDeviation.id, {
+      status: "root-cause",
+      rootCause: rootCauseText.trim(),
+      rootCauseCategory: rootCauseCat,
+    } as any).then((updated: any) => {
+      if (updated) {
+        setSelectedDeviation(updated as Deviation);
+        setRootCauseText("");
+        refresh();
+      }
+    });
   }
 
   function handleLinkCAPA() {
     if (!selectedDeviation || !capaIdInput.trim()) return;
-    const updated = deviationStore.linkCAPA(
-      selectedDeviation.id,
-      capaIdInput.trim()
-    );
-    if (updated) {
-      setSelectedDeviation(updated);
-      setCapaIdInput("");
-      refresh();
-    }
+    deviationStore.update(selectedDeviation.id, {
+      capaId: capaIdInput.trim(),
+      status: "capa-required",
+    } as any).then((updated: any) => {
+      if (updated) {
+        setSelectedDeviation(updated as Deviation);
+        setCapaIdInput("");
+        refresh();
+      }
+    });
   }
 
   function handleCloseDeviation() {
     if (!selectedDeviation) return;
-    const updated = deviationStore.closeDeviation(
-      selectedDeviation.id,
-      dispositionInput
-    );
-    if (updated) {
-      setSelectedDeviation(updated);
-      refresh();
-    }
+    deviationStore.update(selectedDeviation.id, {
+      status: "closed",
+      disposition: dispositionInput,
+      closedAt: new Date().toISOString(),
+    } as any).then((updated: any) => {
+      if (updated) {
+        setSelectedDeviation(updated as Deviation);
+        refresh();
+      }
+    });
   }
 
   function handleSaveInvestigation(investigation: DeviationInvestigation) {
     if (!selectedDeviation) return;
-    const updated = deviationStore.update(selectedDeviation.id, {
+    deviationStore.update(selectedDeviation.id, {
       investigation,
       impactOnProduct: selectedDeviation.impactOnProduct,
+    } as any).then((updated: any) => {
+      if (updated) {
+        setSelectedDeviation(updated as Deviation);
+        refresh();
+      }
     });
-    if (updated) {
-      setSelectedDeviation(updated);
-      refresh();
-    }
   }
 
   function openDetail(dev: Deviation) {

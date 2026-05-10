@@ -116,13 +116,19 @@ export default function ExpiryManagementPage() {
   const [policyDraft, setPolicyDraft] = useState<Partial<ExpiryPolicy>>({});
 
   // ── Load data ──────────────────────────────────────────────────────
-  const reload = useCallback(() => {
+  const reload = useCallback(async () => {
     const store = getStore();
     if (!store) return;
-    setItems(store.getItems());
-    setAlerts(store.getAlerts());
-    setPolicies(store.getPolicies());
-    setReport(store.getExpiryReport());
+    const [loadedItems, loadedAlerts, loadedPolicies, loadedReport] = await Promise.all([
+      store.getItems(),
+      store.getAlerts(),
+      store.getPolicies(),
+      store.getExpiryReport(),
+    ]);
+    setItems(loadedItems);
+    setAlerts(loadedAlerts);
+    setPolicies(loadedPolicies);
+    setReport(loadedReport);
   }, []);
 
   useEffect(() => {
@@ -198,42 +204,42 @@ export default function ExpiryManagementPage() {
   }, [policies]);
 
   // ── Actions ────────────────────────────────────────────────────────
-  const handleAutoQuarantine = useCallback(() => {
+  const handleAutoQuarantine = useCallback(async () => {
     const store = getStore();
     if (!store) return;
-    const count = store.quarantineExpired();
+    const count = await store.quarantineExpired();
     alert(`${count} expired item(s) quarantined.`);
     reload();
   }, [reload]);
 
   const handleAcknowledgeAlert = useCallback(
-    (alertId: string) => {
+    async (alertId: string) => {
       const store = getStore();
       if (!store) return;
-      store.acknowledgeAlert(alertId, "Admin");
+      await store.acknowledgeAlert(alertId, "Admin");
       reload();
     },
     [reload]
   );
 
-  const handleAcknowledgeAll = useCallback(() => {
+  const handleAcknowledgeAll = useCallback(async () => {
     const store = getStore();
     if (!store) return;
     for (const a of alerts.filter((x) => !x.acknowledged)) {
-      store.acknowledgeAlert(a.id, "Admin");
+      await store.acknowledgeAlert(a.id, "Admin");
     }
     reload();
   }, [alerts, reload]);
 
   const handleBulkAction = useCallback(
-    (action: string, selectedRows: ExpiryItem[]) => {
+    async (action: string, selectedRows: ExpiryItem[]) => {
       const store = getStore();
       if (!store) return;
       for (const row of selectedRows) {
         if (action === "quarantine") {
-          store.updateItem(row.id, { status: "quarantined", lastCheckedAt: new Date().toISOString(), notes: "Manually quarantined" });
+          await store.updateItem(row.id, { status: "quarantined", lastCheckedAt: new Date().toISOString(), notes: "Manually quarantined" });
         } else if (action === "destroy") {
-          store.updateItem(row.id, { status: "destroyed", lastCheckedAt: new Date().toISOString(), notes: "Marked as destroyed" });
+          await store.updateItem(row.id, { status: "destroyed", lastCheckedAt: new Date().toISOString(), notes: "Marked as destroyed" });
         }
       }
       reload();
@@ -242,10 +248,10 @@ export default function ExpiryManagementPage() {
   );
 
   const handleSavePolicy = useCallback(
-    (productId: string) => {
+    async (productId: string) => {
       const store = getStore();
       if (!store) return;
-      store.updatePolicy(productId, policyDraft);
+      await store.updatePolicy(productId, policyDraft);
       setEditingPolicy(null);
       setPolicyDraft({});
       reload();
@@ -253,12 +259,12 @@ export default function ExpiryManagementPage() {
     [policyDraft, reload]
   );
 
-  const handleApplyDefaultPolicy = useCallback(() => {
+  const handleApplyDefaultPolicy = useCallback(async () => {
     const store = getStore();
     if (!store) return;
     for (const p of policies) {
       if (p.productId) {
-        store.updatePolicy(p.productId, {
+        await store.updatePolicy(p.productId, {
           nearExpiryDays: 90,
           expiryWarningDays: 60,
           criticalExpiryDays: 30,
@@ -311,10 +317,10 @@ export default function ExpiryManagementPage() {
         return (
           <div className="flex items-center gap-1">
             {row.status !== "quarantined" && row.status !== "destroyed" && (
-              <button className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-800 hover:bg-amber-200" onClick={() => { store.updateItem(row.id, { status: "quarantined", lastCheckedAt: new Date().toISOString(), notes: "Manually quarantined" }); reload(); }}>Quarantine</button>
+              <button className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-800 hover:bg-amber-200" onClick={async () => { await store.updateItem(row.id, { status: "quarantined", lastCheckedAt: new Date().toISOString(), notes: "Manually quarantined" }); reload(); }}>Quarantine</button>
             )}
             {row.status === "quarantined" && (
-              <button className="text-xs px-2 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200" onClick={() => { store.updateItem(row.id, { status: "destroyed", lastCheckedAt: new Date().toISOString(), notes: "Destroyed" }); reload(); }}>Destroy</button>
+              <button className="text-xs px-2 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200" onClick={async () => { await store.updateItem(row.id, { status: "destroyed", lastCheckedAt: new Date().toISOString(), notes: "Destroyed" }); reload(); }}>Destroy</button>
             )}
           </div>
         );

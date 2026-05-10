@@ -59,7 +59,51 @@ import {
   WATER_TYPE_LABELS,
   SAMPLING_LOCATION_LABELS,
 } from "@/lib/quality/water-system-types";
-import { waterSystemStore } from "@/lib/quality/water-system-store";
+import { useWaterSystemStore, waterSystemStore } from "@/lib/quality/water-system-store";
+
+// ─── API helpers ──────────────────────────────────────────────────────────
+
+const API_BASE = "/api/v1/qaqc/water-system";
+
+async function apiFetch<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`);
+  if (!res.ok) throw new Error(res.statusText);
+  const json = await res.json();
+  return (json.data ?? json) as T;
+}
+
+async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(res.statusText);
+  return res.json() as Promise<T>;
+}
+
+async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(res.statusText);
+  return res.json() as Promise<T>;
+}
+
+/** Shared hook: load systems + points from the API once. */
+function useSystemsAndPoints() {
+  const [systems, setSystems] = useState<WaterSystem[]>([]);
+  const [points, setPoints] = useState<WaterSamplingPoint[]>([]);
+
+  useEffect(() => {
+    apiFetch<WaterSystem[]>("/systems").then(setSystems).catch(() => {});
+    apiFetch<WaterSamplingPoint[]>("/points").then(setPoints).catch(() => {});
+  }, []);
+
+  return { systems, points };
+}
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
@@ -283,33 +327,42 @@ function ReadingForm({
   const [operator, setOperator] = useState("");
   const [notes, setNotes] = useState("");
 
-  const systems = useMemo(() => waterSystemStore.getAllSystems(), []);
-  const points = useMemo(
-    () => (systemId ? waterSystemStore.getPointsBySystem(systemId) : []),
-    [systemId]
+  const { systems, points: allPoints } = useSystemsAndPoints();
+  const readings = useWaterSystemStore((s) => s.items) as WaterReading[];
+
+  const points: WaterSamplingPoint[] = useMemo(
+    () => (systemId ? allPoints.filter((p: WaterSamplingPoint) => p.systemId === systemId) : []),
+    [allPoints, systemId]
   );
-  const parameters = useMemo(
-    () => (systemId ? waterSystemStore.getParametersForSystem(systemId) : []),
-    [systemId]
+  const parameters: WaterTestParameterType[] = useMemo(
+    () => {
+      if (!systemId) return [];
+      const params = new Set(
+        readings
+          .filter((r: WaterReading) => r.systemId === systemId)
+          .map((r: WaterReading) => r.parameter)
+      );
+      return Array.from(params);
+    },
+    [readings, systemId]
   );
 
   const selectedSystem = useMemo(
-    () => systems.find((s) => s.id === systemId),
+    () => systems.find((s: WaterSystem) => s.id === systemId),
     [systems, systemId]
   );
 
   // Get limits for selected parameter
   const limits = useMemo(() => {
     if (!selectedSystem || !parameter) return null;
-    // Find a reading for this system & parameter to get limits
-    const sampleReading = waterSystemStore
-      .getReadingsBySystem(selectedSystem.id)
-      .find((r) => r.parameter === parameter);
+    const sampleReading = readings.find(
+      (r: WaterReading) => r.systemId === selectedSystem.id && r.parameter === parameter
+    );
     if (sampleReading) {
       return { alert: sampleReading.alertLimit, action: sampleReading.actionLimit, unit: sampleReading.unit };
     }
     return null;
-  }, [selectedSystem, parameter]);
+  }, [readings, selectedSystem, parameter]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -513,14 +566,16 @@ function ExcursionInvestigationForm({
   const [capaRef, setCapaRef] = useState(excursion.capaRef || "");
   const [resolvedBy, setResolvedBy] = useState("");
 
-  const system = useMemo(
-    () => waterSystemStore.getSystemById(excursion.systemId),
-    [excursion.systemId]
+  const { systems, points } = useSystemsAndPoints();
+
+  const system: WaterSystem | undefined = useMemo(
+    () => systems.find((s: WaterSystem) => s.id === excursion.systemId),
+    [systems, excursion.systemId]
   );
 
-  const point = useMemo(
-    () => waterSystemStore.getPointById(excursion.pointId),
-    [excursion.pointId]
+  const point: WaterSamplingPoint | undefined = useMemo(
+    () => points.find((p: WaterSamplingPoint) => p.id === excursion.pointId),
+    [points, excursion.pointId]
   );
 
   const handleSubmit = useCallback(
@@ -629,26 +684,35 @@ function ExcursionInvestigationForm({
 // ─── Dashboard Tab ────────────────────────────────────────────────────────
 
 function DashboardTab() {
-  const systems = useMemo(() => waterSystemStore.getAllSystems(), []);
-  const allPoints = useMemo(() => waterSystemStore.getAllPoints(), []);
+  const { systems, points: allPoints } = useSystemsAndPoints();
+  const readings = useWaterSystemStore((s) => s.items) as WaterReading[];
 
-  // Get recent excursions
-  const recentExcursions = useMemo(() => {
-    return waterSystemStore
-      .getOpenExcursions()
-      .sort((a, b) => b.detectedAt.localeCompare(a.detectedAt))
-      .slice(0, 5);
+  // Fetch excursions from API
+  const [allExcursions, setAllExcursions] = useState<WaterExcursionRecord[]>([]);
+  useEffect(() => {
+    apiFetch<WaterExcursionRecord[]>("/excursions").then(setAllExcursions).catch(() => {});
   }, []);
 
-  // Today's sampling schedule
-  const todayReadings = useMemo(() => waterSystemStore.getReadingsToday(), []);
+  // Get recent open excursions
+  const recentExcursions: WaterExcursionRecord[] = useMemo(() => {
+    return allExcursions
+      .filter((e: WaterExcursionRecord) => e.status === "open" || e.status === "investigating")
+      .sort((a: WaterExcursionRecord, b: WaterExcursionRecord) => b.detectedAt.localeCompare(a.detectedAt))
+      .slice(0, 5);
+  }, [allExcursions]);
+
+  // Today's readings (filter from store items)
+  const todayReadings: WaterReading[] = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return readings.filter((r: WaterReading) => r.sampledAt.slice(0, 10) === todayStr);
+  }, [readings]);
 
   // Points that need sampling today
   const todaySchedule = useMemo(() => {
     const today = new Date();
     const dayOfWeek = today.getDay();
 
-    return allPoints.filter((p) => {
+    return allPoints.filter((p: WaterSamplingPoint) => {
       if (p.samplingFrequency === "Daily") return true;
       if (p.samplingFrequency === "Weekly" && dayOfWeek === 1) return true; // Monday
       if (p.samplingFrequency === "Monthly" && today.getDate() === 1) return true;
@@ -669,10 +733,22 @@ function DashboardTab() {
           <Droplet className="w-4 h-4 text-blue-500" />
           Water System Diagrams
         </h3>
-        {systems.map((system) => {
-          const sysPoints = allPoints.filter((p) => p.systemId === system.id);
-          const latestReadings = waterSystemStore.getSystemLatestReadings(system.id);
-          const status = waterSystemStore.getSystemStatus(system.id);
+        {systems.map((system: WaterSystem) => {
+          const sysPoints = allPoints.filter((p: WaterSamplingPoint) => p.systemId === system.id);
+          // Derive latest reading per point for this system
+          const sysReadings = readings.filter((r: WaterReading) => r.systemId === system.id);
+          const latestByPoint = new Map<string, WaterReading>();
+          for (const r of sysReadings) {
+            const prev = latestByPoint.get(r.pointId);
+            if (!prev || r.sampledAt > prev.sampledAt) latestByPoint.set(r.pointId, r);
+          }
+          const latestReadings: WaterReading[] = Array.from(latestByPoint.values());
+          // Derive system status from latest readings
+          let status: WaterSystemStatus = "normal";
+          for (const r of latestReadings) {
+            if (r.result === "fail" || r.result === "action") { status = "action"; break; }
+            if (r.result === "alert") status = "alert";
+          }
           return (
             <WaterSystemDiagram
               key={system.id}
@@ -702,9 +778,9 @@ function DashboardTab() {
               </p>
             ) : (
               <div className="space-y-2">
-                {recentExcursions.map((exc) => {
-                  const system = systems.find((s) => s.id === exc.systemId);
-                  const point = allPoints.find((p) => p.id === exc.pointId);
+                {recentExcursions.map((exc: WaterExcursionRecord) => {
+                  const system = systems.find((s: WaterSystem) => s.id === exc.systemId);
+                  const point = allPoints.find((p: WaterSamplingPoint) => p.id === exc.pointId);
                   return (
                     <div
                       key={exc.id}
@@ -748,8 +824,8 @@ function DashboardTab() {
               </p>
             ) : (
               <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
-                {todaySchedule.map((point) => {
-                  const system = systems.find((s) => s.id === point.systemId);
+                {todaySchedule.map((point: WaterSamplingPoint) => {
+                  const system = systems.find((s: WaterSystem) => s.id === point.systemId);
                   const isSampled = sampledPointIds.has(point.id);
                   return (
                     <div
@@ -782,11 +858,11 @@ function DashboardTab() {
             <div className="flex items-center gap-4 mt-3 pt-2 border-t text-[10px] text-muted-foreground">
               <span className="flex items-center gap-1">
                 <CheckCircle className="w-3 h-3 text-green-600" />
-                Sampled: {todaySchedule.filter((p) => sampledPointIds.has(p.id)).length}
+                Sampled: {todaySchedule.filter((p: WaterSamplingPoint) => sampledPointIds.has(p.id)).length}
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3 text-amber-500" />
-                Pending: {todaySchedule.filter((p) => !sampledPointIds.has(p.id)).length}
+                Pending: {todaySchedule.filter((p: WaterSamplingPoint) => !sampledPointIds.has(p.id)).length}
               </span>
             </div>
           </CardContent>
@@ -809,26 +885,31 @@ function ReadingsTab() {
   const [page, setPage] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const systems = useMemo(() => waterSystemStore.getAllSystems(), []);
-  const allPoints = useMemo(() => waterSystemStore.getAllPoints(), []);
-  const uniqueParams = useMemo(() => waterSystemStore.getUniqueParameters(), []);
+  const { systems, points: allPoints } = useSystemsAndPoints();
+  const storeItems = useWaterSystemStore((s) => s.items) as WaterReading[];
+  const storeCreate = useWaterSystemStore((s) => s.create);
 
-  const readings = useMemo(() => {
-    let result = waterSystemStore.getAllReadings();
+  const uniqueParams: WaterTestParameterType[] = useMemo(() => {
+    const params = new Set(storeItems.map((r: WaterReading) => r.parameter));
+    return Array.from(params);
+  }, [storeItems]);
+
+  const readings: WaterReading[] = useMemo(() => {
+    let result: WaterReading[] = [...storeItems];
 
     if (filterSystem) {
-      result = result.filter((r) => r.systemId === filterSystem);
+      result = result.filter((r: WaterReading) => r.systemId === filterSystem);
     }
     if (filterParameter) {
-      result = result.filter((r) => r.parameter === filterParameter);
+      result = result.filter((r: WaterReading) => r.parameter === filterParameter);
     }
     if (filterResult) {
-      result = result.filter((r) => r.result === filterResult);
+      result = result.filter((r: WaterReading) => r.result === filterResult);
     }
     if (filterSearch) {
       const q = filterSearch.toLowerCase();
-      result = result.filter((r) => {
-        const point = allPoints.find((p) => p.id === r.pointId);
+      result = result.filter((r: WaterReading) => {
+        const point = allPoints.find((p: WaterSamplingPoint) => p.id === r.pointId);
         return (
           point?.name.toLowerCase().includes(q) ||
           r.sampledBy.toLowerCase().includes(q) ||
@@ -838,7 +919,7 @@ function ReadingsTab() {
     }
 
     // Sort
-    result.sort((a, b) => {
+    result.sort((a: WaterReading, b: WaterReading) => {
       let cmp = 0;
       switch (sortField) {
         case "date":
@@ -856,7 +937,7 @@ function ReadingsTab() {
 
     return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterSystem, filterParameter, filterResult, filterSearch, sortField, sortDir, refreshKey]);
+  }, [storeItems, allPoints, filterSystem, filterParameter, filterResult, filterSearch, sortField, sortDir, refreshKey]);
 
   const totalPages = Math.ceil(readings.length / PAGE_SIZE);
   const pageReadings = readings.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -871,11 +952,11 @@ function ReadingsTab() {
   };
 
   const handleAddReading = useCallback(
-    (data: Omit<WaterReading, "id">) => {
-      waterSystemStore.addReading(data);
+    async (data: Omit<WaterReading, "id">) => {
+      await storeCreate(data as any);
       // Auto-create excursion for action-level
       if (data.result === "action" || data.result === "fail") {
-        waterSystemStore.createExcursion({
+        await apiPost<WaterExcursionRecord>("/excursions", {
           readingId: "pending",
           pointId: data.pointId,
           systemId: data.systemId,
@@ -892,7 +973,7 @@ function ReadingsTab() {
       setShowForm(false);
       setRefreshKey((k) => k + 1);
     },
-    []
+    [storeCreate]
   );
 
   const handleExport = useCallback(() => {
@@ -910,9 +991,9 @@ function ReadingsTab() {
       "Date",
       "Notes",
     ];
-    const rows = readings.map((r) => {
-      const system = systems.find((s) => s.id === r.systemId);
-      const point = allPoints.find((p) => p.id === r.pointId);
+    const rows = readings.map((r: WaterReading) => {
+      const system = systems.find((s: WaterSystem) => s.id === r.systemId);
+      const point = allPoints.find((p: WaterSamplingPoint) => p.id === r.pointId);
       return [
         r.id,
         system?.name ?? "",
@@ -928,7 +1009,7 @@ function ReadingsTab() {
         r.notes ?? "",
       ];
     });
-    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const csv = [headers, ...rows].map((r: string[]) => r.map((c: string) => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1193,40 +1274,48 @@ function ExcursionsTab() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const systems = useMemo(() => waterSystemStore.getAllSystems(), []);
-  const allPoints = useMemo(() => waterSystemStore.getAllPoints(), []);
+  const { systems, points: allPoints } = useSystemsAndPoints();
 
-  const excursions = useMemo(() => {
-    let result = waterSystemStore.getAllExcursions();
+  // Fetch all excursions from API
+  const [allExcursions, setAllExcursions] = useState<WaterExcursionRecord[]>([]);
+  useEffect(() => {
+    apiFetch<WaterExcursionRecord[]>("/excursions").then(setAllExcursions).catch(() => {});
+  }, [refreshKey]);
+
+  const excursions: WaterExcursionRecord[] = useMemo(() => {
+    let result: WaterExcursionRecord[] = [...allExcursions];
     if (filterStatus) {
-      result = result.filter((e) => e.status === filterStatus);
+      result = result.filter((e: WaterExcursionRecord) => e.status === filterStatus);
     }
     if (filterSystem) {
-      result = result.filter((e) => e.systemId === filterSystem);
+      result = result.filter((e: WaterExcursionRecord) => e.systemId === filterSystem);
     }
-    return result.sort((a, b) => b.detectedAt.localeCompare(a.detectedAt));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterStatus, filterSystem, refreshKey]);
+    return result.sort((a: WaterExcursionRecord, b: WaterExcursionRecord) => b.detectedAt.localeCompare(a.detectedAt));
+  }, [allExcursions, filterStatus, filterSystem]);
 
   const openCount = useMemo(
-    () => excursions.filter((e) => e.status === "open" || e.status === "investigating").length,
+    () => excursions.filter((e: WaterExcursionRecord) => e.status === "open" || e.status === "investigating").length,
     [excursions]
   );
 
   const resolvingExcursion = useMemo(
-    () => (resolvingId ? excursions.find((e) => e.id === resolvingId) : null),
+    () => (resolvingId ? excursions.find((e: WaterExcursionRecord) => e.id === resolvingId) : null),
     [resolvingId, excursions]
   );
 
   const handleResolve = useCallback(
-    (data: {
+    async (data: {
       investigationNotes: string;
       rootCause: string;
       capaRef?: string;
       resolvedBy: string;
     }) => {
       if (resolvingId) {
-        waterSystemStore.resolveExcursion(resolvingId, data);
+        await apiPatch<WaterExcursionRecord>(`/excursions/${resolvingId}`, {
+          ...data,
+          status: "resolved",
+          resolvedAt: new Date().toISOString(),
+        });
         setResolvingId(null);
         setRefreshKey((k) => k + 1);
       }
@@ -1241,25 +1330,25 @@ function ExcursionsTab() {
         <Card className="p-3">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Open</div>
           <div className="text-xl font-bold text-red-600">
-            {excursions.filter((e) => e.status === "open").length}
+            {excursions.filter((e: WaterExcursionRecord) => e.status === "open").length}
           </div>
         </Card>
         <Card className="p-3">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Investigating</div>
           <div className="text-xl font-bold text-orange-600">
-            {excursions.filter((e) => e.status === "investigating").length}
+            {excursions.filter((e: WaterExcursionRecord) => e.status === "investigating").length}
           </div>
         </Card>
         <Card className="p-3">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Resolved</div>
           <div className="text-xl font-bold text-blue-600">
-            {excursions.filter((e) => e.status === "resolved").length}
+            {excursions.filter((e: WaterExcursionRecord) => e.status === "resolved").length}
           </div>
         </Card>
         <Card className="p-3">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Closed</div>
           <div className="text-xl font-bold text-green-600">
-            {excursions.filter((e) => e.status === "closed").length}
+            {excursions.filter((e: WaterExcursionRecord) => e.status === "closed").length}
           </div>
         </Card>
       </div>
@@ -1473,12 +1562,12 @@ function TrendsTab() {
   const [selectedParameter, setSelectedParameter] = useState<WaterTestParameterType | "">("");
   const [trendDays, setTrendDays] = useState(30);
 
-  const systems = useMemo(() => waterSystemStore.getAllSystems(), []);
-  const points = useMemo(
+  const systems: WaterSystem[] = useMemo(() => waterSystemStore.getAllSystems(), []);
+  const points: WaterSamplingPoint[] = useMemo(
     () => (selectedSystem ? waterSystemStore.getPointsBySystem(selectedSystem) : []),
     [selectedSystem]
   );
-  const parameters = useMemo(
+  const parameters: WaterTestParameterType[] = useMemo(
     () => (selectedSystem ? waterSystemStore.getParametersForSystem(selectedSystem) : []),
     [selectedSystem]
   );
@@ -1492,7 +1581,7 @@ function TrendsTab() {
 
   // Auto-select first point when system changes
   useEffect(() => {
-    if (points.length > 0 && !points.find((p) => p.id === selectedPoint)) {
+    if (points.length > 0 && !points.find((p: WaterSamplingPoint) => p.id === selectedPoint)) {
       setSelectedPoint(points[0].id);
     }
   }, [points, selectedPoint]);
@@ -1505,29 +1594,29 @@ function TrendsTab() {
   }, [parameters, selectedParameter]);
 
   // Get trend data
-  const trend = useMemo(() => {
+  const trend: WaterTrend | null = useMemo(() => {
     if (!selectedPoint || !selectedParameter) return null;
     return waterSystemStore.getTrend(selectedPoint, selectedParameter as WaterTestParameterType, trendDays);
   }, [selectedPoint, selectedParameter, trendDays]);
 
   // Get all trends for multi-chart view
-  const allPointTrends = useMemo(() => {
+  const allPointTrends: WaterTrend[] = useMemo(() => {
     if (!selectedSystem || !selectedParameter) return [];
-    const sysPoints = waterSystemStore.getPointsBySystem(selectedSystem);
+    const sysPoints: WaterSamplingPoint[] = waterSystemStore.getPointsBySystem(selectedSystem);
     return sysPoints
-      .map((p) =>
+      .map((p: WaterSamplingPoint) =>
         waterSystemStore.getTrend(p.id, selectedParameter as WaterTestParameterType, trendDays)
       )
-      .filter((t): t is WaterTrend => t != null && t.data.length >= 2);
+      .filter((t: any): t is WaterTrend => t != null && t.data.length >= 2);
   }, [selectedSystem, selectedParameter, trendDays]);
 
   // Statistics
   const stats = useMemo(() => {
     if (!trend || trend.data.length === 0) return null;
-    const values = trend.data.map((d) => d.value);
-    const sum = values.reduce((a, b) => a + b, 0);
+    const values = trend.data.map((d: { value: number }) => d.value);
+    const sum = values.reduce((a: number, b: number) => a + b, 0);
     const mean = sum / values.length;
-    const variance = values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length;
+    const variance = values.reduce((a: number, b: number) => a + (b - mean) ** 2, 0) / values.length;
     const stdDev = Math.sqrt(variance);
     return {
       count: values.length,
@@ -1535,7 +1624,7 @@ function TrendsTab() {
       max: Math.max(...values),
       mean: mean,
       stdDev: stdDev,
-      passRate: (trend.data.filter((d) => d.result === "pass").length / trend.data.length * 100),
+      passRate: (trend.data.filter((d: { result: string }) => d.result === "pass").length / trend.data.length * 100),
     };
   }, [trend]);
 

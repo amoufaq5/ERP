@@ -54,7 +54,209 @@ import {
   PARAMETER_UNITS,
   ZONE_LABELS,
 } from "@/lib/quality/env-monitoring-types";
-import { envMonitoringStore } from "@/lib/quality/env-monitoring-store";
+import { useEnvMonitoringStore, envMonitoringStore } from "@/lib/quality/env-monitoring-store";
+import type { TrendDataPoint } from "@/lib/quality/env-monitoring-types";
+
+// ─── API Helpers ──────────────────────────────────────────────────────────
+
+const EM_API = "/api/v1/qaqc/environmental-monitoring";
+
+async function fetchLocations(): Promise<MonitoringLocation[]> {
+  try {
+    const res = await fetch(`${EM_API}/locations`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data ?? json ?? [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchPoints(locationId?: string): Promise<MonitoringPoint[]> {
+  try {
+    const url = locationId
+      ? `${EM_API}/points?locationId=${locationId}`
+      : `${EM_API}/points`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data ?? json ?? [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchExcursions(): Promise<ExcursionRecord[]> {
+  try {
+    const res = await fetch(`${EM_API}/excursions`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data ?? json ?? [];
+  } catch {
+    return [];
+  }
+}
+
+async function postExcursion(data: Omit<ExcursionRecord, "id">): Promise<ExcursionRecord | null> {
+  try {
+    const res = await fetch(`${EM_API}/excursions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+async function patchExcursion(
+  id: string,
+  data: Partial<ExcursionRecord>
+): Promise<ExcursionRecord | null> {
+  try {
+    const res = await fetch(`${EM_API}/excursions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+function computeTrend(
+  pointId: string,
+  period: number,
+  readings: MonitoringReading[],
+  allPoints: MonitoringPoint[],
+  allLocations: MonitoringLocation[]
+): TrendData | null {
+  const point = allPoints.find((p: MonitoringPoint) => p.id === pointId);
+  if (!point) return null;
+  const location = allLocations.find((l: MonitoringLocation) => l.id === point.locationId);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - period);
+  const cutoffStr = cutoff.toISOString();
+
+  const pointReadings = readings
+    .filter(
+      (r: MonitoringReading) =>
+        r.pointId === pointId && r.timestamp >= cutoffStr
+    )
+    .sort((a: MonitoringReading, b: MonitoringReading) =>
+      a.timestamp.localeCompare(b.timestamp)
+    );
+
+  if (pointReadings.length === 0) return null;
+
+  return {
+    pointId,
+    pointName: point.name,
+    locationName: location?.name ?? "Unknown",
+    parameter: point.parameter,
+    unit: point.unit,
+    alertLimit: point.alertLimit.value,
+    actionLimit: point.actionLimit.value,
+    data: pointReadings.map((r: MonitoringReading): TrendDataPoint => ({
+      date: r.timestamp,
+      value: r.value,
+      result: r.result,
+    })),
+  };
+}
+
+function computeMetrics(
+  readings: MonitoringReading[],
+  locations: MonitoringLocation[],
+  points: MonitoringPoint[],
+  excursions: ExcursionRecord[]
+): EMMetrics {
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+  const weekAgo = new Date(now);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const weekAgoStr = weekAgo.toISOString();
+  const monthAgo = new Date(now);
+  monthAgo.setMonth(monthAgo.getMonth() - 1);
+  const monthAgoStr = monthAgo.toISOString();
+
+  const readingsToday = readings.filter(
+    (r: MonitoringReading) => r.timestamp.startsWith(todayStr)
+  ).length;
+  const readingsThisWeek = readings.filter(
+    (r: MonitoringReading) => r.timestamp >= weekAgoStr
+  ).length;
+  const alertsToday = readings.filter(
+    (r: MonitoringReading) =>
+      r.timestamp.startsWith(todayStr) &&
+      (r.result === "alert" || r.result === "action")
+  ).length;
+  const alertsThisWeek = readings.filter(
+    (r: MonitoringReading) =>
+      r.timestamp >= weekAgoStr &&
+      (r.result === "alert" || r.result === "action")
+  ).length;
+  const excursionsOpen = excursions.filter(
+    (e: ExcursionRecord) => e.status === "open" || e.status === "investigating"
+  ).length;
+  const excursionsThisMonth = excursions.filter(
+    (e: ExcursionRecord) => e.detectedAt >= monthAgoStr
+  ).length;
+  const passCount = readings.filter(
+    (r: MonitoringReading) => r.result === "pass"
+  ).length;
+  const complianceRate =
+    readings.length > 0
+      ? Math.round((passCount / readings.length) * 1000) / 10
+      : 100;
+
+  const locationStatusSummary = {} as Record<
+    ZoneClassification,
+    { total: number; normal: number; alert: number; action: number }
+  >;
+
+  for (const loc of locations) {
+    if (!locationStatusSummary[loc.zone]) {
+      locationStatusSummary[loc.zone] = {
+        total: 0,
+        normal: 0,
+        alert: 0,
+        action: 0,
+      };
+    }
+    const s = locationStatusSummary[loc.zone];
+    s.total++;
+    const locReadings = readings.filter(
+      (r: MonitoringReading) => r.locationId === loc.id
+    );
+    const hasAction = locReadings.some(
+      (r: MonitoringReading) => r.result === "action"
+    );
+    const hasAlert = locReadings.some(
+      (r: MonitoringReading) => r.result === "alert"
+    );
+    if (hasAction) s.action++;
+    else if (hasAlert) s.alert++;
+    else s.normal++;
+  }
+
+  return {
+    totalLocations: locations.length,
+    activePoints: points.filter((p: MonitoringPoint) => p.isActive).length,
+    readingsToday,
+    readingsThisWeek,
+    alertsToday,
+    alertsThisWeek,
+    excursionsOpen,
+    excursionsThisMonth,
+    complianceRate,
+    locationStatusSummary,
+  };
+}
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
@@ -266,14 +468,23 @@ function ReadingForm({
   const [operator, setOperator] = useState("");
   const [notes, setNotes] = useState("");
 
-  const locations = useMemo(() => envMonitoringStore.getAllLocations(), []);
-  const points = useMemo(
-    () => (locationId ? envMonitoringStore.getPointsByLocation(locationId) : []),
-    [locationId]
-  );
+  const [locations, setLocations] = useState<MonitoringLocation[]>([]);
+  const [points, setPoints] = useState<MonitoringPoint[]>([]);
+
+  useEffect(() => {
+    fetchLocations().then(setLocations);
+  }, []);
+
+  useEffect(() => {
+    if (locationId) {
+      fetchPoints(locationId).then(setPoints);
+    } else {
+      setPoints([]);
+    }
+  }, [locationId]);
 
   const selectedPoint = useMemo(
-    () => points.find((p) => p.id === pointId),
+    () => points.find((p: MonitoringPoint) => p.id === pointId),
     [points, pointId]
   );
 
@@ -460,15 +671,17 @@ function ExcursionResolutionForm({
   const [capaRef, setCapaRef] = useState(excursion.capaRef || "");
   const [resolvedBy, setResolvedBy] = useState("");
 
-  const location = useMemo(
-    () => envMonitoringStore.getLocationById(excursion.locationId),
-    [excursion.locationId]
-  );
+  const [location, setLocation] = useState<MonitoringLocation | undefined>();
+  const [point, setPoint] = useState<MonitoringPoint | undefined>();
 
-  const point = useMemo(
-    () => envMonitoringStore.getPointById(excursion.pointId),
-    [excursion.pointId]
-  );
+  useEffect(() => {
+    fetchLocations().then((locs: MonitoringLocation[]) =>
+      setLocation(locs.find((l: MonitoringLocation) => l.id === excursion.locationId))
+    );
+    fetchPoints().then((pts: MonitoringPoint[]) =>
+      setPoint(pts.find((p: MonitoringPoint) => p.id === excursion.pointId))
+    );
+  }, [excursion.locationId, excursion.pointId]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -578,11 +791,18 @@ function ExcursionResolutionForm({
 // ─── Dashboard Tab ─────────────────────────────────────────────────────────
 
 function DashboardTab({ metrics }: { metrics: EMMetrics }) {
-  const recentExcursions = useMemo(() => {
-    return envMonitoringStore
-      .getOpenExcursions()
-      .sort((a, b) => b.detectedAt.localeCompare(a.detectedAt))
-      .slice(0, 10);
+  const [recentExcursions, setRecentExcursions] = useState<ExcursionRecord[]>([]);
+  const [locations, setLocations] = useState<MonitoringLocation[]>([]);
+
+  useEffect(() => {
+    fetchExcursions().then((excs: ExcursionRecord[]) => {
+      const open = excs
+        .filter((e: ExcursionRecord) => e.status === "open" || e.status === "investigating")
+        .sort((a: ExcursionRecord, b: ExcursionRecord) => b.detectedAt.localeCompare(a.detectedAt))
+        .slice(0, 10);
+      setRecentExcursions(open);
+    });
+    fetchLocations().then(setLocations);
   }, []);
 
   return (
@@ -664,8 +884,8 @@ function DashboardTab({ metrics }: { metrics: EMMetrics }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {recentExcursions.map((exc) => {
-                    const loc = envMonitoringStore.getLocationById(exc.locationId);
+                  {recentExcursions.map((exc: ExcursionRecord) => {
+                    const loc = locations.find((l: MonitoringLocation) => l.id === exc.locationId);
                     return (
                       <TableRow key={exc.id}>
                         <TableCell className="text-xs font-mono">{exc.id}</TableCell>
@@ -725,14 +945,24 @@ function ReadingsTab() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const locations = useMemo(() => envMonitoringStore.getAllLocations(), []);
-  const allPoints = useMemo(() => envMonitoringStore.getAllPoints(), []);
-  const parameters = useMemo(() => envMonitoringStore.getUniqueParameters(), []);
+  const [locations, setLocations] = useState<MonitoringLocation[]>([]);
+  const [allPoints, setAllPoints] = useState<MonitoringPoint[]>([]);
+  const { items, create: createReading } = useEnvMonitoringStore();
 
-  const allReadings = useMemo(() => {
+  useEffect(() => {
+    fetchLocations().then(setLocations);
+    fetchPoints().then(setAllPoints);
+  }, []);
+
+  const allReadings: MonitoringReading[] = useMemo(() => {
     void refreshKey; // dependency
-    return envMonitoringStore.getAllReadings();
-  }, [refreshKey]);
+    return items as MonitoringReading[];
+  }, [refreshKey, items]);
+
+  const parameters: ParameterType[] = useMemo(
+    () => [...new Set(allPoints.map((p: MonitoringPoint) => p.parameter))],
+    [allPoints]
+  );
 
   const filteredReadings = useMemo(() => {
     let result = allReadings;
@@ -794,41 +1024,42 @@ function ReadingsTab() {
   const totalPages = Math.ceil(filteredReadings.length / PAGE_SIZE);
 
   const handleAddReading = useCallback(
-    (data: Omit<MonitoringReading, "id">) => {
-      const reading = envMonitoringStore.addReading(data);
+    async (data: Omit<MonitoringReading, "id">) => {
+      const reading = await createReading(data as MonitoringReading & { id: string; status: string });
 
       // Auto-create excursion for action-level readings
-      if (reading.result === "action") {
-        const point = envMonitoringStore.getPointById(reading.pointId);
+      if (reading && (reading as MonitoringReading).result === "action") {
+        const r = reading as MonitoringReading;
+        const point = allPoints.find((p: MonitoringPoint) => p.id === r.pointId);
         if (point) {
-          envMonitoringStore.createExcursion({
-            readingId: reading.id,
-            pointId: reading.pointId,
-            locationId: reading.locationId,
+          await postExcursion({
+            readingId: r.id,
+            pointId: r.pointId,
+            locationId: r.locationId,
             status: "open",
-            detectedAt: reading.timestamp,
-            value: reading.value,
+            detectedAt: r.timestamp,
+            value: r.value,
             limit: point.actionLimit.value,
             limitType: "action",
             parameter: point.parameter,
             investigationNotes: "",
-            assignedTo: reading.operator,
+            assignedTo: r.operator,
           });
         }
       }
 
       setShowForm(false);
-      setRefreshKey((k) => k + 1);
+      setRefreshKey((k: number) => k + 1);
     },
-    []
+    [createReading, allPoints]
   );
 
   const handleExport = useCallback(() => {
     const header =
       "ID,Point ID,Location,Timestamp,Value,Unit,Result,Operator,Notes\n";
     const rows = filteredReadings
-      .map((r) => {
-        const loc = locations.find((l) => l.id === r.locationId);
+      .map((r: MonitoringReading) => {
+        const loc = locations.find((l: MonitoringLocation) => l.id === r.locationId);
         return `${r.id},${r.pointId},${loc?.name ?? ""},${r.timestamp},${r.value},${r.unit},${r.result},${r.operator},"${r.notes ?? ""}"`;
       })
       .join("\n");
@@ -1108,10 +1339,14 @@ function ExcursionsTab() {
   const [filterStatus, setFilterStatus] = useState<string>("open");
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [allExcursions, setAllExcursions] = useState<ExcursionRecord[]>([]);
+  const [locations, setLocations] = useState<MonitoringLocation[]>([]);
+  const [allPoints, setAllPoints] = useState<MonitoringPoint[]>([]);
 
-  const allExcursions = useMemo(() => {
-    void refreshKey;
-    return envMonitoringStore.getAllExcursions();
+  useEffect(() => {
+    fetchExcursions().then(setAllExcursions);
+    fetchLocations().then(setLocations);
+    fetchPoints().then(setAllPoints);
   }, [refreshKey]);
 
   const filteredExcursions = useMemo(() => {
@@ -1119,47 +1354,51 @@ function ExcursionsTab() {
     if (filterStatus && filterStatus !== "all") {
       if (filterStatus === "open") {
         result = result.filter(
-          (e) => e.status === "open" || e.status === "investigating"
+          (e: ExcursionRecord) => e.status === "open" || e.status === "investigating"
         );
       } else {
-        result = result.filter((e) => e.status === filterStatus);
+        result = result.filter((e: ExcursionRecord) => e.status === filterStatus);
       }
     }
-    return result.sort((a, b) =>
+    return result.sort((a: ExcursionRecord, b: ExcursionRecord) =>
       b.detectedAt.localeCompare(a.detectedAt)
     );
   }, [allExcursions, filterStatus]);
 
   const resolvingExcursion = useMemo(
-    () => (resolvingId ? allExcursions.find((e) => e.id === resolvingId) : undefined),
+    () => (resolvingId ? allExcursions.find((e: ExcursionRecord) => e.id === resolvingId) : undefined),
     [allExcursions, resolvingId]
   );
 
   const handleResolve = useCallback(
-    (data: {
+    async (data: {
       investigationNotes: string;
       rootCause: string;
       capaRef?: string;
       resolvedBy: string;
     }) => {
       if (!resolvingId) return;
-      envMonitoringStore.resolveExcursion(resolvingId, data);
+      await patchExcursion(resolvingId, {
+        ...data,
+        status: "resolved",
+        resolvedAt: new Date().toISOString(),
+      });
       setResolvingId(null);
-      setRefreshKey((k) => k + 1);
+      setRefreshKey((k: number) => k + 1);
     },
     [resolvingId]
   );
 
   const handleUpdateStatus = useCallback(
-    (id: string, status: ExcursionStatus) => {
-      envMonitoringStore.updateExcursion(id, { status });
-      setRefreshKey((k) => k + 1);
+    async (id: string, status: ExcursionStatus) => {
+      await patchExcursion(id, { status });
+      setRefreshKey((k: number) => k + 1);
     },
     []
   );
 
   const openCount = allExcursions.filter(
-    (e) => e.status === "open" || e.status === "investigating"
+    (e: ExcursionRecord) => e.status === "open" || e.status === "investigating"
   ).length;
 
   return (
@@ -1187,7 +1426,7 @@ function ExcursionsTab() {
         >
           <CardContent className="p-3">
             <div className="text-lg font-bold text-blue-600">
-              {allExcursions.filter((e) => e.status === "resolved").length}
+              {allExcursions.filter((e: ExcursionRecord) => e.status === "resolved").length}
             </div>
             <div className="text-xs text-muted-foreground">Resolved</div>
           </CardContent>
@@ -1201,7 +1440,7 @@ function ExcursionsTab() {
         >
           <CardContent className="p-3">
             <div className="text-lg font-bold text-green-600">
-              {allExcursions.filter((e) => e.status === "closed").length}
+              {allExcursions.filter((e: ExcursionRecord) => e.status === "closed").length}
             </div>
             <div className="text-xs text-muted-foreground">Closed</div>
           </CardContent>
@@ -1260,11 +1499,9 @@ function ExcursionsTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredExcursions.map((exc) => {
-                  const loc = envMonitoringStore.getLocationById(
-                    exc.locationId
-                  );
-                  const point = envMonitoringStore.getPointById(exc.pointId);
+                {filteredExcursions.map((exc: ExcursionRecord) => {
+                  const loc = locations.find((l: MonitoringLocation) => l.id === exc.locationId);
+                  const point = allPoints.find((p: MonitoringPoint) => p.id === exc.pointId);
                   return (
                     <TableRow
                       key={exc.id}
@@ -1415,8 +1652,8 @@ function TrendsTab() {
   const [selectedPointId, setSelectedPointId] = useState("");
   const [period, setPeriod] = useState(30);
 
-  const locations = useMemo(() => envMonitoringStore.getAllLocations(), []);
-  const points = useMemo(
+  const locations: MonitoringLocation[] = useMemo(() => envMonitoringStore.getAllLocations(), []);
+  const points: MonitoringPoint[] = useMemo(
     () =>
       selectedLocationId
         ? envMonitoringStore.getPointsByLocation(selectedLocationId)
@@ -1432,24 +1669,24 @@ function TrendsTab() {
   }, [points, selectedPointId]);
 
   // Get trends for selected point or all points in location
-  const trends = useMemo(() => {
+  const trends: TrendData[] = useMemo(() => {
     if (selectedPointId) {
       const trend = envMonitoringStore.getTrend(selectedPointId, period);
       return trend ? [trend] : [];
     }
     if (selectedLocationId) {
-      const locPoints = envMonitoringStore.getPointsByLocation(
+      const locPoints: MonitoringPoint[] = envMonitoringStore.getPointsByLocation(
         selectedLocationId
       );
       return locPoints
-        .map((p) => envMonitoringStore.getTrend(p.id, period))
-        .filter((t): t is TrendData => t != null && t.data.length > 0);
+        .map((p: MonitoringPoint) => envMonitoringStore.getTrend(p.id, period))
+        .filter((t: TrendData | null): t is TrendData => t != null && t.data.length > 0);
     }
     // Default: show all points with excursion readings
-    const allPts = envMonitoringStore.getAllPoints();
+    const allPts: MonitoringPoint[] = envMonitoringStore.getAllPoints();
     return allPts
-      .map((p) => envMonitoringStore.getTrend(p.id, period))
-      .filter((t): t is TrendData => t != null && t.data.length > 0)
+      .map((p: MonitoringPoint) => envMonitoringStore.getTrend(p.id, period))
+      .filter((t: TrendData | null): t is TrendData => t != null && t.data.length > 0)
       .slice(0, 6);
   }, [selectedLocationId, selectedPointId, period]);
 

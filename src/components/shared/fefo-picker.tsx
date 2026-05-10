@@ -19,9 +19,9 @@ export default function FEFOPicker({ productId, onPick }: FEFOPickerProps) {
   const handleCalculate = useCallback(() => {
     if (requestedQty <= 0 || !productId) return;
     // Dynamic import to avoid SSR issues
-    import("@/lib/expiry/expiry-store").then(({ expiryStore }) => {
+    import("@/lib/expiry/expiry-store").then(async ({ expiryStore }) => {
       if (!expiryStore) return;
-      const result = expiryStore.calculateFEFO(productId, requestedQty);
+      const result = await expiryStore.calculateFEFO(productId, requestedQty);
       setPick(result);
       setConfirmed(false);
     });

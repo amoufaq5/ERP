@@ -18,7 +18,7 @@ import PageHeader from "@/components/shared/page-header";
 import StatsCard from "@/components/shared/stats-card";
 import TrainingMatrixGrid from "@/components/shared/training-matrix-grid";
 import { cn, formatDate } from "@/lib/utils";
-import { trainingStore } from "@/lib/quality/training-store";
+import { useTrainingStore } from "@/lib/quality/training-store";
 import type {
   TrainingRecord,
   TrainingSession,
@@ -122,11 +122,9 @@ function sessionStatusVariant(
 /* ─── page component ─── */
 
 export default function TrainingMatrixPage() {
+  const { items: storeItems, fetchAll, create: storeCreate, update: storeUpdate, updateStatus } = useTrainingStore();
+  const records = storeItems as unknown as TrainingRecord[];
   /* ─── state ─── */
-  const [records, setRecords] = useState<TrainingRecord[]>([]);
-  const [sessions, setSessions] = useState<TrainingSession[]>([]);
-  const [matrixCells, setMatrixCells] = useState<TrainingMatrixCell[]>([]);
-  const [metrics, setMetrics] = useState<TrainingMetrics | null>(null);
   const [activeTab, setActiveTab] = useState("matrix");
 
   // Filters
@@ -161,21 +159,148 @@ export default function TrainingMatrixPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   /* ─── data loading ─── */
-  const reload = useCallback(() => {
-    setRecords(trainingStore.getAllRecords());
-    setSessions(trainingStore.getAllSessions());
-    setMatrixCells(trainingStore.getMatrixData());
-    setMetrics(trainingStore.getMetrics());
-  }, []);
-
   useEffect(() => {
-    reload();
-  }, [reload]);
+    fetchAll();
+  }, [fetchAll]);
 
-  const employees = useMemo(() => trainingStore.getEmployees(), []);
-  const sops = useMemo(() => trainingStore.getSOPs(), []);
-  const roles = useMemo(() => trainingStore.getRoles(), []);
-  const departments = useMemo(() => trainingStore.getDepartments(), []);
+  /* ─── derive sessions, employees, sops, matrix, metrics from records ─── */
+  const sessions = useMemo<TrainingSession[]>(() => [], []);
+
+  const employees = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; role: string; department: string }>();
+    for (const r of records) {
+      if (!map.has(r.employeeId)) {
+        map.set(r.employeeId, { id: r.employeeId, name: r.employeeName, role: r.employeeRole, department: r.department });
+      }
+    }
+    return Array.from(map.values());
+  }, [records]);
+
+  const sops = useMemo(() => {
+    const map = new Map<string, { id: string; title: string }>();
+    for (const r of records) {
+      if (!map.has(r.documentId)) {
+        map.set(r.documentId, { id: r.documentId, title: r.documentTitle });
+      }
+    }
+    return Array.from(map.values());
+  }, [records]);
+
+  const roles = useMemo(() => [...new Set(records.map((r: TrainingRecord) => r.employeeRole))], [records]);
+  const departments = useMemo(() => [...new Set(records.map((r: TrainingRecord) => r.department))], [records]);
+
+  const matrixCells = useMemo<TrainingMatrixCell[]>(() => {
+    return records.map((r: TrainingRecord) => ({
+      employeeId: r.employeeId,
+      employeeName: r.employeeName,
+      employeeRole: r.employeeRole,
+      department: r.department,
+      documentId: r.documentId,
+      documentTitle: r.documentTitle,
+      competencyLevel: r.competencyLevel,
+      status: r.status as TrainingStatus | "not-required",
+      lastTrainingDate: r.completionDate,
+      expiryDate: r.expiryDate,
+      daysUntilExpiry: r.expiryDate
+        ? Math.ceil((new Date(r.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        : undefined,
+      recordId: r.id,
+    }));
+  }, [records]);
+
+  const metrics = useMemo<TrainingMetrics | null>(() => {
+    if (records.length === 0) return null;
+    const completedCount = records.filter((r: TrainingRecord) => r.status === "completed").length;
+    const overdueCount = records.filter((r: TrainingRecord) => r.status === "overdue").length;
+    const expiringIn30Days = records.filter((r: TrainingRecord) => {
+      if (!r.expiryDate || r.status === "expired") return false;
+      const days = Math.ceil((new Date(r.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      return days >= 0 && days <= 30;
+    }).length;
+    const complianceRate = records.length > 0 ? Math.round((completedCount / records.length) * 100) : 0;
+    const scored = records.filter((r: TrainingRecord) => r.assessmentScore != null);
+    const avgAssessmentScore = scored.length > 0
+      ? Math.round(scored.reduce((s: number, r: TrainingRecord) => s + (r.assessmentScore ?? 0), 0) / scored.length)
+      : 0;
+
+    const byDepartmentMap = new Map<string, { total: number; completed: number }>();
+    for (const r of records) {
+      const prev = byDepartmentMap.get(r.department) || { total: 0, completed: 0 };
+      prev.total++;
+      if (r.status === "completed") prev.completed++;
+      byDepartmentMap.set(r.department, prev);
+    }
+    const byDepartment = Array.from(byDepartmentMap.entries()).map(([department, d]) => ({
+      department,
+      compliance: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
+      total: d.total,
+      completed: d.completed,
+    }));
+
+    const byRoleMap = new Map<string, { total: number; completed: number }>();
+    for (const r of records) {
+      const prev = byRoleMap.get(r.employeeRole) || { total: 0, completed: 0 };
+      prev.total++;
+      if (r.status === "completed") prev.completed++;
+      byRoleMap.set(r.employeeRole, prev);
+    }
+    const byRole = Array.from(byRoleMap.entries()).map(([role, d]) => ({
+      role,
+      compliance: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
+      total: d.total,
+      completed: d.completed,
+    }));
+
+    const byDocMap = new Map<string, { title: string; total: number; completed: number }>();
+    for (const r of records) {
+      const prev = byDocMap.get(r.documentId) || { title: r.documentTitle, total: 0, completed: 0 };
+      prev.total++;
+      if (r.status === "completed") prev.completed++;
+      byDocMap.set(r.documentId, prev);
+    }
+    const byDocument = Array.from(byDocMap.entries()).map(([documentId, d]) => ({
+      documentId,
+      documentTitle: d.title,
+      compliance: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
+      total: d.total,
+      completed: d.completed,
+    }));
+
+    const compLevels: CompetencyLevel[] = ["not-trained", "in-training", "competent", "expert"];
+    const competencyDistribution = compLevels.map((level) => ({
+      level,
+      count: records.filter((r: TrainingRecord) => r.competencyLevel === level).length,
+    }));
+
+    const overdueByDeptMap = new Map<string, number>();
+    for (const r of records) {
+      if (r.status === "overdue") {
+        overdueByDeptMap.set(r.department, (overdueByDeptMap.get(r.department) || 0) + 1);
+      }
+    }
+    const overdueByDepartment = Array.from(overdueByDeptMap.entries()).map(([department, count]) => ({
+      department,
+      count,
+    }));
+
+    return {
+      totalRequirements: records.length,
+      totalRecords: records.length,
+      completedCount,
+      overdueCount,
+      expiringIn30Days,
+      scheduledSessions: sessions.filter((s: TrainingSession) => s.status === "planned").length,
+      complianceRate,
+      avgAssessmentScore,
+      byDepartment,
+      byRole,
+      byDocument,
+      competencyDistribution,
+      overdueByDepartment,
+      trainingHoursThisMonth: 0,
+      trainingHoursThisYear: 0,
+    };
+  }, [records, sessions]);
 
   /* ─── filtered records ─── */
   const filteredRecords = useMemo(() => {
@@ -265,40 +390,46 @@ export default function TrainingMatrixPage() {
     if (!selectedRecord || !completeScore) return;
     const score = parseInt(completeScore, 10);
     if (isNaN(score) || score < 0 || score > 100) return;
-    trainingStore.completeTraining(selectedRecord.id, score);
+    storeUpdate(selectedRecord.id, {
+      status: score >= (selectedRecord.assessmentPassMark ?? 80) ? "completed" : "scheduled",
+      assessmentScore: score,
+      completionDate: new Date().toISOString(),
+      competencyLevel: score >= (selectedRecord.assessmentPassMark ?? 80) ? "competent" : "in-training",
+    } as any);
     setSelectedRecord(null);
     setCompleteScore("");
-    reload();
   };
 
   const handleMatrixCellClick = (cell: TrainingMatrixCell) => {
     if (cell.recordId) {
-      const rec = trainingStore.getRecordById(cell.recordId);
+      const rec = records.find((r: TrainingRecord) => r.id === cell.recordId);
       if (rec) setSelectedRecord(rec);
     }
   };
 
   const handleCreateSession = () => {
     if (!newSession.title || !newSession.documentId || !newSession.scheduledDate) return;
-    const sop = sops.find((s) => s.id === newSession.documentId);
-    const selectedEmps = employees.filter((e) =>
+    const sop = sops.find((s: { id: string; title: string }) => s.id === newSession.documentId);
+    const selectedEmps = employees.filter((e: { id: string; name: string }) =>
       newSession.attendeeIds.includes(e.id)
     );
-    trainingStore.createSession({
-      title: newSession.title,
-      documentId: newSession.documentId,
-      documentTitle: sop?.title || newSession.documentId,
-      trainingType: "refresher",
-      trainer: newSession.trainer,
-      scheduledDate: newSession.scheduledDate,
-      startTime: newSession.startTime,
-      endTime: newSession.endTime,
-      location: newSession.location,
-      maxAttendees: newSession.maxAttendees,
-      attendeeIds: newSession.attendeeIds,
-      attendeeNames: selectedEmps.map((e) => e.name),
-      status: "planned",
-    });
+    // Create training records for each attendee as a proxy for session creation
+    for (const emp of selectedEmps) {
+      storeCreate({
+        employeeId: emp.id,
+        employeeName: emp.name,
+        employeeRole: employees.find((e: { id: string; role: string }) => e.id === emp.id)?.role ?? "",
+        department: employees.find((e: { id: string; department: string }) => e.id === emp.id)?.department ?? "",
+        documentId: newSession.documentId,
+        documentTitle: sop?.title || newSession.documentId,
+        trainingType: "refresher",
+        trainer: newSession.trainer,
+        scheduledDate: newSession.scheduledDate,
+        status: "scheduled",
+        competencyLevel: "in-training",
+        assessmentPassMark: 80,
+      } as any);
+    }
     setShowNewSession(false);
     setNewSession({
       title: "",
@@ -311,7 +442,6 @@ export default function TrainingMatrixPage() {
       maxAttendees: 20,
       attendeeIds: [],
     });
-    reload();
   };
 
   const handleExportMatrix = () => {

@@ -148,10 +148,10 @@ function ProtocolDetailDialog({
     if (!protocol) return [];
     return cleaningStore
       .getRunsByProtocol(protocol.id)
-      .sort((a, b) => new Date(b.runDate).getTime() - new Date(a.runDate).getTime());
+      .sort((a: CleaningRun, b: CleaningRun) => new Date(b.runDate).getTime() - new Date(a.runDate).getTime());
   }, [protocol]);
 
-  const latestRun = runs[0];
+  const latestRun = runs[0] as CleaningRun | undefined;
   const macoParams = protocol?.acceptanceCriteria.find((c) => c.macoParams)?.macoParams;
 
   if (!protocol) return null;
@@ -316,14 +316,14 @@ function ProtocolDetailDialog({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {runs.map((run) => (
+                    {runs.map((run: CleaningRun) => (
                       <TableRow key={run.id}>
                         <TableCell className="text-sm">{formatDate(run.runDate)}</TableCell>
                         <TableCell className="text-sm">{run.operator}</TableCell>
                         <TableCell className="font-mono text-sm">{run.batchNumber || "-"}</TableCell>
                         <TableCell>{resultBadge(run.overallResult)}</TableCell>
                         <TableCell className="text-sm">
-                          {run.samples.filter((s) => s.passFail === "pass").length}/{run.samples.length} pass
+                          {run.samples.filter((s: CleaningSample) => s.passFail === "pass").length}/{run.samples.length} pass
                         </TableCell>
                       </TableRow>
                     ))}
@@ -643,7 +643,7 @@ function ExecuteRunTab() {
   useEffect(() => {
     const allProtos = cleaningStore.getAllProtocols();
     // Only show approved or revalidation-due protocols for execution
-    setProtocols(allProtos.filter((p) => p.status === "approved" || p.status === "revalidation-due"));
+    setProtocols(allProtos.filter((p: CleaningProtocol) => p.status === "approved" || p.status === "revalidation-due"));
   }, []);
 
   const selectedProtocol = useMemo(
@@ -1403,21 +1403,21 @@ function AnalyticsTab() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {cleaningStore.getAllProtocols()
-              .filter((p) => p.acceptanceCriteria.some((c) => c.macoParams))
-              .map((p) => {
+            {(cleaningStore.getAllProtocols() as CleaningProtocol[])
+              .filter((p: CleaningProtocol) => p.acceptanceCriteria.some((c) => c.macoParams))
+              .map((p: CleaningProtocol) => {
                 const macoParam = p.acceptanceCriteria.find((c) => c.macoParams)?.macoParams;
                 if (!macoParam) return null;
                 const macoVal = calculateMACO(macoParam);
-                const protocolRuns = cleaningStore.getRunsByProtocol(p.id);
+                const protocolRuns = cleaningStore.getRunsByProtocol(p.id) as CleaningRun[];
                 const latestRun = protocolRuns.sort(
-                  (a, b) => new Date(b.runDate).getTime() - new Date(a.runDate).getTime()
-                )[0];
+                  (a: CleaningRun, b: CleaningRun) => new Date(b.runDate).getTime() - new Date(a.runDate).getTime()
+                )[0] as CleaningRun | undefined;
                 const worstResult = latestRun
-                  ? Math.max(...latestRun.samples.filter((s) => s.limit > 0).map((s) => s.result))
+                  ? Math.max(...latestRun.samples.filter((s: CleaningSample) => s.limit > 0).map((s: CleaningSample) => s.result))
                   : 0;
                 const worstLimit = latestRun
-                  ? Math.max(...latestRun.samples.filter((s) => s.limit > 0).map((s) => s.limit))
+                  ? Math.max(...latestRun.samples.filter((s: CleaningSample) => s.limit > 0).map((s: CleaningSample) => s.limit))
                   : 1;
                 const compliancePct = worstLimit > 0 ? Math.round((worstResult / worstLimit) * 100) : 0;
 

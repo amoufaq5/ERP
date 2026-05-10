@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { BatchRelease } from './batch-release-types';
 
 export type { BatchRelease } from './batch-release-types';
@@ -24,4 +25,4 @@ export const useBatchReleaseStore = createQualityApiStore<BatchRelease & { id: s
 });
 
 /** @deprecated Use useBatchReleaseStore (zustand hook) instead */
-export const batchReleaseStore = useBatchReleaseStore;
+export const batchReleaseStore = createStoreCompat<BatchRelease & { id: string; status: string }>(useBatchReleaseStore);

@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { CleaningProtocol, MACOParams } from './cleaning-types';
 
 export type { CleaningProtocol } from './cleaning-types';
@@ -44,4 +45,4 @@ export const useCleaningStore = createQualityApiStore<CleaningProtocol & { id: s
 });
 
 /** @deprecated Use useCleaningStore (zustand hook) instead */
-export const cleaningStore = useCleaningStore;
+export const cleaningStore = createStoreCompat<CleaningProtocol & { id: string; status: string }>(useCleaningStore);

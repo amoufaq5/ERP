@@ -20,7 +20,7 @@ import type {
   ParameterType,
 } from "@/lib/quality/env-monitoring-types";
 import { PARAMETER_LABELS, ZONE_LABELS } from "@/lib/quality/env-monitoring-types";
-import { envMonitoringStore } from "@/lib/quality/env-monitoring-store";
+import { useEnvMonitoringStore } from "@/lib/quality/env-monitoring-store";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -135,12 +135,14 @@ function ZoneCard({
   status,
   latestReadings,
   points,
+  allItems,
   onClick,
 }: {
   location: MonitoringLocation;
   status: "normal" | "alert" | "action";
   latestReadings: MonitoringReading[];
   points: MonitoringPoint[];
+  allItems: MonitoringReading[];
   onClick: () => void;
 }) {
   const zoneStyle = ZONE_COLORS[location.zone];
@@ -176,9 +178,9 @@ function ZoneCard({
           const point = points.find((p) => p.id === reading.pointId);
           if (!point) return null;
           const Icon = getParameterIcon(point.parameter);
-          const allReadings = envMonitoringStore
-            .getReadingsByPoint(point.id)
-            .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+          const allReadings = allItems
+            .filter((r: MonitoringReading) => r.pointId === point.id)
+            .sort((a: MonitoringReading, b: MonitoringReading) => (a.timestamp ?? '').localeCompare(b.timestamp ?? ''));
 
           return (
             <div key={reading.id} className="flex items-center gap-1 text-[10px] text-muted-foreground">
@@ -309,12 +311,22 @@ export interface EnvMonitoringDashboardProps {
 export default function EnvMonitoringDashboard({
   className,
 }: EnvMonitoringDashboardProps) {
-  const [locations, setLocations] = useState<MonitoringLocation[]>([]);
+  const { items, fetchAll } = useEnvMonitoringStore();
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [locations, setLocations] = useState<MonitoringLocation[]>([]);
+  const [allPoints, setAllPoints] = useState<MonitoringPoint[]>([]);
 
   useEffect(() => {
-    setLocations(envMonitoringStore.getAllLocations());
-  }, []);
+    fetchAll();
+    fetch("/api/v1/qaqc/environmental-monitoring/locations")
+      .then((r) => r.ok ? r.json() : { data: [] })
+      .then((d) => setLocations(d.data ?? d))
+      .catch(() => {});
+    fetch("/api/v1/qaqc/environmental-monitoring/points")
+      .then((r) => r.ok ? r.json() : { data: [] })
+      .then((d) => setAllPoints(d.data ?? d))
+      .catch(() => {});
+  }, [fetchAll]);
 
   const groupedByZone = useMemo(() => {
     const groups: Record<ZoneClassification, MonitoringLocation[]> = {
@@ -336,14 +348,35 @@ export default function EnvMonitoringDashboard({
   );
 
   const selectedPoints = useMemo(
-    () => (selectedLocationId ? envMonitoringStore.getPointsByLocation(selectedLocationId) : []),
-    [selectedLocationId]
+    () => (selectedLocationId ? allPoints.filter((p) => p.locationId === selectedLocationId) : []),
+    [selectedLocationId, allPoints]
   );
 
+  const readings = items as unknown as MonitoringReading[];
+
   const selectedReadings = useMemo(
-    () => (selectedLocationId ? envMonitoringStore.getReadingsByLocation(selectedLocationId) : []),
-    [selectedLocationId]
+    () => (selectedLocationId ? readings.filter((r) => r.locationId === selectedLocationId) : []),
+    [selectedLocationId, readings]
   );
+
+  const getLocationStatus = useCallback((locId: string): "normal" | "alert" | "action" => {
+    const locReadings = readings.filter((r) => r.locationId === locId);
+    if (locReadings.some((r) => r.result === "action" || r.result === "fail")) return "action";
+    if (locReadings.some((r) => r.result === "alert")) return "alert";
+    return "normal";
+  }, [readings]);
+
+  const getLatestReadings = useCallback((locId: string): MonitoringReading[] => {
+    const locReadings = readings.filter((r) => r.locationId === locId);
+    const byPoint = new Map<string, MonitoringReading>();
+    for (const r of locReadings) {
+      const existing = byPoint.get(r.pointId);
+      if (!existing || r.timestamp > existing.timestamp) {
+        byPoint.set(r.pointId, r);
+      }
+    }
+    return Array.from(byPoint.values());
+  }, [readings]);
 
   const handleZoneClick = useCallback((locationId: string) => {
     setSelectedLocationId((prev) => (prev === locationId ? null : locationId));
@@ -381,16 +414,17 @@ export default function EnvMonitoringDashboard({
                 </h4>
                 <div className="space-y-2">
                   {locs.map((loc) => {
-                    const status = envMonitoringStore.getLocationStatus(loc.id);
-                    const latestReadings = envMonitoringStore.getLocationLatestReadings(loc.id);
-                    const points = envMonitoringStore.getPointsByLocation(loc.id);
+                    const locStatus = getLocationStatus(loc.id);
+                    const latestReadings = getLatestReadings(loc.id);
+                    const locPoints = allPoints.filter((p) => p.locationId === loc.id);
                     return (
                       <ZoneCard
                         key={loc.id}
                         location={loc}
-                        status={status}
+                        status={locStatus}
                         latestReadings={latestReadings}
-                        points={points}
+                        points={locPoints}
+                        allItems={readings}
                         onClick={() => handleZoneClick(loc.id)}
                       />
                     );

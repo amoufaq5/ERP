@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { Deviation } from './deviation-types';
 
 export type { Deviation } from './deviation-types';
@@ -23,4 +24,4 @@ export const useDeviationStore = createQualityApiStore<Deviation & { id: string;
 });
 
 /** @deprecated Use useDeviationStore (zustand hook) instead */
-export const deviationStore = useDeviationStore;
+export const deviationStore = createStoreCompat<Deviation & { id: string; status: string }>(useDeviationStore);

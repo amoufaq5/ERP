@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { RiskAssessment, RiskLevel } from './risk-types';
 
 export type { RiskAssessment } from './risk-types';
@@ -36,4 +37,4 @@ export const useRiskStore = createQualityApiStore<RiskAssessment & { id: string;
 });
 
 /** @deprecated Use useRiskStore (zustand hook) instead */
-export const riskStore = useRiskStore;
+export const riskStore = createStoreCompat<RiskAssessment & { id: string; status: string }>(useRiskStore);

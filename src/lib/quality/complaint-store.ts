@@ -1,6 +1,7 @@
 'use client';
 
 import { createQualityApiStore } from '@/lib/stores/quality-api-store-factory';
+import { createStoreCompat } from '@/lib/stores/quality-store-compat';
 import type { Complaint } from './complaint-types';
 
 export type { Complaint } from './complaint-types';
@@ -23,4 +24,4 @@ export const useComplaintStore = createQualityApiStore<Complaint & { id: string;
 });
 
 /** @deprecated Use useComplaintStore (zustand hook) instead */
-export const complaintStore = useComplaintStore;
+export const complaintStore = createStoreCompat<Complaint & { id: string; status: string }>(useComplaintStore);
