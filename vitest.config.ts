@@ -23,6 +23,7 @@ export default defineConfig({
       ['src/__tests__/lib/graphql/**/*.test.ts', 'node'],
       ['src/__tests__/lib/search/**/*.test.ts', 'node'],
       ['src/__tests__/lib/jobs/**/*.test.ts', 'node'],
+      ['src/__tests__/api/**/*.test.ts', 'node'],
       ['src/test/**/*.test.ts', 'node'],
     ] as [string, string][],
     coverage: {
