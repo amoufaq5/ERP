@@ -140,6 +140,8 @@ export interface AppConfig {
   appearance: AppearanceConfig;
 }
 
+export type ModuleName = keyof AppConfig;
+
 export const DEFAULT_CONFIG: AppConfig = {
   finance: {
     currency: "EGP",
