@@ -92,7 +92,7 @@ const fullChange = {
 
 describe('QAQC Change Control API Routes', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   // ─── GET Collection ─────────────────────────────────────────────────────
@@ -304,7 +304,7 @@ describe('QAQC Change Control API Routes', () => {
       const types = ['DOCUMENT', 'PROCESS', 'EQUIPMENT', 'SYSTEM'];
 
       for (const type of types) {
-        vi.clearAllMocks();
+        vi.resetAllMocks();
         mockCreate.mockResolvedValue({ id: `cc-${type}` });
 
         const req = makeRequest('http://localhost:3000/api/v1/qaqc/change-control', 'POST', {

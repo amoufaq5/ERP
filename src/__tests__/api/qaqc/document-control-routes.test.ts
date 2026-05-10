@@ -92,7 +92,7 @@ const fullDocument = {
 
 describe('QAQC Document Control API Routes', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   // ─── GET Collection ─────────────────────────────────────────────────────
@@ -291,7 +291,7 @@ describe('QAQC Document Control API Routes', () => {
       const types = ['SOP', 'PROTOCOL', 'FORM', 'REPORT', 'SPECIFICATION'];
 
       for (const type of types) {
-        vi.clearAllMocks();
+        vi.resetAllMocks();
         mockCreate.mockResolvedValue({ id: `doc-${type}`, number: 'DOC-001', title: 'Test', type });
 
         const req = makeRequest('http://localhost:3000/api/v1/qaqc/document-control', 'POST', {

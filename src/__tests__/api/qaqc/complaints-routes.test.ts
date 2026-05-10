@@ -94,7 +94,7 @@ const fullComplaint = {
 
 describe('QAQC Complaints API Routes', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   // ─── GET Collection ─────────────────────────────────────────────────────

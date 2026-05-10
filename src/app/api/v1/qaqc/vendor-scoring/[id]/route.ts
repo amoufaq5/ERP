@@ -13,11 +13,21 @@ const updateSchema = z.object({
   evaluatedBy: z.string().optional(),
   evaluationDate: z.string().optional(),
   notes: z.string().optional(),
-}).partial();
+}).passthrough().partial();
 
 export const { GET, PATCH, DELETE } = createRouteHandlersWithId({
   entity: 'vendor-scoring',
   modelName: 'vendorScore',
   validationSchema: { update: updateSchema },
   searchFields: ['vendorName', 'vendorId'],
+  hooks: {
+    beforeUpdate: async (_id, data) => {
+      // Remove non-Prisma fields
+      const { vendorCode, contactPerson, contactEmail, category, country,
+        qualificationStatus, nextReviewDate, quality, delivery, compliance,
+        commercial, responsiveness, audits, certifications, incidents,
+        complianceScore, commercialScore, status, ...prismaData } = data;
+      return prismaData;
+    },
+  },
 });

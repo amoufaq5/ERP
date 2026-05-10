@@ -90,7 +90,7 @@ const fullCapa = {
 
 describe('QAQC CAPA API Routes', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   // ─── GET Collection ─────────────────────────────────────────────────────

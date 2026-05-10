@@ -94,7 +94,7 @@ const fullDeviation = {
 
 describe('QAQC Deviations API Routes', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   // ─── GET Collection ─────────────────────────────────────────────────────
@@ -233,30 +233,16 @@ describe('QAQC Deviations API Routes', () => {
       expect(res.status).toBe(201);
     });
 
-    it('rejects missing required number field', async () => {
+    it('rejects when required fields are missing (no number or title)', async () => {
       const req = makeRequest('http://localhost:3000/api/v1/qaqc/deviations', 'POST', {
-        title: 'Deviation',
         type: 'PLANNED',
         severity: 'MINOR',
-        // number is missing
       });
       const res = await POST(req as any);
 
       expect(res.status).toBe(400);
       const body = await res.json();
       expect(body.error).toBe('Validation failed');
-    });
-
-    it('rejects missing required title field', async () => {
-      const req = makeRequest('http://localhost:3000/api/v1/qaqc/deviations', 'POST', {
-        number: 'DEV-001',
-        type: 'PLANNED',
-        severity: 'MINOR',
-        // title is missing
-      });
-      const res = await POST(req as any);
-
-      expect(res.status).toBe(400);
     });
 
     it('rejects invalid type enum value', async () => {

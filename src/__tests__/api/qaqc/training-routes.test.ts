@@ -93,7 +93,7 @@ const fullTraining = {
 
 describe('QAQC Training API Routes', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   // ─── GET Collection ─────────────────────────────────────────────────────

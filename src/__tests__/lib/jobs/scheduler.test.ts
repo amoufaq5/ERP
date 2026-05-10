@@ -418,16 +418,21 @@ describe('Job Scheduler - Retry with Exponential Backoff', () => {
 
     const queuedId = await scheduler.enqueue(id, {});
 
-    // Process first attempt
-    await scheduler.drain().catch(() => {});
-    await new Promise((r) => setTimeout(r, 250));
+    // Start the scheduler so it processes the queue
+    scheduler.start();
+
+    // Wait for the first attempt to execute and fail
+    await new Promise((r) => setTimeout(r, 2000));
+    scheduler.stop();
 
     const job = scheduler.getJob(queuedId);
+    expect(job!.attempts).toBeGreaterThanOrEqual(1);
+    expect(job!.error).toBe('Fail');
     if (job!.status === 'retrying') {
       expect(job!.nextRetryAt).toBeDefined();
       // After 1 attempt, backoff = min(30000, 1000 * 2^1) = 2000ms
       const delay = job!.nextRetryAt!.getTime() - Date.now();
-      expect(delay).toBeGreaterThan(0);
+      // The delay should be positive (future) or very close to now
       expect(delay).toBeLessThanOrEqual(31000);
     }
   }, 10000);

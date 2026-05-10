@@ -91,7 +91,7 @@ const fullAudit = {
 
 describe('QAQC Audits API Routes', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   // ─── GET Collection ─────────────────────────────────────────────────────
