@@ -53,7 +53,6 @@ const plans = [
   { id: "PL-03", name: "Enterprise", price: 249, cycle: "Monthly", features: "Unlimited Users, 1TB Storage, Dedicated Support, SLA", subscribers: 89 },
   { id: "PL-04", name: "Starter Annual", price: 470, cycle: "Annual", features: "5 Users, 10GB Storage, Email Support (2 months free)", subscribers: 56 },
   { id: "PL-05", name: "Professional Annual", price: 950, cycle: "Annual", features: "25 Users, 100GB Storage, Priority Support, API Access (2 months free)", subscribers: 178 },
-  { id: "PL-06", name: "Enterprise Annual", price: 2390, cycle: "Annual", features: "Unlimited Users, 1TB Storage, Dedicated Support, SLA (2 months free)", subscribers: 45 },
 ];
 
 const churnData = [

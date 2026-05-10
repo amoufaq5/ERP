@@ -70,8 +70,7 @@ interface Feedback {
 const reviewCycles: ReviewCycle[] = [
   { id: 'rc-1', name: 'H1 2026 Performance Review', period: 'Jan - Jun 2026', status: 'Active', totalReviews: 156, completedReviews: 89, dueDate: '2026-06-30' },
   { id: 'rc-2', name: 'H2 2025 Performance Review', period: 'Jul - Dec 2025', status: 'Completed', totalReviews: 148, completedReviews: 148, dueDate: '2025-12-31' },
-  { id: 'rc-3', name: 'Annual 2025 Review', period: 'Full Year 2025', status: 'Completed', totalReviews: 148, completedReviews: 148, dueDate: '2026-01-31' },
-  { id: 'rc-4', name: 'H2 2026 Performance Review', period: 'Jul - Dec 2026', status: 'Planned', totalReviews: 0, completedReviews: 0, dueDate: '2026-12-31' },
+  { id: 'rc-3', name: 'H2 2026 Performance Review', period: 'Jul - Dec 2026', status: 'Planned', totalReviews: 0, completedReviews: 0, dueDate: '2026-12-31' },
 ];
 
 const reviews: Review[] = [
@@ -81,8 +80,6 @@ const reviews: Review[] = [
   { id: 'rv-4', employee: 'Omar Farouk', reviewer: 'Mohamed Ali', cycle: 'H1 2026', rating: 3.5, status: 'Completed', dueDate: '2026-06-15' },
   { id: 'rv-5', employee: 'Yasmin Mostafa', reviewer: 'Ahmed Hassan', cycle: 'H1 2026', rating: 0, status: 'Pending', dueDate: '2026-06-15' },
   { id: 'rv-6', employee: 'Khaled Abdel-Rahman', reviewer: 'Mohamed Ali', cycle: 'H1 2026', rating: 0, status: 'In Progress', dueDate: '2026-06-15' },
-  { id: 'rv-7', employee: 'Sara Mahmoud', reviewer: 'Mohamed Ali', cycle: 'H1 2026', rating: 4.2, status: 'Completed', dueDate: '2026-06-15' },
-  { id: 'rv-8', employee: 'Tarek Samy', reviewer: 'Omar Farouk', cycle: 'H1 2026', rating: 0, status: 'Pending', dueDate: '2026-06-15' },
 ];
 
 const goals: Goal[] = [
@@ -92,8 +89,6 @@ const goals: Goal[] = [
   { id: 'g-4', employee: 'Nour Ibrahim', goal: 'Implement new onboarding process', category: 'Process', progress: 30, status: 'Behind', dueDate: '2026-05-15' },
   { id: 'g-5', employee: 'Omar Farouk', goal: 'Achieve $2M in Q2 sales', category: 'Business', progress: 62, status: 'On Track', dueDate: '2026-06-30' },
   { id: 'g-6', employee: 'Yasmin Mostafa', goal: 'Deploy CI/CD pipeline', category: 'Technical', progress: 100, status: 'Completed', dueDate: '2026-04-30' },
-  { id: 'g-7', employee: 'Khaled Abdel-Rahman', goal: 'ISO 27001 certification prep', category: 'Compliance', progress: 55, status: 'On Track', dueDate: '2026-09-30' },
-  { id: 'g-8', employee: 'Sara Mahmoud', goal: 'Automate monthly reporting', category: 'Process', progress: 20, status: 'Behind', dueDate: '2026-05-31' },
 ];
 
 const feedbacks: Feedback[] = [
@@ -101,8 +96,6 @@ const feedbacks: Feedback[] = [
   { id: 'fb-2', subject: 'Ahmed Hassan', reviewer: 'Nour Ibrahim', relationship: 'Direct Report', cycle: 'H1 2026', status: 'Submitted', submittedDate: '2026-05-05' },
   { id: 'fb-3', subject: 'Omar Farouk', reviewer: 'Khaled Abdel-Rahman', relationship: 'Peer', cycle: 'H1 2026', status: 'Pending', submittedDate: null },
   { id: 'fb-4', subject: 'Yasmin Mostafa', reviewer: 'Ahmed Hassan', relationship: 'Manager', cycle: 'H1 2026', status: 'Submitted', submittedDate: '2026-05-08' },
-  { id: 'fb-5', subject: 'Mohamed Ali', reviewer: 'Sara Mahmoud', relationship: 'Direct Report', cycle: 'H1 2026', status: 'Pending', submittedDate: null },
-  { id: 'fb-6', subject: 'Fatma El-Sayed', reviewer: 'Omar Farouk', relationship: 'Peer', cycle: 'H1 2026', status: 'Submitted', submittedDate: '2026-05-06' },
 ];
 
 // --- Helpers ---

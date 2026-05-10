@@ -46,7 +46,6 @@ const tickets = [
   { id: "TK-4507", subject: "Software license expired", requester: "Omar Samy", category: "Software", priority: "P3", status: "New", assignedTo: "—", sla: "On Track" },
   { id: "TK-4508", subject: "Password reset request", requester: "Fatma Ali", category: "Access", priority: "P4", status: "Closed", assignedTo: "IT Support L1", sla: "Met" },
   { id: "TK-4509", subject: "Network outage — Building B", requester: "NOC Alert", category: "Network", priority: "P1", status: "In Progress", assignedTo: "Network Team", sla: "At Risk" },
-  { id: "TK-4510", subject: "New employee onboarding setup", requester: "HR System", category: "Other", priority: "P3", status: "Assigned", assignedTo: "IT Support L2", sla: "On Track" },
 ];
 
 const kbArticles = [

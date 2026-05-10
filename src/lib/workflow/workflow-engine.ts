@@ -1609,25 +1609,25 @@ export function executeWorkflow(workflowId: string, triggerData?: Record<string,
       // Convert step results to legacy logs
       const workflow = workflowExecutor.getWorkflow(workflowId);
       if (workflow) {
-        execs[execIdx].logs = workflow.steps
-          .map((step) => {
-            const sr = instance.stepResults[step.id];
-            if (!sr) return null;
-            return {
-              stepId: step.id,
-              stepName: step.name,
-              status: sr.status === "COMPLETED" ? "success" as const
-                : sr.status === "FAILED" ? "failed" as const
-                : sr.status === "SKIPPED" ? "skipped" as const
-                : "pending" as const,
-              message: sr.error ?? (sr.output ? JSON.stringify(sr.output) : `Step ${sr.status.toLowerCase()}`),
-              timestamp: (sr.completedAt ?? sr.startedAt ?? new Date()).toISOString(),
-              duration: sr.startedAt && sr.completedAt
-                ? sr.completedAt.getTime() - sr.startedAt.getTime()
-                : undefined,
-            } satisfies WorkflowLog;
-          })
-          .filter((log): log is WorkflowLog => log !== null);
+        const logs: WorkflowLog[] = [];
+        for (const step of workflow.steps) {
+          const sr = instance.stepResults[step.id];
+          if (!sr) continue;
+          logs.push({
+            stepId: step.id,
+            stepName: step.name,
+            status: sr.status === "COMPLETED" ? "success"
+              : sr.status === "FAILED" ? "failed"
+              : sr.status === "SKIPPED" ? "skipped"
+              : "pending",
+            message: sr.error ?? (sr.output ? JSON.stringify(sr.output) : `Step ${sr.status.toLowerCase()}`),
+            timestamp: (sr.completedAt ?? sr.startedAt ?? new Date()).toISOString(),
+            duration: sr.startedAt && sr.completedAt
+              ? sr.completedAt.getTime() - sr.startedAt.getTime()
+              : undefined,
+          });
+        }
+        execs[execIdx].logs = logs;
       }
 
       saveExecutions(execs);

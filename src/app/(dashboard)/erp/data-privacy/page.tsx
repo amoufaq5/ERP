@@ -89,7 +89,6 @@ const PROCESSING_ACTIVITIES: ProcessingActivity[] = [
   { id: "PA-003", activity: "Clinical Trial Data Collection", purpose: "Regulatory compliance", legalBasis: "Legal Obligation", dataCategories: "Health, Personal, Genetic", recipients: "Regulatory Authority, CRO", retentionPeriod: "25 years", status: "Active" },
   { id: "PA-004", activity: "Website Analytics", purpose: "Service improvement", legalBasis: "Legitimate Interest", dataCategories: "Behavioral, Technical", recipients: "Analytics Provider", retentionPeriod: "2 years", status: "Active" },
   { id: "PA-005", activity: "Vendor Due Diligence", purpose: "Risk management", legalBasis: "Legitimate Interest", dataCategories: "Business Contact, Financial", recipients: "Internal Compliance", retentionPeriod: "5 years", status: "Under Review" },
-  { id: "PA-006", activity: "CCTV Monitoring", purpose: "Security", legalBasis: "Legitimate Interest", dataCategories: "Visual Images", recipients: "Security Team", retentionPeriod: "30 days", status: "Active" },
 ];
 
 const SUBJECT_REQUESTS: SubjectRequest[] = [
@@ -99,7 +98,6 @@ const SUBJECT_REQUESTS: SubjectRequest[] = [
   { id: "DSR-004", type: "Rectification", requester: "Sophie Martin", status: "Completed", receivedDate: "2026-03-10", dueDate: "2026-04-10" },
   { id: "DSR-005", type: "Restriction", requester: "Ahmed Youssef", status: "Received", receivedDate: "2026-05-05", dueDate: "2026-06-05" },
   { id: "DSR-006", type: "Erasure", requester: "Lisa Wong", status: "Denied", receivedDate: "2026-03-25", dueDate: "2026-04-25" },
-  { id: "DSR-007", type: "Access", requester: "Mark Johnson", status: "Processing", receivedDate: "2026-05-01", dueDate: "2026-06-01" },
 ];
 
 const CONSENT_RECORDS: ConsentRecord[] = [
@@ -108,7 +106,6 @@ const CONSENT_RECORDS: ConsentRecord[] = [
   { id: "CON-003", customer: "David Chen", purpose: "Third-party sharing", channel: "Email", consentGiven: false, date: "2026-03-10", expiry: "N/A" },
   { id: "CON-004", customer: "Sophie Martin", purpose: "Marketing emails", channel: "In-Store", consentGiven: true, date: "2026-01-05", expiry: "2027-01-05" },
   { id: "CON-005", customer: "Ahmed Youssef", purpose: "Clinical research", channel: "Paper Form", consentGiven: true, date: "2025-11-20", expiry: "2026-11-20" },
-  { id: "CON-006", customer: "Lisa Wong", purpose: "Marketing emails", channel: "Web Form", consentGiven: false, date: "2026-04-01", expiry: "N/A" },
 ];
 
 const BREACH_RECORDS: BreachRecord[] = [
@@ -351,13 +348,8 @@ export default function DataPrivacyPage() {
           <div className="border rounded-lg p-8 text-center">
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Data Protection Impact Assessments</h3>
-            <p className="text-muted-foreground mb-4">
-              No DPIAs have been created yet. Create a DPIA when processing is likely to result in high risk to individuals.
-            </p>
-            <Button onClick={() => setDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create DPIA
-            </Button>
+            <p className="text-muted-foreground mb-4">No DPIAs created yet. Create one when processing may result in high risk.</p>
+            <Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-2" />Create DPIA</Button>
           </div>
         </TabsContent>
       </Tabs>

@@ -77,8 +77,6 @@ const resources: Resource[] = [
   { id: 'r-6', name: 'Yasmin Mostafa', role: 'Senior Developer', skills: ['Python', 'Django', 'PostgreSQL'], availability: 0, currentProject: 'Data Platform', utilization: 100 },
   { id: 'r-7', name: 'Khaled Abdel-Rahman', role: 'QA Engineer', skills: ['Selenium', 'Cypress', 'API Testing'], availability: 50, currentProject: 'Client Portal', utilization: 50 },
   { id: 'r-8', name: 'Sara Mahmoud', role: 'Data Analyst', skills: ['Python', 'SQL', 'Tableau', 'Power BI'], availability: 60, currentProject: 'Reporting Module', utilization: 40 },
-  { id: 'r-9', name: 'Tarek Samy', role: 'Junior Developer', skills: ['JavaScript', 'React'], availability: 100, currentProject: null, utilization: 0 },
-  { id: 'r-10', name: 'Hana Adel', role: 'Scrum Master', skills: ['Agile', 'SAFe', 'Facilitation'], availability: 25, currentProject: 'ERP Implementation', utilization: 75 },
 ];
 
 const allocations: Allocation[] = [
@@ -87,11 +85,7 @@ const allocations: Allocation[] = [
   { id: 'al-3', resource: 'Mohamed Ali', project: 'ERP Implementation', role: 'PM', startDate: '2026-01-01', endDate: '2026-08-31', allocation: 90, status: 'Active' },
   { id: 'al-4', resource: 'Omar Farouk', project: 'Infrastructure Upgrade', role: 'DevOps Lead', startDate: '2026-04-01', endDate: '2026-06-15', allocation: 70, status: 'Active' },
   { id: 'al-5', resource: 'Yasmin Mostafa', project: 'Data Platform', role: 'Backend Developer', startDate: '2026-02-01', endDate: '2026-05-31', allocation: 100, status: 'Active' },
-  { id: 'al-6', resource: 'Khaled Abdel-Rahman', project: 'Client Portal', role: 'QA Lead', startDate: '2026-03-15', endDate: '2026-06-30', allocation: 50, status: 'Active' },
-  { id: 'al-7', resource: 'Sara Mahmoud', project: 'Reporting Module', role: 'Data Analyst', startDate: '2026-04-15', endDate: '2026-06-30', allocation: 40, status: 'Active' },
-  { id: 'al-8', resource: 'Hana Adel', project: 'ERP Implementation', role: 'Scrum Master', startDate: '2026-01-15', endDate: '2026-07-31', allocation: 75, status: 'Active' },
-  { id: 'al-9', resource: 'Ahmed Hassan', project: 'Mobile App', role: 'Architect', startDate: '2026-08-01', endDate: '2026-12-31', allocation: 60, status: 'Planned' },
-  { id: 'al-10', resource: 'Nour Ibrahim', project: 'CRM Integration', role: 'BA', startDate: '2026-05-15', endDate: '2026-08-31', allocation: 100, status: 'Planned' },
+  { id: 'al-9', resource: 'Nour Ibrahim', project: 'CRM Integration', role: 'BA', startDate: '2026-05-15', endDate: '2026-08-31', allocation: 100, status: 'Planned' },
 ];
 
 const capacityPlanning: CapacityRow[] = [
@@ -100,9 +94,6 @@ const capacityPlanning: CapacityRow[] = [
   { id: 'cp-3', resource: 'Mohamed Ali', role: 'Project Manager', week1: 90, week2: 90, week3: 90, week4: 90, projects: ['ERP Implementation'] },
   { id: 'cp-4', resource: 'Nour Ibrahim', role: 'Business Analyst', week1: 0, week2: 50, week3: 100, week4: 100, projects: ['CRM Integration'] },
   { id: 'cp-5', resource: 'Omar Farouk', role: 'DevOps Engineer', week1: 70, week2: 70, week3: 70, week4: 50, projects: ['Infrastructure Upgrade'] },
-  { id: 'cp-6', resource: 'Yasmin Mostafa', role: 'Senior Developer', week1: 100, week2: 100, week3: 80, week4: 60, projects: ['Data Platform'] },
-  { id: 'cp-7', resource: 'Khaled Abdel-Rahman', role: 'QA Engineer', week1: 50, week2: 50, week3: 50, week4: 50, projects: ['Client Portal'] },
-  { id: 'cp-8', resource: 'Sara Mahmoud', role: 'Data Analyst', week1: 40, week2: 40, week3: 40, week4: 40, projects: ['Reporting Module'] },
 ];
 
 const skillsMatrix: SkillEntry[] = [
@@ -113,9 +104,6 @@ const skillsMatrix: SkillEntry[] = [
   { id: 'sk-5', resource: 'Omar Farouk', skill: 'AWS', level: 'Advanced', yearsExp: 4, certified: true },
   { id: 'sk-6', resource: 'Omar Farouk', skill: 'Kubernetes', level: 'Intermediate', yearsExp: 2, certified: false },
   { id: 'sk-7', resource: 'Yasmin Mostafa', skill: 'Python', level: 'Expert', yearsExp: 7, certified: false },
-  { id: 'sk-8', resource: 'Sara Mahmoud', skill: 'Power BI', level: 'Advanced', yearsExp: 3, certified: true },
-  { id: 'sk-9', resource: 'Khaled Abdel-Rahman', skill: 'Cypress', level: 'Advanced', yearsExp: 3, certified: false },
-  { id: 'sk-10', resource: 'Tarek Samy', skill: 'React', level: 'Beginner', yearsExp: 1, certified: false },
 ];
 
 // --- Helpers ---

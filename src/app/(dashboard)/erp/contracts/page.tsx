@@ -75,7 +75,6 @@ const contracts: Contract[] = [
   { id: 'ct-7', contractNumber: 'CTR-2026-006', clientVendor: 'NewClient Ltd', type: 'Service', value: 350000, startDate: '2026-06-01', endDate: '2027-05-31', status: 'Draft' },
   { id: 'ct-8', contractNumber: 'CTR-2025-012', clientVendor: 'FailedDeal Inc', type: 'Service', value: 200000, startDate: '2025-03-01', endDate: '2026-02-28', status: 'Terminated' },
   { id: 'ct-9', contractNumber: 'CTR-2026-007', clientVendor: 'MegaCorp', type: 'License', value: 520000, startDate: '2026-04-01', endDate: '2029-03-31', status: 'Active' },
-  { id: 'ct-10', contractNumber: 'CTR-2026-008', clientVendor: 'SmallBiz Solutions', type: 'Employment', value: 85000, startDate: '2026-05-01', endDate: '2027-04-30', status: 'Active' },
 ];
 
 const renewals: Renewal[] = [
@@ -83,7 +82,6 @@ const renewals: Renewal[] = [
   { id: 'rn-2', contract: 'CTR-2026-004', client: 'BuildRight LLC', expiryDate: '2026-12-31', autoRenew: true, actionRequired: 'Review terms before auto-renewal' },
   { id: 'rn-3', contract: 'CTR-2026-003', client: 'Global Systems', expiryDate: '2027-02-28', autoRenew: false, actionRequired: 'Negotiate new pricing' },
   { id: 'rn-4', contract: 'CTR-2026-002', client: 'TechStart Inc', expiryDate: '2027-01-14', autoRenew: true, actionRequired: 'No action needed' },
-  { id: 'rn-5', contract: 'CTR-2026-008', client: 'SmallBiz Solutions', expiryDate: '2027-04-30', autoRenew: false, actionRequired: 'Performance review before renewal' },
 ];
 
 const obligations: Obligation[] = [
@@ -93,7 +91,6 @@ const obligations: Obligation[] = [
   { id: 'ob-4', contract: 'CTR-2026-003', obligation: 'License key renewal', party: 'Global Systems', dueDate: '2026-05-01', status: 'Completed' },
   { id: 'ob-5', contract: 'CTR-2026-004', obligation: 'Annual maintenance inspection', party: 'BuildRight LLC', dueDate: '2026-06-01', status: 'Pending' },
   { id: 'ob-6', contract: 'CTR-2026-007', obligation: 'SLA uptime guarantee (99.9%)', party: 'Us', dueDate: '2026-05-31', status: 'Pending' },
-  { id: 'ob-7', contract: 'CTR-2026-002', obligation: 'Data backup verification', party: 'Us', dueDate: '2026-05-10', status: 'Completed' },
 ];
 
 const templates: Template[] = [
