@@ -17,11 +17,10 @@ vi.mock('@/lib/prisma', () => {
   return { default: new Proxy({}, handler) };
 });
 
-// Import the route module to force it to evaluate
 import { POST } from '@/app/api/v1/qaqc/capa/route';
 
 describe('debug validation', () => {
-  it('should validate via safeParse and reject invalid type', async () => {
+  it('rejects invalid type with 400', async () => {
     const body = { title: 'Test', type: 'INVALID', priority: 'HIGH' };
     const req = new Request('http://localhost/api', {
       method: 'POST',
@@ -29,8 +28,6 @@ describe('debug validation', () => {
       body: JSON.stringify(body),
     });
     const res = await POST(req as any);
-    console.log('Response status:', res.status);
-    const resBody = await res.json();
-    console.log('Response body:', JSON.stringify(resBody));
+    expect(res.status).toBe(400);
   });
 });
