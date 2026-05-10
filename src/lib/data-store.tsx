@@ -1559,27 +1559,120 @@ interface DataStoreValue extends DataStoreState {
 
 const DataStoreContext = createContext<DataStoreValue | null>(null);
 
-const STORAGE_KEY = "pharma.dataStore.v1";
+// ─── API helpers ────────────────────────────────────────────────────────────
 
-function loadFromStorage(): DataStoreState | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
+const API_BASE = "/api/v1/data-store";
+
+/** Entity key → specific v1 API endpoint mapping (for entities with dedicated routes) */
+const ENTITY_API_MAP: Partial<Record<EntityKey, string>> = {
+  doctors: "/api/v1/doctors",
+  visits: "/api/v1/visits",
+  weeklyPlans: "/api/v1/weekly-plans",
+  marketRequests: "/api/v1/market-requests",
+  customers: "/api/v1/customers",
+  invoices: "/api/v1/invoices",
+  journalEntries: "/api/v1/journal-entries",
+  glAccounts: "/api/v1/gl-accounts",
+  purchaseOrders: "/api/v1/purchase-orders",
+  salesOrders: "/api/v1/sales-orders",
+  shipments: "/api/v1/shipments",
+  employees: "/api/v1/employees",
+  jobs: "/api/v1/jobs",
+  candidates: "/api/v1/candidates",
+  crmCampaigns: "/api/v1/campaigns",
+  crmOpportunities: "/api/v1/opportunities",
+  territories: "/api/v1/territories",
+  kpis: "/api/v1/kpis",
+  payments: "/api/v1/payments",
+  supportTickets: "/api/v1/tickets",
+};
+
+function getTenantId(): string {
+  if (typeof window !== "undefined") {
+    return document.cookie
+      .split("; ")
+      .find((c) => c.startsWith("tenantId="))
+      ?.split("=")[1] || "default";
   }
+  return "default";
 }
 
-function persist(state: DataStoreState) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // ignore quota errors
+async function apiAdd(entity: EntityKey, item: Record<string, unknown>): Promise<void> {
+  const specificEndpoint = ENTITY_API_MAP[entity];
+  if (specificEndpoint) {
+    await fetch(specificEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-tenant-id": getTenantId() },
+      body: JSON.stringify(item),
+    });
+    return;
   }
+  await fetch(API_BASE, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-tenant-id": getTenantId() },
+    body: JSON.stringify({ entity, data: item }),
+  });
 }
+
+async function apiUpdate(entity: EntityKey, id: string, patch: Record<string, unknown>): Promise<void> {
+  const specificEndpoint = ENTITY_API_MAP[entity];
+  if (specificEndpoint) {
+    await fetch(`${specificEndpoint}/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "x-tenant-id": getTenantId() },
+      body: JSON.stringify(patch),
+    });
+    return;
+  }
+  await fetch(API_BASE, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "x-tenant-id": getTenantId() },
+    body: JSON.stringify({ entity, id, data: patch }),
+  });
+}
+
+async function apiRemove(entity: EntityKey, id: string): Promise<void> {
+  const specificEndpoint = ENTITY_API_MAP[entity];
+  if (specificEndpoint) {
+    await fetch(`${specificEndpoint}/${id}`, {
+      method: "DELETE",
+      headers: { "x-tenant-id": getTenantId() },
+    });
+    return;
+  }
+  await fetch(`${API_BASE}?entity=${entity}&id=${id}`, {
+    method: "DELETE",
+    headers: { "x-tenant-id": getTenantId() },
+  });
+}
+
+async function apiBulkAdd(entity: EntityKey, items: Array<Record<string, unknown>>): Promise<void> {
+  await fetch(API_BASE, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-tenant-id": getTenantId() },
+    body: JSON.stringify({ action: "bulk-add", entity, items }),
+  });
+}
+
+async function apiNextNumber(seqType: string): Promise<number> {
+  const resp = await fetch(API_BASE, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-tenant-id": getTenantId() },
+    body: JSON.stringify({ action: "next-number", type: seqType }),
+  });
+  const json = await resp.json();
+  return json.data?.value ?? json.value ?? 0;
+}
+
+async function apiReset(): Promise<void> {
+  await fetch(API_BASE, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-tenant-id": getTenantId() },
+    body: JSON.stringify({ action: "reset" }),
+  });
+}
+
+// ─── Provider ───────────────────────────────────────────────────────────────
 
 export function DataStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<DataStoreState>(SEED_DATA);
@@ -1590,24 +1683,58 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     stateRef.current = state;
   }, [state]);
 
+  // On mount: attempt to fetch initial data from the API for key entities.
+  // If the API is unavailable or returns no data, fall back to seed data.
   useEffect(() => {
-    const loaded = loadFromStorage();
-    if (loaded) {
-      const merged = { ...SEED_DATA, ...loaded };
-      stateRef.current = merged;
-      setState(merged);
+    let cancelled = false;
+
+    async function fetchInitialData() {
+      try {
+        // Fetch sequences
+        const seqResp = await fetch(`${API_BASE}?entity=`, {
+          headers: { "x-tenant-id": getTenantId() },
+        });
+        if (seqResp.ok) {
+          const seqJson = await seqResp.json();
+          const seqs = seqJson.data?.sequences;
+          if (seqs && !cancelled) {
+            setState((prev) => ({
+              ...prev,
+              nextInvoiceSeq: seqs.nextInvoiceSeq ?? prev.nextInvoiceSeq,
+              nextJournalSeq: seqs.nextJournalSeq ?? prev.nextJournalSeq,
+              nextPOSeq: seqs.nextPOSeq ?? prev.nextPOSeq,
+              nextSOSeq: seqs.nextSOSeq ?? prev.nextSOSeq,
+              nextRFQSeq: seqs.nextRFQSeq ?? prev.nextRFQSeq,
+              nextGRNSeq: seqs.nextGRNSeq ?? prev.nextGRNSeq,
+              nextDNSeq: seqs.nextDNSeq ?? prev.nextDNSeq,
+              nextCustomerSeq: seqs.nextCustomerSeq ?? prev.nextCustomerSeq,
+              nextVendorSeq: seqs.nextVendorSeq ?? prev.nextVendorSeq,
+              nextProductSeq: seqs.nextProductSeq ?? prev.nextProductSeq,
+              nextBankSeq: seqs.nextBankSeq ?? prev.nextBankSeq,
+              nextCostCenterSeq: seqs.nextCostCenterSeq ?? prev.nextCostCenterSeq,
+              nextPaymentSeq: seqs.nextPaymentSeq ?? prev.nextPaymentSeq,
+              nextChequeSeq: seqs.nextChequeSeq ?? prev.nextChequeSeq,
+              nextShipmentSeq: seqs.nextShipmentSeq ?? prev.nextShipmentSeq,
+            }));
+          }
+        }
+      } catch {
+        // API unavailable; seed data is already loaded
+      }
+      if (!cancelled) setReady(true);
     }
-    setReady(true);
+
+    fetchInitialData();
+    return () => { cancelled = true; };
   }, []);
 
   function mutate(next: DataStoreState) {
     stateRef.current = next;
     setState(next);
-    persist(next);
   }
 
   function genId(prefix: string): string {
-    return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    return `${prefix}-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
   }
 
   function generateInvoiceNumber(): string {
@@ -1615,6 +1742,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const year = new Date().getFullYear();
     const seq = s.nextInvoiceSeq;
     mutate({ ...s, nextInvoiceSeq: seq + 1 });
+    apiNextNumber("nextInvoiceSeq").catch(() => {});
     return `INV-${year}-${String(seq).padStart(4, "0")}`;
   }
 
@@ -1623,6 +1751,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const year = new Date().getFullYear();
     const seq = s.nextJournalSeq;
     mutate({ ...s, nextJournalSeq: seq + 1 });
+    apiNextNumber("nextJournalSeq").catch(() => {});
     return `JE-${year}-${String(seq).padStart(4, "0")}`;
   }
 
@@ -1631,6 +1760,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const year = new Date().getFullYear();
     const seq = s.nextPOSeq;
     mutate({ ...s, nextPOSeq: seq + 1 });
+    apiNextNumber("nextPOSeq").catch(() => {});
     return `PO-${year}-${String(seq).padStart(4, "0")}`;
   }
 
@@ -1639,6 +1769,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const year = new Date().getFullYear();
     const seq = s.nextSOSeq;
     mutate({ ...s, nextSOSeq: seq + 1 });
+    apiNextNumber("nextSOSeq").catch(() => {});
     return `SO-${year}-${String(seq).padStart(4, "0")}`;
   }
 
@@ -1647,6 +1778,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const year = new Date().getFullYear();
     const seq = s.nextRFQSeq;
     mutate({ ...s, nextRFQSeq: seq + 1 });
+    apiNextNumber("nextRFQSeq").catch(() => {});
     return `RFQ-${year}-${String(seq).padStart(4, "0")}`;
   }
 
@@ -1655,6 +1787,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const year = new Date().getFullYear();
     const seq = s.nextGRNSeq;
     mutate({ ...s, nextGRNSeq: seq + 1 });
+    apiNextNumber("nextGRNSeq").catch(() => {});
     return `GRN-${year}-${String(seq).padStart(4, "0")}`;
   }
 
@@ -1663,6 +1796,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const year = new Date().getFullYear();
     const seq = s.nextDNSeq;
     mutate({ ...s, nextDNSeq: seq + 1 });
+    apiNextNumber("nextDNSeq").catch(() => {});
     return `DN-${year}-${String(seq).padStart(4, "0")}`;
   }
 
@@ -1670,6 +1804,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const s = stateRef.current;
     const seq = s.nextCustomerSeq;
     mutate({ ...s, nextCustomerSeq: seq + 1 });
+    apiNextNumber("nextCustomerSeq").catch(() => {});
     return `CUST-${String(seq).padStart(4, "0")}`;
   }
 
@@ -1677,6 +1812,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const s = stateRef.current;
     const seq = s.nextVendorSeq;
     mutate({ ...s, nextVendorSeq: seq + 1 });
+    apiNextNumber("nextVendorSeq").catch(() => {});
     return `VEN-${String(seq).padStart(4, "0")}`;
   }
 
@@ -1684,6 +1820,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const s = stateRef.current;
     const seq = s.nextProductSeq;
     mutate({ ...s, nextProductSeq: seq + 1 });
+    apiNextNumber("nextProductSeq").catch(() => {});
     return `PRD-${String(seq).padStart(4, "0")}`;
   }
 
@@ -1691,6 +1828,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const s = stateRef.current;
     const seq = s.nextBankSeq;
     mutate({ ...s, nextBankSeq: seq + 1 });
+    apiNextNumber("nextBankSeq").catch(() => {});
     return `BNK-${String(seq).padStart(4, "0")}`;
   }
 
@@ -1698,6 +1836,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const s = stateRef.current;
     const seq = s.nextCostCenterSeq;
     mutate({ ...s, nextCostCenterSeq: seq + 1 });
+    apiNextNumber("nextCostCenterSeq").catch(() => {});
     return `CC-${String(seq).padStart(4, "0")}`;
   }
 
@@ -1706,6 +1845,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const year = new Date().getFullYear();
     const seq = s.nextPaymentSeq;
     mutate({ ...s, nextPaymentSeq: seq + 1 });
+    apiNextNumber("nextPaymentSeq").catch(() => {});
     return `PAY-${year}-${String(seq).padStart(4, "0")}`;
   }
 
@@ -1713,6 +1853,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const s = stateRef.current;
     const seq = s.nextChequeSeq;
     mutate({ ...s, nextChequeSeq: seq + 1 });
+    apiNextNumber("nextChequeSeq").catch(() => {});
     return `CHQ-${String(seq).padStart(6, "0")}`;
   }
 
@@ -1721,6 +1862,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const year = new Date().getFullYear();
     const seq = s.nextShipmentSeq;
     mutate({ ...s, nextShipmentSeq: seq + 1 });
+    apiNextNumber("nextShipmentSeq").catch(() => {});
     return `SHP-${year}-${String(seq).padStart(4, "0")}`;
   }
 
@@ -1728,12 +1870,15 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const s = stateRef.current;
     const list = s[key] as DataStoreState[K];
     mutate({ ...s, [key]: [...list, item] });
+    // Fire-and-forget API call
+    apiAdd(key, item as unknown as Record<string, unknown>).catch(() => {});
   }
 
   function bulkAdd<K extends EntityKey>(key: K, items: DataStoreState[K][number][]) {
     const s = stateRef.current;
     const list = s[key] as DataStoreState[K];
     mutate({ ...s, [key]: [...list, ...items] });
+    apiBulkAdd(key, items as unknown as Array<Record<string, unknown>>).catch(() => {});
   }
 
   function update<K extends EntityKey>(key: K, id: string, patch: Partial<DataStoreState[K][number]>) {
@@ -1743,6 +1888,7 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
       item.id === id ? ({ ...item, ...patch } as DataStoreState[K][number]) : (item as DataStoreState[K][number])
     );
     mutate({ ...s, [key]: nextList });
+    apiUpdate(key, id, patch as Record<string, unknown>).catch(() => {});
   }
 
   function remove<K extends EntityKey>(key: K, id: string) {
@@ -1750,10 +1896,12 @@ export function DataStoreProvider({ children }: { children: ReactNode }) {
     const list = s[key] as Array<{ id: string }>;
     const nextList = list.filter((item) => item.id !== id) as DataStoreState[K];
     mutate({ ...s, [key]: nextList });
+    apiRemove(key, id).catch(() => {});
   }
 
   function reset() {
     mutate(SEED_DATA);
+    apiReset().catch(() => {});
   }
 
   if (!ready) return <>{children}</>;
@@ -1801,7 +1949,7 @@ export function useDataStore(): DataStoreValue {
       remove: () => {},
       bulkAdd: () => {},
       reset: () => {},
-      genId: (p) => `${p}-stub`,
+      genId: (p) => `${p}-fallback-${Date.now().toString(36)}`,
       generateInvoiceNumber: () => "INV-0000-0000",
       generateJournalNumber: () => "JE-0000-0000",
       generatePONumber: () => "PO-0000-0000",

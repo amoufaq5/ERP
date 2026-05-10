@@ -8,8 +8,7 @@ import type {
 } from "./tenant-types";
 import { TENANT_PLANS } from "./tenant-types";
 
-const STORAGE_KEY = "pharma.tenants";
-const USERS_STORAGE_KEY = "pharma.tenant-users";
+const API_BASE = "/api/v1/tenants";
 
 // ─── Seed Data ──────────────────────────────────────────────────────
 
@@ -111,14 +110,6 @@ const SEED_USERS: TenantUser[] = [
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
-function generateId(): string {
-  return `tn-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-function generateUserId(): string {
-  return `tu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
 function isClient(): boolean {
   return typeof window !== "undefined";
 }
@@ -128,59 +119,55 @@ function isClient(): boolean {
 class TenantStore {
   private tenants: Tenant[];
   private users: TenantUser[];
+  private initialized: boolean;
 
   constructor() {
-    this.tenants = [];
-    this.users = [];
-    this.load();
+    // Start with seed data; API data will replace on first access
+    this.tenants = [...SEED_TENANTS];
+    this.users = [...SEED_USERS];
+    this.initialized = false;
   }
 
-  // ── Persistence ─────────────────────────────────────────────────
+  // ── API calls ─────────────────────────────────────────────────
 
-  private load(): void {
-    if (!isClient()) {
-      // Server-side: use seed data only (no localStorage)
-      this.tenants = [...SEED_TENANTS];
-      this.users = [...SEED_USERS];
-      return;
-    }
+  private async fetchFromApi(): Promise<void> {
+    if (this.initialized || !isClient()) return;
+    this.initialized = true;
 
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const rawUsers = localStorage.getItem(USERS_STORAGE_KEY);
-
-      if (raw) {
-        this.tenants = JSON.parse(raw) as Tenant[];
-      } else {
-        this.tenants = [...SEED_TENANTS];
-      }
-
-      if (rawUsers) {
-        this.users = JSON.parse(rawUsers) as TenantUser[];
-      } else {
-        this.users = [...SEED_USERS];
+      const resp = await fetch(`${API_BASE}?limit=100`, {
+        headers: { "Content-Type": "application/json" },
+      });
+      if (resp.ok) {
+        const json = await resp.json();
+        const data = json.data ?? json.tenants ?? json ?? [];
+        if (Array.isArray(data) && data.length > 0) {
+          this.tenants = data;
+        }
       }
     } catch {
-      this.tenants = [...SEED_TENANTS];
-      this.users = [...SEED_USERS];
+      // API unavailable -- keep seed data
     }
-
-    this.save();
   }
 
-  private save(): void {
+  private async persistTenant(tenant: Tenant, method: "POST" | "PUT"): Promise<void> {
     if (!isClient()) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.tenants));
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(this.users));
+      await fetch(API_BASE, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(tenant),
+      });
     } catch {
-      // localStorage quota exceeded or unavailable — silently continue
+      // API unavailable -- local state is authoritative
     }
   }
 
   // ── Tenant CRUD ─────────────────────────────────────────────────
 
   getTenants(): Tenant[] {
+    // Trigger lazy fetch (fire-and-forget)
+    this.fetchFromApi().catch(() => {});
     return [...this.tenants];
   }
 
@@ -200,7 +187,7 @@ class TenantStore {
     const now = new Date().toISOString();
 
     const tenant: Tenant = {
-      id: generateId(),
+      id: `tn-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`,
       name: input.name,
       slug: input.slug,
       domain: input.domain,
@@ -219,7 +206,7 @@ class TenantStore {
     }
 
     this.tenants.push(tenant);
-    this.save();
+    this.persistTenant(tenant, "POST").catch(() => {});
     return tenant;
   }
 
@@ -234,7 +221,7 @@ class TenantStore {
     };
 
     this.tenants[idx] = updated;
-    this.save();
+    this.persistTenant(updated, "PUT").catch(() => {});
     return updated;
   }
 
@@ -270,7 +257,7 @@ class TenantStore {
     }
 
     const user: TenantUser = {
-      id: generateUserId(),
+      id: `tu-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`,
       tenantId,
       email: input.email,
       name: input.name,
@@ -279,7 +266,6 @@ class TenantStore {
     };
 
     this.users.push(user);
-    this.save();
     return user;
   }
 
@@ -290,7 +276,6 @@ class TenantStore {
     if (idx === -1) throw new Error(`User "${userId}" not found in tenant "${tenantId}"`);
 
     this.users.splice(idx, 1);
-    this.save();
   }
 
   // ── Reset (useful for testing) ──────────────────────────────────
@@ -298,7 +283,7 @@ class TenantStore {
   reset(): void {
     this.tenants = [...SEED_TENANTS];
     this.users = [...SEED_USERS];
-    this.save();
+    this.initialized = false;
   }
 }
 

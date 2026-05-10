@@ -59,7 +59,7 @@ import {
   Filter,
   Link2,
 } from "lucide-react";
-import { auditStore } from "@/lib/quality/audit-store";
+import { useAuditStore } from "@/lib/quality/audit-store";
 import type {
   Audit,
   AuditStatus,
@@ -166,6 +166,7 @@ const RATING_COLORS: Record<string, string> = {
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function AuditManagementPage() {
+  const store = useAuditStore();
   const [audits, setAudits] = useState<Audit[]>([]);
   const [metrics, setMetrics] = useState<AuditMetrics | null>(null);
   const [auditors, setAuditors] = useState<Auditor[]>([]);
@@ -215,14 +216,47 @@ export default function AuditManagementPage() {
   // ── Data Loading ────────────────────────────────────────────────────
 
   const refresh = useCallback(() => {
-    setAudits(auditStore.getAll());
-    setMetrics(auditStore.getMetrics());
-    setAuditors(auditStore.getAuditors());
-  }, []);
+    store.fetchAll();
+  }, [store]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Sync items from store
+  useEffect(() => {
+    const items = store.items as Audit[];
+    setAudits(items);
+    // Compute metrics from items
+    const allFindings = items.flatMap((a) => a.findings || []);
+    const openFindings = allFindings.filter((f) => f.status === "open" || f.status === "overdue");
+    const closedFindings = allFindings.filter((f) => f.status === "closed");
+    const computedMetrics: AuditMetrics = {
+      totalAudits: items.length,
+      planned: items.filter((a) => a.status === "planned").length,
+      inProgress: items.filter((a) => a.status === "in-progress").length,
+      completed: items.filter((a) => a.status === "completed").length,
+      cancelled: items.filter((a) => a.status === "cancelled").length,
+      totalFindings: allFindings.length,
+      openFindings: openFindings.length,
+      criticalFindings: allFindings.filter((f) => f.category === "critical" && f.status !== "closed").length,
+      findingClosureRate: allFindings.length > 0 ? Math.round((closedFindings.length / allFindings.length) * 100) : 0,
+      byType: (["internal", "external", "supplier", "regulatory", "self-inspection"] as AuditType[]).map((t) => ({ type: t, count: items.filter((a) => a.type === t).length })),
+      byDepartment: [...new Set(items.map((a) => a.department))].map((d) => ({ department: d, count: items.filter((a) => a.department === d).length })),
+      findingsByCategory: (["critical", "major", "minor", "observation", "opportunity"] as FindingCategory[]).map((c) => ({ category: c, count: allFindings.filter((f) => f.category === c).length })),
+      findingsByGMPArea: (["documentation", "facilities", "equipment", "personnel", "production", "quality-control", "warehousing", "complaints"] as GMPArea[]).map((area) => ({ area, count: allFindings.filter((f) => f.gmpArea === area).length })),
+      quarterlyTrend: [],
+    };
+    setMetrics(computedMetrics);
+    // Compute auditors from items
+    const auditorMap = new Map<string, Auditor>();
+    items.forEach((a) => {
+      if (a.leadAuditor) {
+        auditorMap.set(a.leadAuditor, { id: a.leadAuditor, name: a.leadAuditor, role: "Lead Auditor", department: a.department, certifications: [], auditsCompleted: 0 });
+      }
+    });
+    setAuditors(Array.from(auditorMap.values()));
+  }, [store.items]);
 
   // ── Derived Data ────────────────────────────────────────────────────
 
@@ -315,7 +349,7 @@ export default function AuditManagementPage() {
       .split("\n")
       .map((s) => s.trim())
       .filter(Boolean);
-    auditStore.create({
+    store.create({
       title: newAuditForm.title,
       type: newAuditForm.type,
       status: "planned",
@@ -329,7 +363,7 @@ export default function AuditManagementPage() {
       objectives,
       findings: [],
       createdAt: new Date().toISOString(),
-    });
+    } as any);
     setNewAuditForm({
       title: "",
       type: "internal",
@@ -345,7 +379,11 @@ export default function AuditManagementPage() {
 
   function handleAddFinding() {
     if (!selectedAudit || !newFindingForm.description) return;
-    auditStore.addFinding(selectedAudit.id, {
+    const currentAudit = store.items.find((i: any) => i.id === selectedAudit.id) as Audit | undefined;
+    const existingFindings = currentAudit?.findings || [];
+    const newFinding: AuditFinding = {
+      id: `finding-${Date.now()}`,
+      auditId: selectedAudit.id,
       category: newFindingForm.category,
       gmpArea: newFindingForm.gmpArea,
       description: newFindingForm.description,
@@ -358,7 +396,8 @@ export default function AuditManagementPage() {
         ? new Date(newFindingForm.responseDueDate).toISOString()
         : undefined,
       detectedAt: new Date().toISOString(),
-    });
+    };
+    store.update(selectedAudit.id, { findings: [...existingFindings, newFinding] } as any);
     setNewFindingForm({
       category: "minor",
       gmpArea: "documentation",
@@ -372,7 +411,7 @@ export default function AuditManagementPage() {
     setAddFindingOpen(false);
     refresh();
     // Re-select audit with updated data
-    const updated = auditStore.getById(selectedAudit.id);
+    const updated = store.items.find((i: any) => i.id === selectedAudit.id) as Audit | undefined;
     if (updated) setSelectedAudit(updated);
   }
 
@@ -424,12 +463,13 @@ export default function AuditManagementPage() {
       generatedBy: "Current User",
     };
 
-    const updated = auditStore.update(selectedAudit.id, {
+    store.update(selectedAudit.id, {
       report,
       status: "completed",
       endDate: new Date().toISOString(),
+    } as any).then((updated) => {
+      if (updated) setSelectedAudit(updated as unknown as Audit);
     });
-    if (updated) setSelectedAudit(updated);
     refresh();
   }
 

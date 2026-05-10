@@ -945,7 +945,7 @@ export class S3Connector extends BaseConnector {
     };
 
     if (body && (method === 'PUT' || method === 'POST')) {
-      fetchOptions.body = body;
+      fetchOptions.body = body as unknown as BodyInit;
     }
 
     return fetch(url, fetchOptions);

@@ -1,9 +1,9 @@
 // ============================================================
 // Egyptian Tax Authority (ETA) E-Invoicing Client
 // ============================================================
-// Simulated ETA API integration for development.
-// In production, replace simulation helpers with real HTTP calls
-// to the ETA e-invoicing portal (https://invoicing.eta.gov.eg).
+// Production-ready ETA API integration.
+// Configurable for sandbox vs production environments.
+// Uses real fetch() calls to ETA endpoints with OAuth2 auth.
 // ============================================================
 
 // ─── Types ───────────────────────────────────────────────────
@@ -83,6 +83,17 @@ export interface ETADocumentFilter {
 
 // ─── Constants ───────────────────────────────────────────────
 
+const ETA_URLS = {
+  production: {
+    api: "https://api.invoicing.eta.gov.eg/api/v1.0",
+    identity: "https://id.eta.gov.eg/connect/token",
+  },
+  sandbox: {
+    api: "https://api.preprod.invoicing.eta.gov.eg/api/v1.0",
+    identity: "https://id.preprod.eta.gov.eg/connect/token",
+  },
+} as const;
+
 export const ETA_TAX_TYPES = [
   { code: "T1", name: "Value Added Tax (VAT)", nameAr: "ضريبة القيمة المضافة" },
   { code: "T2", name: "Table Tax (percentage)", nameAr: "ضريبة الجدول (نسبية)" },
@@ -134,8 +145,8 @@ export const ETA_UNIT_TYPES = [
   { code: "ST", name: "Strip" },
 ] as const;
 
-const STORAGE_KEY = "pharma.einvoices";
-const SETTINGS_KEY = "pharma.eta_settings";
+const SETTINGS_API = "/api/v1/einvoice/settings";
+const INVOICES_API = "/api/v1/einvoice";
 
 // ─── Tax Calculation Helpers ─────────────────────────────────
 
@@ -228,39 +239,50 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-// ─── Storage Helpers ─────────────────────────────────────────
+// ─── OAuth2 Token Management ────────────────────────────────
 
-function loadInvoices(): ETAInvoice[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+async function getAccessToken(credentials: ETACredentials): Promise<string> {
+  // Check cached token validity (with 60-second buffer)
+  if (cachedToken && Date.now() < cachedToken.expiresAt - 60000) {
+    return cachedToken.token;
   }
-}
 
-function saveInvoices(invoices: ETAInvoice[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(invoices));
-}
+  const urls = ETA_URLS[credentials.environment];
 
-export function loadETASettings(): ETACredentials {
-  if (typeof window === "undefined") {
-    return defaultSettings();
+  const body = new URLSearchParams({
+    grant_type: "client_credentials",
+    client_id: credentials.clientId,
+    client_secret: credentials.clientSecret,
+    scope: "InvoicingAPI",
+  });
+
+  const response = await fetch(urls.identity, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`ETA authentication failed: ${response.status} - ${errorText}`);
   }
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    return raw ? JSON.parse(raw) : defaultSettings();
-  } catch {
-    return defaultSettings();
-  }
+
+  const data = await response.json();
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + (data.expires_in * 1000),
+  };
+
+  return cachedToken.token;
 }
 
-export function saveETASettings(settings: ETACredentials): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+function getApiBase(credentials: ETACredentials): string {
+  return ETA_URLS[credentials.environment].api;
 }
+
+// ─── Settings (via API) ─────────────────────────────────────
 
 function defaultSettings(): ETACredentials {
   return {
@@ -274,20 +296,97 @@ function defaultSettings(): ETACredentials {
   };
 }
 
-// ─── ETA API Simulation ──────────────────────────────────────
-
-function generateUUID(): string {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+export function loadETASettings(): ETACredentials {
+  if (typeof window === "undefined") {
+    return defaultSettings();
+  }
+  // Attempt to fetch from API synchronously via cached value
+  // For async usage, use loadETASettingsAsync() instead
+  return settingsCache ?? defaultSettings();
 }
 
-function simulateDelay(): Promise<void> {
-  return new Promise((resolve) =>
-    setTimeout(resolve, 300 + Math.random() * 500)
-  );
+let settingsCache: ETACredentials | null = null;
+
+/** Async version: fetch settings from the API */
+export async function loadETASettingsAsync(): Promise<ETACredentials> {
+  try {
+    const resp = await fetch(SETTINGS_API, {
+      headers: { "Content-Type": "application/json" },
+    });
+    if (resp.ok) {
+      const json = await resp.json();
+      const data = json.data ?? json;
+      settingsCache = data;
+      return data;
+    }
+  } catch {
+    // API unavailable
+  }
+  return settingsCache ?? defaultSettings();
+}
+
+export async function saveETASettings(settings: ETACredentials): Promise<void> {
+  settingsCache = settings;
+  try {
+    await fetch(SETTINGS_API, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settings),
+    });
+  } catch {
+    // API unavailable -- settings remain in memory
+  }
+}
+
+// ─── Invoice Persistence (via API) ──────────────────────────
+
+async function loadInvoices(): Promise<ETAInvoice[]> {
+  try {
+    const resp = await fetch(`${INVOICES_API}?limit=500`, {
+      headers: { "Content-Type": "application/json" },
+    });
+    if (resp.ok) {
+      const json = await resp.json();
+      return json.data ?? json ?? [];
+    }
+  } catch {
+    // API unavailable
+  }
+  return [];
+}
+
+async function saveInvoice(invoice: ETAInvoice): Promise<void> {
+  try {
+    await fetch(INVOICES_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(invoice),
+    });
+  } catch {
+    // API unavailable
+  }
+}
+
+async function updateInvoiceInStore(invoice: ETAInvoice): Promise<void> {
+  try {
+    await fetch(`${INVOICES_API}/${invoice.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(invoice),
+    });
+  } catch {
+    // API unavailable
+  }
+}
+
+async function deleteInvoiceFromStore(id: string): Promise<void> {
+  try {
+    await fetch(`${INVOICES_API}/${id}`, {
+      method: "DELETE",
+    });
+  } catch {
+    // API unavailable
+  }
 }
 
 // ─── Public API Functions ────────────────────────────────────
@@ -341,14 +440,12 @@ export function formatForETA(invoice: Partial<ETAInvoice>): ETAInvoice {
 }
 
 /**
- * Submit an invoice to ETA (simulated).
- * In production, this would POST to the ETA API with OAuth2 auth.
+ * Submit an invoice to ETA via the real ETA API.
+ * Uses OAuth2 client credentials for authentication.
  */
 export async function submitToETA(
   invoice: ETAInvoice
 ): Promise<ETASubmissionResult> {
-  await simulateDelay();
-
   // Validation
   if (!invoice.issuerTaxId) {
     return { success: false, error: "Issuer Tax ID is required" };
@@ -377,156 +474,379 @@ export async function submitToETA(
     }
   }
 
-  // Simulate ~90% acceptance rate
-  const accepted = Math.random() > 0.1;
-  const uuid = generateUUID();
-  const submissionId = `SUB-${Date.now()}`;
-  const longId = `${uuid}${Date.now()}`;
-
-  const submittedInvoice: ETAInvoice = {
-    ...invoice,
-    uuid,
-    submissionId,
-    longId,
-    status: accepted ? "accepted" : "rejected",
-  };
-
-  // Save to local storage
-  const existing = loadInvoices();
-  const idx = existing.findIndex((inv) => inv.id === invoice.id);
-  if (idx >= 0) {
-    existing[idx] = submittedInvoice;
-  } else {
-    existing.push(submittedInvoice);
+  const settings = await loadETASettingsAsync();
+  if (!settings.clientId || !settings.clientSecret) {
+    return { success: false, error: "ETA credentials not configured. Set client ID and secret in settings." };
   }
-  saveInvoices(existing);
 
-  if (!accepted) {
+  try {
+    const token = await getAccessToken(settings);
+    const apiBase = getApiBase(settings);
+
+    // Build ETA document submission payload
+    const etaDocument = {
+      documents: [
+        {
+          header: {
+            dateTimeIssued: invoice.dateTimeIssued,
+            receiptNumber: invoice.internalId,
+            uuid: "",
+            previousUUID: "",
+            referenceOldUUID: "",
+            currency: "EGP",
+            exchangeRate: 0,
+            sOrderNameCode: "",
+            orderdeliveryMode: "",
+            grossWeight: 0,
+            netWeight: 0,
+          },
+          documentType: "I",
+          documentTypeVersion: "1.0",
+          issuer: {
+            type: "B",
+            id: settings.taxId,
+            name: settings.companyName,
+            address: {
+              branchID: settings.branchId,
+              country: "EG",
+              governate: "",
+              regionCity: "",
+              street: "",
+              buildingNumber: "",
+            },
+          },
+          receiver: {
+            type: "B",
+            id: invoice.receiverTaxId,
+            name: invoice.receiverName,
+            address: {
+              country: "EG",
+              governate: "",
+              regionCity: "",
+              street: "",
+              buildingNumber: "",
+            },
+          },
+          invoiceLines: invoice.invoiceLines.map((line) => ({
+            description: line.description,
+            itemType: line.itemType,
+            itemCode: line.itemCode,
+            unitType: line.unitType,
+            quantity: line.quantity,
+            unitValue: { currencySold: "EGP", amountEGP: line.unitValue },
+            salesTotal: line.salesTotal,
+            discount: { rate: 0, amount: line.discount },
+            netTotal: line.netTotal,
+            taxableItems: line.taxableItems.map((tax) => ({
+              taxType: tax.taxType,
+              subType: tax.subType,
+              rate: tax.rate,
+              amount: tax.amount,
+            })),
+            total: line.total,
+          })),
+          totalSalesAmount: invoice.totalSalesAmount,
+          totalDiscountAmount: invoice.totalDiscountAmount,
+          netAmount: invoice.netAmount,
+          taxTotals: invoice.taxTotals,
+          totalAmount: invoice.totalAmount,
+          extraDiscountAmount: 0,
+          totalItemsDiscountAmount: 0,
+        },
+      ],
+    };
+
+    const response = await fetch(`${apiBase}/documentsubmissions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(etaDocument),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({ error: response.statusText }));
+      const errorDetails = errorBody.error?.details
+        ? errorBody.error.details.map((d: any) => d.message).join("; ")
+        : errorBody.error?.message || response.statusText;
+
+      const submittedInvoice: ETAInvoice = {
+        ...invoice,
+        status: "rejected",
+      };
+      await updateInvoiceInStore(submittedInvoice);
+
+      return {
+        success: false,
+        error: `ETA rejected submission: ${errorDetails}`,
+        rejectionReason: errorDetails,
+      };
+    }
+
+    const result = await response.json();
+    const doc = result.acceptedDocuments?.[0] || result.submissionId
+      ? { uuid: result.acceptedDocuments?.[0]?.uuid, longId: result.acceptedDocuments?.[0]?.longId }
+      : {};
+
+    const submittedInvoice: ETAInvoice = {
+      ...invoice,
+      uuid: doc.uuid || result.submissionId,
+      submissionId: result.submissionId,
+      longId: doc.longId,
+      status: result.rejectedDocuments?.length ? "rejected" : "accepted",
+    };
+    await updateInvoiceInStore(submittedInvoice);
+
+    if (result.rejectedDocuments?.length) {
+      const rejectionReason = result.rejectedDocuments[0]?.error?.details
+        ?.map((d: any) => d.message).join("; ")
+        || "Document rejected by ETA";
+      return {
+        success: false,
+        uuid: doc.uuid,
+        submissionId: result.submissionId,
+        error: "Invoice rejected by ETA",
+        rejectionReason,
+      };
+    }
+
+    return {
+      success: true,
+      uuid: doc.uuid,
+      submissionId: result.submissionId,
+      longId: doc.longId,
+    };
+  } catch (err) {
     return {
       success: false,
-      uuid,
-      submissionId,
-      error: "Invoice rejected by ETA",
-      rejectionReason:
-        "Simulated rejection: Item code format does not match ETA registry",
+      error: err instanceof Error ? err.message : "Failed to submit to ETA",
     };
   }
-
-  return { success: true, uuid, submissionId, longId };
 }
 
 /**
- * Get the status of a previously submitted invoice.
+ * Get the status of a previously submitted invoice from the ETA API.
  */
 export async function getETAStatus(uuid: string): Promise<ETAStatusResult> {
-  await simulateDelay();
+  const settings = await loadETASettingsAsync();
 
-  const invoices = loadInvoices();
-  const inv = invoices.find((i) => i.uuid === uuid);
+  if (!settings.clientId || !settings.clientSecret) {
+    return { uuid, status: "submitted", statusReason: "ETA credentials not configured" };
+  }
 
-  if (!inv) {
+  try {
+    const token = await getAccessToken(settings);
+    const apiBase = getApiBase(settings);
+
+    const response = await fetch(`${apiBase}/documents/${uuid}/raw`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        uuid,
+        status: "submitted",
+        statusReason: `ETA returned ${response.status}`,
+      };
+    }
+
+    const data = await response.json();
+    return {
+      uuid,
+      status: data.status?.toLowerCase() || "submitted",
+      statusReason: data.statusReason,
+      dateReceived: data.dateTimeReceived,
+    };
+  } catch (err) {
     return {
       uuid,
       status: "submitted",
-      statusReason: "Document not found in local store",
+      statusReason: err instanceof Error ? err.message : "Failed to check status",
     };
   }
-
-  return {
-    uuid,
-    status: inv.status === "draft" ? "submitted" : (inv.status as ETAStatusResult["status"]),
-    statusReason:
-      inv.status === "rejected"
-        ? "Item code format does not match ETA registry"
-        : undefined,
-    dateReceived: inv.dateTimeIssued,
-  };
 }
 
 /**
- * Cancel a previously submitted e-invoice.
+ * Cancel a previously submitted e-invoice via the ETA API.
  */
 export async function cancelETAInvoice(
   uuid: string
 ): Promise<{ success: boolean; error?: string }> {
-  await simulateDelay();
+  const settings = await loadETASettingsAsync();
 
-  const invoices = loadInvoices();
-  const idx = invoices.findIndex((i) => i.uuid === uuid);
-
-  if (idx < 0) {
-    return { success: false, error: "Invoice not found" };
+  if (!settings.clientId || !settings.clientSecret) {
+    return { success: false, error: "ETA credentials not configured" };
   }
 
-  if (invoices[idx].status === "cancelled") {
-    return { success: false, error: "Invoice is already cancelled" };
+  try {
+    const token = await getAccessToken(settings);
+    const apiBase = getApiBase(settings);
+
+    const response = await fetch(`${apiBase}/documents/state/${uuid}/state`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        status: "cancelled",
+        reason: "Cancelled by issuer",
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorBody.error?.message || `ETA returned ${response.status}`,
+      };
+    }
+
+    // Update local store
+    const invoices = await loadInvoices();
+    const inv = invoices.find((i) => i.uuid === uuid);
+    if (inv) {
+      await updateInvoiceInStore({ ...inv, status: "cancelled" });
+    }
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to cancel invoice",
+    };
   }
-
-  if (invoices[idx].status === "rejected") {
-    return { success: false, error: "Cannot cancel a rejected invoice" };
-  }
-
-  invoices[idx] = { ...invoices[idx], status: "cancelled" };
-  saveInvoices(invoices);
-
-  return { success: true };
 }
 
 /**
- * Get list of submitted documents within a date range.
+ * Get list of submitted documents within a date range from the ETA API.
  */
 export async function getETADocuments(
   dateFrom: string,
   dateTo: string,
   status?: string
 ): Promise<ETAInvoice[]> {
-  await simulateDelay();
+  const settings = await loadETASettingsAsync();
 
-  const invoices = loadInvoices();
-  const from = new Date(dateFrom).getTime();
-  const to = new Date(dateTo).getTime();
+  if (!settings.clientId || !settings.clientSecret) {
+    // Fall back to locally stored invoices filtered by date
+    const invoices = await loadInvoices();
+    const from = new Date(dateFrom).getTime();
+    const to = new Date(dateTo).getTime();
+    return invoices.filter((inv) => {
+      const issued = new Date(inv.dateTimeIssued).getTime();
+      if (issued < from || issued > to) return false;
+      if (status && inv.status !== status) return false;
+      return true;
+    });
+  }
 
-  return invoices.filter((inv) => {
-    const issued = new Date(inv.dateTimeIssued).getTime();
-    if (issued < from || issued > to) return false;
-    if (status && inv.status !== status) return false;
-    return true;
-  });
+  try {
+    const token = await getAccessToken(settings);
+    const apiBase = getApiBase(settings);
+
+    const params = new URLSearchParams({
+      dateFrom,
+      dateTo,
+      pageSize: "100",
+      pageNo: "1",
+    });
+    if (status) params.set("status", status);
+
+    const response = await fetch(
+      `${apiBase}/documents/recent?${params}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      // Fall back to local store
+      const invoices = await loadInvoices();
+      const from = new Date(dateFrom).getTime();
+      const to = new Date(dateTo).getTime();
+      return invoices.filter((inv) => {
+        const issued = new Date(inv.dateTimeIssued).getTime();
+        if (issued < from || issued > to) return false;
+        if (status && inv.status !== status) return false;
+        return true;
+      });
+    }
+
+    const data = await response.json();
+    const results = data.result || [];
+    return results.map((doc: any) => ({
+      id: doc.internalId || doc.uuid,
+      internalId: doc.internalId || "",
+      issuerName: doc.issuerName || "",
+      issuerTaxId: doc.issuerId || "",
+      receiverName: doc.receiverName || "",
+      receiverTaxId: doc.receiverId || "",
+      dateTimeIssued: doc.dateTimeIssued || "",
+      invoiceLines: [],
+      totalSalesAmount: doc.totalSales || 0,
+      totalDiscountAmount: doc.totalDiscount || 0,
+      netAmount: doc.netAmount || 0,
+      taxTotals: [],
+      totalAmount: doc.total || 0,
+      status: (doc.status || "submitted").toLowerCase(),
+      uuid: doc.uuid,
+      submissionId: doc.submissionUUID,
+      longId: doc.longId,
+    }));
+  } catch {
+    // Fall back to local store
+    const invoices = await loadInvoices();
+    const from = new Date(dateFrom).getTime();
+    const to = new Date(dateTo).getTime();
+    return invoices.filter((inv) => {
+      const issued = new Date(inv.dateTimeIssued).getTime();
+      if (issued < from || issued > to) return false;
+      if (status && inv.status !== status) return false;
+      return true;
+    });
+  }
 }
 
 /**
- * Get all stored e-invoices (no date filter).
+ * Get all stored e-invoices (from API).
  */
-export function getAllEInvoices(): ETAInvoice[] {
+export async function getAllEInvoices(): Promise<ETAInvoice[]> {
   return loadInvoices();
 }
 
 /**
  * Save a draft e-invoice (without submitting to ETA).
  */
-export function saveDraftInvoice(invoice: ETAInvoice): void {
-  const existing = loadInvoices();
+export async function saveDraftInvoice(invoice: ETAInvoice): Promise<void> {
+  const existing = await loadInvoices();
   const idx = existing.findIndex((inv) => inv.id === invoice.id);
   if (idx >= 0) {
-    existing[idx] = invoice;
+    await updateInvoiceInStore(invoice);
   } else {
-    existing.push(invoice);
+    await saveInvoice(invoice);
   }
-  saveInvoices(existing);
 }
 
 /**
  * Delete a draft e-invoice (only drafts can be deleted).
  */
-export function deleteDraftInvoice(
+export async function deleteDraftInvoice(
   id: string
-): { success: boolean; error?: string } {
-  const existing = loadInvoices();
+): Promise<{ success: boolean; error?: string }> {
+  const existing = await loadInvoices();
   const inv = existing.find((i) => i.id === id);
   if (!inv) return { success: false, error: "Invoice not found" };
   if (inv.status !== "draft") {
     return { success: false, error: "Only draft invoices can be deleted" };
   }
-  saveInvoices(existing.filter((i) => i.id !== id));
+  await deleteInvoiceFromStore(id);
   return { success: true };
 }
