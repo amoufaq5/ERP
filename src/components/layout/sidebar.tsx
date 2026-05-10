@@ -80,6 +80,15 @@ import {
   Undo2,
   Search,
   FileCheck,
+  Hotel,
+  ShoppingCart as ShoppingCartIcon,
+  Utensils,
+  BedDouble,
+  Monitor,
+  HardDrive,
+  LifeBuoy,
+  Gauge,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -119,6 +128,10 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Accounting", labelKey: "nav.accounting", href: "/erp/accounting", icon: Calculator },
       { label: "Collections", labelKey: "nav.collections", href: "/erp/collections", icon: Banknote },
       { label: "Partner Ledger", labelKey: "nav.partnerLedger", href: "/erp/partner-detail", icon: Scale },
+      { label: "Treasury", href: "/erp/treasury", icon: DollarSign },
+      { label: "Cost Accounting", href: "/erp/cost-accounting", icon: Calculator },
+      { label: "Budgeting", href: "/erp/budgeting", icon: PieChart },
+      { label: "Tax Management", href: "/erp/tax-management", icon: Scale },
     ],
   },
   {
@@ -128,6 +141,10 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Hub Overview", labelKey: "sidebar.hubOverview", href: "/hubs/hr", icon: LayoutDashboard },
       { label: "HR & Payroll", labelKey: "sidebar.hrPayroll", href: "/erp/hr", icon: Users },
+      { label: "Payroll", href: "/erp/payroll", icon: Banknote },
+      { label: "Benefits", href: "/erp/benefits", icon: Heart },
+      { label: "Performance", href: "/erp/performance", icon: Target },
+      { label: "Time Tracking", href: "/erp/time-tracking", icon: CalendarCheck },
       { label: "Jobs", labelKey: "sidebar.jobs", href: "/ats/jobs", icon: Briefcase },
       { label: "Candidates", labelKey: "sidebar.candidates", href: "/ats/candidates", icon: UserSearch },
       { label: "Interviews", labelKey: "nav.interviews", href: "/ats/interviews", icon: CalendarCheck },
@@ -157,6 +174,11 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Accounts", labelKey: "nav.accounts", href: "/crm/accounts", icon: Building2 },
       { label: "Sales Pipeline", labelKey: "nav.leads", href: "/crm/leads", icon: Sparkles },
       { label: "Marketing Hub", labelKey: "nav.campaigns", href: "/crm/campaigns", icon: Megaphone },
+      { label: "Customer Portal", href: "/crm/customer-portal", icon: Globe },
+      { label: "Field Service", href: "/crm/field-service", icon: Wrench },
+      { label: "Subscriptions", href: "/crm/subscriptions", icon: Undo2 },
+      { label: "Marketing Auto", href: "/crm/marketing-automation", icon: Zap },
+      { label: "Contracts", href: "/erp/contracts", icon: FileText },
     ],
   },
   {
@@ -222,9 +244,42 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Projects", labelKey: "sidebar.projects", href: "/erp/projects", icon: FolderKanban },
       { label: "Manufacturing", labelKey: "sidebar.manufacturing", href: "/erp/manufacturing", icon: Factory },
+      { label: "MES", href: "/erp/mes", icon: Gauge },
+      { label: "Plant Maintenance", href: "/erp/plant-maintenance", icon: Wrench },
+      { label: "WMS", href: "/erp/wms", icon: Package },
+      { label: "TMS", href: "/erp/tms", icon: Truck },
       { label: "Facility", labelKey: "sidebar.facility", href: "/facility", icon: Wrench },
       { label: "Planning", labelKey: "sidebar.planning", href: "/planning", icon: Target },
       { label: "Industry", labelKey: "sidebar.industry", href: "/industry", icon: Factory },
+    ],
+  },
+  {
+    title: "Retail",
+    icon: ShoppingCartIcon,
+    items: [
+      { label: "POS", href: "/retail/pos", icon: CreditCard },
+      { label: "Merchandise", href: "/retail/merchandise", icon: ShoppingCartIcon },
+      { label: "Store Operations", href: "/retail/store-ops", icon: Building },
+      { label: "Loyalty", href: "/retail/loyalty", icon: Heart },
+    ],
+  },
+  {
+    title: "Hospitality",
+    icon: Hotel,
+    items: [
+      { label: "Property Mgmt", href: "/hospitality/pms", icon: Hotel },
+      { label: "Reservations", href: "/hospitality/reservations", icon: CalendarCheck },
+      { label: "F&B", href: "/hospitality/fnb", icon: Utensils },
+      { label: "Housekeeping", href: "/hospitality/housekeeping", icon: BedDouble },
+    ],
+  },
+  {
+    title: "IT Operations",
+    icon: Monitor,
+    items: [
+      { label: "IT Helpdesk", href: "/it/helpdesk", icon: LifeBuoy },
+      { label: "IT Assets", href: "/it/assets", icon: HardDrive },
+      { label: "Change Mgmt", href: "/it/change-management", icon: GitBranch },
     ],
   },
   {
