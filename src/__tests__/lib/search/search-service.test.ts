@@ -200,6 +200,7 @@ describe('Search Service - Relevance Ranking', () => {
 
     mockQueryRaw.mockResolvedValueOnce(searchRows);
     mockQueryRaw.mockResolvedValueOnce(countRows);
+    mockQueryRaw.mockResolvedValueOnce([]); // suggestions
 
     const result = await search('acme');
 
@@ -222,6 +223,7 @@ describe('Search Service - Relevance Ranking', () => {
 
     mockQueryRaw.mockResolvedValueOnce(searchRows);
     mockQueryRaw.mockResolvedValueOnce(countRows);
+    mockQueryRaw.mockResolvedValueOnce([]); // suggestions
 
     const result = await search('acme');
 
@@ -257,6 +259,7 @@ describe('Search Service - Highlighting', () => {
 
     mockQueryRaw.mockResolvedValueOnce(searchRows);
     mockQueryRaw.mockResolvedValueOnce(countRows);
+    mockQueryRaw.mockResolvedValueOnce([]); // suggestions
 
     const result = await search('acme', { highlight: true });
 
@@ -273,6 +276,7 @@ describe('Search Service - Highlighting', () => {
 
     mockQueryRaw.mockResolvedValueOnce(searchRows);
     mockQueryRaw.mockResolvedValueOnce(countRows);
+    mockQueryRaw.mockResolvedValueOnce([]); // suggestions
 
     const result = await search('acme', { highlight: false });
 
@@ -293,21 +297,23 @@ describe('Search Service - Pagination', () => {
   it('passes limit and offset to the raw query', async () => {
     mockQueryRaw.mockResolvedValueOnce([]);
     mockQueryRaw.mockResolvedValueOnce([]);
+    mockQueryRaw.mockResolvedValueOnce([]); // suggestions
 
     await search('test', { limit: 10, offset: 20 });
 
-    // Verify the SQL was constructed with limit/offset
-    expect(mockQueryRaw).toHaveBeenCalledTimes(2);
+    // Verify the SQL was constructed with limit/offset (search + count + suggestions)
+    expect(mockQueryRaw).toHaveBeenCalledTimes(3);
   });
 
   it('defaults limit to 20 and offset to 0', async () => {
     mockQueryRaw.mockResolvedValueOnce([]);
     mockQueryRaw.mockResolvedValueOnce([]);
+    mockQueryRaw.mockResolvedValueOnce([]); // suggestions
 
     await search('test');
 
     // The function should run without error (defaults applied internally)
-    expect(mockQueryRaw).toHaveBeenCalledTimes(2);
+    expect(mockQueryRaw).toHaveBeenCalledTimes(3);
   });
 
   it('returns totalHits from count queries (may exceed page size)', async () => {
@@ -320,6 +326,7 @@ describe('Search Service - Pagination', () => {
 
     mockQueryRaw.mockResolvedValueOnce(searchRows);
     mockQueryRaw.mockResolvedValueOnce(countRows);
+    mockQueryRaw.mockResolvedValueOnce([]); // suggestions
 
     const result = await search('customer', { limit: 2 });
 
@@ -355,6 +362,7 @@ describe('Search Service - Result Structure', () => {
 
     mockQueryRaw.mockResolvedValueOnce(searchRows);
     mockQueryRaw.mockResolvedValueOnce(countRows);
+    mockQueryRaw.mockResolvedValueOnce([]); // suggestions
 
     const result = await search('acme', { entities: ['customer'] });
 
@@ -389,6 +397,7 @@ describe('Search Service - Result Structure', () => {
 
     mockQueryRaw.mockResolvedValueOnce(searchRows);
     mockQueryRaw.mockResolvedValueOnce(countRows);
+    mockQueryRaw.mockResolvedValueOnce([]); // suggestions
 
     const result = await search('test');
 
@@ -412,6 +421,7 @@ describe('Search Service - Result Structure', () => {
 
     mockQueryRaw.mockResolvedValueOnce(searchRows);
     mockQueryRaw.mockResolvedValueOnce(countRows);
+    mockQueryRaw.mockResolvedValueOnce([]); // suggestions
 
     const result = await search('widget', { entities: ['product'] });
 
@@ -436,6 +446,7 @@ describe('Search Service - Result Structure', () => {
 
     mockQueryRaw.mockResolvedValueOnce(searchRows);
     mockQueryRaw.mockResolvedValueOnce(countRows);
+    mockQueryRaw.mockResolvedValueOnce([]); // suggestions
 
     const result = await search('widget', { entities: ['product'] });
 
@@ -496,7 +507,7 @@ describe('Search API Route - Parameter Handling', () => {
     // Special chars should be stripped, only "acme" remains
     mockQueryRaw.mockResolvedValueOnce([]);
     mockQueryRaw.mockResolvedValueOnce([]);
-    mockQueryRaw.mockResolvedValueOnce([]); // suggestions
+    mockQueryRaw.mockResolvedValueOnce([]); // suggestions for "acme"
 
     const result = await search('acme!@#$');
 

@@ -3,8 +3,8 @@ import { z } from 'zod';
 
 const updateSchema = z.object({
   title: z.string().min(1).optional(),
-  type: z.enum(['INTERNAL', 'EXTERNAL', 'SUPPLIER']).optional(),
-  status: z.enum(['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CLOSED']).optional(),
+  type: z.string().optional(),
+  status: z.string().optional(),
   auditor: z.string().optional(),
   auditee: z.string().optional(),
   department: z.string().optional(),
@@ -12,7 +12,7 @@ const updateSchema = z.object({
   completedDate: z.string().optional(),
   score: z.number().optional(),
   notes: z.string().optional(),
-}).partial();
+}).passthrough().partial();
 
 export const { GET, PATCH, DELETE } = createRouteHandlersWithId({
   entity: 'audits',
@@ -20,4 +20,35 @@ export const { GET, PATCH, DELETE } = createRouteHandlersWithId({
   validationSchema: { update: updateSchema },
   searchFields: ['title', 'auditor', 'auditee'],
   allowedIncludes: ['findings'],
+  hooks: {
+    beforeUpdate: async (_id, data) => {
+      // Map type
+      const typeMap: Record<string, string> = {
+        internal: 'INTERNAL', external: 'EXTERNAL',
+        supplier: 'SUPPLIER', 'gmp-inspection': 'EXTERNAL',
+      };
+      if (data.type && typeMap[data.type]) {
+        data.type = typeMap[data.type];
+      }
+
+      // Map status
+      const statusMap: Record<string, string> = {
+        planned: 'PLANNED', 'in-progress': 'IN_PROGRESS',
+        completed: 'COMPLETED', closed: 'CLOSED',
+        cancelled: 'CLOSED',
+      };
+      if (data.status && statusMap[data.status]) {
+        data.status = statusMap[data.status];
+      }
+
+      if (data.leadAuditor && !data.auditor) {
+        data.auditor = data.leadAuditor;
+      }
+
+      // Remove non-Prisma fields
+      const { scope, leadAuditor, auditors, objectives, findings,
+        ...prismaData } = data;
+      return prismaData;
+    },
+  },
 });

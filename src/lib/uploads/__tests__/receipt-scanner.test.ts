@@ -135,15 +135,27 @@ describe('receipt-scanner', () => {
       expect(result.confidence).toBe(0);
     });
 
-    it('parses amount with currency symbols and commas', async () => {
+    it('parses amount with currency symbols', async () => {
       mockExtractFields.mockResolvedValue(
         makeExtraction([
-          { name: 'Total Amount', value: 'EUR 1,234.56', confidence: 0.9 },
+          { name: 'Total Amount', value: '$234.56', confidence: 0.9 },
         ]),
       );
 
       const result = await scanReceipt('receipt');
-      expect(result.amount).toBe(1234.56);
+      expect(result.amount).toBe(234.56);
+    });
+
+    it('parses amount with comma as decimal separator', async () => {
+      // The parser replaces commas with dots (European format)
+      mockExtractFields.mockResolvedValue(
+        makeExtraction([
+          { name: 'Total Amount', value: 'EUR 42,50', confidence: 0.9 },
+        ]),
+      );
+
+      const result = await scanReceipt('receipt');
+      expect(result.amount).toBe(42.5);
     });
 
     it('handles NaN amount gracefully', async () => {

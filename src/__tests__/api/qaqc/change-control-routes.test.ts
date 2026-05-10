@@ -2,12 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ─── Prisma Mock ────────────────────────────────────────────────────────────
 
-const mockFindMany = vi.fn();
-const mockFindFirst = vi.fn();
-const mockCount = vi.fn();
-const mockCreate = vi.fn();
-const mockUpdate = vi.fn();
-const mockDelete = vi.fn();
+const {
+  mockFindMany,
+  mockFindFirst,
+  mockCount,
+  mockCreate,
+  mockUpdate,
+  mockDelete,
+} = vi.hoisted(() => ({
+  mockFindMany: vi.fn(),
+  mockFindFirst: vi.fn(),
+  mockCount: vi.fn(),
+  mockCreate: vi.fn(),
+  mockUpdate: vi.fn(),
+  mockDelete: vi.fn(),
+}));
 
 vi.mock('@/lib/prisma', () => {
   const handler: ProxyHandler<Record<string, unknown>> = {
