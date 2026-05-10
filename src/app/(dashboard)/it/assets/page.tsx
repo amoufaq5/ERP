@@ -56,7 +56,6 @@ const softwareLicenses = [
   { id: "SW-005", name: "Visual Studio Enterprise", vendor: "Microsoft", type: "Subscription", seatsTotal: 30, seatsUsed: 28, expiry: "2026-06-15", cost: 3600 },
   { id: "SW-006", name: "Linux Server OS", vendor: "Red Hat", type: "Subscription", seatsTotal: 15, seatsUsed: 12, expiry: "2026-09-30", cost: 2100 },
   { id: "SW-007", name: "PostgreSQL", vendor: "Community", type: "Open Source", seatsTotal: 999, seatsUsed: 45, expiry: "—", cost: 0 },
-  { id: "SW-008", name: "Jira Software", vendor: "Atlassian", type: "Subscription", seatsTotal: 100, seatsUsed: 89, expiry: "2026-07-20", cost: 1800 },
 ];
 
 const hwStatusColors: Record<string, string> = {

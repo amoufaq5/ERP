@@ -44,7 +44,6 @@ const campaigns = [
   { id: "MC-004", name: "Customer Appreciation Event", type: "Event", status: "Completed", audience: 500, sent: 500, opens: 425, clicks: 380, conversions: 245 },
   { id: "MC-005", name: "New Feature Announcement", type: "Email", status: "Draft", audience: 8900, sent: 0, opens: 0, clicks: 0, conversions: 0 },
   { id: "MC-006", name: "End of Year Webinar Series", type: "Webinar", status: "Completed", audience: 2800, sent: 2800, opens: 1960, clicks: 840, conversions: 196 },
-  { id: "MC-007", name: "Partner Referral Push", type: "Email", status: "Active", audience: 5600, sent: 5600, opens: 2240, clicks: 672, conversions: 134 },
 ];
 
 const emailSequences = [

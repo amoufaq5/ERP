@@ -53,7 +53,6 @@ const kbArticles = [
   { id: "KB-103", title: "Setting up email on mobile", category: "Software", views: 890, helpful: 95, lastUpdated: "2026-03-20" },
   { id: "KB-104", title: "Printer troubleshooting guide", category: "Hardware", views: 567, helpful: 78, lastUpdated: "2026-02-10" },
   { id: "KB-105", title: "Requesting software installation", category: "Software", views: 432, helpful: 85, lastUpdated: "2026-04-28" },
-  { id: "KB-106", title: "Wi-Fi connectivity issues", category: "Network", views: 1890, helpful: 90, lastUpdated: "2026-05-05" },
 ];
 
 const priorityColors: Record<string, string> = {
