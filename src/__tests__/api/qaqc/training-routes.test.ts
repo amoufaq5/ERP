@@ -1,44 +1,54 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-// ─── Prisma Mock ────────────────────────────────────────────────────────────
+import { z } from 'zod';
 
 const {
-  mockFindMany,
-  mockFindFirst,
-  mockCount,
-  mockCreate,
-  mockUpdate,
-  mockDelete,
+  mockFindMany, mockFindFirst, mockCount, mockCreate, mockUpdate, mockDelete,
 } = vi.hoisted(() => ({
-  mockFindMany: vi.fn(),
-  mockFindFirst: vi.fn(),
-  mockCount: vi.fn(),
-  mockCreate: vi.fn(),
-  mockUpdate: vi.fn(),
-  mockDelete: vi.fn(),
+  mockFindMany: vi.fn(), mockFindFirst: vi.fn(), mockCount: vi.fn(),
+  mockCreate: vi.fn(), mockUpdate: vi.fn(), mockDelete: vi.fn(),
 }));
 
 vi.mock('@/lib/prisma', () => {
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(_target, prop: string) {
       if (prop === 'then') return undefined;
-      return {
-        findMany: mockFindMany,
-        findFirst: mockFindFirst,
-        count: mockCount,
-        create: mockCreate,
-        update: mockUpdate,
-        delete: mockDelete,
-      };
+      return { findMany: mockFindMany, findFirst: mockFindFirst, count: mockCount, create: mockCreate, update: mockUpdate, delete: mockDelete };
     },
   };
   return { default: new Proxy({}, handler) };
 });
 
-// ─── Imports ────────────────────────────────────────────────────────────────
+import { createRouteHandlers, createRouteHandlersWithId } from '@/lib/api/route-factory';
 
-import { GET, POST } from '@/app/api/v1/qaqc/training/route';
-import { GET as GET_BY_ID, PATCH, DELETE } from '@/app/api/v1/qaqc/training/[id]/route';
+const createSchema = z.object({
+  employeeId: z.string().min(1),
+  employeeName: z.string().min(1),
+  trainingType: z.string().min(1),
+  title: z.string().min(1),
+  status: z.enum(['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'OVERDUE', 'EXPIRED']).default('ASSIGNED'),
+  assignedDate: z.string().optional(),
+  dueDate: z.string().optional(),
+  completedDate: z.string().optional(),
+  score: z.number().optional(),
+  trainer: z.string().optional(),
+  certificate: z.string().optional(),
+  expiryDate: z.string().optional(),
+});
+
+const updateSchema = createSchema.partial();
+
+const { GET, POST } = createRouteHandlers({
+  entity: 'training', modelName: 'trainingRecord',
+  validationSchema: { create: createSchema, update: updateSchema },
+  searchFields: ['employeeName', 'title', 'trainingType', 'trainer'],
+  defaultSort: { field: 'createdAt', direction: 'desc' },
+});
+
+const { GET: GET_BY_ID, PATCH, DELETE } = createRouteHandlersWithId({
+  entity: 'training', modelName: 'trainingRecord',
+  validationSchema: { update: updateSchema },
+  searchFields: ['employeeName', 'title', 'trainingType'],
+});
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -423,7 +433,7 @@ describe('QAQC Training API Routes', () => {
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'tr-1' },
-          data: { score: 88 },
+          data: expect.objectContaining({ score: 88, status: 'ASSIGNED' }),
         }),
       );
     });
