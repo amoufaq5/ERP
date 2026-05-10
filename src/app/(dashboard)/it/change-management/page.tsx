@@ -44,8 +44,6 @@ const changeRequests = [
   { id: "CR-305", title: "Add monitoring agents to production", type: "Standard", priority: "Low", status: "Draft", requester: "DevOps", impact: "Low", scheduled: "—" },
   { id: "CR-306", title: "Replace SSL certificates", type: "Standard", priority: "Medium", status: "Approved", requester: "Infrastructure", impact: "Medium", scheduled: "2026-05-18" },
   { id: "CR-307", title: "Migrate legacy API to v3", type: "Normal", priority: "Medium", status: "Submitted", requester: "Dev Team", impact: "Medium", scheduled: "—" },
-  { id: "CR-308", title: "Data center power maintenance", type: "Normal", priority: "High", status: "Closed", requester: "Facilities", impact: "High", scheduled: "2026-05-03" },
-  { id: "CR-309", title: "Deploy new HR module", type: "Normal", priority: "Medium", status: "Rejected", requester: "HR IT", impact: "Low", scheduled: "—" },
 ];
 
 const approvals = [
@@ -376,32 +374,6 @@ export default function ChangeManagementPage() {
               </Table>
             </CardContent>
           </Card>
-          <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-green-600">95%</p>
-                <p className="text-sm text-muted-foreground">Success Rate (90d)</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold">3.2d</p>
-                <p className="text-sm text-muted-foreground">Avg Lead Time</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-green-600">1</p>
-                <p className="text-sm text-muted-foreground">Rollbacks (90d)</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold">42</p>
-                <p className="text-sm text-muted-foreground">Changes Completed (90d)</p>
-              </CardContent>
-            </Card>
-          </div>
         </TabsContent>
       </Tabs>
 

@@ -76,7 +76,6 @@ const resources: Resource[] = [
   { id: 'r-5', name: 'Omar Farouk', role: 'DevOps Engineer', skills: ['AWS', 'Docker', 'Kubernetes', 'Terraform'], availability: 30, currentProject: 'Infrastructure Upgrade', utilization: 70 },
   { id: 'r-6', name: 'Yasmin Mostafa', role: 'Senior Developer', skills: ['Python', 'Django', 'PostgreSQL'], availability: 0, currentProject: 'Data Platform', utilization: 100 },
   { id: 'r-7', name: 'Khaled Abdel-Rahman', role: 'QA Engineer', skills: ['Selenium', 'Cypress', 'API Testing'], availability: 50, currentProject: 'Client Portal', utilization: 50 },
-  { id: 'r-8', name: 'Sara Mahmoud', role: 'Data Analyst', skills: ['Python', 'SQL', 'Tableau', 'Power BI'], availability: 60, currentProject: 'Reporting Module', utilization: 40 },
 ];
 
 const allocations: Allocation[] = [

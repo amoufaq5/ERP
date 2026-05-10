@@ -44,43 +44,24 @@ type BreachSeverity = "Low" | "Medium" | "High" | "Critical";
 type BreachStatus = "Detected" | "Investigating" | "Contained" | "Resolved" | "Closed";
 
 interface ProcessingActivity {
-  id: string;
-  activity: string;
-  purpose: string;
-  legalBasis: string;
-  dataCategories: string;
-  recipients: string;
-  retentionPeriod: string;
+  id: string; activity: string; purpose: string; legalBasis: string;
+  dataCategories: string; recipients: string; retentionPeriod: string;
   status: "Active" | "Under Review" | "Archived";
 }
 
 interface SubjectRequest {
-  id: string;
-  type: RequestType;
-  requester: string;
-  status: RequestStatus;
-  receivedDate: string;
-  dueDate: string;
+  id: string; type: RequestType; requester: string;
+  status: RequestStatus; receivedDate: string; dueDate: string;
 }
 
 interface ConsentRecord {
-  id: string;
-  customer: string;
-  purpose: string;
-  channel: string;
-  consentGiven: boolean;
-  date: string;
-  expiry: string;
+  id: string; customer: string; purpose: string; channel: string;
+  consentGiven: boolean; date: string; expiry: string;
 }
 
 interface BreachRecord {
-  id: string;
-  date: string;
-  nature: string;
-  recordsAffected: number;
-  severity: BreachSeverity;
-  reportedToAuthority: boolean;
-  status: BreachStatus;
+  id: string; date: string; nature: string; recordsAffected: number;
+  severity: BreachSeverity; reportedToAuthority: boolean; status: BreachStatus;
 }
 
 const PROCESSING_ACTIVITIES: ProcessingActivity[] = [
@@ -97,7 +78,6 @@ const SUBJECT_REQUESTS: SubjectRequest[] = [
   { id: "DSR-003", type: "Portability", requester: "David Chen", status: "Verified", receivedDate: "2026-04-20", dueDate: "2026-05-20" },
   { id: "DSR-004", type: "Rectification", requester: "Sophie Martin", status: "Completed", receivedDate: "2026-03-10", dueDate: "2026-04-10" },
   { id: "DSR-005", type: "Restriction", requester: "Ahmed Youssef", status: "Received", receivedDate: "2026-05-05", dueDate: "2026-06-05" },
-  { id: "DSR-006", type: "Erasure", requester: "Lisa Wong", status: "Denied", receivedDate: "2026-03-25", dueDate: "2026-04-25" },
 ];
 
 const CONSENT_RECORDS: ConsentRecord[] = [
@@ -115,33 +95,25 @@ const BREACH_RECORDS: BreachRecord[] = [
 ];
 
 const REQUEST_STATUS_COLORS: Record<RequestStatus, string> = {
-  Received: "bg-gray-100 text-gray-800",
-  Verified: "bg-blue-100 text-blue-800",
-  Processing: "bg-amber-100 text-amber-800",
-  Completed: "bg-green-100 text-green-800",
+  Received: "bg-gray-100 text-gray-800", Verified: "bg-blue-100 text-blue-800",
+  Processing: "bg-amber-100 text-amber-800", Completed: "bg-green-100 text-green-800",
   Denied: "bg-red-100 text-red-800",
 };
 
 const REQUEST_TYPE_COLORS: Record<RequestType, string> = {
-  Access: "bg-blue-100 text-blue-800",
-  Erasure: "bg-red-100 text-red-800",
-  Portability: "bg-purple-100 text-purple-800",
-  Rectification: "bg-amber-100 text-amber-800",
+  Access: "bg-blue-100 text-blue-800", Erasure: "bg-red-100 text-red-800",
+  Portability: "bg-purple-100 text-purple-800", Rectification: "bg-amber-100 text-amber-800",
   Restriction: "bg-orange-100 text-orange-800",
 };
 
 const SEVERITY_COLORS: Record<BreachSeverity, string> = {
-  Low: "bg-gray-100 text-gray-800",
-  Medium: "bg-amber-100 text-amber-800",
-  High: "bg-orange-100 text-orange-800",
-  Critical: "bg-red-100 text-red-800",
+  Low: "bg-gray-100 text-gray-800", Medium: "bg-amber-100 text-amber-800",
+  High: "bg-orange-100 text-orange-800", Critical: "bg-red-100 text-red-800",
 };
 
 const BREACH_STATUS_COLORS: Record<BreachStatus, string> = {
-  Detected: "bg-red-100 text-red-800",
-  Investigating: "bg-amber-100 text-amber-800",
-  Contained: "bg-blue-100 text-blue-800",
-  Resolved: "bg-green-100 text-green-800",
+  Detected: "bg-red-100 text-red-800", Investigating: "bg-amber-100 text-amber-800",
+  Contained: "bg-blue-100 text-blue-800", Resolved: "bg-green-100 text-green-800",
   Closed: "bg-slate-100 text-slate-800",
 };
 

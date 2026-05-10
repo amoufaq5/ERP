@@ -44,7 +44,6 @@ const subscriptions = [
   { id: "SUB-005", customer: "Meridian Foods", plan: "Enterprise", status: "Active", startDate: "2025-11-01", nextBilling: "2026-11-01", mrr: 2500 },
   { id: "SUB-006", customer: "ClosedShop LLC", plan: "Starter", status: "Cancelled", startDate: "2025-01-15", nextBilling: "—", mrr: 0 },
   { id: "SUB-007", customer: "PauseMe Corp", plan: "Professional", status: "Paused", startDate: "2025-07-01", nextBilling: "—", mrr: 0 },
-  { id: "SUB-008", customer: "Blue Ocean Shipping", plan: "Enterprise", status: "Active", startDate: "2025-08-20", nextBilling: "2026-08-20", mrr: 2500 },
 ];
 
 const plans = [
