@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -24,38 +24,46 @@ export type ApiResponseType<T = unknown> = ApiSuccessResponse<T> | ApiErrorRespo
 
 // ─── CORS Headers ────────────────────────────────────────────────────────────
 
-const CORS_HEADERS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
-  "Access-Control-Max-Age": "86400",
-};
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(',') ||
+  (process.env.NODE_ENV === 'development' ? ['http://localhost:3000', 'http://localhost:3001'] : []);
+
+function getCorsHeaders(requestOrigin?: string | null): Record<string, string> {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin) ? requestOrigin : '';
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key",
+    "Access-Control-Max-Age": "86400",
+  };
+}
 
 // ─── Response helpers ────────────────────────────────────────────────────────
 
 /**
  * Return a standardised success JSON response with CORS headers.
  */
-export function apiResponse<T>(data: T, status: number = 200, pagination?: PaginationMeta) {
+export function apiResponse<T>(data: T, status: number = 200, pagination?: PaginationMeta, req?: NextRequest) {
   const body: ApiSuccessResponse<T> = { success: true, data };
   if (pagination) body.pagination = pagination;
-
-  return NextResponse.json(body, { status, headers: CORS_HEADERS });
+  const headers = getCorsHeaders(req?.headers.get("origin"));
+  return NextResponse.json(body, { status, headers });
 }
 
 /**
  * Return a standardised error JSON response with CORS headers.
  */
-export function apiError(message: string, status: number = 400) {
+export function apiError(message: string, status: number = 400, req?: NextRequest) {
   const body: ApiErrorResponse = { success: false, error: message };
-  return NextResponse.json(body, { status, headers: CORS_HEADERS });
+  const headers = getCorsHeaders(req?.headers.get("origin"));
+  return NextResponse.json(body, { status, headers });
 }
 
 /**
  * Handle CORS pre-flight OPTIONS requests.
  */
-export function corsOptions() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+export function corsOptions(req?: NextRequest) {
+  const headers = getCorsHeaders(req?.headers.get("origin"));
+  return new NextResponse(null, { status: 204, headers });
 }
 
 // ─── Pagination ──────────────────────────────────────────────────────────────

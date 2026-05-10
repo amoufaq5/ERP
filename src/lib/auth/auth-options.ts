@@ -2,6 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compareSync } from "bcryptjs";
 import { DEMO_CREDENTIALS_LIST } from "./auth-utils";
+import { env } from "../env";
 
 export type SessionUser = {
   id: string;
@@ -29,18 +30,21 @@ export const authOptions: NextAuthOptions = {
         const trimPass = credentials.password.trim();
 
         // 1. Check demo users (plain-text match for dev convenience)
-        const demo = DEMO_CREDENTIALS_LIST.find(
-          (u) => u.username === trimUser && u.password === trimPass,
-        );
-        if (demo) {
-          return {
-            id: demo.profile.id,
-            name: demo.profile.name,
-            email: demo.profile.email,
-            role: demo.profile.role,
-            department: demo.profile.department,
-            territory: demo.profile.territory,
-          };
+        // Demo credentials are completely disabled in production
+        if (process.env.NODE_ENV !== 'production') {
+          const demo = DEMO_CREDENTIALS_LIST.find(
+            (u) => u.username === trimUser && u.password === trimPass,
+          );
+          if (demo) {
+            return {
+              id: demo.profile.id,
+              name: demo.profile.name,
+              email: demo.profile.email,
+              role: demo.profile.role,
+              department: demo.profile.department,
+              territory: demo.profile.territory,
+            };
+          }
         }
 
         // 2. Check Prisma database users (if available)
@@ -110,5 +114,5 @@ export const authOptions: NextAuthOptions = {
     },
   },
 
-  secret: "pharma-erp-dev-secret-change-in-production",
+  secret: env.NEXTAUTH_SECRET,
 };

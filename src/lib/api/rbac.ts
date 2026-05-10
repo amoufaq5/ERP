@@ -113,10 +113,9 @@ export async function checkPermission(
   const role = req.headers.get("x-user-role") as UserRole | null;
   const userId = req.headers.get("x-user-id");
 
-  // If no role header (production), try NextAuth session
+  // If no role header, deny access (most restrictive default)
   if (!role) {
-    // In dev mode, allow all requests (no auth required)
-    return { allowed: true, role: "ADMIN", userId: "system" };
+    return { allowed: false, error: "No role found. Access denied." };
   }
 
   const entity = extractEntity(req.nextUrl.pathname);

@@ -1,0 +1,65 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy-staging:
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Build
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+        run: npm run build
+      - name: Run Migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate deploy
+      - name: Deploy to Staging
+        run: echo "Deploy step - configure for your hosting provider (Vercel, AWS, etc.)"
+
+  deploy-production:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    runs-on: ubuntu-latest
+    environment: production
+    needs: deploy-staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Build
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+        run: npm run build
+      - name: Run Migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate deploy
+      - name: Deploy to Production
+        run: echo "Deploy step - configure for your hosting provider"

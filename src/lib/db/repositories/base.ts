@@ -1,156 +1,217 @@
-// @ts-nocheck
-import { PrismaClient } from '@prisma/client'
-
-// ─── Pagination types ────────────────────────────────────────────────────────
+import { PrismaClient } from '@prisma/client';
 
 export interface PaginationParams {
-  page: number
-  pageSize: number
+  page: number;
+  pageSize: number;
 }
 
 export interface PaginatedResult<T> {
-  data: T[]
-  page: number
-  pageSize: number
-  total: number
-  totalPages: number
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
-// ─── Filter & Sort types ─────────────────────────────────────────────────────
-
-export type SortDirection = 'asc' | 'desc'
-
 export interface SortParams {
-  field: string
-  direction: SortDirection
+  field: string;
+  direction: 'asc' | 'desc';
 }
 
 export interface FilterParams {
-  [key: string]: string | number | boolean | string[] | undefined
+  field: string;
+  operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'startsWith' | 'endsWith' | 'in' | 'notIn';
+  value: unknown;
 }
 
-// ─── Base Repository ─────────────────────────────────────────────────────────
+export interface QueryOptions {
+  pagination?: PaginationParams;
+  sort?: SortParams[];
+  filters?: FilterParams[];
+  include?: Record<string, boolean | object>;
+  select?: Record<string, boolean>;
+}
 
-/**
- * Generic base repository providing standard CRUD operations.
- * Concrete repositories extend this class and add domain-specific queries.
- *
- * Type parameter `T` represents the Prisma model type.
- * Type parameter `CreateInput` represents the create input type.
- * Type parameter `UpdateInput` represents the update input type.
- */
-export abstract class BaseRepository<T, CreateInput, UpdateInput> {
-  protected prisma: PrismaClient
+export abstract class BaseRepository<T, CreateInput = unknown, UpdateInput = unknown> {
+  protected prisma: PrismaClient;
+  protected abstract modelName: string;
 
   constructor(prisma: PrismaClient) {
-    this.prisma = prisma
+    this.prisma = prisma;
   }
 
-  /**
-   * The Prisma delegate for this model (e.g., prisma.user, prisma.doctor).
-   * Must be implemented by concrete repositories.
-   */
-  protected abstract get model(): any
-
-  /**
-   * Find a single record by its ID.
-   */
-  async findById(id: string): Promise<T | null> {
-    // TODO: implement when DB is available
-    // return this.model.findUnique({ where: { id } })
-    throw new Error('Not implemented: database not yet provisioned')
+  protected get model(): any {
+    return (this.prisma as any)[this.modelName];
   }
 
-  /**
-   * Find all records with optional pagination.
-   */
-  async findAll(pagination?: PaginationParams): Promise<PaginatedResult<T>> {
-    // TODO: implement when DB is available
-    // const total = await this.model.count()
-    // const data = await this.model.findMany({
-    //   skip: pagination ? (pagination.page - 1) * pagination.pageSize : undefined,
-    //   take: pagination?.pageSize,
-    // })
-    // return {
-    //   data,
-    //   page: pagination?.page ?? 1,
-    //   pageSize: pagination?.pageSize ?? total,
-    //   total,
-    //   totalPages: pagination ? Math.ceil(total / pagination.pageSize) : 1,
-    // }
-    throw new Error('Not implemented: database not yet provisioned')
-  }
+  protected buildWhereClause(tenantId: string, filters?: FilterParams[]): Record<string, unknown> {
+    const where: Record<string, unknown> = { tenantId };
 
-  /**
-   * Create a new record.
-   */
-  async create(data: CreateInput): Promise<T> {
-    // TODO: implement when DB is available
-    // return this.model.create({ data })
-    throw new Error('Not implemented: database not yet provisioned')
-  }
+    if (!filters || filters.length === 0) return where;
 
-  /**
-   * Update an existing record by ID.
-   */
-  async update(id: string, data: UpdateInput): Promise<T> {
-    // TODO: implement when DB is available
-    // return this.model.update({ where: { id }, data })
-    throw new Error('Not implemented: database not yet provisioned')
-  }
-
-  /**
-   * Delete a record by ID.
-   */
-  async delete(id: string): Promise<T> {
-    // TODO: implement when DB is available
-    // return this.model.delete({ where: { id } })
-    throw new Error('Not implemented: database not yet provisioned')
-  }
-
-  /**
-   * Count records matching optional filter criteria.
-   */
-  async count(where?: Record<string, unknown>): Promise<number> {
-    // TODO: implement when DB is available
-    // return this.model.count({ where })
-    throw new Error('Not implemented: database not yet provisioned')
-  }
-
-  // ─── Helpers ─────────────────────────────────────────────────────────
-
-  /**
-   * Build a pagination skip/take object from PaginationParams.
-   */
-  protected buildPagination(params: PaginationParams): { skip: number; take: number } {
-    return {
-      skip: (params.page - 1) * params.pageSize,
-      take: params.pageSize,
+    for (const filter of filters) {
+      switch (filter.operator) {
+        case 'eq':
+          where[filter.field] = filter.value;
+          break;
+        case 'neq':
+          where[filter.field] = { not: filter.value };
+          break;
+        case 'gt':
+          where[filter.field] = { gt: filter.value };
+          break;
+        case 'gte':
+          where[filter.field] = { gte: filter.value };
+          break;
+        case 'lt':
+          where[filter.field] = { lt: filter.value };
+          break;
+        case 'lte':
+          where[filter.field] = { lte: filter.value };
+          break;
+        case 'contains':
+          where[filter.field] = { contains: filter.value, mode: 'insensitive' };
+          break;
+        case 'startsWith':
+          where[filter.field] = { startsWith: filter.value, mode: 'insensitive' };
+          break;
+        case 'endsWith':
+          where[filter.field] = { endsWith: filter.value, mode: 'insensitive' };
+          break;
+        case 'in':
+          where[filter.field] = { in: filter.value };
+          break;
+        case 'notIn':
+          where[filter.field] = { notIn: filter.value };
+          break;
+      }
     }
+
+    return where;
   }
 
-  /**
-   * Build an orderBy clause from SortParams.
-   */
-  protected buildSort(sort?: SortParams): Record<string, SortDirection> | undefined {
-    if (!sort) return undefined
-    return { [sort.field]: sort.direction }
+  protected buildOrderBy(sort?: SortParams[]): Record<string, string>[] | undefined {
+    if (!sort || sort.length === 0) return undefined;
+    return sort.map(s => ({ [s.field]: s.direction }));
   }
 
-  /**
-   * Construct a PaginatedResult from raw query results.
-   */
-  protected toPaginatedResult<R>(
-    data: R[],
-    total: number,
-    pagination: PaginationParams,
-  ): PaginatedResult<R> {
+  async findById(tenantId: string, id: string, options?: { include?: Record<string, boolean | object> }): Promise<T | null> {
+    return this.model.findFirst({
+      where: { id, tenantId },
+      ...(options?.include && { include: options.include }),
+    });
+  }
+
+  async findMany(tenantId: string, options?: QueryOptions): Promise<PaginatedResult<T>> {
+    const where = this.buildWhereClause(tenantId, options?.filters);
+    const orderBy = this.buildOrderBy(options?.sort);
+
+    const page = options?.pagination?.page || 1;
+    const pageSize = options?.pagination?.pageSize || 25;
+    const skip = (page - 1) * pageSize;
+
+    const [data, total] = await Promise.all([
+      this.model.findMany({
+        where,
+        ...(orderBy && { orderBy }),
+        skip,
+        take: pageSize,
+        ...(options?.include && { include: options.include }),
+        ...(options?.select && { select: options.select }),
+      }),
+      this.model.count({ where }),
+    ]);
+
     return {
       data,
-      page: pagination.page,
-      pageSize: pagination.pageSize,
       total,
-      totalPages: Math.ceil(total / pagination.pageSize),
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  async findAll(tenantId: string, options?: { filters?: FilterParams[]; sort?: SortParams[]; include?: Record<string, boolean | object> }): Promise<T[]> {
+    const where = this.buildWhereClause(tenantId, options?.filters);
+    const orderBy = this.buildOrderBy(options?.sort);
+
+    return this.model.findMany({
+      where,
+      ...(orderBy && { orderBy }),
+      ...(options?.include && { include: options.include }),
+    });
+  }
+
+  async create(tenantId: string, data: CreateInput): Promise<T> {
+    return this.model.create({
+      data: { ...data, tenantId },
+    });
+  }
+
+  async createMany(tenantId: string, data: CreateInput[]): Promise<{ count: number }> {
+    return this.model.createMany({
+      data: data.map(item => ({ ...item, tenantId })),
+    });
+  }
+
+  async update(tenantId: string, id: string, data: UpdateInput): Promise<T> {
+    // Verify record belongs to tenant before updating
+    const existing = await this.model.findFirst({ where: { id, tenantId } });
+    if (!existing) {
+      throw new Error(`Record not found or access denied`);
     }
+    return this.model.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async delete(tenantId: string, id: string): Promise<T> {
+    // Verify record belongs to tenant before deleting
+    const existing = await this.model.findFirst({ where: { id, tenantId } });
+    if (!existing) {
+      throw new Error(`Record not found or access denied`);
+    }
+    return this.model.delete({ where: { id } });
+  }
+
+  async softDelete(tenantId: string, id: string): Promise<T> {
+    const existing = await this.model.findFirst({ where: { id, tenantId } });
+    if (!existing) {
+      throw new Error(`Record not found or access denied`);
+    }
+    return this.model.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  async count(tenantId: string, filters?: FilterParams[]): Promise<number> {
+    const where = this.buildWhereClause(tenantId, filters);
+    return this.model.count({ where });
+  }
+
+  async exists(tenantId: string, id: string): Promise<boolean> {
+    const count = await this.model.count({ where: { id, tenantId } });
+    return count > 0;
+  }
+
+  async aggregate(tenantId: string, options: {
+    _sum?: Record<string, boolean>;
+    _avg?: Record<string, boolean>;
+    _count?: Record<string, boolean> | boolean;
+    _min?: Record<string, boolean>;
+    _max?: Record<string, boolean>;
+    filters?: FilterParams[];
+  }) {
+    const where = this.buildWhereClause(tenantId, options.filters);
+    return this.model.aggregate({
+      where,
+      ...(options._sum && { _sum: options._sum }),
+      ...(options._avg && { _avg: options._avg }),
+      ...(options._count && { _count: options._count }),
+      ...(options._min && { _min: options._min }),
+      ...(options._max && { _max: options._max }),
+    });
   }
 }

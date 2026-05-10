@@ -1,0 +1,121 @@
+import { IndustryTemplate } from '../types';
+
+export const manufacturingTemplate: IndustryTemplate = {
+  id: 'manufacturing',
+  name: 'Industrial Manufacturing',
+  description: 'Complete ERP for discrete and process manufacturing with MES, plant maintenance, and quality control.',
+  icon: 'Factory',
+  modules: [
+    'FI', 'CO', 'MM', 'SD', 'PP', 'PM', 'QM', 'HR',
+    'MES', 'SHOP_FLOOR', 'WIP', 'WMS', 'TMS', 'FLEET',
+    'PLANT_MAINTENANCE', 'SPC', 'DEMAND_PLANNING',
+  ],
+  orgTemplate: [
+    {
+      id: 'company',
+      type: 'COMPANY',
+      code: 'MFG',
+      name: 'Manufacturing Company',
+      level: 0,
+      isActive: true,
+      children: [
+        {
+          id: 'plant-1',
+          type: 'PLANT',
+          code: 'P001',
+          name: 'Production Plant 1',
+          level: 1,
+          isActive: true,
+          children: [
+            { id: 'sl-raw', type: 'STORAGE_LOCATION', code: 'RAW', name: 'Raw Materials', level: 2, isActive: true },
+            { id: 'sl-wip', type: 'STORAGE_LOCATION', code: 'WIP', name: 'Work In Progress', level: 2, isActive: true },
+            { id: 'sl-fg', type: 'STORAGE_LOCATION', code: 'FG', name: 'Finished Goods', level: 2, isActive: true },
+            { id: 'sl-spare', type: 'STORAGE_LOCATION', code: 'SPARE', name: 'Spare Parts', level: 2, isActive: true },
+          ],
+        },
+        {
+          id: 'sales-org',
+          type: 'SALES_ORG',
+          code: 'SO01',
+          name: 'Sales Organization',
+          level: 1,
+          isActive: true,
+          children: [
+            { id: 'dc-direct', type: 'DISTRIBUTION_CHANNEL', code: 'DIRECT', name: 'Direct Sales', level: 2, isActive: true },
+            { id: 'dc-dist', type: 'DISTRIBUTION_CHANNEL', code: 'DIST', name: 'Distributor Network', level: 2, isActive: true },
+            { id: 'dc-oem', type: 'DISTRIBUTION_CHANNEL', code: 'OEM', name: 'OEM Partners', level: 2, isActive: true },
+          ],
+        },
+      ],
+    },
+  ],
+  customFields: [
+    { entityType: 'product', field: 'materialType', label: 'Material Type', type: 'select', options: [
+      { label: 'Raw Material', value: 'raw' },
+      { label: 'Semi-Finished', value: 'semi' },
+      { label: 'Finished Good', value: 'finished' },
+      { label: 'Spare Part', value: 'spare' },
+      { label: 'Consumable', value: 'consumable' },
+    ]},
+    { entityType: 'product', field: 'unitOfMeasure', label: 'Base Unit of Measure', type: 'string' },
+    { entityType: 'equipment', field: 'oeeTarget', label: 'OEE Target (%)', type: 'number' },
+    { entityType: 'equipment', field: 'maintenanceInterval', label: 'Maintenance Interval (days)', type: 'number' },
+    { entityType: 'equipment', field: 'equipmentClass', label: 'Equipment Class', type: 'select', options: [
+      { label: 'CNC Machine', value: 'cnc' },
+      { label: 'Assembly Line', value: 'assembly' },
+      { label: 'Packaging', value: 'packaging' },
+      { label: 'Testing Equipment', value: 'testing' },
+      { label: 'Material Handling', value: 'handling' },
+    ]},
+    { entityType: 'workOrder', field: 'productionLine', label: 'Production Line', type: 'string' },
+    { entityType: 'workOrder', field: 'shiftPattern', label: 'Shift Pattern', type: 'select', options: [
+      { label: '1 Shift (8h)', value: '1shift' },
+      { label: '2 Shifts (16h)', value: '2shift' },
+      { label: '3 Shifts (24h)', value: '3shift' },
+    ]},
+  ],
+  workflowTemplates: [
+    {
+      id: 'production-order-lifecycle',
+      name: 'Production Order Lifecycle',
+      description: 'End-to-end production order from planning to goods receipt',
+      trigger: { type: 'entity_create', entity: 'productionOrder' },
+      steps: [
+        { id: 'plan', type: 'action', name: 'Material Availability Check', config: { action: 'checkAvailability' }, nextSteps: ['release'] },
+        { id: 'release', type: 'approval', name: 'Release for Production', config: { role: 'PRODUCTION_PLANNER' }, nextSteps: ['issue-materials'] },
+        { id: 'issue-materials', type: 'action', name: 'Issue Materials', config: { action: 'issueMaterials' }, nextSteps: ['produce'] },
+        { id: 'produce', type: 'action', name: 'Shop Floor Execution', config: { action: 'startProduction' }, nextSteps: ['qc'] },
+        { id: 'qc', type: 'approval', name: 'Quality Inspection', config: { role: 'QC_INSPECTOR' }, nextSteps: ['goods-receipt'], onReject: 'rework' },
+        { id: 'goods-receipt', type: 'action', name: 'Goods Receipt', config: { action: 'goodsReceipt' }, nextSteps: [] },
+        { id: 'rework', type: 'action', name: 'Rework', config: { action: 'createReworkOrder' }, nextSteps: ['produce'] },
+      ],
+    },
+    {
+      id: 'preventive-maintenance',
+      name: 'Preventive Maintenance Schedule',
+      description: 'Automated preventive maintenance scheduling and execution',
+      trigger: { type: 'schedule', schedule: '0 6 * * 1' },
+      steps: [
+        { id: 'check-due', type: 'condition', name: 'Check Due Equipment', config: { action: 'findDueEquipment' }, nextSteps: ['create-order'] },
+        { id: 'create-order', type: 'action', name: 'Create Maintenance Order', config: { action: 'createMaintenanceOrder' }, nextSteps: ['assign'] },
+        { id: 'assign', type: 'notification', name: 'Notify Maintenance Team', config: { template: 'maintenance-due', roles: ['MAINTENANCE_TECH'] }, nextSteps: ['execute'] },
+        { id: 'execute', type: 'approval', name: 'Execute & Confirm', config: { role: 'MAINTENANCE_TECH', timeout: '48h' }, nextSteps: ['close'] },
+        { id: 'close', type: 'action', name: 'Close & Update Schedule', config: { action: 'closeMaintenance' }, nextSteps: [] },
+      ],
+    },
+  ],
+  terminology: {
+    'product': 'Material',
+    'customer': 'Customer',
+    'warehouse': 'Storage Location',
+    'category': 'Material Group',
+    'work_order': 'Production Order',
+    'inspection': 'Quality Inspection',
+    'supplier': 'Vendor',
+  },
+  compliance: [
+    { id: 'iso-9001', standard: 'ISO 9001:2015', requirement: 'Quality Management System', description: 'International standard for quality management systems', controls: ['document-control', 'internal-audit', 'corrective-action', 'management-review'], evidenceTypes: ['audit-report', 'management-review', 'corrective-action-record'] },
+    { id: 'iso-14001', standard: 'ISO 14001:2015', requirement: 'Environmental Management System', description: 'Environmental management standard', controls: ['environmental-aspects', 'legal-compliance', 'emergency-preparedness'], evidenceTypes: ['environmental-report', 'compliance-record', 'drill-record'] },
+    { id: 'osha', standard: 'OSHA', requirement: 'Occupational Safety', description: 'Workplace safety requirements', controls: ['hazard-identification', 'ppe-management', 'incident-reporting', 'training'], evidenceTypes: ['safety-audit', 'incident-record', 'training-record'] },
+  ],
+};

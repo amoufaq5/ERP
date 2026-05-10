@@ -1,0 +1,352 @@
+// Platform Architecture Models
+// This is a staging file - will be merged into the main schema later
+
+// ============================================================
+// TENANT & ORGANIZATION
+// ============================================================
+
+model Tenant {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  domain          String?
+  industryTemplate String?
+  activeModules   String[] // Module IDs
+  branding        Json?    // TenantBranding
+  features        Json?    // Record<string, boolean>
+  settings        Json?    // Record<string, unknown>
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  orgUnits        OrgUnit[]
+  numberRanges    NumberRange[]
+  modules         TenantModule[]
+  users           TenantUser[]
+  customFields    CustomFieldDefinition[]
+  workflows       WorkflowDefinition[]
+  extensionConfigs ExtensionConfig[]
+  auditLogs       AuditLog[]
+
+  @@map("tenants")
+}
+
+model OrgUnit {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  type      String   // OrgLevelType
+  code      String
+  name      String
+  parentId  String?
+  parent    OrgUnit? @relation("OrgHierarchy", fields: [parentId], references: [id])
+  children  OrgUnit[] @relation("OrgHierarchy")
+  level     Int
+  isActive  Boolean  @default(true)
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userAssignments  UserOrgAssignment[]
+  numberRanges     NumberRange[]
+
+  @@unique([tenantId, type, code])
+  @@map("org_units")
+}
+
+model TenantUser {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  userId    String   // Reference to auth user
+  role      String   @default("user")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orgAssignments   UserOrgAssignment[]
+  authProfile      UserAuthProfile?
+
+  @@unique([tenantId, userId])
+  @@map("tenant_users")
+}
+
+model UserOrgAssignment {
+  id          String     @id @default(cuid())
+  tenantUserId String
+  tenantUser  TenantUser @relation(fields: [tenantUserId], references: [id])
+  orgUnitId   String
+  orgUnit     OrgUnit    @relation(fields: [orgUnitId], references: [id])
+  isPrimary   Boolean    @default(false)
+  validFrom   DateTime   @default(now())
+  validTo     DateTime?
+  createdAt   DateTime   @default(now())
+
+  @@unique([tenantUserId, orgUnitId])
+  @@map("user_org_assignments")
+}
+
+// ============================================================
+// MODULE MANAGEMENT
+// ============================================================
+
+model TenantModule {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  moduleId    String
+  isActive    Boolean  @default(true)
+  config      Json?    // Module-specific configuration
+  activatedAt DateTime @default(now())
+  activatedBy String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, moduleId])
+  @@map("tenant_modules")
+}
+
+// ============================================================
+// NUMBER RANGES
+// ============================================================
+
+model NumberRange {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  tenant               Tenant   @relation(fields: [tenantId], references: [id])
+  objectType           String
+  subType              String   @default("default")
+  orgUnitId            String?
+  orgUnit              OrgUnit? @relation(fields: [orgUnitId], references: [id])
+  prefix               String
+  currentNumber        Int      @default(0)
+  numberLength         Int      @default(8)
+  fiscalYearDependent  Boolean  @default(false)
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([tenantId, objectType, subType, orgUnitId])
+  @@map("number_ranges")
+}
+
+// ============================================================
+// CUSTOM FIELDS
+// ============================================================
+
+model CustomFieldDefinition {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  entityType  String
+  fieldName   String
+  label       String
+  type        String   // string, number, boolean, date, select, multi-select, json
+  options     Json?    // For select/multi-select
+  required    Boolean  @default(false)
+  defaultValue Json?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, entityType, fieldName])
+  @@map("custom_field_definitions")
+}
+
+model CustomFieldValue {
+  id            String   @id @default(cuid())
+  tenantId      String
+  entityType    String
+  entityId      String
+  fieldName     String
+  value         Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, entityType, entityId, fieldName])
+  @@index([tenantId, entityType, entityId])
+  @@map("custom_field_values")
+}
+
+// ============================================================
+// EXTENSION POINTS
+// ============================================================
+
+model ExtensionConfig {
+  id               String   @id @default(cuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id])
+  extensionPointId String
+  name             String
+  description      String?
+  priority         Int      @default(100)
+  handlerType      String   // 'script' | 'webhook' | 'internal'
+  handlerConfig    Json     // URL, script content, or function reference
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("extension_configs")
+}
+
+// ============================================================
+// WORKFLOWS
+// ============================================================
+
+model WorkflowDefinition {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  description String?
+  triggerType String   // entity_create, entity_update, status_change, schedule, manual, webhook
+  triggerConfig Json
+  steps       Json     // WorkflowStepDef[]
+  isActive    Boolean  @default(true)
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  instances   WorkflowInstance[]
+
+  @@map("workflow_definitions")
+}
+
+model WorkflowInstance {
+  id            String   @id @default(cuid())
+  definitionId  String
+  definition    WorkflowDefinition @relation(fields: [definitionId], references: [id])
+  tenantId      String
+  entityType    String?
+  entityId      String?
+  status        String   @default("running") // running, completed, failed, cancelled
+  currentStep   String?
+  context       Json?    // Runtime data
+  startedAt     DateTime @default(now())
+  completedAt   DateTime?
+  error         String?
+
+  stepResults   WorkflowStepResult[]
+
+  @@index([tenantId, status])
+  @@index([entityType, entityId])
+  @@map("workflow_instances")
+}
+
+model WorkflowStepResult {
+  id          String   @id @default(cuid())
+  instanceId  String
+  instance    WorkflowInstance @relation(fields: [instanceId], references: [id])
+  stepId      String
+  status      String   // pending, approved, rejected, completed, failed, skipped
+  assigneeId  String?
+  result      Json?
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  comment     String?
+
+  @@map("workflow_step_results")
+}
+
+// ============================================================
+// AUTHORIZATION
+// ============================================================
+
+model AuthorizationObject {
+  id       String   @id @default(cuid())
+  name     String
+  module   String
+  fields   Json     // AuthFieldDef[]
+  createdAt DateTime @default(now())
+
+  profiles AuthorizationProfileEntry[]
+
+  @@unique([module, name])
+  @@map("authorization_objects")
+}
+
+model AuthorizationProfile {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  entries     AuthorizationProfileEntry[]
+  userProfiles UserAuthProfile[]
+
+  @@unique([tenantId, name])
+  @@map("authorization_profiles")
+}
+
+model AuthorizationProfileEntry {
+  id          String   @id @default(cuid())
+  profileId   String
+  profile     AuthorizationProfile @relation(fields: [profileId], references: [id])
+  objectId    String
+  object      AuthorizationObject  @relation(fields: [objectId], references: [id])
+  fieldValues Json     // Record<string, string[]>
+  createdAt   DateTime @default(now())
+
+  @@unique([profileId, objectId])
+  @@map("authorization_profile_entries")
+}
+
+model UserAuthProfile {
+  id           String   @id @default(cuid())
+  tenantUserId String   @unique
+  tenantUser   TenantUser @relation(fields: [tenantUserId], references: [id])
+  profileId    String
+  profile      AuthorizationProfile @relation(fields: [profileId], references: [id])
+  validFrom    DateTime @default(now())
+  validTo      DateTime?
+  createdAt    DateTime @default(now())
+
+  @@map("user_auth_profiles")
+}
+
+// ============================================================
+// AUDIT LOG
+// ============================================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  userId     String
+  action     String   // create, update, delete, read, export, login, logout
+  entityType String
+  entityId   String
+  changes    Json?    // { field: { old: value, new: value } }
+  metadata   Json?    // IP, user agent, etc.
+  timestamp  DateTime @default(now())
+
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, userId, timestamp])
+  @@index([tenantId, timestamp])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// IMPLEMENTATION GUIDE (IMG)
+// ============================================================
+
+model IMGConfiguration {
+  id          String   @id @default(cuid())
+  tenantId    String
+  nodeId      String
+  module      String
+  configKey   String
+  value       Json
+  status      String   @default("not_started") // not_started, in_progress, completed
+  completedBy String?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, nodeId, configKey])
+  @@map("img_configurations")
+}

@@ -1,0 +1,127 @@
+import { IndustryTemplate } from '../types';
+
+export const retailTemplate: IndustryTemplate = {
+  id: 'retail',
+  name: 'Retail & Commerce',
+  description: 'Omnichannel retail platform with POS, merchandise management, inventory, and customer loyalty.',
+  icon: 'ShoppingCart',
+  modules: [
+    'FI', 'CO', 'MM', 'SD', 'HR',
+    'POS', 'MERCHANDISE', 'STORE_OPS', 'LOYALTY',
+    'OMNICHANNEL', 'WMS', 'DEMAND_PLANNING',
+    'CRM', 'MARKETING_AUTOMATION',
+  ],
+  orgTemplate: [
+    {
+      id: 'company',
+      type: 'COMPANY',
+      code: 'RTL',
+      name: 'Retail Company',
+      level: 0,
+      isActive: true,
+      children: [
+        {
+          id: 'region-north',
+          type: 'REGION',
+          code: 'NORTH',
+          name: 'Northern Region',
+          level: 1,
+          isActive: true,
+          children: [
+            { id: 'store-001', type: 'STORE', code: 'STR001', name: 'Flagship Store', level: 2, isActive: true },
+            { id: 'store-002', type: 'STORE', code: 'STR002', name: 'Mall Outlet', level: 2, isActive: true },
+          ],
+        },
+        {
+          id: 'region-south',
+          type: 'REGION',
+          code: 'SOUTH',
+          name: 'Southern Region',
+          level: 1,
+          isActive: true,
+          children: [
+            { id: 'store-003', type: 'STORE', code: 'STR003', name: 'City Center Store', level: 2, isActive: true },
+          ],
+        },
+        {
+          id: 'dc-main',
+          type: 'STORAGE_LOCATION',
+          code: 'DC01',
+          name: 'Main Distribution Center',
+          level: 1,
+          isActive: true,
+        },
+        {
+          id: 'ecommerce',
+          type: 'DISTRIBUTION_CHANNEL',
+          code: 'ECOM',
+          name: 'E-Commerce',
+          level: 1,
+          isActive: true,
+        },
+      ],
+    },
+  ],
+  customFields: [
+    { entityType: 'product', field: 'sku', label: 'SKU', type: 'string', required: true },
+    { entityType: 'product', field: 'barcode', label: 'Barcode (EAN/UPC)', type: 'string' },
+    { entityType: 'product', field: 'seasonality', label: 'Season', type: 'select', options: [
+      { label: 'Spring/Summer', value: 'ss' },
+      { label: 'Fall/Winter', value: 'fw' },
+      { label: 'All Season', value: 'all' },
+    ]},
+    { entityType: 'product', field: 'markdownEligible', label: 'Markdown Eligible', type: 'boolean', defaultValue: true },
+    { entityType: 'product', field: 'planogramPosition', label: 'Planogram Position', type: 'string' },
+    { entityType: 'product', field: 'minDisplayQty', label: 'Min Display Quantity', type: 'number' },
+    { entityType: 'customer', field: 'loyaltyTier', label: 'Loyalty Tier', type: 'select', options: [
+      { label: 'Bronze', value: 'bronze' },
+      { label: 'Silver', value: 'silver' },
+      { label: 'Gold', value: 'gold' },
+      { label: 'Platinum', value: 'platinum' },
+    ]},
+    { entityType: 'customer', field: 'loyaltyPoints', label: 'Loyalty Points', type: 'number' },
+    { entityType: 'customer', field: 'preferredStore', label: 'Preferred Store', type: 'string' },
+  ],
+  workflowTemplates: [
+    {
+      id: 'purchase-to-shelf',
+      name: 'Purchase to Shelf',
+      description: 'End-to-end merchandise flow from purchase to store shelf',
+      trigger: { type: 'entity_create', entity: 'purchaseOrder' },
+      steps: [
+        { id: 'approve-po', type: 'approval', name: 'PO Approval', config: { role: 'BUYER', timeout: '24h' }, nextSteps: ['receive'] },
+        { id: 'receive', type: 'action', name: 'Goods Receipt at DC', config: { action: 'goodsReceipt' }, nextSteps: ['allocate'] },
+        { id: 'allocate', type: 'action', name: 'Allocate to Stores', config: { action: 'allocateToStores' }, nextSteps: ['ship'] },
+        { id: 'ship', type: 'action', name: 'Ship to Stores', config: { action: 'createShipment' }, nextSteps: ['receive-store'] },
+        { id: 'receive-store', type: 'action', name: 'Store Receipt', config: { action: 'storeReceipt' }, nextSteps: ['display'] },
+        { id: 'display', type: 'action', name: 'Place on Shelf', config: { action: 'updatePlanogram' }, nextSteps: [] },
+      ],
+    },
+    {
+      id: 'markdown-workflow',
+      name: 'Markdown Management',
+      description: 'Automated markdown and clearance pricing workflow',
+      trigger: { type: 'schedule', schedule: '0 5 * * 1' },
+      steps: [
+        { id: 'identify', type: 'action', name: 'Identify Slow Movers', config: { action: 'identifySlowMovers', threshold: 30 }, nextSteps: ['recommend'] },
+        { id: 'recommend', type: 'action', name: 'Calculate Markdown', config: { action: 'calculateMarkdown' }, nextSteps: ['approve'] },
+        { id: 'approve', type: 'approval', name: 'Merchandiser Approval', config: { role: 'MERCHANDISER', timeout: '48h' }, nextSteps: ['apply'] },
+        { id: 'apply', type: 'action', name: 'Apply New Prices', config: { action: 'updatePrices' }, nextSteps: ['notify'] },
+        { id: 'notify', type: 'notification', name: 'Notify Stores', config: { template: 'price-change', roles: ['STORE_MANAGER'] }, nextSteps: [] },
+      ],
+    },
+  ],
+  terminology: {
+    'product': 'SKU',
+    'warehouse': 'Distribution Center',
+    'plant': 'Store',
+    'work_order': 'Replenishment Order',
+    'customer': 'Shopper',
+    'invoice': 'Receipt',
+    'supplier': 'Vendor',
+  },
+  compliance: [
+    { id: 'pci-dss', standard: 'PCI DSS', requirement: 'Payment Card Security', description: 'Payment Card Industry Data Security Standard for handling card payments', controls: ['encryption', 'access-control', 'network-security', 'monitoring'], evidenceTypes: ['scan-report', 'access-log', 'penetration-test'] },
+    { id: 'consumer-protection', standard: 'Consumer Protection', requirement: 'Customer Rights', description: 'Consumer protection regulations for retail operations', controls: ['return-policy', 'price-transparency', 'product-safety'], evidenceTypes: ['policy-document', 'compliance-audit'] },
+  ],
+};
