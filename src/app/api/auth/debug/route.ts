@@ -1,45 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth/auth-options";
 
-const secret = process.env.NEXTAUTH_SECRET || "pharma-erp-dev-secret-change-in-production";
-
+/**
+ * GET /api/auth/debug
+ *
+ * Debug endpoint restricted to ADMIN users and non-production environments.
+ * Returns minimal session info for troubleshooting authentication issues.
+ */
 export async function GET(req: NextRequest) {
-  const cookieList = req.cookies.getAll().map((c) => c.name);
-  const proto = req.headers.get("x-forwarded-proto");
-  const host = req.headers.get("host");
-  const fwdHost = req.headers.get("x-forwarded-host");
-  const url = req.nextUrl.toString();
-
-  let tokenResult: string;
-  try {
-    const token = await getToken({ req, secret });
-    tokenResult = token ? JSON.stringify({ id: token.id, role: token.role, name: token.name }) : "null";
-  } catch (e) {
-    tokenResult = `error: ${e}`;
+  // Block in production
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: "Debug endpoint is disabled in production" },
+      { status: 404 },
+    );
   }
 
-  let tokenSecure: string;
-  try {
-    const token = await getToken({ req, secret, cookieName: "__Secure-next-auth.session-token" });
-    tokenSecure = token ? JSON.stringify({ id: token.id, role: token.role }) : "null";
-  } catch {
-    tokenSecure = "error";
-  }
-
-  let tokenPlain: string;
-  try {
-    const token = await getToken({ req, secret, cookieName: "next-auth.session-token" });
-    tokenPlain = token ? JSON.stringify({ id: token.id, role: token.role }) : "null";
-  } catch {
-    tokenPlain = "error";
+  // Require admin authentication
+  const session = await getServerSession(authOptions);
+  const role = (session?.user as Record<string, unknown> | undefined)?.role;
+  if (!session || role !== "ADMIN") {
+    return NextResponse.json(
+      { error: "Unauthorized - admin access required" },
+      { status: 401 },
+    );
   }
 
   return NextResponse.json({
-    cookies: cookieList,
-    headers: { proto, host, fwdHost },
-    url,
-    getToken_default: tokenResult,
-    getToken_secure: tokenSecure,
-    getToken_plain: tokenPlain,
+    authenticated: true,
+    userId: (session.user as Record<string, unknown>)?.id ?? null,
+    role,
   });
 }

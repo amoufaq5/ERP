@@ -237,16 +237,32 @@ async function handleNextNumber(
 
   // Try atomic increment in DB
   try {
-    const subTypeCondition = subType ? `AND sub_type = '${subType}'` : "AND sub_type IS NULL";
-    const orgCondition = orgUnitId ? `AND org_unit_id = '${orgUnitId}'` : "AND org_unit_id IS NULL";
+    // Build parameterised query to avoid SQL injection
+    const params: unknown[] = [tenantId, objectType];
+    let paramIndex = 3;
+
+    let subTypeCondition: string;
+    if (subType) {
+      subTypeCondition = `AND sub_type = $${paramIndex++}`;
+      params.push(subType);
+    } else {
+      subTypeCondition = "AND sub_type IS NULL";
+    }
+
+    let orgCondition: string;
+    if (orgUnitId) {
+      orgCondition = `AND org_unit_id = $${paramIndex++}`;
+      params.push(orgUnitId);
+    } else {
+      orgCondition = "AND org_unit_id IS NULL";
+    }
 
     const rows = await prisma.$queryRawUnsafe<NumberRangeRecord[]>(
       `UPDATE number_ranges
        SET current_number = current_number + 1, updated_at = NOW()
        WHERE tenant_id = $1 AND object_type = $2 ${subTypeCondition} ${orgCondition}
        RETURNING *`,
-      tenantId,
-      objectType
+      ...params
     );
 
     if (!rows || rows.length === 0) {
@@ -346,13 +362,7 @@ function formatRange(record: NumberRangeRecord) {
   };
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Tenant-Id, X-Tenant-Slug, X-User-Id",
-    },
-  });
+export async function OPTIONS(req: NextRequest) {
+  const { corsOptions } = await import("@/lib/api/api-helpers");
+  return corsOptions(req);
 }

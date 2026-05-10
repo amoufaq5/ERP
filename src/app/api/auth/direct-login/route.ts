@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { encode } from "next-auth/jwt";
 import { DEMO_CREDENTIALS } from "@/lib/auth/auth-utils";
 
-const secret = "pharma-erp-dev-secret-change-in-production";
+const secret = process.env.NEXTAUTH_SECRET || "pharma-erp-dev-secret-change-in-production";
 
 async function createToken(demo: (typeof DEMO_CREDENTIALS)[string]) {
   return encode({

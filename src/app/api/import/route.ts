@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth/auth-options";
 import { getImportSchema } from "@/lib/import/import-schemas";
 import type { ImportSchema, ParsedRow, InvalidRow } from "@/lib/import/import-service";
 
@@ -30,6 +32,15 @@ interface ImportResponse {
  */
 export async function POST(request: NextRequest): Promise<NextResponse<ImportResponse | { error: string }>> {
   try {
+    // Auth check — only authenticated users may import data
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 },
+      );
+    }
+
     const body = (await request.json()) as ImportRequestBody;
     const { entityType, rows } = body;
 

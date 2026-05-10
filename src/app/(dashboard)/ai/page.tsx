@@ -61,13 +61,23 @@ const AI_FEATURES = [
   { id: "6", name: "Chat Assistant", description: "AI-powered help desk for employees and customers", icon: MessageSquare, active: false },
 ]
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function formatMarkdown(text: string): string {
-  let html = text
+  // Escape HTML first to prevent XSS, then apply markdown formatting
+  let html = escapeHtml(text)
     .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="bg-gray-900 text-gray-100 p-3 rounded-lg my-2 overflow-x-auto text-sm"><code>$2</code></pre>')
     .replace(/`([^`]+)`/g, '<code class="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm">$1</code>')
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/^- (.+)$/gm, '<li class="ml-4">• $1</li>')
+    .replace(/^- (.+)$/gm, '<li class="ml-4">$1</li>')
     .replace(/^\d+\. (.+)$/gm, '<li class="ml-4">$1</li>')
   html = html.replace(/\n/g, "<br/>")
   return html

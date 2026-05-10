@@ -59,7 +59,7 @@ import type { TrendDataPoint } from "@/lib/quality/env-monitoring-types";
 
 // ─── API Helpers ──────────────────────────────────────────────────────────
 
-const EM_API = "/api/v1/qaqc/environmental-monitoring";
+const EM_API = "/api/v1/qaqc/env-monitoring";
 
 async function fetchLocations(): Promise<MonitoringLocation[]> {
   try {

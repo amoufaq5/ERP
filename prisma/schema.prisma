@@ -164,6 +164,7 @@ model User {
   createdStandaloneTasks   StandaloneTask[]  @relation("StandaloneTaskCreator")
   sentMessages       Message[]       @relation("MessageSender")
   receivedMessages   Message[]       @relation("MessageRecipient")
+  ownedDeals         Deal[]          @relation("DealOwner")
 
   @@map("users")
 }
@@ -734,6 +735,8 @@ model Department {
   employees          Employee[]
   jobs               Job[]
   onboardChecklists  OnboardingChecklist[]
+  budgets            Budget[]
+  positions          Position[]
 
   @@index([tenantId])
   @@map("departments")
@@ -751,6 +754,8 @@ model Employee {
   departmentId   String?
   department     Department? @relation(fields: [departmentId], references: [id])
   position       String?
+  positionId     String?
+  positionRef    Position? @relation(fields: [positionId], references: [id])
   hireDate       DateTime
   salary         Float?
   status         String    @default("ACTIVE") // ACTIVE, ON_LEAVE, TERMINATED
@@ -1013,6 +1018,7 @@ model Account {
   invoices       Invoice[]
   salesOrders    SalesOrder[]
   opportunities  Opportunity[]
+  deals          Deal[]
   tickets        Ticket[]
   fieldVisits    FieldVisit[]
   loyaltyMembers LoyaltyMember[]
@@ -1039,6 +1045,7 @@ model Contact {
   createdAt  DateTime @default(now())
 
   opportunities  Opportunity[]
+  deals          Deal[]
   tickets        Ticket[]
   fieldVisits    FieldVisit[]
   loyaltyMembers LoyaltyMember[]
@@ -2925,4 +2932,164 @@ model Cheque {
 
   @@index([tenantId])
   @@map("cheques")
+}
+
+// ==================== CRM - DEALS ====================
+
+model Deal {
+  id                String    @id @default(cuid())
+  tenantId          String
+  title             String
+  contactId         String?
+  contact           Contact?  @relation(fields: [contactId], references: [id])
+  accountId         String?
+  account           Account?  @relation(fields: [accountId], references: [id])
+  ownerId           String?
+  owner             User?     @relation("DealOwner", fields: [ownerId], references: [id])
+  stage             String    @default("LEAD") // LEAD, QUALIFIED, PROPOSAL, NEGOTIATION, CLOSED_WON, CLOSED_LOST
+  amount            Float?
+  currency          String    @default("USD")
+  probability       Int?
+  expectedCloseDate DateTime?
+  actualCloseDate   DateTime?
+  source            String?   // WEB, REFERRAL, COLD_CALL, TRADE_SHOW, PARTNER, INBOUND, OUTBOUND, OTHER
+  priority          String    @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  description       String?
+  notes             String?
+  tags              String?   // JSON array
+  lostReason        String?
+  competitors       String?   // JSON array
+  nextStep          String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  activities DealActivity[]
+
+  @@index([tenantId])
+  @@map("deals")
+}
+
+model DealActivity {
+  id          String   @id @default(cuid())
+  tenantId    String
+  dealId      String
+  deal        Deal     @relation(fields: [dealId], references: [id])
+  type        String   // CALL, EMAIL, MEETING, TASK, NOTE
+  subject     String
+  description String?
+  date        DateTime
+  duration    Int?
+  userId      String?
+  status      String   @default("COMPLETED")
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([dealId])
+  @@map("deal_activities")
+}
+
+// ==================== FINANCE - BUDGETS & COST CENTERS ====================
+
+model Budget {
+  id           String       @id @default(cuid())
+  tenantId     String
+  name         String
+  fiscalYear   Int
+  departmentId String?
+  department   Department?  @relation(fields: [departmentId], references: [id])
+  costCenterId String?
+  costCenter   CostCenter?  @relation(fields: [costCenterId], references: [id])
+  status       String       @default("DRAFT") // DRAFT, SUBMITTED, APPROVED, REJECTED, ACTIVE, CLOSED
+  totalAmount  Float
+  currency     String       @default("USD")
+  startDate    DateTime
+  endDate      DateTime
+  description  String?
+  approvedBy   String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  lines BudgetLine[]
+
+  @@index([tenantId])
+  @@map("budgets")
+}
+
+model BudgetLine {
+  id              String      @id @default(cuid())
+  tenantId        String
+  budgetId        String
+  budget          Budget      @relation(fields: [budgetId], references: [id])
+  accountId       String
+  costCenterId    String?
+  januaryAmount   Float       @default(0)
+  februaryAmount  Float       @default(0)
+  marchAmount     Float       @default(0)
+  aprilAmount     Float       @default(0)
+  mayAmount       Float       @default(0)
+  juneAmount      Float       @default(0)
+  julyAmount      Float       @default(0)
+  augustAmount    Float       @default(0)
+  septemberAmount Float       @default(0)
+  octoberAmount   Float       @default(0)
+  novemberAmount  Float       @default(0)
+  decemberAmount  Float       @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([tenantId])
+  @@index([budgetId])
+  @@map("budget_lines")
+}
+
+model CostCenter {
+  id           String       @id @default(cuid())
+  tenantId     String
+  code         String
+  name         String
+  description  String?
+  parentId     String?
+  parent       CostCenter?  @relation("CostCenterHierarchy", fields: [parentId], references: [id])
+  children     CostCenter[] @relation("CostCenterHierarchy")
+  managerId    String?
+  departmentId String?
+  isActive     Boolean      @default(true)
+  budgetAmount Float?
+  currency     String       @default("USD")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  budgets Budget[]
+
+  @@index([tenantId])
+  @@map("cost_centers")
+}
+
+// ==================== HR - POSITIONS ====================
+
+model Position {
+  id               String   @id @default(cuid())
+  tenantId         String
+  code             String
+  title            String
+  description      String?
+  departmentId     String?
+  department       Department? @relation(fields: [departmentId], references: [id])
+  level            String?  // INTERN, JUNIOR, MID, SENIOR, LEAD, MANAGER, DIRECTOR, VP, C_LEVEL
+  minSalary        Float?
+  maxSalary        Float?
+  currency         String   @default("USD")
+  isActive         Boolean  @default(true)
+  headCount        Int      @default(1)
+  filledCount      Int      @default(0)
+  requirements     String?
+  responsibilities String?
+  reportsTo        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  employees Employee[]
+
+  @@index([tenantId])
+  @@map("positions")
 }

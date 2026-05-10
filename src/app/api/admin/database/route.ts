@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth/auth-options";
 import { getDatabaseConfig, checkDatabaseHealth, getTableStats } from "@/lib/db/database-config";
 
 export async function GET() {
   try {
+    // Auth check — only ADMIN role may access database info
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as Record<string, unknown> | undefined)?.role;
+    if (!session || role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "Unauthorized - admin access required" },
+        { status: 401 },
+      );
+    }
     const config = getDatabaseConfig();
     const health = await checkDatabaseHealth();
     let tables: { table: string; count: number }[] = [];
