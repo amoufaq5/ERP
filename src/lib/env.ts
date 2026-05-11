@@ -35,6 +35,7 @@ const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 function validateEnv(): Env {
+  const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build';
   const parsed = envSchema.safeParse(process.env);
 
   if (!parsed.success) {
@@ -43,11 +44,12 @@ function validateEnv(): Env {
       .map(([key, msgs]) => `  ${key}: ${msgs?.join(', ')}`)
       .join('\n');
 
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production' && !isBuildPhase) {
       throw new Error(`Environment validation failed:\n${errorMessages}`);
     } else {
-      console.warn(`⚠️ Environment validation warnings:\n${errorMessages}`);
-      // In development, return with defaults for missing optional values
+      if (!isBuildPhase) {
+        console.warn(`⚠️ Environment validation warnings:\n${errorMessages}`);
+      }
       return envSchema.parse({
         ...process.env,
         DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db',
