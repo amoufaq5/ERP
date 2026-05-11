@@ -260,11 +260,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return allowedRoutes.some((r) => href === r || href.startsWith(r + "/"));
   }
 
-  // Avoid hydration mismatch by rendering children only after localStorage read
-  if (!ready) {
-    return <>{children}</>;
-  }
-
   return (
     <UserContext.Provider
       value={{
