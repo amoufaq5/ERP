@@ -16,26 +16,9 @@ class RedisCacheClient implements CacheClient {
   private fallbackCache: Map<string, { value: string; expiry?: number }> = new Map();
 
   async connect(): Promise<void> {
-    const redisUrl = process.env.REDIS_URL;
-    if (!redisUrl) {
-      console.warn('[Cache] REDIS_URL not set, using in-memory fallback');
-      return;
-    }
-
-    try {
-      const redis = await import('redis' as any);
-      const { createClient } = redis;
-      this.client = createClient({ url: redisUrl });
-      this.client.on('error', (err: Error) => {
-        console.error('[Cache] Redis error:', err.message);
-        this.connected = false;
-      });
-      await this.client.connect();
-      this.connected = true;
-      console.log('[Cache] Redis connected');
-    } catch (error) {
-      console.warn('[Cache] Redis connection failed, using in-memory fallback:', error instanceof Error ? error.message : error);
-    }
+    // In-memory fallback is always used.
+    // To enable Redis, install the 'redis' package and
+    // implement the connection logic here.
   }
 
   private isExpired(entry: { value: string; expiry?: number }): boolean {
