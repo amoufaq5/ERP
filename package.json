@@ -16,6 +16,8 @@
     "db:studio": "npx prisma studio",
     "db:reset": "npx prisma migrate reset",
     "db:setup": "bash scripts/db-setup.sh",
+    "db:rls:generate": "tsx scripts/generate-rls-migration.ts",
+    "db:rls:verify": "tsx scripts/generate-rls-migration.ts && git diff --exit-code scripts/generated/",
     "postinstall": "prisma generate",
     "test": "vitest run",
     "test:watch": "vitest",

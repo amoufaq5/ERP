@@ -8,7 +8,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/__tests__/setup.ts', './src/test/setup.ts'],
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    include: [
+      'src/**/*.{test,spec}.{ts,tsx}',
+      'scripts/**/*.{test,spec}.ts',
+    ],
     environmentMatchGlobs: [
       ['src/lib/auth/**/*.test.ts', 'node'],
       ['src/lib/security/**/*.test.ts', 'node'],
@@ -25,6 +28,7 @@ export default defineConfig({
       ['src/__tests__/lib/jobs/**/*.test.ts', 'node'],
       ['src/__tests__/api/**/*.test.ts', 'node'],
       ['src/test/**/*.test.ts', 'node'],
+      ['scripts/**/*.test.ts', 'node'],
     ] as [string, string][],
     coverage: {
       provider: 'v8',

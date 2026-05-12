@@ -62,7 +62,7 @@ extended.
 
 ## Status (live)
 
-- ✅ **B2.1 — Schema + auth wiring** (this commit). User.tenantId field
+- ✅ **B2.1 — Schema + auth wiring**. User.tenantId field
   added, email constraint changed to `@@unique([tenantId, email])`,
   login flow attaches tenantId from User row (and demo credentials
   fall back to `DEFAULT_DEMO_TENANT_ID`). `TENANT_SCHEMA_DEBT` is now
@@ -70,7 +70,11 @@ extended.
 - ⏳ B2.2 — Operator action: apply the migration in
   `scripts/b2-1-user-tenantid-migration.sql` + the master seed in
   `scripts/b2-1-master-tenant-seed.sql`.
-- ⏳ B2.3 — RLS policies on 119 models (next code work).
+- ✅ **B2.3 — RLS generator + 120-table SQL output** (this commit).
+  `scripts/generate-rls-migration.ts` parses `schema.prisma`, excludes
+  `SHARED_LOOKUP_MODELS` ∪ `TENANT_SCHEMA_DEBT`, emits deterministic
+  `scripts/generated/rls-enable.sql` + `rls-disable.sql`. CI can
+  re-run via `npm run db:rls:verify` to catch schema drift.
 - ⏳ B2.4 — SET LOCAL wiring in withAuthAndTenant.
 - ⏳ B2.5 — Two-tenant integration test.
 
