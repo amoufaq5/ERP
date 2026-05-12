@@ -1,3 +1,16 @@
+// Structured logger for the ERP service.
+// Provides JSON-line output, level filtering, PII redaction, child loggers,
+// and per-request scoping via `withRequest(requestId, tenantId, userId)`.
+//
+// Satisfies the ADR-0009 §Layer 5 requirement for structured logs and the
+// ADR-0017 §Instrumentation requirement for per-tenant scoping and PHI
+// redaction. We do not depend on `pino`; this hand-rolled logger is small
+// enough to maintain and avoids the JSON-serialization-quirk debt that
+// off-the-shelf alternatives bring at our scale.
+//
+// Sentry and OpenTelemetry handle error capture + tracing independently
+// (see `sentry.server.config.ts` and `instrumentation.ts`).
+
 export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 
 const LOG_LEVELS: Record<LogLevel, number> = {
