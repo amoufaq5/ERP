@@ -70,12 +70,17 @@ extended.
 - ⏳ B2.2 — Operator action: apply the migration in
   `scripts/b2-1-user-tenantid-migration.sql` + the master seed in
   `scripts/b2-1-master-tenant-seed.sql`.
-- ✅ **B2.3 — RLS generator + 120-table SQL output** (this commit).
+- ✅ **B2.3 — RLS generator + 120-table SQL output**.
   `scripts/generate-rls-migration.ts` parses `schema.prisma`, excludes
   `SHARED_LOOKUP_MODELS` ∪ `TENANT_SCHEMA_DEBT`, emits deterministic
   `scripts/generated/rls-enable.sql` + `rls-disable.sql`. CI can
   re-run via `npm run db:rls:verify` to catch schema drift.
-- ⏳ B2.4 — SET LOCAL wiring in withAuthAndTenant.
+- ✅ **B2.4 — SET LOCAL wiring in withAuthAndTenant** (this commit).
+  Every tenant-scoped request now opens an interactive Prisma
+  transaction. The transaction's connection has `app.current_tenant_id`
+  set via `SELECT set_config(..., true)`; the handler receives an
+  extended `tx` client where Layer 1 (extension) and Layer 2 (RLS)
+  share the same connection. Timeout 30s; max-wait for connection 5s.
 - ⏳ B2.5 — Two-tenant integration test.
 
 ## B2 work breakdown
