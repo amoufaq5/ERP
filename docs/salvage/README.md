@@ -26,6 +26,9 @@ and reusable. This directory is the handoff doc.
 | [`05-patterns.md`](./05-patterns.md) | Phase 0 reusable code: tenant-scoping extension, RLS generator, state-transition helper, route factory, etc. | Production-tested patterns |
 | [`06-seed-data.md`](./06-seed-data.md) | Egyptian pharma sample data: hospitals, pharmacies, distributors, doctors, products, expenses | Demo tenant + AI training context |
 | [`07-do-not-carry.md`](./07-do-not-carry.md) | Explicit anti-list: what looks tempting but should be rebuilt | Saves Phase 1 from re-importing known bugs |
+| [`08-rbac-matrix.md`](./08-rbac-matrix.md) | RBAC role × entity table from `src/lib/api/rbac.ts` | Seeds Phase 1 permission system |
+| [`09-module-list.md`](./09-module-list.md) | Flat list of ~85 API entities across 16 domain areas; suggested Phase 1 module decomposition | Makes "all modules" concrete; informs Phase 1 module boundaries |
+| [`10-validations-full.md`](./10-validations-full.md) | Verbatim dump of `src/lib/api/validations.ts` (52 zod schemas) | Zero-lookup reference for Phase 1 validation scaffolding |
 
 ## How Phase 1 should use this
 
