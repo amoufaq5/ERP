@@ -60,6 +60,20 @@ The schema-per-tenant scaffolding in `master.prisma` becomes vestigial —
 left in place for the few admin routes that already use it, but not
 extended.
 
+## Status (live)
+
+- ✅ **B2.1 — Schema + auth wiring** (this commit). User.tenantId field
+  added, email constraint changed to `@@unique([tenantId, email])`,
+  login flow attaches tenantId from User row (and demo credentials
+  fall back to `DEFAULT_DEMO_TENANT_ID`). `TENANT_SCHEMA_DEBT` is now
+  empty; tests updated to verify User is auto-scoped.
+- ⏳ B2.2 — Operator action: apply the migration in
+  `scripts/b2-1-user-tenantid-migration.sql` + the master seed in
+  `scripts/b2-1-master-tenant-seed.sql`.
+- ⏳ B2.3 — RLS policies on 119 models (next code work).
+- ⏳ B2.4 — SET LOCAL wiring in withAuthAndTenant.
+- ⏳ B2.5 — Two-tenant integration test.
+
 ## B2 work breakdown
 
 ### B2.1 — Schema migration: add User.tenantId (1 day)

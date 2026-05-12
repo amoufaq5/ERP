@@ -45,12 +45,10 @@ export const SHARED_LOOKUP_MODELS = new Set<string>([
 // DO NOT add new entries without explicit approval — this set should
 // only shrink.
 export const TENANT_SCHEMA_DEBT = new Set<string>([
-  // User: NextAuth callbacks set `token.tenantId = user.tenantId` but the
-  // Prisma `User` model has no `tenantId` field. Auth flow currently
-  // depends on this field being set elsewhere (likely a hand-populated
-  // session value). Track B2 adds the column + backfills from related
-  // entity ownership or master-db tenant assignments.
-  "User",
+  // (none — Track B2.1 closed the User debt by adding tenantId to the
+  //  User model and updating the login flow to populate session.user.tenantId.
+  //  Add new entries here only if a new schema-debt model is introduced;
+  //  the set should only shrink.)
 ]);
 
 // ─── Pure augmentation helper ──────────────────────────────────────────────

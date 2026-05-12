@@ -43,9 +43,10 @@ async function main() {
   console.log("👤 Creating users...")
 
   const adminUser = await prisma.user.upsert({
-    where: { email: "admin@pharmacorp.eg" },
+    where: { tenantId_email: { tenantId: TENANT_ID, email: "admin@pharmacorp.eg" } },
     update: {},
     create: {
+      tenantId: TENANT_ID,
       name: "Ahmed Hassan",
       email: "admin@pharmacorp.eg",
       passwordHash: hashSync("Admin@2024!", 10),
@@ -57,9 +58,10 @@ async function main() {
   })
 
   const salesManager = await prisma.user.upsert({
-    where: { email: "sara.elmasry@pharmacorp.eg" },
+    where: { tenantId_email: { tenantId: TENANT_ID, email: "sara.elmasry@pharmacorp.eg" } },
     update: {},
     create: {
+      tenantId: TENANT_ID,
       name: "Sara El-Masry",
       email: "sara.elmasry@pharmacorp.eg",
       passwordHash: hashSync("Sales@2024!", 10),
@@ -71,9 +73,10 @@ async function main() {
   })
 
   const warehouseManager = await prisma.user.upsert({
-    where: { email: "omar.farouk@pharmacorp.eg" },
+    where: { tenantId_email: { tenantId: TENANT_ID, email: "omar.farouk@pharmacorp.eg" } },
     update: {},
     create: {
+      tenantId: TENANT_ID,
       name: "Omar Farouk",
       email: "omar.farouk@pharmacorp.eg",
       passwordHash: hashSync("Warehouse@2024!", 10),
@@ -85,9 +88,10 @@ async function main() {
   })
 
   const qualityManager = await prisma.user.upsert({
-    where: { email: "nadia.rizk@pharmacorp.eg" },
+    where: { tenantId_email: { tenantId: TENANT_ID, email: "nadia.rizk@pharmacorp.eg" } },
     update: {},
     create: {
+      tenantId: TENANT_ID,
       name: "Nadia Rizk",
       email: "nadia.rizk@pharmacorp.eg",
       passwordHash: hashSync("Quality@2024!", 10),
@@ -99,9 +103,10 @@ async function main() {
   })
 
   const hrManager = await prisma.user.upsert({
-    where: { email: "khaled.mansour@pharmacorp.eg" },
+    where: { tenantId_email: { tenantId: TENANT_ID, email: "khaled.mansour@pharmacorp.eg" } },
     update: {},
     create: {
+      tenantId: TENANT_ID,
       name: "Khaled Mansour",
       email: "khaled.mansour@pharmacorp.eg",
       passwordHash: hashSync("HR@2024!", 10),

@@ -204,15 +204,42 @@ describe("augmentArgsForTenant — passes through for shared lookups", () => {
   });
 });
 
-describe("augmentArgsForTenant — passes through for schema-debt models", () => {
-  it("User (current known debt) is not auto-scoped", () => {
-    // User is in TENANT_SCHEMA_DEBT because the Prisma model has no
-    // tenantId column. Track B2 closes this by adding the column.
-    expect(TENANT_SCHEMA_DEBT.has("User")).toBe(true);
+describe("augmentArgsForTenant — schema-debt set is empty after B2.1", () => {
+  // Track B2.1 closed the User debt by adding tenantId to the User model
+  // (see prisma/schema.prisma + docs/PHASE0_TRACK_B2_BRIEF.md). User is now
+  // auto-scoped like every other tenant-scoped model.
+  it("(meta) TENANT_SCHEMA_DEBT is currently empty", () => {
+    expect(TENANT_SCHEMA_DEBT.size).toBe(0);
+  });
 
-    const args = { where: { email: "a@b.com" } };
-    const result = augmentArgsForTenant("User", "findFirst", args, TENANT);
-    expect(result).toBe(args); // identity — no augmentation
+  it("User is now auto-scoped (was previously in TENANT_SCHEMA_DEBT)", () => {
+    const result = augmentArgsForTenant(
+      "User",
+      "findFirst",
+      { where: { email: "a@b.com" } },
+      TENANT,
+    ) as { where: { tenantId: string; email: string } };
+    expect(result.where.tenantId).toBe(TENANT);
+    expect(result.where.email).toBe("a@b.com");
+  });
+
+  it("hypothetical debt model passes args through unchanged", () => {
+    // Mechanism stays in place for future debt entries. This test reserves
+    // the contract: anything in TENANT_SCHEMA_DEBT bypasses augmentation.
+    const debtSet = TENANT_SCHEMA_DEBT as Set<string>;
+    debtSet.add("__TestSchemaDebt__");
+    try {
+      const args = { where: { id: "x" } };
+      const result = augmentArgsForTenant(
+        "__TestSchemaDebt__",
+        "findFirst",
+        args,
+        TENANT,
+      );
+      expect(result).toBe(args);
+    } finally {
+      debtSet.delete("__TestSchemaDebt__");
+    }
   });
 });
 

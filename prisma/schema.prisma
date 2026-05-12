@@ -108,8 +108,9 @@ enum VisitSession {
 
 model User {
   id           String   @id @default(cuid())
+  tenantId     String
   name         String
-  email        String   @unique
+  email        String
   passwordHash String
   role         String   @default("EMPLOYEE") // ADMIN, MANAGER, EMPLOYEE
   avatar       String?
@@ -166,6 +167,8 @@ model User {
   receivedMessages   Message[]       @relation("MessageRecipient")
   ownedDeals         Deal[]          @relation("DealOwner")
 
+  @@unique([tenantId, email])
+  @@index([tenantId])
   @@map("users")
 }
 

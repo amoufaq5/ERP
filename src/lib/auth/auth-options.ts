@@ -4,6 +4,11 @@ import { compareSync } from "bcryptjs";
 import { DEMO_CREDENTIALS_LIST } from "./auth-utils";
 import { env } from "../env";
 
+// Phase-0 placeholder: every demo credential is bound to the seed tenant.
+// Phase 1 kernel replaces this with a tenant-slugged login URL
+// (per docs/PHASE0_TRACK_B2_BRIEF.md decision 4).
+const DEFAULT_DEMO_TENANT_ID = "tenant_pharmacorp_eg";
+
 export type SessionUser = {
   id: string;
   name: string;
@@ -43,6 +48,9 @@ export const authOptions: NextAuthOptions = {
               role: demo.profile.role,
               department: demo.profile.department,
               territory: demo.profile.territory,
+              // Demo users belong to the seed tenant. Production users get
+              // tenantId from their User row (see DB branch below).
+              tenantId: demo.profile.tenantId ?? DEFAULT_DEMO_TENANT_ID,
             };
           }
         }
@@ -66,6 +74,7 @@ export const authOptions: NextAuthOptions = {
                 email: dbUser.email,
                 role: dbUser.role,
                 department: dbUser.department || undefined,
+                tenantId: dbUser.tenantId,
               };
             }
           } finally {

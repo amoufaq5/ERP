@@ -42,6 +42,10 @@ export interface DemoCredential {
     role: string;
     department: string;
     territory?: string;
+    // Phase 0: optional; defaults to DEFAULT_DEMO_TENANT_ID in auth-options.ts
+    // when not set on the credential. Allows overriding for tenant-specific
+    // demo accounts during multi-tenant testing.
+    tenantId?: string;
   };
 }
 
