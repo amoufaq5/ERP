@@ -73,7 +73,15 @@ while IFS= read -r route; do
 
   if [ -z "$cat" ]; then
     uses_factory=$(grep -c "createRouteHandlers" "$route" || true)
-    refs=$(grep -oE "prisma\.[a-zA-Z]+" "$route" | sort -u || true)
+    # Catch all Prisma model access patterns:
+    #   prisma.foo.method
+    #   (prisma as any).foo.method
+    #   (prisma as PrismaClient).foo.method
+    # The grep captures the model property name from each occurrence.
+    refs=$( {
+      grep -oE "prisma\.[a-zA-Z]+" "$route"
+      grep -oE "\(prisma as [^)]+\)\.[a-zA-Z]+" "$route" | sed -E 's/^\(prisma as [^)]+\)\./prisma./'
+    } 2>/dev/null | sort -u || true)
 
     if [ "$uses_factory" -gt 0 ]; then
       model=$(grep -oE "modelName:\s*['\"][a-zA-Z]+['\"]" "$route" | head -1 | sed -E "s/modelName:\s*['\"]([a-zA-Z]+)['\"]/\1/")
