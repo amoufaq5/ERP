@@ -150,6 +150,34 @@ Routes that don't touch tenant data: `/api/v1/health`, `/api/v1/events` (webhook
 
 Effort: confirm and document. ~5 minutes each.
 
+## Schema audit findings (added during B1)
+
+Running the proposed allowlist against `prisma/schema.prisma` produced two
+new findings that shape the rest of Track B:
+
+1. **No cross-tenant reference tables exist in the current schema.**
+   All proposed allowlist members (`Country`, `Currency`, `ICD10Code`,
+   `DrugFormulary`, `Permission`, `Role`, etc.) are absent. Country and
+   currency are inline strings; roles are string enums on `User.role`.
+   `SHARED_LOOKUP_MODELS` therefore ships empty — kept as a typed
+   constant so future global tables have a single declared exemption point.
+
+2. **119 of 120 models have `tenantId: String @@index([tenantId])`.**
+   The single exception is `User` — which is itself a security defect
+   because `auth-options.ts` callbacks read `user.tenantId` that the
+   schema doesn't define. Either the field is hand-populated by a
+   different mechanism, or this is broken in production. Tracked as
+   `TENANT_SCHEMA_DEBT.User` in `src/lib/api/with-tenant.ts`; Track B2
+   must add the column + backfill before enabling RLS on `users` table.
+
+Implications:
+- **B1 is simpler than expected** — no shared-lookup logic to maintain.
+- **B2 must add `tenantId` to `User` first**, before any RLS work, since
+  several relations point to `User` and RLS depends on the column existing.
+- **`tenantId` is indexed everywhere already** — RLS performance concern
+  (Q5) is effectively answered without benchmarking. Indexed equality
+  comparison in a policy is the cheapest possible RLS predicate.
+
 ## Plan: incremental Phase 0 Track B PRs
 
 | # | PR | Effort |
@@ -168,14 +196,14 @@ Effort: confirm and document. ~5 minutes each.
 
 ## Open questions for review
 
-| Question | Recommendation |
-|---|---|
-| `withAuthAndTenant` vs. modifying `withAuth` in place — additive new helper vs. breaking change | **Additive.** New helper. Old `withAuth` stays during migration; routes upgrade as we touch them. After Band-1+2 done, deprecate the old wrapper. |
-| Shared lookup table inventory — which models are intentionally cross-tenant? | Audit during B1. Likely candidates: country list, currency list, ICD-10 codes, drug-formulary references, time-zone list. Document explicitly. |
-| Transaction handling for `SET LOCAL` — does Prisma's transaction wrap honor the session variable correctly? | Verify in B1 with a focused test. If not, fall back to per-call query interception. |
-| Backfill of missing `tenantId` columns — which models lack the column entirely? | Audit during B2. For any tenant-scoped model without `tenantId`, the migration must add the column + backfill from related-entity ownership before enabling RLS. |
-| Performance impact of RLS — adds a filter to every query. Concern at scale? | Postgres RLS overhead is minimal when the policy uses an indexed column. Confirm by load-testing the heaviest endpoint after B2. |
-| ABAC predicates on top of RLS — the kernel ADRs envision OPA Rego for per-record predicates (per ADR-0008). Apply during Phase 0 or defer to Phase 1 monorepo? | **Defer to Phase 1.** Phase 0 closes the cross-tenant gap; finer-grained ABAC is built fresh in the kernel. |
+| Question | Decision | Decided |
+|---|---|---|
+| `withAuthAndTenant` vs. modifying `withAuth` in place — additive new helper vs. breaking change | **Additive.** New helper. Old `withAuth` stays during migration; routes upgrade as we touch them. After Band-1+2 done, deprecate the old wrapper. | 2026-05-11 (confirmed) |
+| Shared lookup table inventory — which models are intentionally cross-tenant? | **Audit during B1.** Proposed allowlist (Country, Currency, ICD10Code, DrugFormulary, TimeZone, Permission, Role) to be posted for confirmation before B1 ships. Allowlist lives as a constant in `with-tenant.ts`; additions require code review. | 2026-05-11 (defer to B1) |
+| Transaction handling for `SET LOCAL` — does Prisma's transaction wrap honor the session variable correctly? | **Verify in B1 with a focused test.** If `SET LOCAL` inside `$transaction` doesn't survive nested queries, fallback is Prisma `$extends` middleware that injects `where: { tenantId }` per-query. Same defense-in-depth either way. | 2026-05-11 (defer to B1) |
+| Backfill of missing `tenantId` columns — which models lack the column entirely? | **Audit during B2.** Output: inventory of "model → missing tenantId → backfill source FK". Migration adds the column + backfills before enabling RLS. Models that genuinely cannot be tenanted are added to the shared-lookup allowlist instead. | 2026-05-11 (defer to B2) |
+| Performance impact of RLS — adds a filter to every query. Concern at scale? | **Measure post-B2, not blocking.** Postgres RLS with `current_setting('app.current_tenant_id')::text = "tenantId"` on an indexed column is typically <5% overhead. Benchmark the three heaviest endpoints (sales orders list, prescription queue, audit log read) after B2; if any regress >20% we revisit. | 2026-05-11 (defer to post-B2) |
+| ABAC predicates on top of RLS — apply during Phase 0 or defer to Phase 1 monorepo? | **Defer to Phase 1 kernel.** Phase 0 closes the cross-tenant gap. Fine-grained ABAC (OPA Rego per-record predicates per ADR-0008) is built fresh in the new kernel; building it in a repo about to be archived would be wasted work. | 2026-05-11 (confirmed) |
 
 ## Cross-references
 
