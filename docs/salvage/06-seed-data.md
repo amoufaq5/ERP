@@ -1,11 +1,15 @@
 # Phase 0 Salvage — Seed Data
 
 > Source: `prisma/seed.ts` (694 LoC)
->
-> The seed file builds a fully populated tenant ("PharmaCorp Egypt")
-> with realistic Egyptian pharma data. This is **months of domain
-> research** captured as code. Phase 1's demo / development tenant
-> should pull from this.
+
+> **MOCK — Doctrine v2 (2026-05-12).** The operator marked the
+> seed data as mock. Do **not** import names, emails, phones,
+> addresses, or product specifics. This doc remains useful only
+> as a reference for the **shape** that an Egyptian-pharma demo
+> fixture should take (segments, geography spread, role mix,
+> realism level). Phase 1's demo data must be designed fresh from
+> public sources; the framing below ("months of domain research")
+> was overstated and the specifics aren't market-validated.
 
 ## Tenant identity
 

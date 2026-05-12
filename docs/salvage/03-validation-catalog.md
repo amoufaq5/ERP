@@ -2,6 +2,13 @@
 
 > Source: `src/lib/api/validations.ts` (52 zod schemas across 26 entities)
 
+> **CORRUPTED — Doctrine v2 (2026-05-12).** The operator marked
+> the validation layer as corrupted. Use this doc **only** as a
+> checklist of WHICH entities had validation + reference for field
+> naming. Do **not** port validation logic, status enum values,
+> `.refine()` rules, or message strings. Every validation rule
+> must be re-derived in Phase 1 against the Phase 1 schema.
+
 Every CRUD-shape entity has a `create<X>Schema` and a derived
 `update<X>Schema = create<X>Schema.partial()`. The validation rules
 encode field-level constraints (required vs. optional, min/max,

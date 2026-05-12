@@ -2,6 +2,13 @@
 
 > Source: `src/lib/*/` directories + `.env.example`
 
+> **CORRUPTED — Doctrine v2 (2026-05-12).** The operator marked
+> the integration + workflow layers as corrupted. Use this doc
+> **only** as a reference for WHICH external systems were
+> attempted (so Phase 1 doesn't miss a domain dependency). Do
+> **not** assume any specific integration code is reusable. Phase
+> 1 designs all integrations + workflows fresh against ADRs.
+
 What was actually wired (or attempted) in the ERP repo for external
 services. Phase 1 should consult this before designing the equivalent
 integrations — some of these saved weeks of research that shouldn't

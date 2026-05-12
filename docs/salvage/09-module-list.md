@@ -2,10 +2,13 @@
 
 > Source: `src/lib/*` library directories + `src/app/api/v1/*` +
 > `src/app/api/*` route groupings.
->
-> Makes the user's "dissatisfied with all modules" statement concrete
-> by enumerating what "all" is. Phase 1 inherits this domain breadth
-> but rebuilds each module fresh.
+
+> **VISION RESHAPED — Doctrine v2 (2026-05-12).** The old API
+> surface was pharma-vertical-heavy. Phase 1 is **multi-industry**:
+> a kernel + horizontal core + pluggable verticals layout (see the
+> v2 decomposition section at the bottom of this file). Treat the
+> inventory below as one possible vertical's footprint, not the
+> Phase 1 baseline.
 
 ## Library layer — 37 lib directories
 
@@ -113,26 +116,106 @@ Going by groupings: **~85 distinct API entity surfaces** across
 **16 domain areas**. The user's "all modules" includes all of
 these.
 
-## Phase 1 module decomposition guidance
+## Phase 1 module decomposition v2 (multi-industry, 2026-05-12)
 
-The Phase 1 monorepo (per ADR-0001) is a plugin / module system.
-Reasonable module boundaries based on the above grouping:
+Doctrine v2 reframe: Phase 1 is **multi-industry**, not pharma-only.
+The decomposition is a **kernel + horizontal core + pluggable
+verticals + localization packs + platform services** layout.
 
-1. **Kernel** (auth, tenancy, audit, RLS, observability, platform)
-2. **Finance** module
-3. **Procurement** module
-4. **Inventory** module
-5. **Sales** module
-6. **CRM** module (general)
-7. **Pharma-CRM** module (doctor visits, weekly plans, market requests)
-8. **HR** module
-9. **ATS** module
-10. **QA/QC** module (largest — may need sub-modules)
-11. **Manufacturing** module
-12. **Operations** module (assets, contracts, projects)
-13. **AI** module (provider + agents + scoring)
-14. **Egyptian-localization** module (ETA, Arabic i18n, EGP, local pharmacies)
-15. **Reporting / dashboard** module
+### Tier 1 — Kernel + cross-cutting (always-on)
 
-15 modules is the rough order of magnitude. Some may merge in Phase 1
-(e.g., Inventory + Procurement) or split (e.g., QA/QC subdivides).
+| Module | Owns |
+|---|---|
+| **kernel** | Tenancy resolution, RLS, request lifecycle, error model |
+| **identity** | Users, roles (ABAC predicates), sessions, MFA, API tokens |
+| **org** | Business units, departments, cost centers, locations, sites |
+| **common** | Currency, FX, tax codes, addresses, contacts, custom fields, units of measure, calendar |
+| **audit** | Audit log, retention policies, e-signature, data privacy (PII flags), GDPR-style erasure |
+| **observability** | Logging, metrics, tracing, error reporting |
+
+### Tier 2 — Horizontal business core (industry-agnostic)
+
+| Module | Owns |
+|---|---|
+| **finance** | Chart of accounts, journals, AR (invoices), AP (bills), payments, banking reconciliation, period close, FX revaluation, fiscal periods, budgets |
+| **procurement** | Suppliers, RFQ, PO, goods receipt, three-way match |
+| **inventory** | Products, SKUs, lots/serials, warehouses, zones, movements, valuation, expiry, traceability |
+| **sales** | Customers, quotes, sales orders, delivery, returns, pricing |
+| **crm** | Accounts, contacts, leads, opportunities, pipelines, activities, tickets, campaigns |
+| **hr** | Employees, departments, attendance, leave, payroll |
+| **ats** | Jobs, candidates, applications, interviews, offers |
+| **projects** | Projects, tasks, time entries, deliverables, billing |
+| **assets** | Fixed assets, maintenance, depreciation, contracts |
+| **reporting** | Dashboards, KPIs, custom queries, exports |
+
+### Tier 3 — Vertical packs (pluggable, customer-chosen)
+
+Each is an opt-in module that extends the horizontal core with
+domain-specific entities, workflows, validations, and screens.
+
+| Vertical | Adds |
+|---|---|
+| **vertical-pharma** | Doctor CRM (doctors, visits, weekly plans, sample requests, market requests), batch traceability, GMP QA/QC (deviations, CAPAs, change control, batch release, stability, recalls, cleaning, water system, env monitoring), regulatory (e-signature, 21 CFR Part 11 audit) |
+| **vertical-manufacturing** | Work orders, BOMs, routings, equipment records, maintenance schedules, OEE |
+| **vertical-distribution** | Route plans, delivery sequences, cash van, COD, cold chain, proof-of-delivery |
+| **vertical-healthcare** | Patients, encounters, claims, ICD-10 coding, referrals, payer mix |
+| **vertical-retail** | POS, registers, footfall, baskets, shrinkage, planograms |
+| **vertical-services** | Utilization, billable hours, realization, T&M projects, fixed-price contracts |
+| **vertical-field-service** | Dispatch, technician routing, first-time-fix, service contracts |
+
+### Tier 4 — Localization packs
+
+| Pack | Adds |
+|---|---|
+| **loc-eg** | ETA e-invoicing, EGP, VAT 14%, governorates, Arabic strings, RTL flag, Hijri calendar option |
+| **loc-sa** (future) | ZATCA e-invoicing, Zakat, VAT 15%, Saudi geographic divisions |
+| **loc-ae** (future) | UAE FTA, VAT 5%, free zone awareness, emirate divisions |
+
+### Tier 5 — Platform services
+
+| Service | Notes |
+|---|---|
+| **ai** | Provider abstraction (Claude / OpenAI / Ollama); per-module agent contracts |
+| **integrations** | Connector framework, EDI, webhook delivery |
+| **notifications** | In-app, email, SMS, push |
+| **search** | Postgres FTS or Meilisearch; vector embeddings per ADR |
+| **import-export** | Bulk CSV / Excel / API import; export pipelines |
+| **jobs** | Background job runner (BullMQ or equivalent) |
+| **files** | Object storage, signed URLs, virus scanning |
+
+### Tenant-shape examples
+
+**Pharma company in Egypt** enables: Tier 1 + all of Tier 2 +
+`vertical-pharma` (+ optional `vertical-distribution`) + `loc-eg` +
+platform services as needed.
+
+**B2B distributor in Egypt** enables: Tier 1 + Tier 2 (skip ATS
+maybe) + `vertical-distribution` + `loc-eg`.
+
+**Professional services firm in UAE** enables: Tier 1 + Tier 2
+(skip inventory + procurement) + `vertical-services` + `loc-ae`.
+
+**Multi-vertical holding company** enables: Tier 1 + Tier 2 +
+multiple verticals with per-business-unit scoping.
+
+### Old pharma-only map (reference)
+
+The previous "15 modules" decomposition (pre-doctrine-v2) collapsed
+verticals into the horizontal core, which is why everything felt
+pharma-shaped. Avoid that in Phase 1: keep horizontal modules
+industry-agnostic and let verticals add their own entities.
+
+### Operator note on the inventory above
+
+The lib + API tables earlier in this doc are the **historical
+footprint** of the old repo. The dispositions ("salvage", "rebuild",
+"re-audit") in the lib table are pre-doctrine-v2; in doctrine v2 the
+following overrides apply:
+- Anything tagged "salvage" related to integrations (`integrations`,
+  `banking`, `webhooks`, `connectors`) is reference-only.
+- Anything tagged "salvage" related to validation is reference-only.
+- Anything tagged "salvage" related to seed / demo data is mock.
+- Anything tagged "salvage" related to workflow / state-machine is
+  reference-only.
+- `platform` (module registry) + `security` + `tenant` + `api`
+  (helpers) remain high-value salvage as architectural patterns.

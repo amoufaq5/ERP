@@ -5,12 +5,132 @@
 > Auto-generated; re-run `scripts/salvage-schema.sh` after schema changes.
 
 The Phase 0 ERP repo encoded the Egyptian pharma domain in **67 enums**
-and several state-machine maps. Most should copy verbatim into Phase 1
-unless there is a reason to rename. The state-machine maps are
-particularly valuable — they encode workflow rules that took real
-domain knowledge to design.
+and several state-machine maps.
 
-## Enums (67)
+> **Doctrine v2 (2026-05-12).** State-machine maps below were
+> marked corrupted by the operator and should be re-derived in
+> Phase 1. The enums below describe the **pharma vertical only**;
+> Phase 1 (multi-industry) needs a broader baseline vocabulary,
+> captured in the cross-industry section that follows. Use this
+> doc's pharma section as input to the pharma vertical pack only.
+
+## Cross-industry vocabulary expansion (v2)
+
+The Phase 1 vision is a multi-industry ERP with pharma as one
+verticalization. This section adds the vocabulary needed for that
+broader scope. Use it when scaffolding non-pharma modules.
+
+### Process language (the seven processes ERP automates)
+
+- **O2C — Order-to-Cash.** Quote → Sales Order → Pick → Pack → Ship
+  → Invoice → Payment → Dunning → Cash Application.
+- **P2P — Procure-to-Pay.** Requisition → RFQ → PO → Goods Receipt
+  → Three-Way Match → Bill → Payment.
+- **R2R — Record-to-Report.** Journal entry → GL posting →
+  Subledger close → Period close → Trial balance → Financial
+  statement → Disclosure.
+- **H2R — Hire-to-Retire.** Requisition → Job posting → Application
+  → Interview → Offer → Hire → Onboarding → Payroll → Performance
+  → Leave → Offboarding.
+- **L2C — Lead-to-Cash.** Lead → MQL → SQL → Opportunity → Quote
+  → Contract → Order (joins O2C from here).
+- **P2I — Plan-to-Inventory.** Demand forecast → MPS → MRP →
+  Work order → Production → Lot / serial → Stock.
+- **I2R — Issue-to-Resolution.** Ticket → Triage → SLA → Resolution
+  → Root cause → Knowledge base.
+
+Modules align to these processes; events across the seven processes
+are the spine of a tenant's audit log.
+
+### Cross-cutting platform vocabulary
+
+| Term | Meaning |
+|---|---|
+| Tenant | Top-level isolation boundary (typically one company / customer) |
+| Workspace | Optional sub-tenant for sandboxing (preview env, training) |
+| Business Unit / Cost Center | Internal financial / org subdivisions of a tenant |
+| Location / Site | Physical place (HQ, branch, warehouse, plant) |
+| Multi-currency / FX | Multiple currencies per tenant with daily FX rates |
+| Tax jurisdiction / Tax code | Where + how a transaction is taxed |
+| Approval chain | Sequenced approvers for an action (configurable per tenant) |
+| Workflow | Stateful business process with transitions + side effects |
+| SLA | Service Level Agreement; deadline-bound work tracking |
+| KPI | Key Performance Indicator with target + actual |
+| Dimension | Slice axis on a metric (period, region, product, team) |
+| Audit log | Immutable append-only record of every meaningful action |
+| Retention policy | How long records of each type are kept |
+| E-signature | 21 CFR Part 11-compliant signature (pharma req'd, others nice-to-have) |
+| Field-level encryption | Encryption at rest of selected columns (PII, PHI) |
+| Soft delete | `deletedAt` column instead of row removal |
+| Row-level security (RLS) | Postgres policies enforcing per-tenant + per-user data access |
+| ABAC | Attribute-Based Access Control: rules over (user, resource, action, context) |
+| Idempotency key | Client-supplied key making repeated writes safe |
+| Outbox pattern | Atomic event-publish from a transactional DB |
+| Webhook | Outbound HTTP callback to a customer URL on a tenant event |
+| Connector | Adapter between the platform and an external system |
+
+### MENA + Egyptian business vocabulary
+
+The Phase 1 platform's first market is Egypt; Arabic and Egyptian
+business conventions are first-class:
+
+| Term | Meaning |
+|---|---|
+| ETA | Egyptian Tax Authority; runs the national e-invoicing portal |
+| ETA e-invoice | Mandatory electronic invoice format for B2B in Egypt |
+| EGP | Egyptian Pound; primary currency |
+| VAT | Value-Added Tax; 14% standard, 5% reduced, 0% exempt categories |
+| WHT | Withholding tax (on services, professional fees, etc.) |
+| Stamp duty | Fixed-fee tax on specific documents |
+| Tax Card | Government-issued tax ID for businesses |
+| CR / Commercial Register | National business registration number |
+| Governorate | Top-level administrative division (Cairo, Giza, Alexandria, ...) |
+| Free zone | Industrial / commercial zone with tax incentives |
+| 10th of Ramadan / 6th of October | Major industrial cities outside Cairo |
+| Smart Village | Tech / office park west of Cairo |
+| Mohandessin / Maadi / Heliopolis / Zamalek | Cairo business districts |
+| Customs declaration | Required for cross-border movement |
+| Sharia compliance | Optional finance configuration (no interest, halal supply chain) |
+| Arabic / RTL | Right-to-left text layout for Arabic UI |
+| Hijri calendar | Optional secondary calendar (Saudi / Gulf customers) |
+| Ramadan adjustment | Working-hour + workflow adjustments during Ramadan month |
+
+Future MENA expansion: Saudi (Zakat + VAT 15%, ZATCA e-invoicing),
+UAE (VAT 5% + free zones, FTA e-invoicing roadmap), Jordan,
+Lebanon, Gulf states.
+
+### Vertical vocabulary placeholders
+
+Phase 1 modules per vertical add their own vocabularies. Stubs:
+
+- **Pharma vertical** — see existing enum dump below + the
+  Egyptian pharma reference in doc 06. Adds: ABC doctor
+  classification, buying ladder, market requests, samples,
+  batch traceability, GMP, CAPA, deviations, recall classes.
+- **Distribution vertical** — route plan, delivery sequence,
+  cash van, COD (cash on delivery), cold chain, dock-door
+  scheduling, proof of delivery, return-merchandise.
+- **Manufacturing vertical** — work order, BOM (bill of
+  materials), routing, takt time, WIP (work-in-progress),
+  OEE (overall equipment effectiveness), scrap %, yield.
+- **Retail vertical** — SKU, POS, register, footfall,
+  conversion, basket size, shrinkage, planogram.
+- **Healthcare vertical** — patient, encounter, claim,
+  diagnosis (ICD-10), procedure code, referral, payer,
+  formulary.
+- **Professional services vertical** — utilization, billable
+  hours, realization rate, project margin, T&M
+  (time-and-materials), fixed-price-vs-T&M.
+- **Field service vertical** — work order, technician
+  dispatch, route optimization, first-time-fix-rate,
+  service contract.
+- **B2B SaaS sales-ops vertical** — ARR, MRR, NRR, churn,
+  expansion, ICP (ideal customer profile), territory.
+
+When a Phase 1 vertical is built, append its vocabulary section
+under "Vertical vocabulary placeholders" above.
+
+## Pharma-vertical enums (67)
 
 ### `AuditStatus`
 

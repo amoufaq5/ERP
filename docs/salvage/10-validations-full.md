@@ -1,8 +1,15 @@
 # Phase 0 Salvage — Validation Catalog (Full)
 
 > Verbatim dump of `src/lib/api/validations.ts` (520 LoC, 52 schemas).
-> Use this as a zero-lookup reference when scaffolding Phase 1
-> validation files. Field-level rules survived real-world use.
+
+> **CORRUPTED — Doctrine v2 (2026-05-12).** The operator marked
+> the validation layer as corrupted. The contents below are a
+> snapshot, not a template. Use this dump **only** as:
+> (a) a checklist of WHICH entities had validation, and
+> (b) a hint at field naming.
+> Do **not** copy zod rules, refinements, status enum values, or
+> message strings into Phase 1 — re-derive every rule against the
+> Phase 1 schema.
 
 ```typescript
 import { z } from "zod";

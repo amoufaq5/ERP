@@ -1,11 +1,13 @@
 # Phase 0 Salvage — RBAC Matrix
 
 > Source: `src/lib/api/rbac.ts` (`ROLE_PERMISSIONS` constant)
->
-> The role-based access control table the ERP repo enforced at the
-> API entity level. Phase 1 should preserve this matrix as the
-> seed of the new permission system, even if the kernel adopts
-> ABAC (per ADR-0008) on top.
+
+> **REFERENCE ONLY — Doctrine v2 (2026-05-12).** The operator
+> marked the roles as demo. Phase 1 designs its own permission
+> system per ADR-0008 (ABAC). Use this doc **only** as a reference
+> for the kinds of personas typical at an Egyptian pharma
+> company (when designing the pharma-vertical role pack). Do
+> **not** seed the Phase 1 permission table from these rules.
 
 ## Roles defined
 

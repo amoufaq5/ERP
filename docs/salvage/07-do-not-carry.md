@@ -76,10 +76,47 @@ Just so the next maintainer doesn't expect them:
 - **Track B2.5** — Two-tenant integration test. Never written;
   Phase 1 should write the equivalent against the new kernel.
 
-## Final guidance
+## Doctrine v2 additions (2026-05-12)
 
-When in doubt, **default to building from scratch in Phase 1.** The
-salvage inventory is for **decisions** and **knowledge** to carry
-forward — not for code to copy-paste. The schema, enums,
-validations, state machines, integration discoveries, and seed
-data are decisions worth re-using. Everything else is greenfield.
+Operator-issued: additional categories that look salvageable but
+should NOT be carried into Phase 1 in the form they exist in the
+old repo.
+
+| Category | Rationale | Phase 1 disposition |
+|---|---|---|
+| **Seed / demo data** | All mock; no real-market validation. Names, phones, products are placeholders | Phase 1 designs demo data fresh from public sources. Doc 06 is shape-only. |
+| **Integrations** | All corrupted. Connector framework, AI provider stubs, email queue, banking client were attempted but not production-grade | Doc 04 is a checklist of WHICH external systems matter. Phase 1 picks integrations fresh per ADRs. |
+| **Workflows / state machines** | State-machine maps in doc 02 and in route code were corrupted | Re-derive in Phase 1 from real business rules; maps in doc 02 are reference only. |
+| **RBAC / roles** | Demo only; not based on real customer org charts | Phase 1 designs its own role + permission system. Doc 08 is reference for pharma-vertical persona types. |
+| **Validations (zod schemas)** | Corrupted. Field rules, refinements, enum lists don't reflect the real schema | Docs 03 and 10 are reference for entity list + field naming only. Re-derive every rule in Phase 1. |
+| **Pharma-only entity scoping** | Old schema is pharma-vertical; multi-industry vision requires broader baseline | Doc 01 is reference for the pharma vertical. Phase 1 designs a multi-industry baseline + pharma as one pluggable vertical. |
+
+## Final guidance (v2)
+
+When in doubt, **default to building from scratch in Phase 1.**
+
+The salvage inventory is for **decisions** and **vocabulary** to
+carry forward — not for code to copy-paste.
+
+**Carry list (high confidence):**
+- The 25 ADRs in `amoufaq5/CrossEngin/docs/adr/`.
+- Patterns in `05-patterns.md` (route factory, tenant-scoping
+  extension, RLS generator, state-transition helper).
+- Vocabulary expansion in `02-domain-vocabulary.md` v2
+  (cross-industry processes + platform + MENA + vertical
+  placeholders).
+- Module decomposition v2 in `09-module-list.md`.
+
+**Reference-only list:**
+- Schema (01), state machines (02 second half), RBAC (08) — input
+  to the pharma vertical pack only.
+- Integrations (04) — checklist for "did we miss any external
+  dependency?"
+- Validations (03, 10) — checklist for "which entities need
+  validation?"
+
+**Discard list:**
+- Seed data specifics (06).
+- All UI, flows, screens.
+- All old route handler code.
+- Any old config / env values not reconfirmed in Phase 1.
