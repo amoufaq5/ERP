@@ -1,62 +1,84 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { hashSync } from "bcryptjs";
+import { withAuthAndTenant } from "@/lib/api/with-tenant";
 
-const STORAGE_KEY = "pharma.allUsers";
-const CREDS_KEY = "pharma.credentials";
+// Phase 0 Track B7 — admin-only user management. Replaces a prior version
+// that: returned a hardcoded "managed client-side" stub on GET; created
+// its own PrismaClient per request on POST (connection leak); ran
+// completely unauthenticated. localStorage references inside an API
+// route were also removed.
+//
+// Both endpoints require an authenticated session and ADMIN role. New
+// users are created in the calling admin's tenant (auto-injected by
+// the extension).
 
-interface UserRecord {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  department: string;
-  isActive: boolean;
-  createdAt: string;
-  lastLogin?: string;
-}
+export const GET = withAuthAndTenant(async (_req, { db, role }) => {
+  if (role !== "ADMIN") {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
 
-export async function GET() {
-  // In production, this would query the database
-  // For now, return a standard response that the client-side will handle
-  return NextResponse.json({ message: "Users managed client-side via localStorage" });
-}
+  const users = await db.user.findMany({
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      department: true,
+      territory: true,
+      isActive: true,
+      createdAt: true,
+    },
+  });
 
-export async function POST(req: NextRequest) {
+  return NextResponse.json({ users });
+});
+
+export const POST = withAuthAndTenant(async (req, { db, role }) => {
+  if (role !== "ADMIN") {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
   try {
     const body = await req.json();
-    const { name, email, role, department, password } = body;
+    const { name, email, role: newRole, department, password } = body as Record<
+      string,
+      unknown
+    >;
 
-    if (!name || !email || !role || !password) {
+    if (!name || !email || !newRole || !password) {
       return NextResponse.json(
         { error: "name, email, role, and password are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Try to create in Prisma DB if available
-    try {
-      const { PrismaClient } = await import("@prisma/client");
-      const prisma = new PrismaClient();
+    // The extension auto-injects tenantId on the where clause so this
+    // conflict check is scoped to the calling admin's tenant (email is
+    // now unique per @@unique([tenantId, email])).
+    const existing = await db.user.findFirst({
+      where: { email: String(email) },
+    });
+    if (existing) {
+      return NextResponse.json(
+        { error: "Email already exists in this tenant" },
+        { status: 409 },
+      );
+    }
 
-      const existing = await prisma.user.findUnique({ where: { email } });
-      if (existing) {
-        await prisma.$disconnect();
-        return NextResponse.json({ error: "Email already exists" }, { status: 409 });
-      }
+    const user = await db.user.create({
+      data: {
+        name: String(name),
+        email: String(email),
+        passwordHash: hashSync(String(password), 10),
+        role: String(newRole).toUpperCase(),
+        department: department ? String(department) : null,
+        isActive: true,
+      },
+    });
 
-      const user = await prisma.user.create({
-        data: {
-          name,
-          email,
-          passwordHash: hashSync(password, 10),
-          role: role.toUpperCase(),
-          department: department || null,
-          isActive: true,
-        },
-      });
-      await prisma.$disconnect();
-
-      return NextResponse.json({
+    return NextResponse.json(
+      {
         user: {
           id: user.id,
           name: user.name,
@@ -66,23 +88,14 @@ export async function POST(req: NextRequest) {
           isActive: user.isActive,
           createdAt: user.createdAt.toISOString(),
         },
-      }, { status: 201 });
-    } catch {
-      // DB not available — return success for client-side handling
-      const id = `usr-${Date.now()}`;
-      return NextResponse.json({
-        user: {
-          id,
-          name,
-          email,
-          role,
-          department: department || "",
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        },
-      }, { status: 201 });
-    }
-  } catch {
-    return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
+      },
+      { status: 201 },
+    );
+  } catch (err) {
+    console.error("[API] POST /users error:", err);
+    return NextResponse.json(
+      { error: "Failed to create user" },
+      { status: 500 },
+    );
   }
-}
+});
