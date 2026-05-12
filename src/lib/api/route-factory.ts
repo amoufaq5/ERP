@@ -1,6 +1,42 @@
+// Generic CRUD route factory.
+//
+// PHASE 0 TRACK B4 — migrated to withAuthAndTenant.
+//
+// Before this commit, the factory:
+//   - Read `tenantId` from the `x-tenant-id` request header, defaulting
+//     to the string "default" — a P0 vulnerability. Any client could
+//     claim any tenant by setting that header; unauthenticated callers
+//     got the "default" bucket which then leaked or silently mismatched.
+//   - Had no authentication check at all. 92 API routes inherited this
+//     posture.
+//
+// After migration:
+//   - Every factory-generated handler is wrapped in `withAuthAndTenant`.
+//     The session-derived `tenantId` is the only one used; the
+//     `x-tenant-id` header is now ignored entirely.
+//   - The handler receives a request-scoped, tenant-scoped Prisma
+//     client (`db`) backed by an interactive transaction with
+//     `app.current_tenant_id` set. Layer-1 ($extends auto-injection)
+//     handles `where.tenantId` / `data.tenantId` for top-level args;
+//     Layer-2 RLS (once applied) blocks any miss at the DB.
+//
+// Operational impact:
+//   - All 92 factory routes now require an authenticated session. Any
+//     client that was relying on header-based or unauthenticated access
+//     will break and must be updated to send NextAuth cookies.
+//   - Per-request transaction (30s timeout); see with-tenant.ts header
+//     for the connection-pool sizing note.
+//
+// Hooks (beforeCreate / afterCreate / etc.) keep their existing
+// signature (data, req). If a hook does its own DB work it should
+// pull `db` from the surrounding handler closure (see config.hooks
+// type below) rather than importing the global `prisma`, which is
+// not tenant-scoped and will fail-closed under RLS.
+
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import prisma from '@/lib/prisma';
+import type { PrismaClient } from '@prisma/client';
+import { withAuthAndTenant, withAuthAndTenantParams } from './with-tenant';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -11,10 +47,10 @@ interface RouteFactoryConfig {
     create?: z.ZodSchema;
     update?: z.ZodSchema;
   };
-  searchFields?: string[]; // fields to search across
+  searchFields?: string[];
   defaultSort?: { field: string; direction: 'asc' | 'desc' };
   defaultPageSize?: number;
-  allowedIncludes?: string[]; // relations that can be included
+  allowedIncludes?: string[];
   hooks?: {
     beforeCreate?: (data: any, req: NextRequest) => Promise<any>;
     afterCreate?: (record: any, req: NextRequest) => Promise<void>;
@@ -34,8 +70,8 @@ interface RouteFactoryConfig {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getModel(modelName: string) {
-  return (prisma as any)[modelName];
+function getModel(db: PrismaClient, modelName: string) {
+  return (db as any)[modelName];
 }
 
 function buildIncludeClause(
@@ -61,36 +97,37 @@ function buildIncludeClause(
 // ─── List + Create (collection routes) ───────────────────────────────────────
 
 export function createRouteHandlers(config: RouteFactoryConfig) {
-  const model = getModel(config.modelName);
-
-  async function GET(req: NextRequest) {
+  const GET = withAuthAndTenant(async (req, { db }) => {
     try {
+      const model = getModel(db, config.modelName);
       const { searchParams } = new URL(req.url);
       const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
       const pageSize = Math.min(
         100,
-        Math.max(1, parseInt(searchParams.get('pageSize') || String(config.defaultPageSize || 25), 10)),
+        Math.max(
+          1,
+          parseInt(
+            searchParams.get('pageSize') || String(config.defaultPageSize || 25),
+            10,
+          ),
+        ),
       );
       const search = searchParams.get('search') || '';
       const sort = searchParams.get('sort') || config.defaultSort?.field || 'createdAt';
-      const direction = searchParams.get('direction') || config.defaultSort?.direction || 'desc';
+      const direction =
+        searchParams.get('direction') || config.defaultSort?.direction || 'desc';
       const include = searchParams.get('include');
 
-      // Build where clause
+      // tenantId is auto-injected by the $extends middleware; do NOT add it
+      // to `where` here.
       const where: any = {};
 
-      // Extract tenant from auth header
-      const tenantId = req.headers.get('x-tenant-id') || 'default';
-      where.tenantId = tenantId;
-
-      // Search across configured fields
       if (search && config.searchFields && config.searchFields.length > 0) {
         where.OR = config.searchFields.map((field) => ({
           [field]: { contains: search, mode: 'insensitive' },
         }));
       }
 
-      // Extract filter params (e.g., filter[status]=OPEN)
       searchParams.forEach((value, key) => {
         if (key.startsWith('filter[') && key.endsWith(']')) {
           const field = key.slice(7, -1);
@@ -98,9 +135,7 @@ export function createRouteHandlers(config: RouteFactoryConfig) {
         }
       });
 
-      // Build include clause
       const includeClause = buildIncludeClause(include, config.allowedIncludes);
-
       const skip = (page - 1) * pageSize;
 
       const [data, total] = await Promise.all([
@@ -128,14 +163,13 @@ export function createRouteHandlers(config: RouteFactoryConfig) {
         { status: 500 },
       );
     }
-  }
+  });
 
-  async function POST(req: NextRequest) {
+  const POST = withAuthAndTenant(async (req, { db }) => {
     try {
+      const model = getModel(db, config.modelName);
       const body = await req.json();
-      const tenantId = req.headers.get('x-tenant-id') || 'default';
 
-      // Validate
       let validatedData = body;
       if (config.validationSchema?.create) {
         const result = config.validationSchema.create.safeParse(body);
@@ -148,16 +182,13 @@ export function createRouteHandlers(config: RouteFactoryConfig) {
         validatedData = result.data;
       }
 
-      // Before hook
       if (config.hooks?.beforeCreate) {
         validatedData = await config.hooks.beforeCreate(validatedData, req);
       }
 
-      const record = await model.create({
-        data: { ...validatedData, tenantId },
-      });
+      // tenantId auto-injected on `data` by the extension; do not add it here.
+      const record = await model.create({ data: validatedData });
 
-      // After hook
       if (config.hooks?.afterCreate) {
         await config.hooks.afterCreate(record, req);
       }
@@ -170,7 +201,7 @@ export function createRouteHandlers(config: RouteFactoryConfig) {
         { status: 500 },
       );
     }
-  }
+  });
 
   return { GET, POST };
 }
@@ -178,126 +209,121 @@ export function createRouteHandlers(config: RouteFactoryConfig) {
 // ─── Single-resource routes (by id) ─────────────────────────────────────────
 
 export function createRouteHandlersWithId(config: RouteFactoryConfig) {
-  const model = getModel(config.modelName);
+  type IdParams = Promise<{ id: string }>;
 
-  async function GET(
-    req: NextRequest,
-    { params }: { params: Promise<{ id: string }> },
-  ) {
-    try {
-      const { id } = await params;
-      const tenantId = req.headers.get('x-tenant-id') || 'default';
+  const GET = withAuthAndTenantParams<{ params: IdParams }>(
+    async (req, { params }, { db }) => {
+      try {
+        const model = getModel(db, config.modelName);
+        const { id } = await params;
 
-      const includeParam = new URL(req.url).searchParams.get('include');
-      const includeClause = buildIncludeClause(includeParam, config.allowedIncludes);
+        const includeParam = new URL(req.url).searchParams.get('include');
+        const includeClause = buildIncludeClause(
+          includeParam,
+          config.allowedIncludes,
+        );
 
-      const record = await model.findFirst({
-        where: { id, tenantId },
-        ...(includeClause && { include: includeClause }),
-      });
+        // where.tenantId is auto-injected by the extension; passing just `id`
+        // is enough.
+        const record = await model.findFirst({
+          where: { id },
+          ...(includeClause && { include: includeClause }),
+        });
 
-      if (!record) {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 });
-      }
-
-      return NextResponse.json(record);
-    } catch (error) {
-      console.error(`[API] GET /${config.entity}/:id error:`, error);
-      return NextResponse.json(
-        { error: 'Internal server error' },
-        { status: 500 },
-      );
-    }
-  }
-
-  async function PATCH(
-    req: NextRequest,
-    { params }: { params: Promise<{ id: string }> },
-  ) {
-    try {
-      const { id } = await params;
-      const body = await req.json();
-      const tenantId = req.headers.get('x-tenant-id') || 'default';
-
-      // Verify ownership
-      const existing = await model.findFirst({ where: { id, tenantId } });
-      if (!existing) {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 });
-      }
-
-      // Validate
-      let validatedData = body;
-      if (config.validationSchema?.update) {
-        const result = config.validationSchema.update.safeParse(body);
-        if (!result.success) {
-          return NextResponse.json(
-            { error: 'Validation failed', details: result.error.flatten() },
-            { status: 400 },
-          );
+        if (!record) {
+          return NextResponse.json({ error: 'Not found' }, { status: 404 });
         }
-        validatedData = result.data;
+
+        return NextResponse.json(record);
+      } catch (error) {
+        console.error(`[API] GET /${config.entity}/:id error:`, error);
+        return NextResponse.json(
+          { error: 'Internal server error' },
+          { status: 500 },
+        );
       }
+    },
+  );
 
-      // Before hook
-      if (config.hooks?.beforeUpdate) {
-        validatedData = await config.hooks.beforeUpdate(id, validatedData, req);
+  const PATCH = withAuthAndTenantParams<{ params: IdParams }>(
+    async (req, { params }, { db }) => {
+      try {
+        const model = getModel(db, config.modelName);
+        const { id } = await params;
+        const body = await req.json();
+
+        const existing = await model.findFirst({ where: { id } });
+        if (!existing) {
+          return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        }
+
+        let validatedData = body;
+        if (config.validationSchema?.update) {
+          const result = config.validationSchema.update.safeParse(body);
+          if (!result.success) {
+            return NextResponse.json(
+              { error: 'Validation failed', details: result.error.flatten() },
+              { status: 400 },
+            );
+          }
+          validatedData = result.data;
+        }
+
+        if (config.hooks?.beforeUpdate) {
+          validatedData = await config.hooks.beforeUpdate(id, validatedData, req);
+        }
+
+        const record = await model.update({
+          where: { id },
+          data: validatedData,
+        });
+
+        if (config.hooks?.afterUpdate) {
+          await config.hooks.afterUpdate(record, req);
+        }
+
+        return NextResponse.json(record);
+      } catch (error) {
+        console.error(`[API] PATCH /${config.entity}/:id error:`, error);
+        return NextResponse.json(
+          { error: 'Internal server error' },
+          { status: 500 },
+        );
       }
+    },
+  );
 
-      const record = await model.update({
-        where: { id },
-        data: validatedData,
-      });
+  const DELETE = withAuthAndTenantParams<{ params: IdParams }>(
+    async (req, { params }, { db }) => {
+      try {
+        const model = getModel(db, config.modelName);
+        const { id } = await params;
 
-      // After hook
-      if (config.hooks?.afterUpdate) {
-        await config.hooks.afterUpdate(record, req);
+        const existing = await model.findFirst({ where: { id } });
+        if (!existing) {
+          return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        }
+
+        if (config.hooks?.beforeDelete) {
+          await config.hooks.beforeDelete(id, req);
+        }
+
+        await model.delete({ where: { id } });
+
+        if (config.hooks?.afterDelete) {
+          await config.hooks.afterDelete(id, req);
+        }
+
+        return NextResponse.json({ success: true });
+      } catch (error) {
+        console.error(`[API] DELETE /${config.entity}/:id error:`, error);
+        return NextResponse.json(
+          { error: 'Internal server error' },
+          { status: 500 },
+        );
       }
-
-      return NextResponse.json(record);
-    } catch (error) {
-      console.error(`[API] PATCH /${config.entity}/:id error:`, error);
-      return NextResponse.json(
-        { error: 'Internal server error' },
-        { status: 500 },
-      );
-    }
-  }
-
-  async function DELETE(
-    req: NextRequest,
-    { params }: { params: Promise<{ id: string }> },
-  ) {
-    try {
-      const { id } = await params;
-      const tenantId = req.headers.get('x-tenant-id') || 'default';
-
-      // Verify ownership
-      const existing = await model.findFirst({ where: { id, tenantId } });
-      if (!existing) {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 });
-      }
-
-      // Before hook
-      if (config.hooks?.beforeDelete) {
-        await config.hooks.beforeDelete(id, req);
-      }
-
-      await model.delete({ where: { id } });
-
-      // After hook
-      if (config.hooks?.afterDelete) {
-        await config.hooks.afterDelete(id, req);
-      }
-
-      return NextResponse.json({ success: true });
-    } catch (error) {
-      console.error(`[API] DELETE /${config.entity}/:id error:`, error);
-      return NextResponse.json(
-        { error: 'Internal server error' },
-        { status: 500 },
-      );
-    }
-  }
+    },
+  );
 
   return { GET, PATCH, DELETE };
 }
