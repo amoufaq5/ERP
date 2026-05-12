@@ -1,102 +1,84 @@
-import { NextRequest } from "next/server";
 import { apiResponse, apiError, corsOptions } from "@/lib/api/api-helpers";
 import { validate, updatePaymentSchema } from "@/lib/api/validations";
-import { withAuthParams } from "@/lib/api/with-auth";
-
-let prisma: any = null;
-try {
-  prisma = require("@/lib/prisma").default;
-} catch (error) { console.error("Failed to process payments:", error); }
+import { withAuthAndTenantParams } from "@/lib/api/with-tenant";
 
 export async function OPTIONS() {
   return corsOptions();
 }
 
-// ─── GET /api/v1/payments/:id ──────────────────────────────────────────────
+type IdParams = { params: Promise<{ id: string }> };
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
-    const { id } = await params;
-
-    if (prisma) {
-      try {
-        const record = await prisma.payment.findUnique({
-          where: { id },
-          include: { invoice: true, bill: true },
-        });
-        if (!record) return apiError("Payment not found", 404);
-        return apiResponse(record);
-      } catch (error) { console.error("Failed to process payments:", error); }
+export const GET = withAuthAndTenantParams<IdParams>(
+  async (_req, { params }, { db }) => {
+    try {
+      const { id } = await params;
+      const record = await db.payment.findFirst({
+        where: { id },
+        include: { invoice: true, bill: true },
+      });
+      if (!record) return apiError("Payment not found", 404);
+      return apiResponse(record);
+    } catch (err: unknown) {
+      return apiError(
+        (err as Error).message || "Failed to fetch payment",
+        500,
+      );
     }
+  },
+);
 
-    return apiError("Payment not found", 404);
-  } catch (err: unknown) {
-    return apiError((err as Error).message || "Failed to fetch payment", 500);
-  }
-}
+export const PATCH = withAuthAndTenantParams<IdParams>(
+  async (req, { params }, { db }) => {
+    try {
+      const { id } = await params;
+      const body = await req.json();
+      const validation = validate(updatePaymentSchema, body);
+      if (!validation.success) return apiError(validation.error, 400);
 
-// ─── PATCH /api/v1/payments/:id ────────────────────────────────────────────
+      delete body.id;
+      delete body.createdAt;
 
-export const PATCH = withAuthParams(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }, { role, userId }) => {
-  try {
-    const { id } = await params;
-    const body = await req.json();
-    const validation = validate(updatePaymentSchema, body);
-    if (!validation.success) return apiError(validation.error, 400);
+      const existing = await db.payment.findFirst({ where: { id } });
+      if (!existing) return apiError("Payment not found", 404);
 
-    delete body.id;
-    delete body.createdAt;
+      if (body.date && typeof body.date === "string") {
+        body.date = new Date(body.date);
+      }
+      if (body.amount !== undefined && body.amount !== null) {
+        body.amount = parseFloat(body.amount);
+      }
+      if (body.type) body.type = body.type.toUpperCase();
+      if (body.method) body.method = body.method.toUpperCase();
 
-    if (prisma) {
-      try {
-        const existing = await prisma.payment.findUnique({ where: { id } });
-        if (!existing) return apiError("Payment not found", 404);
-
-        if (body.date && typeof body.date === "string") {
-          body.date = new Date(body.date);
-        }
-        if (body.amount !== undefined && body.amount !== null) {
-          body.amount = parseFloat(body.amount);
-        }
-        if (body.type) body.type = body.type.toUpperCase();
-        if (body.method) body.method = body.method.toUpperCase();
-
-        const record = await prisma.payment.update({
-          where: { id },
-          data: body,
-          include: { invoice: true, bill: true },
-        });
-        return apiResponse(record);
-      } catch (error) { console.error("Failed to process payments:", error); }
+      const record = await db.payment.update({
+        where: { id },
+        data: body,
+        include: { invoice: true, bill: true },
+      });
+      return apiResponse(record);
+    } catch (err: unknown) {
+      return apiError(
+        (err as Error).message || "Failed to update payment",
+        500,
+      );
     }
+  },
+);
 
-    return apiError("Payment not found", 404);
-  } catch (err: unknown) {
-    return apiError((err as Error).message || "Failed to update payment", 500);
-  }
-});
+export const DELETE = withAuthAndTenantParams<IdParams>(
+  async (_req, { params }, { db }) => {
+    try {
+      const { id } = await params;
+      const existing = await db.payment.findFirst({ where: { id } });
+      if (!existing) return apiError("Payment not found", 404);
 
-// ─── DELETE /api/v1/payments/:id ───────────────────────────────────────────
-
-export const DELETE = withAuthParams(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }, { role, userId }) => {
-  try {
-    const { id } = await params;
-
-    if (prisma) {
-      try {
-        const existing = await prisma.payment.findUnique({ where: { id } });
-        if (!existing) return apiError("Payment not found", 404);
-
-        await prisma.payment.delete({ where: { id } });
-        return apiResponse({ id, deleted: true });
-      } catch (error) { console.error("Failed to process payments:", error); }
+      await db.payment.delete({ where: { id } });
+      return apiResponse({ id, deleted: true });
+    } catch (err: unknown) {
+      return apiError(
+        (err as Error).message || "Failed to delete payment",
+        500,
+      );
     }
-
-    return apiError("Payment not found", 404);
-  } catch (err: unknown) {
-    return apiError((err as Error).message || "Failed to delete payment", 500);
-  }
-});
+  },
+);

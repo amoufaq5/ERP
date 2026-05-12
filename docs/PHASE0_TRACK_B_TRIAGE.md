@@ -8,10 +8,10 @@
 | Category | Count | Action |
 |---|---|---|
 | **FACTORY** | 94 | Migrate `src/lib/api/route-factory.ts` once; all factory routes inherit |
-| **STANDARD** | 55 | Run codemod (`scripts/migrate-routes.ts`); land per-folder PRs |
+| **STANDARD** | 50 | Run codemod (`scripts/migrate-routes.ts`); land per-folder PRs |
 | **REWRITE** | 0 | Generate fresh route from template; current code is broken |
 | **REVIEW** | 0 | Human inspection before migration |
-| **NO-PRISMA** | 56 | Human inspection; usually proxies / passthroughs |
+| **NO-PRISMA** | 61 | Human inspection; usually proxies / passthroughs |
 | **BAND-3** | 12 | Skip entirely (auth/webhook/health/docs) |
 | **TOTAL** | 217 | |
 
@@ -28,7 +28,7 @@ Use Prisma but don't match the standard pattern (custom auth, unusual
 imports, dynamic dispatch, etc.). Human inspection required.
 
 
-## NO-PRISMA (56)
+## NO-PRISMA (61)
 
 No Prisma reference — proxies, passthroughs, AI-only endpoints, or
 static-data responders. Need human inspection to confirm no tenant
@@ -58,6 +58,7 @@ data is exposed.
 - `src/app/api/users/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/[entity]/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/ai/chat/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/approval-logs/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/compliance/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/config/[module]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/config/number-ranges/route.ts` — no prisma.<model> reference, not a factory route
@@ -71,6 +72,7 @@ data is exposed.
 - `src/app/api/v1/equipment/maintenance-orders/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/equipment/maintenance-orders/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/equipment/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/expenses/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/expiry/alerts/[id]/acknowledge/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/expiry/alerts/generate/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/expiry/alerts/route.ts` — no prisma.<model> reference, not a factory route
@@ -81,14 +83,17 @@ data is exposed.
 - `src/app/api/v1/expiry/policies/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/finance/bills/[id]/status/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/finance/invoices/[id]/status/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/gl-accounts/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/graphql/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/hr/leave-requests/[id]/status/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/logs/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/payments/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/qaqc/capa/[id]/status/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/sales-orders/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/search/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/stats/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/suppliers/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/tenants/route.ts` — no prisma.<model> reference, not a factory route
 
 ## FACTORY (94)
@@ -193,7 +198,7 @@ in this list inherits tenant isolation without per-file changes.
 - `src/app/api/v1/work-orders/[id]/route.ts` — uses createRouteHandlers (modelName=workOrder)
 - `src/app/api/v1/work-orders/route.ts` — uses createRouteHandlers (modelName=workOrder)
 
-## STANDARD (55)
+## STANDARD (50)
 
 Match the B3 exemplar pattern. Eligible for the automated codemod.
 
@@ -201,7 +206,6 @@ Match the B3 exemplar pattern. Eligible for the automated codemod.
 - `src/app/api/v1/accounts/route.ts` — lazy-prisma + helpers + handlers; uses prisma.account
 - `src/app/api/v1/applications/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.application
 - `src/app/api/v1/applications/route.ts` — lazy-prisma + helpers + handlers; uses prisma.application
-- `src/app/api/v1/approval-logs/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.approvalLog
 - `src/app/api/v1/approval-logs/route.ts` — lazy-prisma + helpers + handlers; uses prisma.approvalLog
 - `src/app/api/v1/audit/route.ts` — lazy-prisma + helpers + handlers; uses prisma.auditLog
 - `src/app/api/v1/business-units/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.businessUnit
@@ -217,9 +221,7 @@ Match the B3 exemplar pattern. Eligible for the automated codemod.
 - `src/app/api/v1/doctors/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.doctor
 - `src/app/api/v1/doctors/route.ts` — lazy-prisma + helpers + handlers; uses prisma.doctor
 - `src/app/api/v1/employees/route.ts` — lazy-prisma + helpers + handlers; uses prisma.employee
-- `src/app/api/v1/expenses/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.expense
 - `src/app/api/v1/expenses/route.ts` — lazy-prisma + helpers + handlers; uses prisma.expense
-- `src/app/api/v1/gl-accounts/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.chartOfAccount
 - `src/app/api/v1/gl-accounts/route.ts` — lazy-prisma + helpers + handlers; uses prisma.chartOfAccount
 - `src/app/api/v1/invoices/route.ts` — lazy-prisma + helpers + handlers; uses prisma.invoice
 - `src/app/api/v1/jobs/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.job
@@ -232,13 +234,11 @@ Match the B3 exemplar pattern. Eligible for the automated codemod.
 - `src/app/api/v1/notifications/route.ts` — lazy-prisma + helpers + handlers; uses prisma.notification
 - `src/app/api/v1/opportunities/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.opportunity
 - `src/app/api/v1/opportunities/route.ts` — lazy-prisma + helpers + handlers; uses prisma.opportunity
-- `src/app/api/v1/payments/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.payment
 - `src/app/api/v1/payments/route.ts` — lazy-prisma + helpers + handlers; uses prisma.payment
 - `src/app/api/v1/products/route.ts` — lazy-prisma + helpers + handlers; uses prisma.product
 - `src/app/api/v1/purchase-orders/route.ts` — lazy-prisma + helpers + handlers; uses prisma.purchaseOrder
 - `src/app/api/v1/stock-movements/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.stockMovement
 - `src/app/api/v1/stock-movements/route.ts` — lazy-prisma + helpers + handlers; uses prisma.stockMovement
-- `src/app/api/v1/suppliers/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.supplier
 - `src/app/api/v1/suppliers/route.ts` — lazy-prisma + helpers + handlers; uses prisma.supplier
 - `src/app/api/v1/territories/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.territory
 - `src/app/api/v1/territories/route.ts` — lazy-prisma + helpers + handlers; uses prisma.territory

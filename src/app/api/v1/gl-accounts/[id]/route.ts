@@ -1,102 +1,84 @@
-import { NextRequest } from "next/server";
 import { apiResponse, apiError, corsOptions } from "@/lib/api/api-helpers";
 import { validate, updateGlAccountSchema } from "@/lib/api/validations";
-import { withAuthParams } from "@/lib/api/with-auth";
-
-let prisma: any = null;
-try {
-  prisma = require("@/lib/prisma").default;
-} catch (error) { console.error("Failed to process gl accounts:", error); }
+import { withAuthAndTenantParams } from "@/lib/api/with-tenant";
 
 export async function OPTIONS() {
   return corsOptions();
 }
 
-// ─── GET /api/v1/gl-accounts/:id ───────────────────────────────────────────
+type IdParams = { params: Promise<{ id: string }> };
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
-    const { id } = await params;
-
-    if (prisma) {
-      try {
-        const record = await prisma.chartOfAccount.findUnique({
-          where: { id },
-          include: { children: true, parent: true, journalLines: true },
-        });
-        if (!record) return apiError("GL account not found", 404);
-        return apiResponse(record);
-      } catch (error) { console.error("Failed to process gl accounts:", error); }
+export const GET = withAuthAndTenantParams<IdParams>(
+  async (_req, { params }, { db }) => {
+    try {
+      const { id } = await params;
+      const record = await db.chartOfAccount.findFirst({
+        where: { id },
+        include: { children: true, parent: true, journalLines: true },
+      });
+      if (!record) return apiError("GL account not found", 404);
+      return apiResponse(record);
+    } catch (err: unknown) {
+      return apiError(
+        (err as Error).message || "Failed to fetch GL account",
+        500,
+      );
     }
+  },
+);
 
-    return apiError("GL account not found", 404);
-  } catch (err: unknown) {
-    return apiError((err as Error).message || "Failed to fetch GL account", 500);
-  }
-}
+export const PATCH = withAuthAndTenantParams<IdParams>(
+  async (req, { params }, { db }) => {
+    try {
+      const { id } = await params;
+      const body = await req.json();
+      const validation = validate(updateGlAccountSchema, body);
+      if (!validation.success) return apiError(validation.error, 400);
 
-// ─── PATCH /api/v1/gl-accounts/:id ─────────────────────────────────────────
+      delete body.id;
+      delete body.createdAt;
 
-export const PATCH = withAuthParams(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }, { role, userId }) => {
-  try {
-    const { id } = await params;
-    const body = await req.json();
-    const validation = validate(updateGlAccountSchema, body);
-    if (!validation.success) return apiError(validation.error, 400);
+      const existing = await db.chartOfAccount.findFirst({ where: { id } });
+      if (!existing) return apiError("GL account not found", 404);
 
-    delete body.id;
-    delete body.createdAt;
+      if (body.balance !== undefined && body.balance !== null) {
+        body.balance = parseFloat(body.balance);
+      }
+      if (body.type) body.type = body.type.toUpperCase();
 
-    if (prisma) {
-      try {
-        const existing = await prisma.chartOfAccount.findUnique({ where: { id } });
-        if (!existing) return apiError("GL account not found", 404);
-
-        if (body.balance !== undefined && body.balance !== null) {
-          body.balance = parseFloat(body.balance);
-        }
-        if (body.type) body.type = body.type.toUpperCase();
-
-        const record = await prisma.chartOfAccount.update({
-          where: { id },
-          data: body,
-          include: { children: true, parent: true },
-        });
-        return apiResponse(record);
-      } catch (error) { console.error("Failed to process gl accounts:", error); }
+      const record = await db.chartOfAccount.update({
+        where: { id },
+        data: body,
+        include: { children: true, parent: true },
+      });
+      return apiResponse(record);
+    } catch (err: unknown) {
+      return apiError(
+        (err as Error).message || "Failed to update GL account",
+        500,
+      );
     }
+  },
+);
 
-    return apiError("GL account not found", 404);
-  } catch (err: unknown) {
-    return apiError((err as Error).message || "Failed to update GL account", 500);
-  }
-});
+export const DELETE = withAuthAndTenantParams<IdParams>(
+  async (_req, { params }, { db }) => {
+    try {
+      const { id } = await params;
+      const existing = await db.chartOfAccount.findFirst({ where: { id } });
+      if (!existing) return apiError("GL account not found", 404);
 
-// ─── DELETE /api/v1/gl-accounts/:id ────────────────────────────────────────
-
-export const DELETE = withAuthParams(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }, { role, userId }) => {
-  try {
-    const { id } = await params;
-
-    if (prisma) {
-      try {
-        const existing = await prisma.chartOfAccount.findUnique({ where: { id } });
-        if (!existing) return apiError("GL account not found", 404);
-
-        // Soft-delete by deactivating
-        const record = await prisma.chartOfAccount.update({
-          where: { id },
-          data: { isActive: false },
-        });
-        return apiResponse({ ...record, _softDeleted: true });
-      } catch (error) { console.error("Failed to process gl accounts:", error); }
+      // Soft-delete by deactivating.
+      const record = await db.chartOfAccount.update({
+        where: { id },
+        data: { isActive: false },
+      });
+      return apiResponse({ ...record, _softDeleted: true });
+    } catch (err: unknown) {
+      return apiError(
+        (err as Error).message || "Failed to delete GL account",
+        500,
+      );
     }
-
-    return apiError("GL account not found", 404);
-  } catch (err: unknown) {
-    return apiError((err as Error).message || "Failed to delete GL account", 500);
-  }
-});
+  },
+);
