@@ -5,12 +5,7 @@ import {
   corsOptions,
 } from "@/lib/api/api-helpers";
 import { validate, updateApplicationSchema } from "@/lib/api/validations";
-import { withAuthParams } from "@/lib/api/with-auth";
-
-let prisma: any = null;
-try {
-  prisma = require("@/lib/prisma").default;
-} catch (error) { console.error("Failed to process applications:", error); }
+import { withAuthAndTenantParams } from "@/lib/api/with-tenant";
 
 export async function OPTIONS() {
   return corsOptions();
@@ -18,53 +13,40 @@ export async function OPTIONS() {
 
 // ─── GET /api/v1/applications/:id ──────────────────────────────────────────
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export const GET = withAuthAndTenantParams<{ params: Promise<{ id: string }> }>(
+  async (
+    _req: NextRequest,
+    { params }: { params: Promise<{ id: string }> },
+    { db, tenantId }) => {
   const { id } = await params;
 
   try {
-    if (prisma) {
-      try {
-        const record = await prisma.application.findUnique({
-          where: { id },
+    const record = await db.application.findFirst({
+      where: { id },
+      include: {
+        candidate: true,
+        job: {
           include: {
-            candidate: true,
-            job: {
-              include: {
-                department: { select: { id: true, name: true } },
-              },
-            },
-            interviews: true,
-            offerLetter: true,
+            department: { select: { id: true, name: true } },
           },
-        });
-        if (!record) {
-          return apiError(`Application with id '${id}' not found`, 404);
-        }
-        return apiResponse(record);
-      } catch (error) { console.error("Failed to process applications:", error); }
-    }
-
-    // Mock fallback
-    const mock: Record<string, any> = {
-      "app-1": { id: "app-1", candidateId: "cand-1", candidateName: "Emily Chen", jobId: "job-1", jobTitle: "Senior Pharmaceutical Scientist", status: "INTERVIEW", appliedDate: "2025-03-16T10:00:00Z", coverLetter: "Experienced in oral solid dosage formulation at Pfizer", score: 85, createdAt: "2025-03-16T10:00:00Z" },
-      "app-2": { id: "app-2", candidateId: "cand-2", candidateName: "James Okafor", jobId: "job-2", jobTitle: "Quality Control Analyst", status: "SCREENING", appliedDate: "2025-03-21T10:00:00Z", coverLetter: "QC analyst with 4 years of cGMP lab experience", score: 72, createdAt: "2025-03-21T10:00:00Z" },
-    };
-    const record = mock[id];
+        },
+        interviews: true,
+        offerLetter: true,
+      },
+    });
     if (!record) {
       return apiError(`Application with id '${id}' not found`, 404);
     }
     return apiResponse(record);
+
   } catch (err: unknown) {
     return apiError((err as Error).message || "Failed to fetch application", 500);
   }
-}
+});
 
 // ─── PATCH /api/v1/applications/:id ────────────────────────────────────────
 
-export const PATCH = withAuthParams(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }, { role, userId }) => {
+export const PATCH = withAuthAndTenantParams(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }, { db, tenantId, role, userId }) => {
   const { id } = await params;
 
   try {
@@ -75,36 +57,29 @@ export const PATCH = withAuthParams(async (req: NextRequest, { params }: { param
     delete body.id;
     delete body.createdAt;
 
-    if (prisma) {
-      try {
-        const existing = await prisma.application.findUnique({ where: { id } });
-        if (!existing) {
-          return apiError(`Application with id '${id}' not found`, 404);
-        }
-
-        if (body.appliedDate && typeof body.appliedDate === "string") {
-          body.appliedDate = new Date(body.appliedDate);
-        }
-        if (body.score !== undefined && body.score !== null) {
-          body.score = parseInt(body.score);
-        }
-        if (body.status) body.status = body.status.toUpperCase();
-
-        const record = await prisma.application.update({
-          where: { id },
-          data: body,
-          include: {
-            candidate: { select: { id: true, firstName: true, lastName: true, email: true } },
-            job: { select: { id: true, title: true } },
-          },
-        });
-        return apiResponse(record);
-      } catch (error) { console.error("Failed to process applications:", error); }
+    const existing = await db.application.findFirst({ where: { id } });
+    if (!existing) {
+      return apiError(`Application with id '${id}' not found`, 404);
     }
 
-    // Mock fallback
-    const updated = { id, ...body, updatedAt: new Date().toISOString() };
-    return apiResponse(updated);
+    if (body.appliedDate && typeof body.appliedDate === "string") {
+      body.appliedDate = new Date(body.appliedDate);
+    }
+    if (body.score !== undefined && body.score !== null) {
+      body.score = parseInt(body.score);
+    }
+    if (body.status) body.status = body.status.toUpperCase();
+
+    const record = await db.application.update({
+      where: { id },
+      data: body,
+      include: {
+        candidate: { select: { id: true, firstName: true, lastName: true, email: true } },
+        job: { select: { id: true, title: true } },
+      },
+    });
+    return apiResponse(record);
+
   } catch (err: unknown) {
     return apiError((err as Error).message || "Failed to update application", 500);
   }
@@ -112,28 +87,22 @@ export const PATCH = withAuthParams(async (req: NextRequest, { params }: { param
 
 // ─── DELETE /api/v1/applications/:id ───────────────────────────────────────
 
-export const DELETE = withAuthParams(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }, { role, userId }) => {
+export const DELETE = withAuthAndTenantParams(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }, { db, tenantId, role, userId }) => {
   const { id } = await params;
 
   try {
-    if (prisma) {
-      try {
-        const existing = await prisma.application.findUnique({ where: { id } });
-        if (!existing) {
-          return apiError(`Application with id '${id}' not found`, 404);
-        }
-
-        // Soft-delete by setting status to REJECTED
-        const record = await prisma.application.update({
-          where: { id },
-          data: { status: "REJECTED" },
-        });
-        return apiResponse({ ...record, _softDeleted: true });
-      } catch (error) { console.error("Failed to process applications:", error); }
+    const existing = await db.application.findFirst({ where: { id } });
+    if (!existing) {
+      return apiError(`Application with id '${id}' not found`, 404);
     }
 
-    // Mock fallback
-    return apiResponse({ id, status: "REJECTED", _softDeleted: true });
+    // Soft-delete by setting status to REJECTED
+    const record = await db.application.update({
+      where: { id },
+      data: { status: "REJECTED" },
+    });
+    return apiResponse({ ...record, _softDeleted: true });
+
   } catch (err: unknown) {
     return apiError((err as Error).message || "Failed to delete application", 500);
   }

@@ -8,10 +8,10 @@
 | Category | Count | Action |
 |---|---|---|
 | **FACTORY** | 94 | Migrate `src/lib/api/route-factory.ts` once; all factory routes inherit |
-| **STANDARD** | 50 | Run codemod (`scripts/migrate-routes.ts`); land per-folder PRs |
+| **STANDARD** | 31 | Run codemod (`scripts/migrate-routes.ts`); land per-folder PRs |
 | **REWRITE** | 0 | Generate fresh route from template; current code is broken |
 | **REVIEW** | 0 | Human inspection before migration |
-| **NO-PRISMA** | 61 | Human inspection; usually proxies / passthroughs |
+| **NO-PRISMA** | 80 | Human inspection; usually proxies / passthroughs |
 | **BAND-3** | 12 | Skip entirely (auth/webhook/health/docs) |
 | **TOTAL** | 217 | |
 
@@ -28,7 +28,7 @@ Use Prisma but don't match the standard pattern (custom auth, unusual
 imports, dynamic dispatch, etc.). Human inspection required.
 
 
-## NO-PRISMA (61)
+## NO-PRISMA (80)
 
 No Prisma reference — proxies, passthroughs, AI-only endpoints, or
 static-data responders. Need human inspection to confirm no tenant
@@ -57,15 +57,23 @@ data is exposed.
 - `src/app/api/upload/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/users/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/[entity]/[id]/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/accounts/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/ai/chat/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/applications/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/approval-logs/[id]/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/business-units/[id]/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/campaigns/[id]/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/candidates/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/compliance/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/config/[module]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/config/number-ranges/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/config/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/contacts/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/crm/deals/[id]/status/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/customers/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/data-store/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/departments/[id]/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/doctors/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/equipment/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/equipment/calibrations/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/equipment/maintenance-orders/[id]/complete/route.ts` — no prisma.<model> reference, not a factory route
@@ -86,15 +94,26 @@ data is exposed.
 - `src/app/api/v1/gl-accounts/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/graphql/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/hr/leave-requests/[id]/status/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/jobs/[id]/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/journal-entries/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/logs/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/market-requests/[id]/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/opportunities/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/payments/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/qaqc/capa/[id]/status/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/sales-orders/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/search/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/stats/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/stock-movements/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/suppliers/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/tenants/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/territories/[id]/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/tickets/[id]/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/training/[id]/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/visits/[id]/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/warehouses/[id]/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/weekly-plans/[id]/route.ts` — no prisma.<model> reference, not a factory route
 
 ## FACTORY (94)
 
@@ -198,59 +217,40 @@ in this list inherits tenant isolation without per-file changes.
 - `src/app/api/v1/work-orders/[id]/route.ts` — uses createRouteHandlers (modelName=workOrder)
 - `src/app/api/v1/work-orders/route.ts` — uses createRouteHandlers (modelName=workOrder)
 
-## STANDARD (50)
+## STANDARD (31)
 
 Match the B3 exemplar pattern. Eligible for the automated codemod.
 
-- `src/app/api/v1/accounts/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.account
 - `src/app/api/v1/accounts/route.ts` — lazy-prisma + helpers + handlers; uses prisma.account
-- `src/app/api/v1/applications/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.application
 - `src/app/api/v1/applications/route.ts` — lazy-prisma + helpers + handlers; uses prisma.application
 - `src/app/api/v1/approval-logs/route.ts` — lazy-prisma + helpers + handlers; uses prisma.approvalLog
 - `src/app/api/v1/audit/route.ts` — lazy-prisma + helpers + handlers; uses prisma.auditLog
-- `src/app/api/v1/business-units/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.businessUnit
 - `src/app/api/v1/business-units/route.ts` — lazy-prisma + helpers + handlers; uses prisma.businessUnit
-- `src/app/api/v1/campaigns/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.campaign
 - `src/app/api/v1/campaigns/route.ts` — lazy-prisma + helpers + handlers; uses prisma.campaign
-- `src/app/api/v1/candidates/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.candidate
 - `src/app/api/v1/candidates/route.ts` — lazy-prisma + helpers + handlers; uses prisma.candidate
-- `src/app/api/v1/contacts/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.contact
 - `src/app/api/v1/contacts/route.ts` — lazy-prisma + helpers + handlers; uses prisma.contact
-- `src/app/api/v1/departments/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.department
 - `src/app/api/v1/departments/route.ts` — lazy-prisma + helpers + handlers; uses prisma.department
-- `src/app/api/v1/doctors/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.doctor
 - `src/app/api/v1/doctors/route.ts` — lazy-prisma + helpers + handlers; uses prisma.doctor
 - `src/app/api/v1/employees/route.ts` — lazy-prisma + helpers + handlers; uses prisma.employee
 - `src/app/api/v1/expenses/route.ts` — lazy-prisma + helpers + handlers; uses prisma.expense
 - `src/app/api/v1/gl-accounts/route.ts` — lazy-prisma + helpers + handlers; uses prisma.chartOfAccount
 - `src/app/api/v1/invoices/route.ts` — lazy-prisma + helpers + handlers; uses prisma.invoice
-- `src/app/api/v1/jobs/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.job
 - `src/app/api/v1/jobs/route.ts` — lazy-prisma + helpers + handlers; uses prisma.job
-- `src/app/api/v1/journal-entries/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.journalEntry,prisma.journalEntryLine
 - `src/app/api/v1/journal-entries/route.ts` — lazy-prisma + helpers + handlers; uses prisma.journalEntry
 - `src/app/api/v1/leads/route.ts` — lazy-prisma + helpers + handlers; uses prisma.lead
-- `src/app/api/v1/market-requests/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.marketRequest
 - `src/app/api/v1/market-requests/route.ts` — lazy-prisma + helpers + handlers; uses prisma.marketRequest
 - `src/app/api/v1/notifications/route.ts` — lazy-prisma + helpers + handlers; uses prisma.notification
-- `src/app/api/v1/opportunities/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.opportunity
 - `src/app/api/v1/opportunities/route.ts` — lazy-prisma + helpers + handlers; uses prisma.opportunity
 - `src/app/api/v1/payments/route.ts` — lazy-prisma + helpers + handlers; uses prisma.payment
 - `src/app/api/v1/products/route.ts` — lazy-prisma + helpers + handlers; uses prisma.product
 - `src/app/api/v1/purchase-orders/route.ts` — lazy-prisma + helpers + handlers; uses prisma.purchaseOrder
-- `src/app/api/v1/stock-movements/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.stockMovement
 - `src/app/api/v1/stock-movements/route.ts` — lazy-prisma + helpers + handlers; uses prisma.stockMovement
 - `src/app/api/v1/suppliers/route.ts` — lazy-prisma + helpers + handlers; uses prisma.supplier
-- `src/app/api/v1/territories/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.territory
 - `src/app/api/v1/territories/route.ts` — lazy-prisma + helpers + handlers; uses prisma.territory
-- `src/app/api/v1/tickets/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.ticket
 - `src/app/api/v1/tickets/route.ts` — lazy-prisma + helpers + handlers; uses prisma.ticket
-- `src/app/api/v1/training/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.trainingCourse
 - `src/app/api/v1/training/route.ts` — lazy-prisma + helpers + handlers; uses prisma.trainingCourse
-- `src/app/api/v1/visits/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.visit
 - `src/app/api/v1/visits/route.ts` — lazy-prisma + helpers + handlers; uses prisma.visit
-- `src/app/api/v1/warehouses/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.warehouse
 - `src/app/api/v1/warehouses/route.ts` — lazy-prisma + helpers + handlers; uses prisma.warehouse
-- `src/app/api/v1/weekly-plans/[id]/route.ts` — lazy-prisma + helpers + handlers; uses prisma.weeklyPlan
 - `src/app/api/v1/weekly-plans/route.ts` — lazy-prisma + helpers + handlers; uses prisma.weeklyPlan
 
 ## BAND-3 (12)

@@ -5,12 +5,7 @@ import {
   corsOptions,
 } from "@/lib/api/api-helpers";
 import { validate, updateDepartmentSchema } from "@/lib/api/validations";
-import { withAuthParams } from "@/lib/api/with-auth";
-
-let prisma: any = null;
-try {
-  prisma = require("@/lib/prisma").default;
-} catch (error) { console.error("Failed to process departments:", error); }
+import { withAuthAndTenantParams } from "@/lib/api/with-tenant";
 
 export async function OPTIONS() {
   return corsOptions();
@@ -18,48 +13,35 @@ export async function OPTIONS() {
 
 // ─── GET /api/v1/departments/:id ───────────────────────────────────────────
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export const GET = withAuthAndTenantParams<{ params: Promise<{ id: string }> }>(
+  async (
+    _req: NextRequest,
+    { params }: { params: Promise<{ id: string }> },
+    { db, tenantId }) => {
   const { id } = await params;
 
   try {
-    if (prisma) {
-      try {
-        const record = await prisma.department.findUnique({
-          where: { id },
-          include: {
-            manager: { select: { id: true, name: true, email: true } },
-            employees: true,
-            jobs: true,
-          },
-        });
-        if (!record) {
-          return apiError(`Department with id '${id}' not found`, 404);
-        }
-        return apiResponse(record);
-      } catch (error) { console.error("Failed to process departments:", error); }
-    }
-
-    // Mock fallback
-    const mock: Record<string, any> = {
-      "dept-1": { id: "dept-1", name: "Research & Development", description: "Drug discovery and formulation research", managerId: "user-1", budget: 2500000, createdAt: "2024-06-01T10:00:00Z" },
-      "dept-2": { id: "dept-2", name: "Quality Assurance", description: "GMP compliance and quality control", managerId: "user-2", budget: 1800000, createdAt: "2024-06-01T10:00:00Z" },
-    };
-    const record = mock[id];
+    const record = await db.department.findFirst({
+      where: { id },
+      include: {
+        manager: { select: { id: true, name: true, email: true } },
+        employees: true,
+        jobs: true,
+      },
+    });
     if (!record) {
       return apiError(`Department with id '${id}' not found`, 404);
     }
     return apiResponse(record);
+
   } catch (err: unknown) {
     return apiError((err as Error).message || "Failed to fetch department", 500);
   }
-}
+});
 
 // ─── PATCH /api/v1/departments/:id ─────────────────────────────────────────
 
-export const PATCH = withAuthParams(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }, { role, userId }) => {
+export const PATCH = withAuthAndTenantParams(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }, { db, tenantId, role, userId }) => {
   const { id } = await params;
 
   try {
@@ -70,29 +52,22 @@ export const PATCH = withAuthParams(async (req: NextRequest, { params }: { param
     delete body.id;
     delete body.createdAt;
 
-    if (prisma) {
-      try {
-        const existing = await prisma.department.findUnique({ where: { id } });
-        if (!existing) {
-          return apiError(`Department with id '${id}' not found`, 404);
-        }
-
-        if (body.budget !== undefined && body.budget !== null) {
-          body.budget = parseFloat(body.budget);
-        }
-
-        const record = await prisma.department.update({
-          where: { id },
-          data: body,
-          include: { manager: { select: { id: true, name: true, email: true } } },
-        });
-        return apiResponse(record);
-      } catch (error) { console.error("Failed to process departments:", error); }
+    const existing = await db.department.findFirst({ where: { id } });
+    if (!existing) {
+      return apiError(`Department with id '${id}' not found`, 404);
     }
 
-    // Mock fallback
-    const updated = { id, ...body, updatedAt: new Date().toISOString() };
-    return apiResponse(updated);
+    if (body.budget !== undefined && body.budget !== null) {
+      body.budget = parseFloat(body.budget);
+    }
+
+    const record = await db.department.update({
+      where: { id },
+      data: body,
+      include: { manager: { select: { id: true, name: true, email: true } } },
+    });
+    return apiResponse(record);
+
   } catch (err: unknown) {
     return apiError((err as Error).message || "Failed to update department", 500);
   }
@@ -100,24 +75,18 @@ export const PATCH = withAuthParams(async (req: NextRequest, { params }: { param
 
 // ─── DELETE /api/v1/departments/:id ────────────────────────────────────────
 
-export const DELETE = withAuthParams(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }, { role, userId }) => {
+export const DELETE = withAuthAndTenantParams(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }, { db, tenantId, role, userId }) => {
   const { id } = await params;
 
   try {
-    if (prisma) {
-      try {
-        const existing = await prisma.department.findUnique({ where: { id } });
-        if (!existing) {
-          return apiError(`Department with id '${id}' not found`, 404);
-        }
-
-        await prisma.department.delete({ where: { id } });
-        return apiResponse({ id, deleted: true });
-      } catch (error) { console.error("Failed to process departments:", error); }
+    const existing = await db.department.findFirst({ where: { id } });
+    if (!existing) {
+      return apiError(`Department with id '${id}' not found`, 404);
     }
 
-    // Mock fallback
+    await db.department.delete({ where: { id } });
     return apiResponse({ id, deleted: true });
+
   } catch (err: unknown) {
     return apiError((err as Error).message || "Failed to delete department", 500);
   }
