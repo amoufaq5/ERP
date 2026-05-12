@@ -7,36 +7,28 @@
 
 | Category | Count | Action |
 |---|---|---|
-| **FACTORY** | 92 | Migrate `src/lib/api/route-factory.ts` once; all factory routes inherit |
+| **FACTORY** | 94 | Migrate `src/lib/api/route-factory.ts` once; all factory routes inherit |
 | **STANDARD** | 55 | Run codemod (`scripts/migrate-routes.ts`); land per-folder PRs |
-| **REWRITE** | 5 | Generate fresh route from template; current code is broken |
-| **REVIEW** | 3 | Human inspection before migration |
-| **NO-PRISMA** | 53 | Human inspection; usually proxies / passthroughs |
+| **REWRITE** | 0 | Generate fresh route from template; current code is broken |
+| **REVIEW** | 0 | Human inspection before migration |
+| **NO-PRISMA** | 56 | Human inspection; usually proxies / passthroughs |
 | **BAND-3** | 12 | Skip entirely (auth/webhook/health/docs) |
-| **TOTAL** | 220 | |
+| **TOTAL** | 217 | |
 
-## REWRITE (5)
+## REWRITE (0)
 
 These routes reference Prisma models that don't exist in the current
 `prisma/schema.prisma`. They are non-functional today — every real DB
 call errors. Replace with a fresh route generated from the template.
 
-- `src/app/api/v1/einvoice/[id]/route.ts` — references missing model(s): eInvoice
-- `src/app/api/v1/einvoice/route.ts` — references missing model(s): eInvoice
-- `src/app/api/v1/einvoice/settings/route.ts` — references missing model(s): etaSettings
-- `src/app/api/v1/kpis/[id]/route.ts` — references missing model(s): kpi
-- `src/app/api/v1/kpis/route.ts` — references missing model(s): kpi
 
-## REVIEW (3)
+## REVIEW (0)
 
 Use Prisma but don't match the standard pattern (custom auth, unusual
 imports, dynamic dispatch, etc.). Human inspection required.
 
-- `src/app/api/users/route.ts` — prisma used but non-standard shape: no-lazy-prisma no-api-helpers
-- `src/app/api/v1/equipment/[id]/route.ts` — prisma used but non-standard shape: no-lazy-prisma no-api-helpers
-- `src/app/api/v1/equipment/route.ts` — prisma used but non-standard shape: no-lazy-prisma no-api-helpers
 
-## NO-PRISMA (53)
+## NO-PRISMA (56)
 
 No Prisma reference — proxies, passthroughs, AI-only endpoints, or
 static-data responders. Need human inspection to confirm no tenant
@@ -63,6 +55,7 @@ data is exposed.
 - `src/app/api/tenants/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/upload/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/upload/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/users/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/[entity]/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/ai/chat/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/compliance/route.ts` — no prisma.<model> reference, not a factory route
@@ -72,10 +65,12 @@ data is exposed.
 - `src/app/api/v1/crm/deals/[id]/status/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/customers/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/data-store/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/equipment/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/equipment/calibrations/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/equipment/maintenance-orders/[id]/complete/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/equipment/maintenance-orders/[id]/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/equipment/maintenance-orders/route.ts` — no prisma.<model> reference, not a factory route
+- `src/app/api/v1/equipment/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/expiry/alerts/[id]/acknowledge/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/expiry/alerts/generate/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/expiry/alerts/route.ts` — no prisma.<model> reference, not a factory route
@@ -96,7 +91,7 @@ data is exposed.
 - `src/app/api/v1/stats/route.ts` — no prisma.<model> reference, not a factory route
 - `src/app/api/v1/tenants/route.ts` — no prisma.<model> reference, not a factory route
 
-## FACTORY (92)
+## FACTORY (94)
 
 Use `createRouteHandlers` from `src/lib/api/route-factory.ts`.
 Migration happens centrally — once route-factory.ts uses
@@ -137,6 +132,8 @@ in this list inherits tenant isolation without per-file changes.
 - `src/app/api/v1/hr/positions/route.ts` — uses createRouteHandlers (modelName=position)
 - `src/app/api/v1/interviews/[id]/route.ts` — uses createRouteHandlers (modelName=interview)
 - `src/app/api/v1/interviews/route.ts` — uses createRouteHandlers (modelName=interview)
+- `src/app/api/v1/kpis/[id]/route.ts` — uses createRouteHandlers (modelName=kPI)
+- `src/app/api/v1/kpis/route.ts` — uses createRouteHandlers (modelName=kPI)
 - `src/app/api/v1/maintenance/orders/[id]/route.ts` — uses createRouteHandlers (modelName=assetMaintenance)
 - `src/app/api/v1/maintenance/orders/route.ts` — uses createRouteHandlers (modelName=assetMaintenance)
 - `src/app/api/v1/manufacturing/batch-records/[id]/route.ts` — uses createRouteHandlers (modelName=manufacturingBatchRecord)
