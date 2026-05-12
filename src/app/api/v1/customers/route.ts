@@ -3,23 +3,18 @@ import {
   apiResponse,
   apiError,
   corsOptions,
-  paginate,
-  filterBySearch,
   parseQueryParams,
 } from "@/lib/api/api-helpers";
 import { validate, createCustomerSchema } from "@/lib/api/validations";
-import { withAuth } from "@/lib/api/with-auth";
+import { withAuthAndTenant } from "@/lib/api/with-tenant";
 
-// ─── Prisma import (optional — falls back to mock) ──────────────────────────
-
-let prisma: any = null;
-try {
-  prisma = require("@/lib/prisma").default;
-} catch {
-  // Prisma not available; will use mock data
-}
-
-// ─── OPTIONS ─────────────────────────────────────────────────────────────────
+// Phase 0 Track B3 — exemplar migration to withAuthAndTenant.
+// /api/v1/customers maps to the CRM `Account` model under the hood.
+// Previous version: lazy prisma require, unauthenticated GET, no tenant
+// filter, mock fallback. All removed; the wrapper supplies db and 401s
+// on missing session.
+//
+// See docs/PHASE0_TRACK_B_AUDIT.md + docs/PHASE0_TRACK_B2_BRIEF.md.
 
 export async function OPTIONS() {
   return corsOptions();
@@ -27,116 +22,78 @@ export async function OPTIONS() {
 
 // ─── GET /api/v1/customers ──────────────────────────────────────────────────
 
-export async function GET(req: NextRequest) {
+export const GET = withAuthAndTenant(async (req: NextRequest, { db }) => {
   try {
     const { page, limit, search, params } = parseQueryParams(req.url);
     const type = params.get("type"); // CUSTOMER, PROSPECT, PARTNER, VENDOR
     const city = params.get("city");
     const country = params.get("country");
 
-    if (prisma) {
-      try {
-        const where: Record<string, unknown> = {};
-        if (type) where.type = type.toUpperCase();
-        if (city) where.city = { contains: city };
-        if (country) where.country = { contains: country };
-        if (search) {
-          where.OR = [
-            { name: { contains: search } },
-            { email: { contains: search } },
-            { phone: { contains: search } },
-            { city: { contains: search } },
-          ];
-        }
-
-        const [total, records] = await Promise.all([
-          prisma.account.count({ where }),
-          prisma.account.findMany({
-            where,
-            skip: (Math.max(1, page) - 1) * Math.min(limit, 100),
-            take: Math.min(limit, 100),
-            orderBy: { createdAt: "desc" },
-          }),
-        ]);
-
-        const totalPages = Math.ceil(total / Math.min(limit, 100));
-        return apiResponse(records, 200, {
-          page: Math.max(1, page),
-          limit: Math.min(limit, 100),
-          total,
-          totalPages,
-        });
-      } catch {
-        // fall through to mock
-      }
+    const where: Record<string, unknown> = {};
+    if (type) where.type = type.toUpperCase();
+    if (city) where.city = { contains: city };
+    if (country) where.country = { contains: country };
+    if (search) {
+      where.OR = [
+        { name: { contains: search } },
+        { email: { contains: search } },
+        { phone: { contains: search } },
+        { city: { contains: search } },
+      ];
     }
 
-    // ── Mock fallback ──
-    const mock = generateMockCustomers();
-    let filtered = filterBySearch(mock, search, ["name", "email", "phone", "city"]);
-    if (type) filtered = filtered.filter((c) => c.type === type.toUpperCase());
-    if (city) filtered = filtered.filter((c) => c.city?.toLowerCase().includes(city.toLowerCase()));
-    if (country) filtered = filtered.filter((c) => c.country?.toLowerCase().includes(country.toLowerCase()));
-    const { items, pagination } = paginate(filtered, page, limit);
-    return apiResponse(items, 200, pagination);
+    const take = Math.min(limit, 100);
+    const skip = (Math.max(1, page) - 1) * take;
+
+    const [total, records] = await Promise.all([
+      db.account.count({ where }),
+      db.account.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
+    return apiResponse(records, 200, {
+      page: Math.max(1, page),
+      limit: take,
+      total,
+      totalPages: Math.ceil(total / take),
+    });
   } catch (err: unknown) {
     return apiError((err as Error).message || "Failed to fetch customers", 500);
   }
-}
+});
 
 // ─── POST /api/v1/customers ─────────────────────────────────────────────────
 
-export const POST = withAuth(async (req: NextRequest, { role, userId }) => {
+export const POST = withAuthAndTenant(async (req: NextRequest, { db }) => {
   try {
     const body = await req.json();
     const validation = validate(createCustomerSchema, body);
     if (!validation.success) return apiError(validation.error, 400);
     const data = validation.data;
 
-    if (prisma) {
-      try {
-        const record = await prisma.account.create({
-          data: {
-            name: data.name,
-            industry: data.industry || null,
-            website: data.website || null,
-            phone: data.phone || null,
-            email: data.email || null,
-            address: data.address || null,
-            city: data.city || null,
-            country: data.country || null,
-            type: data.type,
-            annualRevenue: data.annualRevenue || null,
-            employeeCount: data.employeeCount || null,
-            ownerId: data.ownerId || null,
-          },
-        });
-        return apiResponse(record, 201);
-      } catch {
-        // fall through to mock
-      }
-    }
-
-    const record = {
-      id: `acct-${Date.now()}`,
-      ...data,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    // tenantId is auto-injected on `data` by the wrapper's $extends middleware.
+    const record = await db.account.create({
+      data: {
+        name: data.name,
+        industry: data.industry || null,
+        website: data.website || null,
+        phone: data.phone || null,
+        email: data.email || null,
+        address: data.address || null,
+        city: data.city || null,
+        country: data.country || null,
+        type: data.type,
+        annualRevenue: data.annualRevenue || null,
+        employeeCount: data.employeeCount || null,
+        ownerId: data.ownerId || null,
+      },
+    });
     return apiResponse(record, 201);
   } catch (err: unknown) {
     return apiError((err as Error).message || "Failed to create customer", 500);
   }
 });
-
-// ─── Mock data ───────────────────────────────────────────────────────────────
-
-function generateMockCustomers() {
-  return [
-    { id: "acct-1", name: "Acme Pharma Inc.", email: "contact@acme.com", phone: "+1-555-0100", industry: "Pharmaceutical", type: "CUSTOMER", city: "New York", country: "USA", createdAt: "2025-01-15T10:00:00Z" },
-    { id: "acct-2", name: "MedLife Labs", email: "info@medlife.com", phone: "+1-555-0200", industry: "Biotech", type: "CUSTOMER", city: "Boston", country: "USA", createdAt: "2025-02-20T10:00:00Z" },
-    { id: "acct-3", name: "Global Health Corp", email: "sales@ghc.com", phone: "+44-20-7946-0958", industry: "Healthcare", type: "PROSPECT", city: "London", country: "UK", createdAt: "2025-03-05T10:00:00Z" },
-    { id: "acct-4", name: "BioSynth AG", email: "kontakt@biosynth.de", phone: "+49-30-1234567", industry: "Chemical", type: "PARTNER", city: "Berlin", country: "Germany", createdAt: "2025-04-10T10:00:00Z" },
-    { id: "acct-5", name: "PharmaDist Ltd", email: "hello@pharmadist.co.uk", phone: "+44-121-555-0300", industry: "Distribution", type: "VENDOR", city: "Birmingham", country: "UK", createdAt: "2025-05-01T10:00:00Z" },
-  ];
-}
